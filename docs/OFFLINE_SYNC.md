@@ -599,6 +599,8 @@ These are not in the committed contract or data model. They are the smallest cha
 
 **As built in B09b continued 2b (A-278).** Where the build reads this document differently, the assumption says so and why: the posted-late flag is on `pos.sale_sync`, not `ord.sales_order` (b); cash for a shift no longer open is not recorded on any shift (e, ADR-0077); stock goes below zero only where the location allows it (f); a price beyond the limit asks for no approval after the fact (h); a till time outside the tolerance, a sale's or its id's, is flagged, never refused (k, the owner on A-273 (g)); the shift opened offline, the batch's cash movements and the unverified tender of 9.9 are B09b continued 2c (a).
 
+**As built in B09b continued 2c (A-279).** A shift opened offline is `openShift` sent with the till's device credential, kept at its `openedAt` though hours old, flagged and never refused outside the tolerance (b); the device takes its provisional `shiftSeq` from the pack's `nextShiftSeq` and the server's stands (c); a second shift opened offline on one till is refused 422 `SHIFT_ALREADY_OPEN`, as the contract has said since 2.5.0, not 409 as section 10 wrote, and raised (d); the batch's cash movements are answered per movement in `cashMovementResults` and logged in `pos.cash_movement_sync`, so section 10's read-back of `GET /shifts/{id}/cash-movements` is no longer needed (e); a closed or force-closed shift's movement is recorded nowhere and raised, as a sale's cash is (f, ADR-0077, interim pending the owner); the unverified tender of 9.9 is PENDING, never CLEARED (the database's `ck_payment_verified`), posted at receipt Dr 1110 against the farm's wallet as 9.9 shows (h).
+
 ## 14. Verification
 
 | Claim | Proved by | Session |

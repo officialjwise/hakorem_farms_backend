@@ -311,6 +311,19 @@ describe('the amounts of a cleared payment (ADR-0003, pay.PaymentCleared)', () =
     expect(() => paymentClearedAmounts({ methodKind: 'CASH', amountPesewas: 44_000, allocatedPesewas: 44_000, unallocatedPesewas: 1, register: till }, tema)).toThrow(/sum/);
   });
 
+  it('holds an unverified offline mobile money tender in its wallet, not with a provider, the parts exact (OFFLINE_SYNC 9.9, B09b continued 2c)', () => {
+    const wallet = { kind: 'BANK_ACCOUNT' as const, refId: 'bank-momo', displayName: 'MTN MoMo merchant wallet' };
+    expect(flat(paymentClearedAmounts({ methodKind: 'MOBILE_MONEY', unverified: true, amountPesewas: 20_000, allocatedPesewas: 20_000, unallocatedPesewas: 0, register: till }, tema, wallet))).toEqual([
+      ['tender', 20_000n, { PAYMENT_METHOD_KIND: 'UNVERIFIED_MOBILE_MONEY' }, ['bank-momo']],
+      ['allocated', 20_000n, null, ['cus-1']],
+      ['unallocated', 0n, null, ['cus-1']],
+    ]);
+  });
+
+  it('refuses an unverified mobile money tender that names no wallet, so nothing posts to no one', () => {
+    expect(() => paymentClearedAmounts({ methodKind: 'MOBILE_MONEY', unverified: true, amountPesewas: 1, allocatedPesewas: 1, unallocatedPesewas: 0, register: till }, tema)).toThrow(/wallet/);
+  });
+
   it('names no till for a tender that has none', () => {
     expect(paymentClearedAmounts({ methodKind: 'CHEQUE', amountPesewas: 5, allocatedPesewas: 0, unallocatedPesewas: 5, register: null }, tema)[0]!.subledgers).toEqual([]);
   });

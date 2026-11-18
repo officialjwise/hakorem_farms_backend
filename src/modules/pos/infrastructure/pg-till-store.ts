@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { CashMovementRecord, DeviceRecord, HeldSaleRecord, LateCountRecord, NewShift, RegisterRecord, SaleSyncRecord, ShiftFilter, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
+import type { CashMovementRecord, CashMovementSyncRecord, DeviceRecord, HeldSaleRecord, LateCountRecord, NewShift, RegisterRecord, SaleSyncRecord, ShiftFilter, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
 import type { CashMovementKind, OverShortDirection } from '../domain/till';
 
 interface HeldSaleRow {
@@ -528,6 +528,44 @@ export class PgTillStore implements TillStore {
   async noteDeviceSync(tx: Transaction, deviceId: string, at: Date, actorId: string): Promise<void> {
     await tx.query('UPDATE pos.device_enrolment SET version = version + 1, last_sync_at = $2, updated_at = $2, updated_by = $3 WHERE id = $1 AND revoked_at IS NULL', [deviceId, at, actorId]);
   }
+  async lastClosedAt(tx: Transaction, registerId: string): Promise<Date | null> {
+    const { rows } = await tx.query<{ at: Date | null }>("SELECT max(closed_at) AS at FROM pos.shift WHERE register_id = $1 AND status = 'CLOSED'", [registerId]);
+    return rows[0]?.at ?? null;
+  }
+
+  async insertCashMovementSync(tx: Transaction, r: CashMovementSyncRecord): Promise<void> {
+    await tx.query(
+      `INSERT INTO pos.cash_movement_sync (id, device_id, shift_id, branch_id, client_movement_id, kind, amount_pesewas, client_occurred_at, outcome, reason,
+                                           cash_movement_id, answers_id, clock_verdict, received_at, recorded_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $14, $15)`,
+      [r.id, r.deviceId, r.shiftId, r.branchId, r.clientMovementId, r.kind, r.amountPesewas.toString(), r.clientOccurredAt, r.outcome, r.reason, r.cashMovementId, r.answersId, r.clockVerdict, r.receivedAt, r.actorId],
+    );
+  }
+
+  async decidedCashMovements(tx: Transaction, clientIds: readonly string[]): Promise<ReadonlyMap<string, CashMovementSyncRecord>> {
+    if (clientIds.length === 0) return new Map();
+    const { rows } = await tx.query<{
+      id: string; device_id: string; shift_id: string; branch_id: string; client_movement_id: string; kind: CashMovementSyncRecord['kind']; amount_pesewas: string;
+      client_occurred_at: Date; outcome: CashMovementSyncRecord['outcome']; reason: string | null; cash_movement_id: string | null; answers_id: string | null;
+      clock_verdict: CashMovementSyncRecord['clockVerdict']; received_at: Date; actor_id: string;
+    }>(
+      `SELECT id, device_id, shift_id, branch_id, client_movement_id, kind, amount_pesewas::text, client_occurred_at, outcome, reason, cash_movement_id, answers_id,
+              clock_verdict, received_at, actor_id
+         FROM pos.cash_movement_sync WHERE client_movement_id = ANY($1::uuid[]) AND outcome IN ('APPLIED', 'REJECTED') AND answers_id IS NULL`,
+      [clientIds],
+    );
+    return new Map(
+      rows.map((r) => [
+        r.client_movement_id,
+        {
+          id: r.id, deviceId: r.device_id, shiftId: r.shift_id, branchId: r.branch_id, clientMovementId: r.client_movement_id, kind: r.kind, amountPesewas: BigInt(r.amount_pesewas),
+          clientOccurredAt: r.client_occurred_at, outcome: r.outcome, reason: r.reason, cashMovementId: r.cash_movement_id, answersId: r.answers_id, clockVerdict: r.clock_verdict,
+          receivedAt: r.received_at, actorId: r.actor_id,
+        },
+      ]),
+    );
+  }
+
 }
 
 interface SaleSyncRow {
@@ -584,4 +622,5 @@ function saleSyncOf(r: SaleSyncRow): SaleSyncRecord {
     receivedAt: r.received_at,
     actorId: r.actor_id,
   };
+
 }

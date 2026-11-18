@@ -173,3 +173,48 @@ export interface DeviceCounterGap {
   readonly severity: 'URGENT';
   readonly abuseCases: readonly number[];
 }
+
+/**
+ * A finding about a shift its till sent (OFFLINE_SYNC 10, B09b continued 2c, A-279 (b) and (c)): a till time outside
+ * the tolerance, a shift opened longer ago than the bound, a provisional shift sequence the server did not give, or a
+ * second shift opened offline on a till that already has one, refused. The daily exception report's source (B12).
+ */
+export interface OfflineShiftFlagged {
+  /** The shift the till sent (for a refused open, the id it carried, which names no shift). */
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly deviceId: string;
+  readonly cashierId: string;
+  readonly exceptionKind: 'TILL_CLOCK_OUT_OF_TOLERANCE' | 'OFFLINE_SHIFT_TOO_OLD' | 'SHIFT_SEQ_DIFFERS' | 'OFFLINE_SHIFT_REFUSED';
+  readonly severity: 'URGENT' | 'REVIEW';
+  readonly summary: string;
+  readonly amountPesewas: number;
+  readonly claim: Readonly<Record<string, unknown>>;
+  readonly fact: Readonly<Record<string, unknown>>;
+  readonly abuseCases: readonly number[];
+}
+
+/**
+ * A finding about a cash movement of a sync batch (OFFLINE_SYNC 10, B09b continued 2c, A-279 (d) to (f)): refused (a
+ * shift no longer open, a rule of `recordCashMovement` broken, an id reused), or recorded with a till time outside the
+ * tolerance or by a cashier whose grant was revoked while offline. The daily exception report's source (B12).
+ */
+export interface OfflineCashMovementFlagged {
+  readonly movementId: string;
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly deviceId: string;
+  readonly cashierId: string;
+  readonly kind: 'CASH_DROP' | 'PAY_OUT' | 'PAY_IN';
+  readonly occurredAt: string;
+  readonly recordedAt: string;
+  readonly exceptionKind: 'CASH_MOVEMENT_REJECTED' | 'TILL_CLOCK_OUT_OF_TOLERANCE' | 'AUTHORISATION_FAILURE';
+  readonly severity: 'URGENT' | 'REVIEW';
+  readonly summary: string;
+  readonly amountPesewas: number;
+  readonly claim: Readonly<Record<string, unknown>>;
+  readonly fact: Readonly<Record<string, unknown>>;
+  readonly abuseCases: readonly number[];
+}

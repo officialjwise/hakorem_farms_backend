@@ -153,6 +153,7 @@ export default defineConfig({
         ...fullCoverage('src/modules/ord/domain/**/*.ts'), // B9a: the order machine, tenders against the gross, payment status (FR-ORD-002, FR-ORD-006, FR-ORD-016)
         ...fullCoverage('src/modules/pay/domain/**/*.ts'), // B9a: clearing by method, a tender split into allocated and deposit (FR-PAY-001, FR-PAY-009)
         ...fullCoverage('src/modules/pos/domain/offline-sync.ts'), // B09b continued 2b: what a synced offline sale is flagged for, never refused (ADR-0027)
+        ...fullCoverage('src/modules/pos/domain/offline-queue.ts'), // B09b continued 2c: a shift opened offline, the queue's cash movements and the unverified tender at sync (A-279)
         ...fullCoverage('src/modules/whl/domain/**/*.ts'), // B08 continued 2d: the customer statement ties opening to closing exactly (FR-WHL-009, ADR-0085)
         // ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)
       },

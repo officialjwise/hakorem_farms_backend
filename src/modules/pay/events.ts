@@ -39,6 +39,8 @@ export interface PaymentCleared {
    * an order must not treat it as cleared money (ADR-0064).
    */
   readonly awaitingClearance?: boolean;
+  /** An offline mobile money tender recorded `UNVERIFIED` and PENDING, posted at receipt as a cheque is (B09b continued 2c). */
+  readonly unverified?: boolean;
   /** The bank account a bank transfer landed in, from its matched statement line (ADR-0065); null for any other tender. */
   readonly bankAccountId?: string | null;
   /** A bank transfer's statement value date, the business date it is posted on (ADR-0065). */
@@ -191,6 +193,14 @@ export interface ReconciliationBreakRaised {
   readonly sourceDocumentId?: string | null;
   readonly settlementLineId?: string | null;
   readonly bankStatementLineId?: string | null;
+  /**
+   * An offline mobile money tender taken unverified (`UNVERIFIED_PAYMENT`, OFFLINE_SYNC 9.9, B09b continued 2c): how
+   * urgent it is, the abuse case, and its facts (the cashier, till, shift, sale, payer, who the till says approved it and
+   * when it becomes urgent if still unmatched), for the daily exception report (B12).
+   */
+  readonly severity?: 'REVIEW' | 'URGENT';
+  readonly abuseCases?: readonly number[];
+  readonly details?: Readonly<Record<string, unknown>>;
 }
 
 /**

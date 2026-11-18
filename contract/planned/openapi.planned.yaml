@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.14.0"
+  version: "2.15.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -34883,6 +34883,11 @@ components:
         openedAt:
           type: string
           format: date-time
+        shiftSeq:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: "A shift the till opened offline: the sequence it printed in its provisional references, from its last pack's `nextShiftSeq` (2.15.0, OFFLINE_SYNC 10). The server's sequence stands; a different one is flagged."
       required:
         - id
         - registerId
@@ -35370,6 +35375,9 @@ components:
       properties:
         register:
           $ref: "#/components/schemas/RegisterRefLite"
+        nextShiftSeq:
+          type: integer
+          description: "The sequence the register's next shift takes, which a shift opened offline prints in its provisional references (`P-<till>-<shift seq>-<counter>`) and sends as `ShiftOpen.shiftSeq` (2.15.0, OFFLINE_SYNC 10). Always sent; optional so no earlier example changes."
         generatedAt:
           type: string
           format: date-time
@@ -35473,7 +35481,7 @@ components:
         unverifiedMobileMoney:
           allOf:
             - $ref: "#/components/schemas/UnverifiedMobileMoneyInput"
-          description: "Offline only, and only when the setting pos.offline.allow_unverified_mobile_money is on: a mobile money tender that could not be verified. It goes to the unmatched payment queue until verified (ADR-0027)."
+          description: "Offline only, and only while the setting pos.offline.allow_unverified_mobile_money is on for the branch: a mobile money tender that could not be verified. At sync it is recorded as an UNVERIFIED payment, PENDING, on the sale's own open shift and allocated to the receipt, with an UNVERIFIED_PAYMENT reconciliation break until a settlement or statement line matches it (ADR-0027, OFFLINE_SYNC 9.9, 2.15.0). With the setting off it is not recorded and is raised (UNMATCHED_PAYMENT)."
       required:
         - paymentMethodId
         - amountPesewas
@@ -35495,7 +35503,7 @@ components:
         approvedById:
           type: string
           format: uuid
-          description: "The manager who approved taking it while offline."
+          description: "The supervisor who approved taking it while offline, as the till records it. Kept on the break as the till's word (2.15.0): a person who holds no `pos.shift.close.approve` at the branch, or is the cashier, makes the break URGENT; the PIN that proves the approval is B09b continued 3's."
       required:
         - payerPhone
         - network
@@ -35694,6 +35702,7 @@ components:
           type:
             - string
             - "null"
+          description: "Null unless `REJECTED`; then why the movement was recorded nowhere (2.15.0): `SHIFT_NOT_OPEN`, `ID_REUSED_WITH_OTHER_CONTENT`, `ID_NOT_UUID_V7`, or the till rule it breaks, as `recordCashMovement` names them."
       required:
         - clientId
         - outcome

@@ -44,4 +44,6 @@ export interface BankAccountStore {
   bankLegOf(tx: Transaction, journalEntryId: string, bankAccountId: string): Promise<{ readonly debitPesewas: bigint; readonly creditPesewas: bigint }>;
   /** The journal entry an event posted for a source document, if any. */
   entryOf(tx: Transaction, eventCode: string, sourceDocumentId: string): Promise<string | null>;
+  /** The active mobile money wallet of a branch, else a farm-wide one (no branch), the earliest added first; null when none. */
+  walletOf(tx: Transaction, branchId: string): Promise<BankAccountRow | null>;
 }

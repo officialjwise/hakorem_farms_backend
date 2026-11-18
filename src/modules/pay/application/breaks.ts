@@ -22,7 +22,7 @@ export class Breaks {
     this.nextId = createUuidV7Generator(clock);
   }
 
-  async raiseIn(tx: Transaction, actorId: string, b: Omit<NewBreak, 'id' | 'raisedAt' | 'actorId'>): Promise<boolean> {
+  async raiseIn(tx: Transaction, actorId: string, b: Omit<NewBreak, 'id' | 'raisedAt' | 'actorId'>, report: Pick<ReconciliationBreakRaised, 'severity' | 'abuseCases'> = {}): Promise<boolean> {
     const id = this.nextId();
     const raised = await this.store.raiseBreak(tx, { ...b, id, raisedAt: this.clock.now(), actorId });
     if (raised) {
@@ -37,6 +37,7 @@ export class Breaks {
         sourceDocumentId: b.sourceDocumentId ?? null,
         settlementLineId: b.settlementLineId ?? null,
         bankStatementLineId: b.bankStatementLineId ?? null,
+        ...(report.severity === undefined ? {} : { severity: report.severity, abuseCases: report.abuseCases ?? [], details: b.details }),
       };
       await this.events.publish(tx, { type: BREAK_RAISED, subjectType: 'ReconciliationBreak', subjectId: id, branchId: b.branchId, payload });
     }

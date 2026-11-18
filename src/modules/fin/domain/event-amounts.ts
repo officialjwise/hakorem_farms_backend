@@ -206,7 +206,15 @@ export interface PaymentClearedFields {
   readonly register: { readonly id: string; readonly code: string } | null;
   /** The provider that took a mobile money or card payment (its party on 1120), null for any other tender. */
   readonly provider?: string | null;
+  /**
+   * A mobile money tender a till took offline and could not verify (OFFLINE_SYNC 9.9, B09b continued 2c): held in the
+   * farm's wallet (1110, against it) until a statement line matches it, never with a provider.
+   */
+  readonly unverified?: boolean;
 }
+
+/** The determinant an unverified offline mobile money tender is posted by (1110 Mobile money wallets, migration 0263). */
+export const UNVERIFIED_MOBILE_MONEY_DETERMINANT = 'UNVERIFIED_MOBILE_MONEY';
 
 /**
  * The payment providers' parties on 1120 Payment provider clearing: one stable party per provider PAY's port names
@@ -239,6 +247,10 @@ export function paymentClearedAmounts(payload: PaymentClearedFields, customer: S
   if (payload.methodKind === 'BANK_TRANSFER' && bankAccount === null) {
     throw new Error('pay.PaymentCleared: a bank transfer names the bank account it landed in');
   }
+  const unverified = payload.unverified === true && payload.methodKind === 'MOBILE_MONEY';
+  if (unverified && bankAccount === null) {
+    throw new Error('pay.PaymentCleared: an unverified mobile money tender names the wallet it is held in');
+  }
   const tender = Money.fromJsonInteger(payload.amountPesewas);
   const allocated = Money.fromJsonInteger(payload.allocatedPesewas);
   const unallocated = Money.fromJsonInteger(payload.unallocatedPesewas);
@@ -249,7 +261,7 @@ export function paymentClearedAmounts(payload: PaymentClearedFields, customer: S
     {
       key: 'tender',
       amount: tender,
-      determinants: { PAYMENT_METHOD_KIND: payload.methodKind },
+      determinants: { PAYMENT_METHOD_KIND: unverified ? UNVERIFIED_MOBILE_MONEY_DETERMINANT : payload.methodKind },
       // Store credit redeemed comes off the customer's own credit (2210); every other tender is held against its till or provider.
       // A bank transfer lands in the bank account its statement line names (ADR-0065).
       subledgers: payload.methodKind === 'STORE_CREDIT' ? [customer] : bankAccount !== null ? [bankAccount] : tenderParties(payload.register, payload.provider),

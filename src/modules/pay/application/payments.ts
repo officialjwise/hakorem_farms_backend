@@ -343,6 +343,7 @@ export class Payments {
       provider: null,
       heldAsUnmatched: false,
       ...(p.methodKind === 'CHEQUE' ? { awaitingClearance: true } : {}),
+      ...(p.verification === 'UNVERIFIED' ? { unverified: true, bankAccountId: p.bankAccountId ?? null } : {}),
     };
     await this.events.publish(tx, { type: PAYMENT_CLEARED, subjectType: 'Payment', subjectId: p.id, branchId: p.branchId, payload, occurredAt: p.receivedAt });
   }

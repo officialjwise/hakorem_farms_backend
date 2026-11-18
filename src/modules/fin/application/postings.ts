@@ -281,7 +281,9 @@ export class LedgerPostings {
     if (payload.customerId !== null && customer === undefined) {
       throw new Error(`payment ${payload.paymentId}: customer ${payload.customerId} does not exist`);
     }
-    const bankAccount = payload.bankAccountId === undefined || payload.bankAccountId === null || payload.methodKind !== 'BANK_TRANSFER' ? null : await this.bankAccounts.subledgerRefIn(tx, payload.bankAccountId);
+    // A bank transfer lands in its bank account; an unverified offline mobile money tender is held in the wallet (OFFLINE_SYNC 9.9).
+    const inAccount = payload.methodKind === 'BANK_TRANSFER' || (payload.unverified === true && payload.methodKind === 'MOBILE_MONEY');
+    const bankAccount = payload.bankAccountId === undefined || payload.bankAccountId === null || !inAccount ? null : await this.bankAccounts.subledgerRefIn(tx, payload.bankAccountId);
     return {
       amounts: paymentClearedAmounts(payload, customerParty(payload.customerId, customer?.name ?? null), bankAccount),
       sourceDocumentId: payload.paymentId,

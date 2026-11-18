@@ -196,6 +196,16 @@ export class BankAccounts {
     return this.store.entryOf(tx, eventCode, sourceDocumentId);
   }
 
+  /**
+   * For PAY, through FIN's public door (B09b continued 2c, OFFLINE_SYNC 9.9): the mobile money wallet an unverified
+   * offline mobile money tender is held in until it is matched (1110, against the wallet): the branch's active wallet,
+   * else a farm-wide one; null when the farm has none. Read only; not authorised here: the sync that asks has.
+   */
+  async mobileMoneyWalletIn(tx: Transaction, branchId: string): Promise<{ readonly id: string; readonly name: string } | null> {
+    const row = await this.store.walletOf(tx, branchId);
+    return row === null ? null : { id: row.id, name: row.name };
+  }
+
   /** For the ledger's posting handlers: the account's own subledger party (A-194). */
   async subledgerRefIn(tx: Transaction, id: string): Promise<SubledgerRef> {
     const row = await this.store.find(tx, id, false);

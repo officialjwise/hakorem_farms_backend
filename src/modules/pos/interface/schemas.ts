@@ -26,7 +26,7 @@ export const ShiftPageQuery = z.object({
 export const RegisterCreate = z.strictObject({ branchId: z.uuid(), locationId: z.uuid(), code: z.string().regex(/^[A-Z0-9]{1,4}$/), name: Text(120) });
 export const RegisterUpdate = z.strictObject({ version: z.number().int().min(1), name: Text(120).optional(), locationId: z.uuid().optional(), status: z.enum(['ACTIVE', 'RETIRED']).optional() });
 
-export const ShiftOpen = z.strictObject({ id: z.uuid(), registerId: z.uuid(), openingFloatPesewas: Pesewas, openedAt: Instant });
+export const ShiftOpen = z.strictObject({ id: z.uuid(), registerId: z.uuid(), openingFloatPesewas: Pesewas, openedAt: Instant, shiftSeq: z.number().int().min(1).max(1_000_000).optional() });
 
 export const CashMovementCreate = z.strictObject({
   id: z.uuid(),

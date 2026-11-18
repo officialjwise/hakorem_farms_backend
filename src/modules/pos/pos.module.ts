@@ -16,7 +16,7 @@ import { MasterDataRefs, MdmModule, PricingService, TaxService } from '../mdm';
 import { BilModule, Billing } from '../bil';
 import { FinModule, Ledger } from '../fin';
 import { OrdModule, Orders, SalePosting } from '../ord';
-import { PayModule, Payments, TillShiftRegistry } from '../pay';
+import { PayModule, Payments, TillShiftRegistry, UnverifiedTenders } from '../pay';
 import { CounterSales } from './application/counter-sales';
 import { Devices } from './application/devices';
 import { HeldSales } from './application/held-sales';
@@ -113,8 +113,10 @@ import { PosController } from './interface/pos.controller';
         events: DomainEvents,
         audit: AuditTrail,
         clock: Clock,
-      ) => new OfflineSync(uow, store, devices, posting, orders, refs, pricing, authoriser, ledger, settings, events, audit, clock),
-      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, MasterDataRefs, PricingService, Authoriser, Ledger, Settings, DomainEvents, AuditTrail, CLOCK],
+        payments: Payments,
+        unverified: UnverifiedTenders,
+      ) => new OfflineSync(uow, store, devices, posting, orders, refs, pricing, authoriser, ledger, settings, events, audit, clock, payments, unverified),
+      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, MasterDataRefs, PricingService, Authoriser, Ledger, Settings, DomainEvents, AuditTrail, CLOCK, Payments, UnverifiedTenders],
     },
     {
       provide: Shifts,
@@ -136,8 +138,9 @@ import { PosController } from './interface/pos.controller';
         anchors: AuditAnchorRequests,
         held: HeldSales,
         settings: Settings,
-      ) => new Shifts(uow, store, refs, authoriser, idempotency, audit, events, documents, numbers, principals, cursors, payments, orders, clock, anchors, held, settings),
-      inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK, AuditAnchorRequests, HeldSales, Settings],
+        devices: Devices,
+      ) => new Shifts(uow, store, refs, authoriser, idempotency, audit, events, documents, numbers, principals, cursors, payments, orders, clock, anchors, held, settings, devices),
+      inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK, AuditAnchorRequests, HeldSales, Settings, Devices],
     },
   ],
   exports: [Registers, Shifts, Devices],

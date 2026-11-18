@@ -66,6 +66,8 @@ export interface OfflineStockUnitView {
 /** The contract's `OfflinePack`. */
 export interface OfflinePackView {
   readonly register: { readonly id: string; readonly code: string; readonly name: string };
+  /** The sequence the till's next shift takes, which a shift opened offline prints in its references (OFFLINE_SYNC 10, A-279 (c)). */
+  readonly nextShiftSeq: number;
   readonly generatedAt: string;
   readonly validUntil: string;
   readonly priceListVersionIds: readonly string[];
@@ -137,6 +139,7 @@ export class OfflinePacks {
 
       const view: OfflinePackView = {
         register: { id: register.id, code: register.code, name: register.name },
+        nextShiftSeq: await this.store.nextShiftSeq(tx, register.id),
         generatedAt: now.toISOString(),
         validUntil: packValidUntil(now, maxHours).toISOString(),
         priceListVersionIds: selling.priceListVersionIds,

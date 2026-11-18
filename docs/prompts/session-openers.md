@@ -2639,7 +2639,9 @@ random salt of at least 16 bytes per person, never weaker (refuse a weaker verif
 five wrong tries, enforced on the server too (counted at sync for offline attempts and at any online check, then
 locked); signing out a locked cashier requires a supervisor's PIN, is audited, and reaches the daily exception report's
 source (B12). The PIN never authenticates to the server and is never the only control (CR-032 point 5). An approval made
-offline records which PIN approved it (CR-032 point 4) and is verified at sync. Load hakorem-security-review and write
+offline records which PIN approved it (CR-032 point 4) and is verified at sync: the unverified
+mobile money tender's approver, kept on its UNVERIFIED_PAYMENT break as the till's word (A-279 (g)), and a queued cash
+drop's witness, which sync records as named or unwitnessed (A-279 (e)), are checked against the PIN here. Load hakorem-security-review and write
 its finding into the pull request body.
 The drop witness (owner, 2026-11-18, from the frontend's till shift session; placed here, ADR-0026 Amendments), each
 test-first:
