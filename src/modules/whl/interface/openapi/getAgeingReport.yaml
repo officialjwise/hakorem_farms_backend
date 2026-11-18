@@ -1,0 +1,184 @@
+operationId: getAgeingReport
+tags:
+  - whl
+summary: "Receivables ageing by 30, 60 and 90 days"
+description: "Receivables ageing as at a date (FR-WHL-010, SA-21, ADR-0089): every invoice, receipt and debit note issued to a customer by `asOf` (today in Africa/Accra when left out; a later date ages what is on the books now), less its credit notes issued and the payments applied to it by then, goes whole into the band of its days past due, counted from its due date, or its issue date when it has none: Current (not yet past due), 1 to 30, 31 to 60, 61 to 90 and over 90. Each row is a customer with an open item or a receivables balance at the branches the reader holds `whl.ageing.read` for as a whole, by name; `ledgerPesewas` and `ledgerCreditPesewas` are its trade receivables (1200) as at the same date, and what 1200 holds that no open item explains is shown as not aged, never put into a bucket, so `totalPesewas` plus `notAgedPesewas` less `notAgedCreditPesewas` is the 1200 balance exactly. `totals` covers every customer the filter matches, not only the page. `accountManagerId` keeps the customers whose business account names that manager. `creditLimitPesewas` is null for a customer with no business account.\n\nPermission: `whl.ageing.read`."
+x-permission: whl.ageing.read
+parameters:
+  - name: asOf
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: customerId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: accountManagerId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/AgeingReport"
+        examples:
+          default:
+            value:
+              data:
+                - customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  currentPesewas: 300400
+                  days1To30Pesewas: 222500
+                  days31To60Pesewas: 0
+                  days61To90Pesewas: 0
+                  daysOver90Pesewas: 0
+                  totalPesewas: 522900
+                  ledgerPesewas: 522900
+                  ledgerCreditPesewas: 0
+                  notAgedPesewas: 0
+                  notAgedCreditPesewas: 0
+                  creditLimitPesewas: 2000000
+                  onHold: false
+                - customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  currentPesewas: 211800
+                  days1To30Pesewas: 0
+                  days31To60Pesewas: 186000
+                  days61To90Pesewas: 0
+                  daysOver90Pesewas: 0
+                  totalPesewas: 397800
+                  ledgerPesewas: 397800
+                  ledgerCreditPesewas: 0
+                  notAgedPesewas: 0
+                  notAgedCreditPesewas: 0
+                  creditLimitPesewas: 600000
+                  onHold: true
+                - customer:
+                    id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
+                    publicId: cus_3Q4VCE9ZY779GAT6
+                    name: "Osu Fresh Mart"
+                  currentPesewas: 147300
+                  days1To30Pesewas: 96400
+                  days31To60Pesewas: 0
+                  days61To90Pesewas: 0
+                  daysOver90Pesewas: 0
+                  totalPesewas: 243700
+                  ledgerPesewas: 243700
+                  ledgerCreditPesewas: 0
+                  notAgedPesewas: 0
+                  notAgedCreditPesewas: 0
+                  creditLimitPesewas: 800000
+                  onHold: false
+                - customer:
+                    id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
+                    publicId: cus_GY1HV6CSTTCCM2Y2
+                    name: "Emmanuel Tetteh"
+                  currentPesewas: 858000
+                  days1To30Pesewas: 0
+                  days31To60Pesewas: 0
+                  days61To90Pesewas: 0
+                  daysOver90Pesewas: 0
+                  totalPesewas: 858000
+                  ledgerPesewas: 858000
+                  ledgerCreditPesewas: 0
+                  notAgedPesewas: 0
+                  notAgedCreditPesewas: 0
+                  creditLimitPesewas: null
+                  onHold: false
+                - customer:
+                    id: "019a7b02-2a24-72bf-87f7-34c94159ada7"
+                    publicId: cus_6GMQA1AJS48Z778Z
+                    name: "Christ Apostolic Church, Adenta"
+                  currentPesewas: 0
+                  days1To30Pesewas: 0
+                  days31To60Pesewas: 0
+                  days61To90Pesewas: 0
+                  daysOver90Pesewas: 41000
+                  totalPesewas: 41000
+                  ledgerPesewas: 41000
+                  ledgerCreditPesewas: 0
+                  notAgedPesewas: 0
+                  notAgedCreditPesewas: 0
+                  creditLimitPesewas: 300000
+                  onHold: false
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+              asOf: "2026-11-13"
+              totals:
+                currentPesewas: 1517500
+                days1To30Pesewas: 318900
+                days31To60Pesewas: 186000
+                days61To90Pesewas: 0
+                daysOver90Pesewas: 41000
+                totalPesewas: 2063400
+                ledgerPesewas: 2063400
+                ledgerCreditPesewas: 0
+                notAgedPesewas: 0
+                notAgedCreditPesewas: 0
+              otherPartiesPesewas: 0
+              otherPartiesCreditPesewas: 0
+              currency: GHS
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              asOf: "2026-11-13"
+              totals:
+                currentPesewas: 0
+                days1To30Pesewas: 0
+                days31To60Pesewas: 0
+                days61To90Pesewas: 0
+                daysOver90Pesewas: 0
+                totalPesewas: 0
+                ledgerPesewas: 0
+                ledgerCreditPesewas: 0
+                notAgedPesewas: 0
+                notAgedCreditPesewas: 0
+              otherPartiesPesewas: 0
+              otherPartiesCreditPesewas: 0
+              currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

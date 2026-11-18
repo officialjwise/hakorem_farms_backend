@@ -168,3 +168,31 @@ describe('what the statement prints (ADR-0061: the template never computes)', ()
     ]);
   });
 });
+
+describe('the ageing summary on the printed statement (FR-WHL-009, B10 continued 2)', () => {
+  const base = { statementNo: 'STM-2026-DDW-000003', issuedOn: '2026-11-18', customer: { name: 'A', publicId: 'cus_X' }, branch: { code: 'DDW', name: 'D' }, periodStart: '2026-10-01', periodEnd: '2026-10-31', figures: statementOf(0n, [], '2026-10-01') };
+  const figures = { currentPesewas: 125_000n, days1To30Pesewas: 80_000n, days31To60Pesewas: 0n, days61To90Pesewas: 0n, daysOver90Pesewas: 1n, totalPesewas: 205_001n, ledgerPesewas: 0n, ledgerCreditPesewas: 0n, notAgedPesewas: 0n, notAgedCreditPesewas: 0n };
+
+  it('prints each bucket formatted in cedis, as at the period end, with nothing not aged', () => {
+    expect(statementRenderData({ ...base, ageing: { asOf: '2026-10-31', ...figures } })['ageing']).toEqual({
+      asOf: '2026-10-31',
+      current: 'GHS 1,250.00',
+      days1To30: 'GHS 800.00',
+      days31To60: 'GHS 0.00',
+      days61To90: 'GHS 0.00',
+      daysOver90: 'GHS 0.01',
+      total: 'GHS 2,050.01',
+      hasNotAged: false,
+      notAged: 'GHS 0.00',
+    });
+  });
+
+  it('prints what is not on any open invoice, owed or in the customer favour', () => {
+    expect(statementRenderData({ ...base, ageing: { asOf: '2026-10-31', ...figures, notAgedPesewas: 5_000n } })['ageing']).toMatchObject({ hasNotAged: true, notAged: 'GHS 50.00' });
+    expect(statementRenderData({ ...base, ageing: { asOf: '2026-10-31', ...figures, notAgedCreditPesewas: 5_000n } })['ageing']).toMatchObject({ hasNotAged: true, notAged: 'GHS 50.00 CR' });
+  });
+
+  it('prints no ageing for a statement that has none', () => {
+    expect(statementRenderData(base)['ageing']).toBeUndefined();
+  });
+});

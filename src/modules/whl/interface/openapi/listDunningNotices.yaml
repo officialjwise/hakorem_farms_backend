@@ -1,0 +1,155 @@
+operationId: listDunningNotices
+tags:
+  - whl
+summary: "List reminders sent"
+description: "The reminders queued to customers at the branches the reader holds `whl.dunning.read` for as a whole, newest first (FR-WHL-011): each level reaches an invoice or debit note at most once, with what was outstanding then, its days past due and the channels and template the level names. A reminder is queued to NTF through the outbox (`whl.DunningNoticeDue`); NTF sends it by the first channel the customer has not opted out of (B11). `from` keeps the reminders queued at or after that instant.\n\nPermission: `whl.dunning.read`."
+x-permission: whl.dunning.read
+parameters:
+  - name: customerId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DunningNoticePage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b06-ff7c-7e4a-8382-ed7445016652"
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  billingDocument:
+                    id: "019a7aeb-53b1-75d0-bb08-65d469acdeb2"
+                    docType: INVOICE
+                    number: INV-2026-DDW-001150
+                  level: 2
+                  daysPastDue: 7
+                  templateCode: PAYMENT_REMINDER_2
+                  outstandingPesewas: 222500
+                  channels:
+                    - SMS
+                    - EMAIL
+                  sentAt: "2026-11-13T08:00:00Z"
+                  currency: GHS
+                - id: "019a7b07-1e6b-782d-9d65-8babbeb20489"
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  billingDocument:
+                    id: "019a7aeb-72a0-7fb3-84eb-040be35d7ce9"
+                    docType: INVOICE
+                    number: INV-2026-DDW-001159
+                  level: 3
+                  daysPastDue: 30
+                  templateCode: PAYMENT_REMINDER_3
+                  outstandingPesewas: 186000
+                  channels:
+                    - SMS
+                  sentAt: "2026-11-10T08:00:00Z"
+                  currency: GHS
+                - id: "019a7b07-3d5a-7211-a749-29e33863a2c1"
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  billingDocument:
+                    id: "019a7aeb-918f-7997-9ecf-a2435d0e1b21"
+                    docType: INVOICE
+                    number: INV-2026-DDW-001168
+                  level: 3
+                  daysPastDue: 45
+                  templateCode: PAYMENT_REMINDER_3
+                  outstandingPesewas: 186000
+                  channels:
+                    - SMS
+                    - EMAIL
+                  sentAt: "2026-11-07T08:00:00Z"
+                  currency: GHS
+                - id: "019a7b07-5c49-7bf4-b12c-c81ab21440f8"
+                  customer:
+                    id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
+                    publicId: cus_3Q4VCE9ZY779GAT6
+                    name: "Osu Fresh Mart"
+                  billingDocument:
+                    id: "019a7aeb-53b1-75d0-bb08-65d469acdeb2"
+                    docType: INVOICE
+                    number: INV-2026-DDW-001150
+                  level: 1
+                  daysPastDue: 7
+                  templateCode: PAYMENT_REMINDER_1
+                  outstandingPesewas: 96400
+                  channels:
+                    - SMS
+                  sentAt: "2026-11-04T08:00:00Z"
+                  currency: GHS
+                - id: "019a7b07-7b38-75d8-8b10-66522bc5df30"
+                  customer:
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    publicId: cus_TWMB751S2DFXTAM8
+                    name: "Royal Palm Hotel Ltd"
+                  billingDocument:
+                    id: "019a7aeb-72a0-7fb3-84eb-040be35d7ce9"
+                    docType: INVOICE
+                    number: INV-2026-DDW-001159
+                  level: 2
+                  daysPastDue: 14
+                  templateCode: PAYMENT_REMINDER_2
+                  outstandingPesewas: 222500
+                  channels:
+                    - SMS
+                  sentAt: "2026-11-01T08:00:00Z"
+                  currency: GHS
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -13,7 +13,7 @@ import { farmSeedPurRegister } from './farm-pur-register';
 import { farmSeedPurCredit } from './farm-pur-credit';
 import { farmSeedShp } from './farm-shp';
 import { farmSeedQuo } from './farm-quo';
-import { farmSeedWhl, farmSeedWhlAccounts } from './farm-whl';
+import { farmSeedWhl, farmSeedWhlAccounts, farmSeedWhlDunning } from './farm-whl';
 import { seedRunCalendar } from './seed-calendar';
 import type { SeedUnit } from './seed-unit';
 
@@ -48,7 +48,8 @@ export interface SeedOptions {
  * billing documents (an invoice on terms, a walk-in receipt, a credit note approved by the Manager, a debit note and a
  * proforma) are issued through BIL and posted by the ledger (B08 continued 2); then the Accountant issues Tema Cold
  * Store's statement for the thirty days to today through WHL (B08 continued 2d, `farm-whl.ts`); then three business accounts, each credit limit
- * asked by one Owner or Manager and approved by another, Madina Market Traders held by the Accountant (B10 continued, `farm-whl.ts`); then the seeded Owner sets the business
+ * asked by one Owner or Manager and approved by another, Madina Market Traders held by the Accountant (B10 continued, `farm-whl.ts`); then the reminder levels of 7, 14 and 30 days
+ * (B10 continued 2, `farm-whl.ts`); then the seeded Owner sets the business
  * profile through AUD, the shop's contact details among it (B09x continued, `farm-aud.ts`); then the seeded salesperson logs Madina Market
  * Traders' WhatsApp request for ten crates and drafts its quote through QUO, nothing reserved (B10, `farm-quo.ts`); last, with `tradingDay`, the seeded cashier posts
  * the trading day's sales through ORD's `SalePosting` (B09a continued 2g, `farm-ord.ts`). Every date the units write comes from one
@@ -56,6 +57,6 @@ export interface SeedOptions {
  */
 export function seedUnits(env: SeedEnvironment, options: SeedOptions = {}): readonly SeedUnit[] {
   const calendar = seedRunCalendar();
-  const farm = [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(calendar), seedLocationGrantsIam(), farmSeedInv(calendar), farmSeedLiv(calendar), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp(), farmSeedBil(), farmSeedWhl(calendar), farmSeedWhlAccounts(), farmSeedAud(), farmSeedOfflineSettings(), farmSeedQuo(calendar)];
+  const farm = [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(calendar), seedLocationGrantsIam(), farmSeedInv(calendar), farmSeedLiv(calendar), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp(), farmSeedBil(), farmSeedWhl(calendar), farmSeedWhlAccounts(), farmSeedWhlDunning(), farmSeedAud(), farmSeedOfflineSettings(), farmSeedQuo(calendar)];
   return options.tradingDay === true ? [...farm, farmSeedOrd(calendar)] : farm;
 }

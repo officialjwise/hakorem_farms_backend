@@ -66,6 +66,16 @@ responses:
                   closingCreditPesewas: 0
                   lines: []
                   documentId: "019a7b05-e915-754a-ba83-5d80fdc8d65e"
+                  ageing:
+                    asOf: "2026-10-31"
+                    currentPesewas: 1165200
+                    days1To30Pesewas: 0
+                    days31To60Pesewas: 0
+                    days61To90Pesewas: 0
+                    daysOver90Pesewas: 0
+                    totalPesewas: 1165200
+                    notAgedPesewas: 0
+                    notAgedCreditPesewas: 0
                   currency: GHS
                 - id: "019a7b06-0804-7f2e-8466-fbb877797496"
                   statementNo: STM-2026-DDW-000030
@@ -89,6 +99,16 @@ responses:
                   closingCreditPesewas: 0
                   lines: []
                   documentId: "019a7b06-26f3-7911-9e4a-99eff12a12cd"
+                  ageing:
+                    asOf: "2026-10-31"
+                    currentPesewas: 397800
+                    days1To30Pesewas: 0
+                    days31To60Pesewas: 0
+                    days61To90Pesewas: 0
+                    daysOver90Pesewas: 0
+                    totalPesewas: 397800
+                    notAgedPesewas: 0
+                    notAgedCreditPesewas: 0
                   currency: GHS
                 - id: "019a7b06-45e2-72f5-a82d-38276adbb105"
                   statementNo: STM-2026-DDW-000029
@@ -112,6 +132,16 @@ responses:
                   closingCreditPesewas: 12000
                   lines: []
                   documentId: "019a7b06-64d1-7cd8-b211-d65ee48c4f3c"
+                  ageing:
+                    asOf: "2026-10-31"
+                    currentPesewas: 0
+                    days1To30Pesewas: 0
+                    days31To60Pesewas: 0
+                    days61To90Pesewas: 0
+                    daysOver90Pesewas: 0
+                    totalPesewas: 0
+                    notAgedPesewas: 0
+                    notAgedCreditPesewas: 12000
                   currency: GHS
                 - id: "019a7b06-83c0-76bc-8bf4-74965e3ded74"
                   statementNo: STM-2026-DDW-000028
@@ -135,6 +165,16 @@ responses:
                   closingCreditPesewas: 0
                   lines: []
                   documentId: "019a7b06-a2af-709f-95d8-12cdd7ee8bab"
+                  ageing:
+                    asOf: "2026-09-30"
+                    currentPesewas: 850000
+                    days1To30Pesewas: 0
+                    days31To60Pesewas: 0
+                    days61To90Pesewas: 0
+                    daysOver90Pesewas: 0
+                    totalPesewas: 850000
+                    notAgedPesewas: 0
+                    notAgedCreditPesewas: 0
                   currency: GHS
                 - id: "019a7b06-c19e-7a83-afbb-b105519f29e3"
                   statementNo: STM-2026-DDW-000027
@@ -158,6 +198,16 @@ responses:
                   closingCreditPesewas: 0
                   lines: []
                   documentId: "019a7b06-e08d-7466-b99e-4f3ccb50c81a"
+                  ageing:
+                    asOf: "2026-09-30"
+                    currentPesewas: 186000
+                    days1To30Pesewas: 0
+                    days31To60Pesewas: 0
+                    days61To90Pesewas: 0
+                    daysOver90Pesewas: 0
+                    totalPesewas: 186000
+                    notAgedPesewas: 0
+                    notAgedCreditPesewas: 0
                   currency: GHS
               page:
                 nextCursor: eyJpZCI6IjAxOWE3YyJ9

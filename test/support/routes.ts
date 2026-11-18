@@ -174,6 +174,7 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   holdBusinessAccount: { reason: 'Two cheques returned this month' },
   releaseBusinessAccount: { reason: 'Paid in full by bank transfer' },
   requestCreditOverride: { reason: 'Funeral order, paid Friday' },
+  replaceDunningLevels: { levels: [{ level: 1, daysOverdue: 7, channels: ['SMS'], templateCode: 'PAYMENT_REMINDER_1' }] },
   draftSupplierClaimCreditNote: { originalInvoiceId: randomUUID(), supplierInvoiceNo: 'APF-CN-0701', invoiceDate: '2026-11-17' },
   settleSupplierClaim: { supplierInvoiceId: randomUUID() },
   createSupplierPayment: { supplierId: randomUUID(), method: 'MOBILE_MONEY', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 110000 }] },

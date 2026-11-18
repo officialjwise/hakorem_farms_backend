@@ -6405,476 +6405,9 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-  "/receivables/ageing":
-    get:
-      operationId: getAgeingReport
-      tags:
-        - whl
-      summary: "Receivables ageing by 30, 60 and 90 days"
-      description: "Permission: `whl.ageing.read`."
-      x-permission: whl.ageing.read
-      parameters:
-        - name: asOf
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-        - name: customerId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: accountManagerId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AgeingReport"
-              examples:
-                default:
-                  value:
-                    data:
-                      - customer:
-                          id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          publicId: cus_TWMB751S2DFXTAM8
-                          name: "Royal Palm Hotel Ltd"
-                        currentPesewas: 300400
-                        days1To30Pesewas: 222500
-                        days31To60Pesewas: 0
-                        days61To90Pesewas: 0
-                        daysOver90Pesewas: 0
-                        totalPesewas: 522900
-                        creditLimitPesewas: 2000000
-                        onHold: false
-                      - customer:
-                          id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          publicId: cus_TS4VEDD3ZZNAAQGD
-                          name: "Asantewaa Chop Bar"
-                        currentPesewas: 211800
-                        days1To30Pesewas: 0
-                        days31To60Pesewas: 186000
-                        days61To90Pesewas: 0
-                        daysOver90Pesewas: 0
-                        totalPesewas: 397800
-                        creditLimitPesewas: 600000
-                        onHold: true
-                      - customer:
-                          id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          publicId: cus_3Q4VCE9ZY779GAT6
-                          name: "Osu Fresh Mart"
-                        currentPesewas: 147300
-                        days1To30Pesewas: 96400
-                        days31To60Pesewas: 0
-                        days61To90Pesewas: 0
-                        daysOver90Pesewas: 0
-                        totalPesewas: 243700
-                        creditLimitPesewas: 800000
-                        onHold: false
-                      - customer:
-                          id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
-                          publicId: cus_GY1HV6CSTTCCM2Y2
-                          name: "Emmanuel Tetteh"
-                        currentPesewas: 858000
-                        days1To30Pesewas: 0
-                        days31To60Pesewas: 0
-                        days61To90Pesewas: 0
-                        daysOver90Pesewas: 0
-                        totalPesewas: 858000
-                        creditLimitPesewas: 900000
-                        onHold: false
-                      - customer:
-                          id: "019a7b02-2a24-72bf-87f7-34c94159ada7"
-                          publicId: cus_6GMQA1AJS48Z778Z
-                          name: "Christ Apostolic Church, Adenta"
-                        currentPesewas: 0
-                        days1To30Pesewas: 0
-                        days31To60Pesewas: 0
-                        days61To90Pesewas: 0
-                        daysOver90Pesewas: 41000
-                        totalPesewas: 41000
-                        creditLimitPesewas: 300000
-                        onHold: false
-                    page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                      limit: 25
-                      hasMore: true
-                    asOf: "2026-11-13"
-                    totals:
-                      currentPesewas: 1517500
-                      days1To30Pesewas: 318900
-                      days31To60Pesewas: 186000
-                      days61To90Pesewas: 0
-                      daysOver90Pesewas: 41000
-                      totalPesewas: 2063400
-                    currency: GHS
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                    asOf: "2026-11-13"
-                    totals:
-                      currentPesewas: 0
-                      days1To30Pesewas: 0
-                      days31To60Pesewas: 0
-                      days61To90Pesewas: 0
-                      daysOver90Pesewas: 0
-                      totalPesewas: 0
-                    currency: GHS
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/dunning-policy":
-    get:
-      operationId: listDunningLevels
-      tags:
-        - whl
-      summary: "List the reminder levels"
-      description: "Permission: `whl.dunning.read`."
-      x-permission: whl.dunning.read
-      parameters:
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DunningLevelPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - level: 1
-                        daysOverdue: 7
-                        channels:
-                          - SMS
-                        templateCode: PAYMENT_REMINDER_1
-                      - level: 2
-                        daysOverdue: 21
-                        channels:
-                          - SMS
-                        templateCode: PAYMENT_REMINDER_2
-                      - level: 3
-                        daysOverdue: 30
-                        channels:
-                          - SMS
-                          - EMAIL
-                        templateCode: PAYMENT_REMINDER_3
-                      - level: 4
-                        daysOverdue: 45
-                        channels:
-                          - SMS
-                          - EMAIL
-                        templateCode: PAYMENT_REMINDER_4
-                      - level: 5
-                        daysOverdue: 60
-                        channels:
-                          - SMS
-                          - EMAIL
-                        templateCode: PAYMENT_REMINDER_5
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    put:
-      operationId: replaceDunningLevels
-      tags:
-        - whl
-      summary: "Replace the reminder levels"
-      description: "Permission: `whl.dunning.manage`."
-      x-permission: whl.dunning.manage
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DunningPolicyReplace"
-            example:
-              levels:
-                - level: 1
-                  daysOverdue: 7
-                  channels:
-                    - SMS
-                  templateCode: PAYMENT_REMINDER_1
-                - level: 2
-                  daysOverdue: 21
-                  channels:
-                    - SMS
-                  templateCode: PAYMENT_REMINDER_2
-                - level: 3
-                  daysOverdue: 30
-                  channels:
-                    - SMS
-                    - EMAIL
-                  templateCode: PAYMENT_REMINDER_3
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DunningLevelPage"
-              example:
-                data:
-                  - level: 1
-                    daysOverdue: 7
-                    channels:
-                      - SMS
-                    templateCode: PAYMENT_REMINDER_1
-                  - level: 2
-                    daysOverdue: 21
-                    channels:
-                      - SMS
-                    templateCode: PAYMENT_REMINDER_2
-                  - level: 3
-                    daysOverdue: 30
-                    channels:
-                      - SMS
-                      - EMAIL
-                    templateCode: PAYMENT_REMINDER_3
-                page:
-                  nextCursor: null
-                  limit: 25
-                  hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/dunning-notices":
-    get:
-      operationId: listDunningNotices
-      tags:
-        - whl
-      summary: "List reminders sent"
-      description: "Permission: `whl.dunning.read`."
-      x-permission: whl.dunning.read
-      parameters:
-        - name: customerId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: from
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date-time
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DunningNoticePage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7b06-ff7c-7e4a-8382-ed7445016652"
-                        customer:
-                          id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          publicId: cus_TWMB751S2DFXTAM8
-                          name: "Royal Palm Hotel Ltd"
-                        billingDocument:
-                          id: "019a7aeb-53b1-75d0-bb08-65d469acdeb2"
-                          docType: INVOICE
-                          number: INV-2026-DDW-001150
-                        level: 2
-                        outstandingPesewas: 222500
-                        channels:
-                          - SMS
-                          - EMAIL
-                        sentAt: "2026-11-13T08:00:00Z"
-                        currency: GHS
-                      - id: "019a7b07-1e6b-782d-9d65-8babbeb20489"
-                        customer:
-                          id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          publicId: cus_TS4VEDD3ZZNAAQGD
-                          name: "Asantewaa Chop Bar"
-                        billingDocument:
-                          id: "019a7aeb-72a0-7fb3-84eb-040be35d7ce9"
-                          docType: INVOICE
-                          number: INV-2026-DDW-001159
-                        level: 3
-                        outstandingPesewas: 186000
-                        channels:
-                          - SMS
-                        sentAt: "2026-11-10T08:00:00Z"
-                        currency: GHS
-                      - id: "019a7b07-3d5a-7211-a749-29e33863a2c1"
-                        customer:
-                          id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
-                          publicId: cus_TS4VEDD3ZZNAAQGD
-                          name: "Asantewaa Chop Bar"
-                        billingDocument:
-                          id: "019a7aeb-918f-7997-9ecf-a2435d0e1b21"
-                          docType: INVOICE
-                          number: INV-2026-DDW-001168
-                        level: 3
-                        outstandingPesewas: 186000
-                        channels:
-                          - SMS
-                          - EMAIL
-                        sentAt: "2026-11-07T08:00:00Z"
-                        currency: GHS
-                      - id: "019a7b07-5c49-7bf4-b12c-c81ab21440f8"
-                        customer:
-                          id: "019a7a88-1f36-7f51-a489-fdeb250776c9"
-                          publicId: cus_3Q4VCE9ZY779GAT6
-                          name: "Osu Fresh Mart"
-                        billingDocument:
-                          id: "019a7aeb-53b1-75d0-bb08-65d469acdeb2"
-                          docType: INVOICE
-                          number: INV-2026-DDW-001150
-                        level: 1
-                        outstandingPesewas: 96400
-                        channels:
-                          - SMS
-                        sentAt: "2026-11-04T08:00:00Z"
-                        currency: GHS
-                      - id: "019a7b07-7b38-75d8-8b10-66522bc5df30"
-                        customer:
-                          id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
-                          publicId: cus_TWMB751S2DFXTAM8
-                          name: "Royal Palm Hotel Ltd"
-                        billingDocument:
-                          id: "019a7aeb-72a0-7fb3-84eb-040be35d7ce9"
-                          docType: INVOICE
-                          number: INV-2026-DDW-001159
-                        level: 2
-                        outstandingPesewas: 222500
-                        channels:
-                          - SMS
-                        sentAt: "2026-11-01T08:00:00Z"
-                        currency: GHS
-                    page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                      limit: 25
-                      hasMore: true
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/receivables/ageing": {}
+  "/dunning-policy": {}
+  "/dunning-notices": {}
   "/receivables/write-offs":
     post:
       operationId: writeOffBadDebt
@@ -38321,6 +37854,11 @@ components:
             - "null"
           format: uuid
           description: "The archived rendering (`getArchivedDocument`), once DOC has archived it; null for a draft and until then."
+        ageing:
+          anyOf:
+            - $ref: "#/components/schemas/StatementAgeing"
+            - type: "null"
+          description: "FR-WHL-009's ageing summary as at the period end at the statement's branch, frozen with the statement (B10 continued 2); null on a statement produced before 2.15.0."
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -38343,7 +37881,41 @@ components:
         - closingCreditPesewas
         - lines
         - documentId
+        - ageing
         - currency
+    StatementAgeing:
+      type: object
+      description: "What the customer owed at the period end by days past due (SA-21), and what the statement's balance holds that no open invoice explains: `totalPesewas` plus `notAgedPesewas` less `notAgedCreditPesewas` is the closing balance less the closing credit, exactly (held by the database)."
+      properties:
+        asOf:
+          type: string
+          format: date
+        currentPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        days1To30Pesewas:
+          $ref: "#/components/schemas/Pesewas"
+        days31To60Pesewas:
+          $ref: "#/components/schemas/Pesewas"
+        days61To90Pesewas:
+          $ref: "#/components/schemas/Pesewas"
+        daysOver90Pesewas:
+          $ref: "#/components/schemas/Pesewas"
+        totalPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        notAgedPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        notAgedCreditPesewas:
+          $ref: "#/components/schemas/Pesewas"
+      required:
+        - asOf
+        - currentPesewas
+        - days1To30Pesewas
+        - days31To60Pesewas
+        - days61To90Pesewas
+        - daysOver90Pesewas
+        - totalPesewas
+        - notAgedPesewas
+        - notAgedCreditPesewas
     StatementCreate:
       type: object
       properties:
@@ -38399,6 +37971,22 @@ components:
           $ref: "#/components/schemas/Pesewas"
         totalPesewas:
           $ref: "#/components/schemas/Pesewas"
+        ledgerPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The customer's trade receivables (1200) as at `asOf` at the branches read, when it owes; zero when the balance is in its favour."
+        ledgerCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The 1200 balance in the customer's favour as at `asOf`; zero when it owes."
+        notAgedPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What 1200 holds owed beyond the open items in the buckets (an opening balance journal, a refund, an allocation at another branch): `totalPesewas` plus this less `notAgedCreditPesewas` is the 1200 balance exactly (ADR-0089). Never put into a bucket."
+        notAgedCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What 1200 holds in the customer's favour beyond the open items (a credit note beyond its invoice, an opening credit)."
         creditLimitPesewas:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
@@ -38413,6 +38001,10 @@ components:
         - days61To90Pesewas
         - daysOver90Pesewas
         - totalPesewas
+        - ledgerPesewas
+        - ledgerCreditPesewas
+        - notAgedPesewas
+        - notAgedCreditPesewas
         - creditLimitPesewas
         - onHold
     AgeingReport:
@@ -38430,6 +38022,14 @@ components:
           format: date
         totals:
           $ref: "#/components/schemas/AgeingTotals"
+        otherPartiesPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "Trade receivables (1200) as at `asOf` held against a party that is no customer (the till's walk-in customer), owed: in `totals` (as ledger and not aged), on no row (ADR-0089)."
+        otherPartiesCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The same, in that party's favour."
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -38437,6 +38037,8 @@ components:
         - page
         - asOf
         - totals
+        - otherPartiesPesewas
+        - otherPartiesCreditPesewas
         - currency
     AgeingTotals:
       type: object
@@ -38453,6 +38055,22 @@ components:
           $ref: "#/components/schemas/Pesewas"
         totalPesewas:
           $ref: "#/components/schemas/Pesewas"
+        ledgerPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The customer's trade receivables (1200) as at `asOf` at the branches read, when it owes; zero when the balance is in its favour."
+        ledgerCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The 1200 balance in the customer's favour as at `asOf`; zero when it owes."
+        notAgedPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What 1200 holds owed beyond the open items in the buckets (an opening balance journal, a refund, an allocation at another branch): `totalPesewas` plus this less `notAgedCreditPesewas` is the 1200 balance exactly (ADR-0089). Never put into a bucket."
+        notAgedCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What 1200 holds in the customer's favour beyond the open items (a credit note beyond its invoice, an opening credit)."
       required:
         - currentPesewas
         - days1To30Pesewas
@@ -38460,6 +38078,10 @@ components:
         - days61To90Pesewas
         - daysOver90Pesewas
         - totalPesewas
+        - ledgerPesewas
+        - ledgerCreditPesewas
+        - notAgedPesewas
+        - notAgedCreditPesewas
     DunningLevel:
       type: object
       properties:
@@ -38540,6 +38162,12 @@ components:
           $ref: "#/components/schemas/DocumentRef"
         level:
           type: integer
+        daysPastDue:
+          type: integer
+          description: "Days past its due date (its issue date when it has none) on the day the level reached it."
+        templateCode:
+          type: string
+          description: "The NTF template the level sends."
         outstandingPesewas:
           $ref: "#/components/schemas/Pesewas"
         channels:
@@ -38549,6 +38177,7 @@ components:
         sentAt:
           type: string
           format: date-time
+          description: "When the reminder was queued to NTF through the outbox (B10 continued 2); NTF sends it by the first channel the customer has not opted out of (B11)."
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -38556,6 +38185,8 @@ components:
         - customer
         - billingDocument
         - level
+        - daysPastDue
+        - templateCode
         - outstandingPesewas
         - channels
         - sentAt

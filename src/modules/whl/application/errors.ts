@@ -80,3 +80,14 @@ export class AskerCannotApproveError extends BusinessRuleError {
   readonly code = 'MAKER_CANNOT_CHECK';
   readonly messageKey = 'whl.asker_cannot_approve';
 }
+
+registerMessages({ 'whl.dunning_policy_invalid': 'These reminder levels cannot be used like this.' });
+
+/** 422 DUNNING_POLICY_INVALID, each broken rule in `details[].code`: `LEVELS_NOT_CONSECUTIVE`, `DAYS_NOT_INCREASING`, `CHANNEL_REPEATED`. */
+export class DunningPolicyInvalidError extends BusinessRuleError {
+  readonly code = 'DUNNING_POLICY_INVALID';
+  readonly messageKey = 'whl.dunning_policy_invalid';
+  constructor(rules: readonly StatementRule[]) {
+    super('the reminder levels break a rule', accountDetails(rules));
+  }
+}
