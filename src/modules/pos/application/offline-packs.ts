@@ -10,6 +10,7 @@ import type { MasterDataRefs, PricingService, SellingUnitView, TaxCellView, TaxS
 import { packValidUntil } from '../domain/client-time';
 import { REASONS_BY_KIND } from '../domain/till';
 import type { Devices } from './devices';
+import { PIN_MAX_WRONG_TRIES } from '../domain/till-pin';
 import type { TillStore } from './till-store';
 
 const SELL = 'pos.sale.create';
@@ -77,12 +78,16 @@ export interface OfflinePackView {
   readonly stockUnits: readonly OfflineStockUnitView[];
   readonly paymentMethods: readonly { readonly id: string; readonly code: string; readonly name: string; readonly kind: string }[];
   readonly reasonCodes: readonly { readonly code: string; readonly domain: string; readonly description: string; readonly requiresNote: boolean; readonly lossAccountGroup: string | null }[];
+  /** The units the pack's products are sold or counted in, with the names the till says (CR-051). */
+  readonly uoms: readonly { readonly code: string; readonly name: string; readonly singularName: string; readonly pluralName: string; readonly displayDecimals: number }[];
   readonly policy: {
     readonly maxOfflineHours: number;
     readonly maxQueuedSales: number;
     readonly offlineTenderMethodIds: readonly string[];
     readonly priceOverrideLimitPerLinePesewas: number;
     readonly priceOverrideLimitPerShiftPesewas: number;
+    /** Wrong till PIN tries before the PIN locks until its owner sets a new one (CR-032 point 3, ADR-0080). */
+    readonly pinMaxWrongTries: number;
   };
   readonly currency: 'GHS';
 }
@@ -137,6 +142,9 @@ export class OfflinePacks {
       // supervisor-approved unverified tender (OFFLINE_SYNC 5.2: both must be on for mobile money).
       const offlineMethods = methods.filter((m) => (m.allowedOffline && m.kind !== 'MOBILE_MONEY') || (m.kind === 'MOBILE_MONEY' && unverifiedMobileMoney));
 
+      const baseUoms = [...(await this.refs.productsIn(tx, selling.products.map((p) => p.product.id))).values()].map((p) => p.baseUom);
+      const uoms = await this.refs.unitsIn(tx, [...selling.products.flatMap((p) => [p.saleUom, ...p.units.map((u) => u.uom)]), ...baseUoms]);
+
       const view: OfflinePackView = {
         register: { id: register.id, code: register.code, name: register.name },
         nextShiftSeq: await this.store.nextShiftSeq(tx, register.id),
@@ -165,6 +173,7 @@ export class OfflinePacks {
           return { id: u.stockUnitId, identifier: u.identifier, productId: u.productId, locationId: u.locationId, gradeId: fact?.gradeId ?? null, lastWeightKg: fact?.lastWeightKg ?? null, sellable: u.sellable };
         }),
         paymentMethods: methods.map((m) => ({ id: m.id, code: m.code, name: m.name, kind: m.kind })),
+        uoms: uoms.map((u) => ({ code: u.code, name: u.name, singularName: u.singularName, pluralName: u.pluralName, displayDecimals: u.displayDecimals })),
         reasonCodes: reasons.map((r) => ({ code: r.code, domain: r.domain, description: r.description, requiresNote: r.requiresNote, lossAccountGroup: r.lossAccountGroup })),
         policy: {
           maxOfflineHours: maxHours,
@@ -172,6 +181,7 @@ export class OfflinePacks {
           offlineTenderMethodIds: offlineMethods.map((m) => m.id),
           priceOverrideLimitPerLinePesewas: Money.ofPesewas(perLine).toJsonInteger(),
           priceOverrideLimitPerShiftPesewas: Money.ofPesewas(perShift).toJsonInteger(),
+          pinMaxWrongTries: PIN_MAX_WRONG_TRIES,
         },
         currency: 'GHS',
       };

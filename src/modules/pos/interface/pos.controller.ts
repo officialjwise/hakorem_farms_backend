@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Headers, HttpCode, Inject, Param, Patch, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, HttpCode, Inject, Param, Patch, Post, Put, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import type { z } from 'zod';
 import type { Actor } from '../../../platform/context/request-context';
@@ -12,8 +12,9 @@ import { HeldSales, type HeldSaleView } from '../application/held-sales';
 import { OfflinePacks, type OfflinePackView } from '../application/offline-packs';
 import { OfflineSync, type OfflineSyncResultView } from '../application/offline-sync';
 import { Registers, type RegisterView } from '../application/registers';
-import { Shifts, type CashMovementView, type Page, type ShiftReportView, type ShiftView } from '../application/shifts';
-import { CashMovementCreate, CounterSale, DeviceEnrolmentCreate, ForceClosedShiftCount, HeldSaleCreate, IdParam, OfflineSyncBatch, PageQuery, ReasonBody, RegisterCreate, RegisterPageQuery, RegisterUpdate, ShiftClose, ShiftOpen, ShiftPageQuery } from './schemas';
+import { Shifts, type CashMovementView, type Page, type ShiftReportView, type ShiftView, type ShiftWitnessListView } from '../application/shifts';
+import { TillPins, type TillPinReportResultView, type TillPinStatusView, type TillPinVerifierListView } from '../application/till-pins';
+import { CashMovementCreate, CounterSale, DeviceEnrolmentCreate, ForceClosedShiftCount, HeldSaleCreate, IdParam, OfflineSyncBatch, PageQuery, ReasonBody, RegisterCreate, RegisterPageQuery, RegisterUpdate, ShiftClose, ShiftOpen, ShiftPageQuery, TillPinReport, TillPinSet } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -38,7 +39,41 @@ export class PosController {
     @Inject(HeldSales) private readonly held: HeldSales,
     @Inject(OfflinePacks) private readonly packs: OfflinePacks,
     @Inject(OfflineSync) private readonly offline: OfflineSync,
+    @Inject(TillPins) private readonly pins: TillPins,
   ) {}
+
+  /** One's own till PIN, sent as the verifier the till derived (CR-032, ADR-0080); the server never takes a PIN. */
+  @Put('pos/till-pin')
+  @HttpCode(200)
+  @Operation({ operationId: 'setTillPin', ...WRITE, permission: 'pos.pin.set' })
+  setTillPin(@CurrentActor() actor: Actor | undefined, @Body(zodPipe(TillPinSet)) body: z.infer<typeof TillPinSet>, @IdempotencyKeyHeader() key: string, @Res({ passthrough: true }) res: Response): Promise<TillPinStatusView> {
+    return reply(res, this.pins.set(actor, body, key));
+  }
+
+  @Get('registers/:id/pin-verifiers')
+  @Operation({ operationId: 'listTillPinVerifiers', ...READ, permission: 'pos.sale.create' })
+  listTillPinVerifiers(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string, @Headers('x-device-credential') deviceCredential: string | undefined): Promise<TillPinVerifierListView> {
+    return this.pins.verifiers(actor, id, deviceCredential);
+  }
+
+  /** Per-record exactly-once by each try's and sign-out's client id, so the report takes no `Idempotency-Key`. */
+  @Post('registers/:id/pin-events')
+  @HttpCode(200)
+  @Operation({ operationId: 'reportTillPinEvents', access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: true, rateLimit: 'console', permission: 'pos.sale.create' })
+  reportTillPinEvents(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(TillPinReport)) body: z.infer<typeof TillPinReport>,
+    @Headers('x-device-credential') deviceCredential: string | undefined,
+  ): Promise<TillPinReportResultView> {
+    return this.pins.report(actor, id, body, deviceCredential);
+  }
+
+  @Get('shifts/:id/witnesses')
+  @Operation({ operationId: 'listShiftWitnesses', ...READ, permission: 'pos.cash.move' })
+  listShiftWitnesses(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<ShiftWitnessListView> {
+    return this.shifts.listWitnesses(actor, id);
+  }
 
   /** Per-sale exactly-once by the sale's client id, so the batch takes no `Idempotency-Key` (OFFLINE_SYNC 4.1). */
   @Post('pos/sync')

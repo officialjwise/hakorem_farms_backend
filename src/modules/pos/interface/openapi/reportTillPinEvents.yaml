@@ -1,0 +1,82 @@
+operationId: reportTillPinEvents
+tags:
+  - pos
+summary: "Report the till's PIN tries and the locked cashiers it signed out"
+description: "Every PIN try the till made (2.17.0, CR-032 points 3 and 4, ADR-0080): sent at once while online, and at sync for those made offline, before the shift's sales and cash movements so their approvals are checked against what the tills reported. Each try is counted once by its client UUIDv7, forever: sent again it is `DUPLICATE`, and the same id with other content is `REJECTED` `ID_REUSED_WITH_OTHER_CONTENT`. Five `FAILED` tries against a person's PIN version lock it on every till until its owner sets a new one, whichever tills they were made on; a success does not wipe a wrong try. The fifth is raised once to the daily exception report's source (`pos.TillPinFlagged` `TILL_PIN_LOCKED`, URGENT, abuse case 35). A try naming a version the server does not hold is `REJECTED` `PIN_UNKNOWN`. Then each `signOuts` entry, a cashier locked out of the till signed out by a supervisor's PIN, once by its id: only once the server holds the cashier's PIN locked (`CASHIER_NOT_LOCKED`), never by the cashier (`SUPERVISOR_IS_CASHIER`), only by a holder of `pos.shift.close.approve` at the branch (`SUPERVISOR_NOT_SUPERVISOR`) whose PIN version was in force and not locked when it was made (`SUPERVISOR_PIN_UNKNOWN`, `SUPERVISOR_PIN_SUPERSEDED`, `SUPERVISOR_PIN_LOCKED`), each held again by the database; an applied sign-out is audited and raised (`LOCKED_CASHIER_SIGNED_OUT`, REVIEW). Every refusal is answered with its reason and raised (`TILL_PIN_REPORT_REJECTED`, URGENT). A till time more than the clock tolerance ahead of the server is recorded at the server's time. The report never carries a PIN. Device: `X-Device-Credential` of this till.\n\nPermission: `pos.sale.create` at the till's branch."
+x-permission: pos.sale.create
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+    deviceCredential: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TillPinReport"
+      example:
+        events:
+          - id: "019a7b3e-1a00-7c01-8a11-0b2c3d4e5f60"
+            principalId: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            pinVersion: 2
+            outcome: FAILED
+            purpose: UNLOCK
+            occurredAt: "2026-11-13T09:40:12Z"
+          - id: "019a7b3e-2b00-7c02-8a12-1c2d3e4f5a61"
+            principalId: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            pinVersion: 1
+            outcome: SUCCEEDED
+            purpose: SIGN_OUT
+            occurredAt: "2026-11-13T09:46:30Z"
+        signOuts:
+          - id: "019a7b3e-2c00-7c03-8a13-2d3e4f5a6b72"
+            cashierId: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+            supervisorId: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            supervisorPinVersion: 1
+            occurredAt: "2026-11-13T09:46:31Z"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TillPinReportResult"
+        example:
+          eventResults:
+            - id: "019a7b3e-1a00-7c01-8a11-0b2c3d4e5f60"
+              outcome: APPLIED
+              reason: null
+            - id: "019a7b3e-2b00-7c02-8a12-1c2d3e4f5a61"
+              outcome: APPLIED
+              reason: null
+          signOutResults:
+            - id: "019a7b3e-2c00-7c03-8a13-2d3e4f5a6b72"
+              outcome: APPLIED
+              reason: null
+          locked:
+            - id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+              displayName: "Adwoa Darko"
+          serverTime: "2026-11-13T09:47:02Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

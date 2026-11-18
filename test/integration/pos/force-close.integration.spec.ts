@@ -8,6 +8,7 @@ import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { stepUp, type TotpSession } from '../../support/fin';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession, type TestUser } from '../../support/iam';
+import { setTillPin, tillVerifier } from '../../support/till-pin';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
@@ -134,6 +135,8 @@ beforeAll(async () => {
     const user = await createUser(database, { name, grants: [{ role, branchId: at, ...(role === 'CASHIER' ? { locationId: shopId } : {}) }] });
     users.set(who, user);
     sessions.set(who, totp ? await enrolAndLogin(api.server, user, () => clock.now()) : await login(api.server, user));
+    // A drop's witness confirms it with their till PIN (B09b continued 3): the Owner's PIN is version 1.
+    if (who === 'owner') expect((await setTillPin(api.server, sessions.get(who)!, await tillVerifier('554031'))).status).toBe(200);
   }
   for (const code of ['T1', 'T2', 'T3']) {
     const created = await post('manager', '/registers', { branchId, locationId: shopId, code, name: `Force close till ${code}` });
@@ -145,7 +148,7 @@ beforeAll(async () => {
   await sell('kofi', kofiShift, tills.get('T1')!, 3);
   await sell('kofi', kofiShift, tills.get('T1')!, 2);
   const drop = nextId();
-  const dropped = await post('kofi', `/shifts/${kofiShift}/cash-movements`, { id: drop, kind: 'CASH_DROP', amountPesewas: 5_000, reasonCode: 'SAFE_DROP', witnessId: idOf('owner'), occurredAt: clock.now().toISOString() }, drop);
+  const dropped = await post('kofi', `/shifts/${kofiShift}/cash-movements`, { id: drop, kind: 'CASH_DROP', amountPesewas: 5_000, reasonCode: 'SAFE_DROP', witnessId: idOf('owner'), witnessPinVersion: 1, occurredAt: clock.now().toISOString() }, drop);
   expect(dropped.status, JSON.stringify(dropped.body)).toBe(201);
   // Ama, a manager, runs a shift of her own on T2.
   amaShift = await openShift('ama', 'T2', 0);

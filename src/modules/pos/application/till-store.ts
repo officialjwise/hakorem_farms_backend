@@ -59,6 +59,8 @@ export interface CashMovementRecord {
   readonly reasonCode: string | null;
   readonly note: string | null;
   readonly witnessId: string | null;
+  /** The witness's till PIN version the drop was confirmed with (the owner on 2026-11-18); null before B09b continued 3 and with no witness. */
+  readonly witnessPinVersion: number | null;
   /** A drop taken while no supervisor was signed in at the branch (A-273 (d)). */
   readonly unwitnessed: boolean;
   readonly occurredAt: Date;

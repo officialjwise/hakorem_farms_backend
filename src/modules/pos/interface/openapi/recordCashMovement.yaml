@@ -2,7 +2,7 @@ operationId: recordCashMovement
 tags:
   - pos
 summary: "Record a cash drop, pay-out or pay-in"
-description: "Cash moved on the caller's own OPEN shift (2.5.0, FR-POS-016, A-273): `CASH_DROP` to the safe (reason `SAFE_DROP`, and a `witnessId`: a holder of `pos.shift.close.approve` at the branch who is neither the cashier nor the caller, held again by the database; while no such supervisor is signed in at the branch the drop may leave `witnessId` out and is recorded `unwitnessed`, shown on the X and Z reports and sent to the daily exception report's source with abuse case 17, so a one-person shop is never forced to keep cash in the drawer (A-273 (d), 2.6.0)), `PAY_OUT` for an expense (`FUEL_PAYOUT`, `SUPPLIER_PAYOUT` or `OTHER_PAYOUT`, with the note each requires) or `PAY_IN` of float from the safe (`FLOAT_TOP_UP`). A reason from the `CASH_MOVEMENT` list is required for every kind. Nothing is taken out beyond what the till should hold. Each posts once (◆ `pos.CashDropped` Dr 1010 Cr 1000, `pos.CashPaidOut` Dr the expense Cr 1000, `pos.CashPaidIn` Dr 1000 Cr 1010, against the register). Refusals: 422 `SHIFT_NOT_OPEN`; 422 `CASH_MOVEMENT_INVALID` with `AMOUNT_NOT_POSITIVE`, `REASON_REQUIRED`, `REASON_NOT_FOR_KIND`, `NOTE_REQUIRED`, `WITNESS_REQUIRED`, `WITNESS_IS_MAKER`, `WITNESS_NOT_SUPERVISOR`, `WITNESS_ONLY_ON_DROP`, `TILL_OVERDRAWN`, `ID_NOT_UUID_V7` or `OCCURRED_AT_OUT_OF_WINDOW` (within 300 seconds of the server's clock, which sets `occurredAt`). The id is the client's UUIDv7; a resubmission with the same key returns the first result.\n\nPermission: `pos.cash.move`. Ownership: the shift's own cashier."
+description: "Cash moved on the caller's own OPEN shift (2.5.0, FR-POS-016, A-273): `CASH_DROP` to the safe (reason `SAFE_DROP`, and a `witnessId`: a holder of `pos.shift.close.approve` at the branch who is neither the cashier nor the caller, held again by the database; while no such supervisor is signed in at the branch the drop may leave `witnessId` out and is recorded `unwitnessed`, shown on the X and Z reports and sent to the daily exception report's source with abuse case 17, so a one-person shop is never forced to keep cash in the drawer (A-273 (d), 2.6.0)), `PAY_OUT` for an expense (`FUEL_PAYOUT`, `SUPPLIER_PAYOUT` or `OTHER_PAYOUT`, with the note each requires) or `PAY_IN` of float from the safe (`FLOAT_TOP_UP`). A reason from the `CASH_MOVEMENT` list is required for every kind. Nothing is taken out beyond what the till should hold. Each posts once (◆ `pos.CashDropped` Dr 1010 Cr 1000, `pos.CashPaidOut` Dr the expense Cr 1000, `pos.CashPaidIn` Dr 1000 Cr 1010, against the register). A witness confirms the drop with their till PIN on the till, and the till sends `witnessPinVersion` with `witnessId` (2.17.0, the owner on 2026-11-18, ADR-0080): a named supervisor without a PIN version in force is no witness; the movement answers `witnessPinVersion`. Refusals: 422 `SHIFT_NOT_OPEN`; 422 `CASH_MOVEMENT_INVALID` with `AMOUNT_NOT_POSITIVE`, `REASON_REQUIRED`, `REASON_NOT_FOR_KIND`, `NOTE_REQUIRED`, `WITNESS_REQUIRED`, `WITNESS_IS_MAKER`, `WITNESS_NOT_SUPERVISOR`, `WITNESS_PIN_REQUIRED`, `WITNESS_PIN_UNKNOWN`, `WITNESS_PIN_SUPERSEDED`, `WITNESS_PIN_LOCKED`, `WITNESS_ONLY_ON_DROP`, `TILL_OVERDRAWN`, `ID_NOT_UUID_V7` or `OCCURRED_AT_OUT_OF_WINDOW` (within 300 seconds of the server's clock, which sets `occurredAt`). The id is the client's UUIDv7; a resubmission with the same key returns the first result.\n\nPermission: `pos.cash.move`. Ownership: the shift's own cashier."
 x-permission: pos.cash.move
 parameters:
   - name: id
@@ -28,6 +28,7 @@ requestBody:
         amountPesewas: 500000
         reasonCode: SAFE_DROP
         witnessId: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+        witnessPinVersion: 1
         occurredAt: "2026-11-13T12:00:00Z"
 responses:
   "201":
@@ -48,6 +49,7 @@ responses:
           witness:
             id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
             displayName: "Kwabena Owusu"
+          witnessPinVersion: 1
           unwitnessed: false
           actor:
             id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"

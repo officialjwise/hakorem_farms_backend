@@ -15,6 +15,7 @@ export interface TillLine {
   readonly weightSource?: 'SCALE' | 'MANUAL' | 'ESTIMATE';
   readonly agreedUnitPricePesewas: number;
   readonly varianceReasonCode?: string;
+  readonly overrideApproval?: { readonly approvedById: string; readonly approvedByPinVersion: number };
 }
 
 export interface TillTender {

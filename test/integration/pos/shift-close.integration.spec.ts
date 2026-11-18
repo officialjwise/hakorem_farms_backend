@@ -9,6 +9,7 @@ import { UnitOfWork } from '../../../src/platform/database/unit-of-work';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, consolePatch, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type TestSession, type TestUser } from '../../support/iam';
+import { setTillPin, tillVerifier } from '../../support/till-pin';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
@@ -106,6 +107,8 @@ beforeAll(async () => {
   const shop = id('location:SHOP');
   managerUser = await createUser(database, { name: 'Kwabena Owusu', grants: [{ role: 'MANAGER', branchId }] });
   manager = await enrolAndLogin(api.server, managerUser, () => clock.now());
+  // The witness confirms a drop with their till PIN (B09b continued 3): the manager's PIN is version 1.
+  expect((await setTillPin(api.server, manager, await tillVerifier('554031'))).status).toBe(200);
   owner = await enrolAndLogin(api.server, await createUser(database, { name: 'Esi Mensah', grants: [{ role: 'OWNER', branchId }] }), () => clock.now());
   cashierUser = await createUser(database, { name: 'Adwoa Darko', grants: [{ role: 'CASHIER', branchId, locationId: shop }] });
   cashier = await login(api.server, cashierUser);
@@ -232,7 +235,7 @@ describe('a short shift on T1: float 50,000, cash sales 44,000, a drop of 30,000
 
   it('drops 30,000 to the safe in front of the manager, once for a replayed key', async () => {
     const movementId = nextId();
-    const body = { id: movementId, kind: 'CASH_DROP', amountPesewas: 30_000, reasonCode: 'SAFE_DROP', witnessId: managerUser.principalId, occurredAt: now() };
+    const body = { id: movementId, kind: 'CASH_DROP', amountPesewas: 30_000, reasonCode: 'SAFE_DROP', witnessId: managerUser.principalId, witnessPinVersion: 1, occurredAt: now() };
     const dropped = await post(cashier, `/shifts/${shiftId}/cash-movements`, body, movementId);
     expect(dropped.status, JSON.stringify(dropped.body)).toBe(201);
     expect(dropped.body).toMatchObject({ id: movementId, kind: 'CASH_DROP', amountPesewas: 30_000, reasonCode: 'SAFE_DROP', witness: { displayName: 'Kwabena Owusu' }, actor: { displayName: 'Adwoa Darko' } });

@@ -125,6 +125,15 @@ export interface PaymentMethodFacts {
 
 export const MASTER_DATA_REFS_STORE = Symbol('MASTER_DATA_REFS_STORE');
 
+/** A unit of measure's names as `Uom` gives them (B09u, A-303), for a screen that works from a cache (CR-051). */
+export interface UomFacts {
+  readonly code: string;
+  readonly name: string;
+  readonly singularName: string;
+  readonly pluralName: string;
+  readonly displayDecimals: number;
+}
+
 export interface MasterDataRefsStore {
   products(tx: Transaction, ids: readonly string[]): Promise<ProductFacts[]>;
   locations(tx: Transaction, ids: readonly string[]): Promise<LocationFacts[]>;
@@ -138,6 +147,7 @@ export interface MasterDataRefsStore {
   customers(tx: Transaction, ids: readonly string[]): Promise<CustomerFacts[]>;
   customerOfPrincipal(tx: Transaction, principalId: string): Promise<CustomerFacts | null>;
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
+  units(tx: Transaction, codes: readonly string[]): Promise<UomFacts[]>;
   paymentMethodsByCode(tx: Transaction, codes: readonly string[]): Promise<PaymentMethodFacts[]>;
   paymentMethods(tx: Transaction, ids: readonly string[]): Promise<PaymentMethodFacts[]>;
   /** Every reason of these domains, by domain and code. */
@@ -236,6 +246,11 @@ export class MasterDataRefs {
   }
 
   /** Payment methods by code (B9a); an unknown code is simply absent. */
+  /** The named units with their singular and plural names, in code order (CR-051: the offline pack names its units). */
+  async unitsIn(tx: Transaction, codes: readonly string[]): Promise<UomFacts[]> {
+    return codes.length === 0 ? [] : this.store.units(tx, unique(codes));
+  }
+
   async paymentMethodsByCodeIn(tx: Transaction, codes: readonly string[]): Promise<ReadonlyMap<string, PaymentMethodFacts>> {
     if (codes.length === 0) return new Map();
     return new Map((await this.store.paymentMethodsByCode(tx, unique(codes))).map((row) => [row.code, row] as const));

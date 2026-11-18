@@ -218,3 +218,30 @@ export interface OfflineCashMovementFlagged {
   readonly fact: Readonly<Record<string, unknown>>;
   readonly abuseCases: readonly number[];
 }
+
+/**
+ * A finding about the till PIN (CR-032, B09b continued 3, ADR-0080, A-280): a PIN locked by its fifth wrong try, a
+ * locked cashier signed out by a supervisor's PIN, or a PIN try or sign-out the server refused. Abuse case 35, a PIN
+ * guessed or a supervisor's PIN misused; the daily exception report's source (B12). It never carries a PIN, a salt or a
+ * hash: only who, which version, which till and when.
+ */
+export interface TillPinFlagged {
+  readonly subjectId: string;
+  readonly branchId: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly deviceId: string;
+  /** Whose PIN it is: the locked person, or the cashier signed out. */
+  readonly principalId: string;
+  readonly pinVersion: number | null;
+  /** The supervisor who signed the cashier out, where there is one. */
+  readonly supervisorId?: string;
+  readonly shiftId?: string | null;
+  readonly exceptionKind: 'TILL_PIN_LOCKED' | 'LOCKED_CASHIER_SIGNED_OUT' | 'TILL_PIN_REPORT_REJECTED';
+  readonly severity: 'URGENT' | 'REVIEW';
+  readonly summary: string;
+  readonly occurredAt: string;
+  readonly recordedAt: string;
+  readonly claim: Readonly<Record<string, unknown>>;
+  readonly fact: Readonly<Record<string, unknown>>;
+  readonly abuseCases: readonly number[];
+}

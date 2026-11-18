@@ -16,6 +16,7 @@ registerMessages({
   'pos.device_credential_invalid': 'This device is not enrolled. Ask a manager to enrol it.',
   'pos.device_revoked': 'This device was revoked by a manager. Ask a manager to enrol it again.',
   'pos.device_credential_shown_once': 'This device was enrolled and its credential was shown once. Revoke it and enrol it again.',
+  'pos.till_pin_invalid': 'This till PIN cannot be set like this. The till must derive it again.',
   'pos.sync_batch_too_large': 'A sync sends at most 500 sales. Send the rest in another batch.',
 });
 
@@ -151,5 +152,18 @@ export class SyncBatchTooLargeError extends ApiError {
   readonly messageKey = 'pos.sync_batch_too_large';
   constructor(count: number, limit: number) {
     super(`a sync batch of ${count} sales; at most ${limit}`, [{ field: '/sales', code: 'SYNC_BATCH_TOO_LARGE', message: translate('pos.sync_batch_too_large') }]);
+  }
+}
+
+/**
+ * 422 TILL_PIN_INVALID (CR-032, ADR-0080): a verifier weaker than the owner's rules, `PIN_ALGORITHM_NOT_ALLOWED`,
+ * `PIN_ITERATIONS_TOO_FEW`, `PIN_ITERATIONS_TOO_MANY`, `PIN_SALT_TOO_SHORT`, `PIN_SALT_TOO_LONG`, `PIN_SALT_NOT_RANDOM`,
+ * `PIN_SALT_REUSED`, `PIN_HASH_NOT_32_BYTES`. Nothing is stored.
+ */
+export class TillPinInvalidError extends BusinessRuleError {
+  readonly code = 'TILL_PIN_INVALID';
+  readonly messageKey = 'pos.till_pin_invalid';
+  constructor(rules: readonly TillRule[]) {
+    super('the till PIN verifier is weaker than the rules', details(rules));
   }
 }
