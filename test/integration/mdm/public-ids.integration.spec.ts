@@ -24,6 +24,11 @@ const nextPhone = () => `0244${String(600_000 + (phone += 1)).padStart(6, '0')}`
 const customer = (name: string) => post('/customers', { kind: 'INDIVIDUAL', name, phone: nextPhone() });
 const supplier = (name: string) => post('/suppliers', { name, phone: nextPhone() });
 const count = async (table: string) => Number((await database.pool('admin').query<{ n: string }>(`SELECT count(*) AS n FROM ${table}`)).rows[0]!.n);
+/** The unit of work's retries logged while serving these responses, by their correlation ids. */
+const retriesOf = (responses: ReadonlyArray<{ headers: Record<string, string> }>) => {
+  const ids = new Set(responses.map((r) => r.headers['x-correlation-id']));
+  return api.logLines().filter((line) => line.msg === 'transaction retried' && ids.has(line.correlationId as string));
+};
 /** "cus_8F3K2M9Q7X4T1V6B" as a person might type it: lower case, spaced in fours, 0 as O and 1 as I. */
 const typedLoosely = (publicId: string) => `${publicId.slice(0, 4)}${publicId.slice(4).toLowerCase().replace(/(.{4})/g, '$1 ').trim().replaceAll('0', 'o').replaceAll('1', 'i')}`;
 
@@ -65,6 +70,23 @@ describe('a public ID in place of the sequential number', () => {
     const created = await Promise.all(Array.from({ length: 6 }, (_, i) => customer(`Kofi Mensah ${i + 1}`)));
     expect(created.map((r) => r.status)).toEqual(Array(6).fill(201));
     expect(new Set(created.map((r) => r.body.publicId)).size).toBe(6);
+  });
+
+  // Every create reads what every other create writes (the phone check over live customers, the new row's index
+  // pages), so overlapping serializable creates aborted each other and one could lose all five attempts: a 500 under
+  // load. Creates now queue on one advisory lock before they begin (ADR-0005), so none is ever retried.
+  it('creates twelve concurrent customers one after another, each 201 with its own public ID and none retried', async () => {
+    const created = await Promise.all(Array.from({ length: 12 }, (_, i) => customer(`Akosua Boateng ${i + 1}`)));
+    expect(created.map((r) => r.status)).toEqual(Array(12).fill(201));
+    expect(new Set(created.map((r) => r.body.publicId)).size).toBe(12);
+    expect(retriesOf(created)).toEqual([]);
+  });
+
+  it('creates twelve concurrent suppliers one after another, each 201 with its own public ID and none retried', async () => {
+    const created = await Promise.all(Array.from({ length: 12 }, (_, i) => supplier(`Nsawam Vegetable Growers ${i + 1}`)));
+    expect(created.map((r) => r.status)).toEqual(Array(12).fill(201));
+    expect(new Set(created.map((r) => r.body.publicId)).size).toBe(12);
+    expect(retriesOf(created)).toEqual([]);
   });
 
   it('finds a customer and a supplier by public ID however it is typed, and nothing by a sequential number', async () => {

@@ -120,6 +120,8 @@ export interface DeliveryQuoteRequest {
 export const OFFLINE_MOBILE_MONEY_SETTING = 'pos.offline_mobile_money_allowed';
 /** How many characters of a tax identification number a screen shows. */
 const TIN_VISIBLE = 4;
+/** The advisory lock createSupplier takes before its transaction begins, for the reason CUSTOMER_CREATE_LOCK states. */
+export const SUPPLIER_CREATE_LOCK = 'mdm.supplier.create';
 /** Personal data in a supplier's audit `before` and `after` (FR-AUD-011), encrypted with the supplier's key. */
 const SUPPLIER_PERSONAL = ['contactName', 'phone', 'email', 'tinMasked'] as const;
 
@@ -216,7 +218,16 @@ export class ReferenceDataAdmin {
   }
 
   createSupplier(actor: Actor | undefined, body: SupplierCreateRequest, idempotencyKey: string): Promise<StoredResponse<SupplierView>> {
-    return this.kit.write(actor, 'mdm.supplier.create', 'createSupplier', body, idempotencyKey, async (tx) => ({ status: 201, body: await this.createSupplierIn(tx, actor!, body) }));
+    return this.kit.write(
+      actor,
+      'mdm.supplier.create',
+      'createSupplier',
+      body,
+      idempotencyKey,
+      async (tx) => ({ status: 201, body: await this.createSupplierIn(tx, actor!, body) }),
+      undefined,
+      [SUPPLIER_CREATE_LOCK],
+    );
   }
 
   /**

@@ -34,9 +34,11 @@ export class AdminKit {
     idempotencyKey: string,
     work: (tx: Transaction) => Promise<StoredResponse<T>>,
     scope?: (tx: Transaction) => Promise<AuthoriseScope>,
+    /** Advisory locks taken before BEGIN (ADR-0005), so writes that would all meet on one hot spot queue instead. */
+    locks: readonly string[] = [],
   ): Promise<StoredResponse<T>> {
     try {
-      return await this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      return await this.uow.run({ isolation: 'serializable', seriesLocks: locks }, async (tx) => {
         await this.authoriser.authorise(tx, actor, permission, scope === undefined ? {} : await scope(tx));
         const claim = await this.idempotency.claim(tx, { operationId, principalId: actor!.principalId, key: idempotencyKey, request });
         if (claim.kind === 'REPLAY') {

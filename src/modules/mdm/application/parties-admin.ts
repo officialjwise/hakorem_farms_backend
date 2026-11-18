@@ -86,6 +86,12 @@ export type AddressCreateRequest = AddressRequest & { readonly label: string; re
 
 /** The tier a customer created without one joins (seeded by migration 0011). */
 const DEFAULT_TIER = 'RETAIL';
+/**
+ * The advisory lock createCustomer takes before its transaction begins (`seriesLocks`, ADR-0005): every create reads
+ * what every other create writes (the phone check over live customers, the new row's index pages), so overlapping
+ * serializable creates aborted one another and one could lose all its attempts, a 500. They queue on it instead.
+ */
+export const CUSTOMER_CREATE_LOCK = 'mdm.customer.create';
 /** How many characters of a tax identification number a screen shows. */
 const TIN_VISIBLE = 4;
 /** Personal data in a customer's or an address's audit `before` and `after` (FR-AUD-011), encrypted with the subject key. */
@@ -207,7 +213,16 @@ export class PartiesAdmin {
   }
 
   createCustomer(actor: Actor | undefined, body: CustomerCreateRequest, idempotencyKey: string): Promise<StoredResponse<CustomerView>> {
-    return this.kit.write(actor, 'mdm.customer.create', 'createCustomer', body, idempotencyKey, async (tx) => ({ status: 201, body: await this.createCustomerIn(tx, actor!, body) }));
+    return this.kit.write(
+      actor,
+      'mdm.customer.create',
+      'createCustomer',
+      body,
+      idempotencyKey,
+      async (tx) => ({ status: 201, body: await this.createCustomerIn(tx, actor!, body) }),
+      undefined,
+      [CUSTOMER_CREATE_LOCK],
+    );
   }
 
   /**
