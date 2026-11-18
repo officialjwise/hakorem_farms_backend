@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.12.0"
+  version: "2.13.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -56452,7 +56452,7 @@ paths:
       tags:
         - pos
       summary: "Sync sales and cash movements queued while offline"
-      description: "Applies each sale exactly once, identified by its client id. A sale is always recorded with its money; where its stock leg would break an invariant (an animal sold elsewhere, under a hold, or stock gone negative), the line is recorded with a stock exception instead and the outcome says so. Official receipt numbers are allocated here. Up to 500 sales per batch. See docs/OFFLINE_SYNC.md.\n\nPermission: `pos.sale.create`."
+      description: "The sales a till queued while it had no network (2.13.0, FR-POS-011 to FR-POS-014, ADR-0027, OFFLINE_SYNC 6 to 9, B09b continued 2b), applied exactly once each by its client UUIDv7, in ascending `deviceCounter` whatever order they arrive in, each in its own transaction, so a failure never loses the rest of the batch and re-sending a whole batch is always safe. The batch takes no `Idempotency-Key`: a sale already applied answers `DUPLICATE` with its first result and consumes no number. **Who:** the shift's cashier holding `pos.sale.create` at the till's branch and location, or a holder of `pos.shift.force_close` at the branch recovering the till (with a fresh step-up), from an enrolled device of the shift's till that is not revoked (`X-Device-Credential`: 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device or a `deviceId` other than the credential's). A shift that names nothing is 404. More than 500 sales is 400 `SYNC_BATCH_TOO_LARGE` and applies nothing. Each sale is attributed to the shift's cashier, never to the session that synced it. **Refused only for integrity** (`REJECTED_INTEGRITY`, nothing recorded, `orderId`, `orderNo`, `receiptNo` and `grossPesewas` null, one exception `SYNC_REJECTED`): an id that is not a UUIDv7; content that does not match `payloadHash` (SHA-256 over the sale less its hash in RFC 8785 canonical JSON, OFFLINE_SYNC 4.4); an id applied before with other content; a device counter of the shift that belongs to another applied sale; a sale the catalogue cannot read (an unknown product or payment method, a unit with no conversion, a line the till's own rules forbid). **Everything else is recorded** (`APPLIED`, or `APPLIED_WITH_EXCEPTION` with each exception named), never refused: the order (`isOffline`, placed and completed at `occurredAt`), its receipt with the official number allocated here, issued at `occurredAt` and dated that day, or the first open date when its period has since locked, marked `syncedFromOffline` with the `provisionalRef` the till printed, and its cash. Each line's stock moves as `SALE_ISSUE_OFFLINE`: countable and lot stock may go below zero (`NEGATIVE_STOCK`); an animal sold elsewhere (`SERIAL_CONFLICT`), under a hold or past its expiry (`HOLD_CONFLICT`) or reserved (`RESERVATION_CONFLICT`) is recorded with no movement and a stock exception in its place. Each line is re-priced in its own unit (`uom`, absent the first unit the product is sold by, CR-038) as of `occurredAt`; the agreed price always stands; a price beyond the cashier's current limits or out of the band, or a line no list prices now, posts with a `PRICE_OVERRIDE` approval asked for after the fact (`PRICE_OVERRIDE`, `NOT_PRICED_AT_SYNC`); a unit the product is not sold by is `UNIT_NOT_SOLD`. Only cash is taken, and only onto its own shift while it is open: a tender of any other method (`UNMATCHED_PAYMENT`), or cash for a shift that is closing, closed or force-closed (`OFFLINE_CASH_NOT_TAKEN`, ADR-0077), is not recorded and the receipt stays outstanding. A sale on a closed shift is `OFFLINE_LATE_POSTING`; a sale whose period has locked is flagged on the report but not to the till. A till clock more than `sync.clock_tolerance_seconds` (300) ahead of the server or before the shift opened is `TILL_CLOCK_OUT_OF_TOLERANCE`; a sale older than `sync.max_sale_age_hours` (8) is `OFFLINE_SALE_TOO_OLD`; a cashier whose grant was revoked while offline is `AUTHORISATION_FAILURE`; tenders that do not sum to the receipt are `TENDERS_DIFFER`; a printed reference other than the shift and counter make is `PROVISIONAL_REF_MISMATCH`. Every exception reaches the daily exception report's source. `grossPesewas` is the total the server recorded, for the till to compare with its own (CR-031). `counterGaps` lists every device counter of the shift missing below the highest received, on every sync until it arrives; each newly missing value is raised once (`DEVICE_COUNTER_GAP`). `cashMovementResults`: a cash movement in the batch is not taken at sync yet (`REJECTED`, `CASH_MOVEMENT_NOT_TAKEN_AT_SYNC`); record it online with `recordCashMovement`. See docs/OFFLINE_SYNC.md.\n\nPermission: `pos.sale.create`."
       x-permission: pos.sale.create
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
@@ -56470,17 +56470,32 @@ paths:
               shiftId: "019a7af1-da1b-7bcb-9103-c58815023e65"
               sales:
                 - id: "019a7afc-7c43-71fc-9734-2899e9daa177"
-                  deviceCounter: 42
-                  provisionalRef: P-T2-311-0042
-                  occurredAt: "2026-11-13T08:02:00Z"
+                  deviceCounter: 41
+                  provisionalRef: P-T2-311-0041
+                  occurredAt: "2026-11-13T09:40:12Z"
                   lines:
                     - productId: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
-                      quantity: "6.000"
-                      agreedUnitPricePesewas: 2500
+                      quantity: "2.000"
+                      uom: CRATE
+                      agreedUnitPricePesewas: 6000
                   tenders:
                     - paymentMethodId: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
-                      amountPesewas: 15000
-                      tenderedPesewas: 20000
+                      amountPesewas: 12000
+                      tenderedPesewas: 15000
+                  payloadHash: "3b1f0c2a7e4d9b8f6a5c1e0d2f4b7a9c8e6d5f3a1b0c9e8d7f6a5b4c3d2e1f0a"
+                - id: "019a7afd-1b20-7c4e-8a31-5f2d9e0c6b18"
+                  deviceCounter: 42
+                  provisionalRef: P-T2-311-0042
+                  occurredAt: "2026-11-13T09:52:40Z"
+                  lines:
+                    - productId: "019a7a8e-a5a0-754c-8a85-5d9ed05dd67c"
+                      quantity: "3.000"
+                      uom: EGG
+                      agreedUnitPricePesewas: 220
+                  tenders:
+                    - paymentMethodId: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
+                      amountPesewas: 660
+                      tenderedPesewas: 1000
                   payloadHash: "9f1c2a7e4b0d83f65c2e1a9d7b3f0c4e8a6d2b1f5e9c7a3d0b4f8e2c6a1d5b9f"
       responses:
         "200":
@@ -56495,41 +56510,30 @@ paths:
               example:
                 shiftId: "019a7af1-da1b-7bcb-9103-c58815023e65"
                 results:
-                  - clientSaleId: "019a7af1-bb2c-71e7-8720-27509b51a02e"
+                  - clientSaleId: "019a7afc-7c43-71fc-9734-2899e9daa177"
                     deviceCounter: 41
                     outcome: APPLIED_WITH_EXCEPTION
-                    orderId: "019a7af1-bb2c-71e7-8720-27509b51a02e"
+                    orderId: "019a7afc-7c43-71fc-9734-2899e9daa177"
                     orderNo: SO-2026-DDW-004207
                     receiptNo: RCP-2026-DDW-T2-006101
-                    grossPesewas: 87500
+                    grossPesewas: 12000
                     currency: GHS
                     exceptions:
                       - kind: NEGATIVE_STOCK
-                        summary: "Yam on the shop floor went to -6 after this sale"
-                  - clientSaleId: "019a7afc-7c43-71fc-9734-2899e9daa177"
+                        summary: "Line 1: stock at the till went below zero by 15.000 after this sale"
+                  - clientSaleId: "019a7afd-1b20-7c4e-8a31-5f2d9e0c6b18"
                     deviceCounter: 42
                     outcome: APPLIED
-                    orderId: "019a7afc-7c43-71fc-9734-2899e9daa177"
+                    orderId: "019a7afd-1b20-7c4e-8a31-5f2d9e0c6b18"
                     orderNo: SO-2026-DDW-004208
                     receiptNo: RCP-2026-DDW-T2-006102
-                    grossPesewas: 4200
+                    grossPesewas: 660
                     currency: GHS
                     exceptions: []
-                  - clientSaleId: "019a7afc-9b32-7be0-a118-c6d1638b3faf"
-                    deviceCounter: 40
-                    outcome: DUPLICATE
-                    orderId: "019a7afc-9b32-7be0-a118-c6d1638b3faf"
-                    orderNo: SO-2026-DDW-004205
-                    receiptNo: RCP-2026-DDW-T2-006100
-                    grossPesewas: 18500
-                    currency: GHS
-                    exceptions: []
-                cashMovementResults:
-                  - clientId: "019a7afc-ba21-75c3-bafb-6508dd3cdde6"
-                    outcome: APPLIED
-                    reason: null
-                counterGaps: []
-                serverTime: "2026-11-13T08:47:00Z"
+                cashMovementResults: []
+                counterGaps:
+                  - 40
+                serverTime: "2026-11-13T13:42:07Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -93934,6 +93938,9 @@ components:
             - string
             - "null"
           format: date-time
+        syncedFromOffline:
+          type: boolean
+          description: "True on a receipt for a sale an offline till synced later: it is issued at the time the sale happened at the till (`issuedAt` and `occurredAt`), dated that day or, when that day's period has since locked, the first open date (`issueDate`), and carries the reference the till printed (`provisionalRef`). False for every other document (2.13.0, A-278 (d))."
         reprintCount:
           type: integer
         branchId:

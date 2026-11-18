@@ -48,6 +48,8 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0257_bil_synced_from_offline',
+      '0256_pos_sale_sync',
       '0255_iam_grant_quo_permissions',
       '0254_iam_seed_quo_permissions',
       '0253_quo_quotations',

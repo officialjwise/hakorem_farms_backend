@@ -14,12 +14,14 @@ import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../
 import { InvModule, StockQueries, StockUnits } from '../inv';
 import { MasterDataRefs, MdmModule, PricingService, TaxService } from '../mdm';
 import { BilModule, Billing } from '../bil';
+import { FinModule, Ledger } from '../fin';
 import { OrdModule, Orders, SalePosting } from '../ord';
 import { PayModule, Payments, TillShiftRegistry } from '../pay';
 import { CounterSales } from './application/counter-sales';
 import { Devices } from './application/devices';
 import { HeldSales } from './application/held-sales';
 import { OfflinePacks } from './application/offline-packs';
+import { OfflineSync } from './application/offline-sync';
 import { Registers } from './application/registers';
 import { POS_LEDGER_EVENTS, Shifts } from './application/shifts';
 import { TillCash } from './application/till-cash';
@@ -36,7 +38,7 @@ import { PosController } from './interface/pos.controller';
  * continued 2 adds the offline pack (`OfflinePacks`), reading INV's stock standing at the till.
  */
 @Module({
-  imports: [IamModule, MdmModule, InvModule, BilModule, PayModule, OrdModule],
+  imports: [IamModule, MdmModule, FinModule, InvModule, BilModule, PayModule, OrdModule],
   controllers: [PosController],
   providers: [
     { provide: TILL_STORE, useClass: PgTillStore },
@@ -94,6 +96,25 @@ import { PosController } from './interface/pos.controller';
         clock: Clock,
       ) => new OfflinePacks(uow, store, devices, pricing, tax, refs, stock, units, authoriser, settings, audit, clock),
       inject: [UnitOfWork, TILL_STORE, Devices, PricingService, TaxService, MasterDataRefs, StockQueries, StockUnits, Authoriser, Settings, AuditTrail, CLOCK],
+    },
+    {
+      provide: OfflineSync,
+      useFactory: (
+        uow: UnitOfWork,
+        store: TillStore,
+        devices: Devices,
+        posting: SalePosting,
+        orders: Orders,
+        refs: MasterDataRefs,
+        pricing: PricingService,
+        authoriser: Authoriser,
+        ledger: Ledger,
+        settings: Settings,
+        events: DomainEvents,
+        audit: AuditTrail,
+        clock: Clock,
+      ) => new OfflineSync(uow, store, devices, posting, orders, refs, pricing, authoriser, ledger, settings, events, audit, clock),
+      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, MasterDataRefs, PricingService, Authoriser, Ledger, Settings, DomainEvents, AuditTrail, CLOCK],
     },
     {
       provide: Shifts,

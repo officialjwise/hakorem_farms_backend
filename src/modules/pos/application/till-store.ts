@@ -144,6 +144,32 @@ export interface HeldSalePayload {
   }[];
 }
 
+/** One offline sale's submission (`pos.sale_sync`, migration 0256), as logged once and never changed. */
+export interface SaleSyncRecord {
+  readonly id: string;
+  readonly deviceId: string;
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly clientSaleId: string;
+  readonly deviceCounter: number;
+  readonly provisionalRef: string;
+  readonly clientOccurredAt: Date;
+  readonly payloadHash: Buffer;
+  readonly outcome: 'APPLIED' | 'APPLIED_WITH_EXCEPTION' | 'DUPLICATE' | 'REJECTED_INTEGRITY';
+  readonly orderDocumentId: string | null;
+  readonly orderNo: string | null;
+  readonly receiptNo: string | null;
+  readonly grossPesewas: bigint | null;
+  readonly exceptions: readonly { readonly kind: string; readonly summary: string }[];
+  readonly rejectionRule: string | null;
+  readonly postedLateReason: 'PERIOD_LOCKED' | 'SHIFT_CLOSED' | 'AFTER_FORCE_CLOSE' | null;
+  readonly postingDate: string | null;
+  readonly clockVerdict: 'AHEAD_OF_SERVER' | 'BEFORE_SHIFT_OPENED' | null;
+  readonly tooOld: boolean;
+  readonly receivedAt: Date;
+  readonly actorId: string;
+}
+
 export const TILL_STORE = Symbol('TILL_STORE');
 
 /** POS's tables (`pos.register`, `pos.shift`, `pos.cash_movement`, `pos.shift_tender_count`, `pos.shift_report`, `pos.shift_late_count`). */
@@ -200,4 +226,15 @@ export interface TillStore {
   /** Every sale still HELD on a shift becomes LAPSED; answers the ids lapsed. */
   lapseHeldSales(tx: Transaction, shiftId: string, l: { readonly reason: 'SHIFT_CLOSED' | 'SHIFT_FORCE_CLOSED'; readonly at: Date }): Promise<string[]>;
   liveDeviceCounts(tx: Transaction, registerIds: readonly string[]): Promise<ReadonlyMap<string, number>>;
+  insertSaleSync(tx: Transaction, row: SaleSyncRecord): Promise<void>;
+  /** The applied submission (APPLIED or APPLIED_WITH_EXCEPTION) of each client sale id, if any. */
+  appliedSales(tx: Transaction, clientSaleIds: readonly string[]): Promise<ReadonlyMap<string, SaleSyncRecord>>;
+  /** The client sale id an applied submission of the shift holds this device counter for, if any. */
+  appliedCounterOwner(tx: Transaction, shiftId: string, deviceCounter: number): Promise<string | null>;
+  /** Every device counter the shift has received, whatever became of it (a refused sale was received, OFFLINE_SYNC 9.8). */
+  receivedCounters(tx: Transaction, shiftId: string): Promise<number[]>;
+  /** The highest counter synced on a shift not yet CLOSED, raised only (`pos.shift.last_device_counter`). */
+  noteDeviceCounter(tx: Transaction, shiftId: string, deviceCounter: number, actorId: string, at: Date): Promise<void>;
+  /** When a device last synced (`pos.device_enrolment.last_sync_at`). */
+  noteDeviceSync(tx: Transaction, deviceId: string, at: Date, actorId: string): Promise<void>;
 }
