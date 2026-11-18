@@ -13,9 +13,11 @@
  * adds branches, reasons from the fixed list and a branch's physical location of a kind (its in-transit location).
  */
 export { MdmModule } from './mdm.module';
-export { PricingService, type AppliedPromotionView, type PriceResolutionView, type PriceResolveResultView, type ResolveLine, type ResolveRequest } from './application/pricing';
+export { PricingService, type SellingProductView, type SellingUnitView, type SellingUnitsView, type AppliedPromotionView, type PriceResolutionView, type PriceResolveResultView, type ResolveLine, type ResolveRequest } from './application/pricing';
+export { defaultLineUom } from './domain/pricing/selling-units';
 export { extendPrice, judgeAgreedPrice, type AgreedPriceVerdict, type Channel, type PriceBasis, type QuoteRequiredReason } from './domain/pricing/pricing-engine';
 export { TaxService, type TaxCalculation, type TaxLineRequest, type TaxRequest } from './application/tax-calculation';
+export type { TaxCellView } from './application/tax-admin';
 export type { CategoryTreatment, LevyLine, TaxBreakdown, TaxTotals, TaxTreatment } from './domain/tax/tax-calculator';
 export { couponLockKey, Promotions, type CouponRedemptionRequest } from './application/promotions';
 export type { PriceListVersionActivated, ProductArchived, ProductChanged, ProductCreated, SupplierRegistered, PromotionActivated, PromotionEnded, TaxSchemeVersionActivated } from './events';
@@ -29,7 +31,7 @@ export { exactFactor, factorText, fromBase, toBase, type UomFactor } from './dom
 export { LocationsAdmin } from './application/locations-admin';
 export { PartiesAdmin } from './application/parties-admin';
 export { ReferenceDataAdmin } from './application/reference-data-admin';
-export { MasterDataRefs, type ToBaseRefusal, type PaymentMethodFacts, type BranchFacts, type CustomerFacts, type GradeFacts, type LocationFacts, type ProductFacts, type ReasonCodeFacts, type SpeciesFacts, type SupplierFacts, type TaxCategoryFacts } from './application/master-data-refs';
+export { MasterDataRefs, type ReasonCodeView, type ToBaseRefusal, type PaymentMethodFacts, type BranchFacts, type CustomerFacts, type GradeFacts, type LocationFacts, type ProductFacts, type ReasonCodeFacts, type SpeciesFacts, type SupplierFacts, type TaxCategoryFacts } from './application/master-data-refs';
 /**
  * B05 continued 4 adds the import sheet port (ADR-0050): a higher module that owns an entity's rows implements
  * `EntitySheet` and registers it with `MdmImports.registerSheet` when it starts, as INV does for `OPENING_STOCK`; MDM

@@ -301,6 +301,27 @@ export class StockQueries {
   }
 
   /**
+   * Every animal and lot standing at one location with stock on hand, in the caller's transaction (B09b continued 2,
+   * the offline pack): whether a sale may take it now (on hand less reserved above zero, no hold in force, not past its
+   * expiry date), in identifier order. It carries no cost and authorises nothing.
+   */
+  async unitsStandingAtIn(tx: Transaction, branchId: string, locationId: string): Promise<{ readonly stockUnitId: string; readonly productId: string; readonly locationId: string; readonly identifier: string; readonly sellable: boolean }[]> {
+    const now = this.clock.now();
+    const today = toBusinessDate(now);
+    const rows = await this.store.onHand(tx, { branchId, locationId }, [{ branchId, locationId: null }], false, now);
+    return rows
+      .filter((r) => r.unit !== null && r.stockUnitId !== null && Quantity.parse(r.onHandQty).compareTo(Quantity.zero()) > 0)
+      .map((r) => ({
+        stockUnitId: r.stockUnitId!,
+        productId: r.productId,
+        locationId: r.locationId,
+        identifier: r.unit!.identifier,
+        sellable: r.holds.length === 0 && (r.unit!.expiresOn === null || r.unit!.expiresOn >= today) && Quantity.parse(r.availableQty).compareTo(Quantity.zero()) > 0,
+      }))
+      .sort((a, b) => (a.identifier < b.identifier ? -1 : a.identifier > b.identifier ? 1 : a.stockUnitId < b.stockUnitId ? -1 : 1));
+  }
+
+  /**
    * listStockOnHand (FR-INV-003, CR-001): in location, product and unit order, as it always was, unless the request
    * names a `sort` (CR-019, ADR-0054); then by `onHandQty` and `direction` through the shared keyset, the line's key
    * (location, product, unit) breaking ties, the page read in SQL with the same filters and scopes. The total and each
