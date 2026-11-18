@@ -37,9 +37,19 @@ export async function relaxRateLimits(database: TestDatabase): Promise<void> {
   }
 }
 
-/** A clock a minute ahead of the database, so rows stamped with the database's now() are already current. */
-export function testStartTime(): Date {
-  return new Date(Date.now() + 60_000);
+/** How long a test file's clock may run on (step-ups advance it 30 seconds each) without crossing a business day. */
+export const TEST_DAY_ROOM_MS = 20 * 60_000;
+
+/**
+ * A clock a minute ahead of the database, so rows stamped with the database's now() are already current. If that
+ * would leave less than TEST_DAY_ROOM_MS before the next business day (Africa/Accra is UTC, ADR-0067), it starts a
+ * minute into that day instead: still ahead of the database, and a file's step-ups can no longer carry a sale made
+ * on one day into the next (the void refused at 00:00 in CI run 44203618726).
+ */
+export function testStartTime(realNow: number = Date.now()): Date {
+  const start = realNow + 60_000;
+  const nextDay = Date.UTC(new Date(start).getUTCFullYear(), new Date(start).getUTCMonth(), new Date(start).getUTCDate() + 1);
+  return new Date(nextDay - start < TEST_DAY_ROOM_MS ? nextDay + 60_000 : start);
 }
 
 /** A branch with a shop floor and a pen, as the seeded farm at Dodowa has. */
