@@ -147,6 +147,20 @@ import {
   ShiftOpen as PosShiftOpen,
 } from '../../../src/modules/pos/interface/schemas';
 import { StatementCreate as WhlStatementCreate } from '../../../src/modules/whl/interface/schemas';
+import {
+  PublicQuoteRequest as QuoPublicQuoteRequest,
+  QuoteAcceptanceRecord as QuoAcceptanceRecord,
+  QuoteAcceptByLink as QuoAcceptByLink,
+  QuoteConvert as QuoConvert,
+  QuoteCreate as QuoCreate,
+  QuoteDeclineByLink as QuoDeclineByLink,
+  QuoteIssue as QuoIssue,
+  QuoteVersionCreate as QuoVersionCreate,
+  QuoteVersionUpdate as QuoVersionUpdate,
+  ReasonRequest as QuoReasonRequest,
+  RfqCreate as QuoRfqCreate,
+  RfqUpdate as QuoRfqUpdate,
+} from '../../../src/modules/quo/interface/schemas';
 import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
@@ -445,6 +459,19 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     revokeDevice: PosReasonBody,
     completeCounterSale: PosCounterSale,
     createStatement: WhlStatementCreate,
+    submitQuoteRequest: QuoPublicQuoteRequest,
+    acceptQuoteByLink: QuoAcceptByLink,
+    declineQuoteByLink: QuoDeclineByLink,
+    createRfq: QuoRfqCreate,
+    updateRfq: QuoRfqUpdate,
+    createQuote: QuoCreate,
+    reviseQuote: QuoVersionCreate,
+    updateQuoteVersion: QuoVersionUpdate,
+    issueQuoteVersion: QuoIssue,
+    recordQuoteAcceptance: QuoAcceptanceRecord,
+    declineQuote: QuoReasonRequest,
+    cancelQuote: QuoReasonRequest,
+    convertQuote: QuoConvert,
     forceCloseShift: PosReasonBody,
     countForceClosedShift: PosForceClosedShiftCount,
     holdSale: PosHeldSaleCreate,
