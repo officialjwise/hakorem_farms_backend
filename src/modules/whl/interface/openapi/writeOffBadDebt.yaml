@@ -1,0 +1,55 @@
+operationId: writeOffBadDebt
+tags:
+  - whl
+summary: "Write off an uncollectable invoice"
+description: "Asks for an unrecoverable open item (an issued invoice, receipt or debit note of a named customer), all of it or part, to be written off as bad debt with a reason (FR-WHL-012): always 202 with an approval of kind `BAD_DEBT_WRITE_OFF`, decided with step-up by a holder of `whl.bad_debt.approve` (the Owner) who did not ask (`MAKER_CANNOT_CHECK`); the database refuses it otherwise. On approval, in one transaction: the document's outstanding amount drops by the amount (the invoice itself is never edited), Dr 6940 Bad debts Cr 1200 against the customer is posted, and the write-off records that journal. No payment or credit note can then be put onto the amount written off. A document the caller cannot write off at its branch, real or not, is 404. Refusals: 422 `BAD_DEBT_WRITE_OFF_INVALID` (`NOT_AN_OPEN_ITEM`, `NO_CUSTOMER`, `NOTHING_OUTSTANDING`, `NOT_POSITIVE`, `MORE_THAN_OUTSTANDING`, `APPROVAL_PENDING`).\n\nPermission: `whl.bad_debt.write_off`."
+x-permission: whl.bad_debt.write_off
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/BadDebtWriteOff"
+      example:
+        billingDocumentId: "019a7b07-9a27-7fbb-94f3-0489a5767d67"
+        amountPesewas: 41000
+        reason: "Church treasurer relocated; two years overdue"
+responses:
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7b07-b916-799e-aed7-a2c11f271b9f"
+          kind: BAD_DEBT_WRITE_OFF
+          subject:
+            id: "019a7b07-d805-7382-b8ba-40f898d8b9d6"
+            docType: BAD_DEBT_WRITE_OFF
+            number: null
+          summary: "Write off GHS 410.00 of INV-2026-DDW-000871 owed by Bethel Assembly Youth Wing as bad debt. Reason: Church treasurer relocated; two years overdue"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

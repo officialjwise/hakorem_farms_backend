@@ -48,6 +48,12 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0277_iam_grant_whl_standing_order_bad_debt_permissions',
+      '0276_iam_seed_whl_standing_order_bad_debt_permissions',
+      '0275_fin_bad_debt_postings',
+      '0274_whl_standing_orders_bad_debts',
+      '0273_bil_settlement_write_off',
+      '0272_platform_add_whl_standing_order_bad_debt_documents',
       '0271_iam_seed_pos_pin_permission',
       '0270_pos_till_pin',
       '0269_whl_automatic_hold_release',

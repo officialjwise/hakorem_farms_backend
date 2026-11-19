@@ -8,7 +8,7 @@
  */
 export { OrdModule } from './ord.module';
 export { SalePosting, ORDER_COMPLETED, POST_SALE_OPERATION, type OfflineSaleFinding, type OfflineSaleOutcome, type OfflineSaleRequest, type SaleLineRequest, type SaleRequest, type SaleTenderRequest, type SaleView } from './application/sale-posting';
-export { PriceOverrideNeedsApprovalError, QuoteRequiredError, SaleInvalidError } from './application/errors';
+export { OrderInvalidError, PriceOverrideNeedsApprovalError, QuoteRequiredError, SaleInvalidError } from './application/errors';
 export { canMove, paymentStatusOf, ORDER_STATUSES, type OrderStatus, type PaymentStatus } from './domain/order';
 export { Orders, ORDER_CONFIRMED, ORDER_PLACED, type QuoteOrderLine, type QuoteOrderRequest, type SalesOrderView } from './application/orders';
 export type { ShiftSalesSummary } from './application/order-store';
