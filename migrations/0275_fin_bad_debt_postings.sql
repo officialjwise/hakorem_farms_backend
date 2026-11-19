@@ -1,4 +1,4 @@
--- 0273_fin_bad_debt_postings
+-- 0275_fin_bad_debt_postings
 -- B10 continued 3 (FR-WHL-012, ADR-0003, ADR-0090): WHL's ◆ event with ADR-0003's row:
 --   whl.BadDebtWrittenOff   Dr 6940 Bad debts the amount written off; Cr 1200 Trade receivables against the customer
 --   uq_journal_entry_bad_debt   one entry per write-off, ever

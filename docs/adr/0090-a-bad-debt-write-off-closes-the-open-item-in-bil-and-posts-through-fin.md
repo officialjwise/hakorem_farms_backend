@@ -32,7 +32,7 @@ off, and the money would be counted twice (once as bad debt, once as received).
 Option 3, under the parent session's leave (conditions: only these functions, no signature changed, identical behaviour
 with nothing written off, the database enforcing it, a rollback restoring the old bodies).
 
-- **BIL (migration 0271):** `bil.document_settlement.written_off_pesewas` (default nil, `ck_document_settlement_written_off`:
+- **BIL (migration 0273):** `bil.document_settlement.written_off_pesewas` (default nil, `ck_document_settlement_written_off`:
   never negative, and a document with anything written off never owes the customer money). `document_settlement_keep`,
   both forms of `apply_settlement` and `credit_note_refund` are replaced word for word but for subtracting it; a credit
   note reaching into it is refused as BIL's credit cap already is (`ck_billing_document_credit_cap`), an allocation as
@@ -41,7 +41,7 @@ with nothing written off, the database enforcing it, a rollback restoring the ol
   of a document with something written off is UNPAID when nothing was paid or credited, PART_PAID otherwise; no status
   is added to the contract (A-321 (d)). The rollback restores 0182's and 0187's bodies and refuses to run once anything
   has been written off.
-- **WHL (migration 0272):** `whl.bad_debt_write_off_request` (DOCUMENT, the ask; decided once by someone other than its
+- **WHL (migration 0274):** `whl.bad_debt_write_off_request` (DOCUMENT, the ask; decided once by someone other than its
   maker, `ck_bad_debt_write_off_request_checker`) and `whl.bad_debt_write_off` (LEDGER, insert-only, the write-off
   applied with its journal; `ck_bad_debt_write_off_checker` and the trigger `whl.bad_debt_write_off_check`: only for an
   APPLIED request, as asked, by its maker and checker). A correction is a reversing row (BL-092); none is updated.
@@ -49,7 +49,7 @@ with nothing written off, the database enforcing it, a rollback restoring the ol
   `whl.bad_debt.write_off` (the Accountant; the Owner too, because an Owner may grant only what it holds) and the
   approver's `whl.bad_debt.approve` (the Owner). The maker never checks: in IAM, in WHL's handler and in the database.
 - **Posting:** WHL's ◆ `whl.BadDebtWrittenOff` (declared with `declareLedgerEvents`), posted by FIN in the approving
-  transaction: Dr 6940 the amount, Cr 1200 against the customer's party (ADR-0003's row; migration 0273,
+  transaction: Dr 6940 the amount, Cr 1200 against the customer's party (ADR-0003's row; migration 0275,
   `uq_journal_entry_bad_debt`). The write-off row names that entry.
 - **Ageing:** a write-off is dated (`written_off_on`, the application clock's day), so the ageing as at a date takes off
   what was written off by then; 1200 was credited the same day, so the tie of ADR-0089 holds.

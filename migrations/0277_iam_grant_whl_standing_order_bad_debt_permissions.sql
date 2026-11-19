@@ -1,4 +1,4 @@
--- 0275_iam_grant_whl_standing_order_bad_debt_permissions
+-- 0277_iam_grant_whl_standing_order_bad_debt_permissions
 -- B10 continued 3 (FR-WHL-004, FR-WHL-012, A-320, A-321): who keeps standing orders and who writes off bad debt.
 -- Standing orders: Sales (FR-WHL-004's actor), the Manager and the Owner manage them; the Accountant reads them.
 -- Bad debt: the Accountant asks (FR-WHL-012's maker), the Owner approves (its checker). The Owner also holds the

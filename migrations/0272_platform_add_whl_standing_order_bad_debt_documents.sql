@@ -1,4 +1,4 @@
--- 0270_platform_add_whl_standing_order_bad_debt_documents
+-- 0272_platform_add_whl_standing_order_bad_debt_documents
 -- B10 continued 3 (FR-WHL-004, FR-WHL-012, ADR-0011, ADR-0090): a standing order and a bad-debt write-off are business
 -- documents owned by WHL, so the orders a standing order makes and the write-off's approval and journal have a subject.
 -- Neither is numbered: each is found from its customer.

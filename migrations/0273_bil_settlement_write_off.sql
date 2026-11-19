@@ -1,4 +1,4 @@
--- 0271_bil_settlement_write_off
+-- 0273_bil_settlement_write_off
 -- B10 continued 3 (FR-WHL-012, ADR-0090, A-321; the parent session's leave of 2026-11-18 to change BIL's settlement
 -- functions): a bad-debt write-off closes the open item in BIL itself, so PAY's open items, WHL's credit exposure and
 -- dunning all see it closed and no payment or credit note can be put onto the amount written off.
@@ -205,7 +205,7 @@ GRANT EXECUTE ON FUNCTION bil.apply_write_off(uuid, bigint, timestamptz) TO hk_a
 DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM bil.document_settlement WHERE written_off_pesewas > 0) THEN
-    RAISE EXCEPTION '0271 cannot be rolled back: documents have amounts written off as bad debt (forward fix only, ADR-0090)';
+    RAISE EXCEPTION '0273 cannot be rolled back: documents have amounts written off as bad debt (forward fix only, ADR-0090)';
   END IF;
 END
 $$;

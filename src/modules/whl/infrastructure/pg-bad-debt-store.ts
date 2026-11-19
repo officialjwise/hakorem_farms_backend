@@ -27,7 +27,7 @@ const requestOf = (r: RawRequest): WriteOffRequestRecord => ({
   createdAt: r.created_at,
 });
 
-/** WHL's bad-debt write-offs (migration 0272). Parameterised SQL only. */
+/** WHL's bad-debt write-offs (migration 0274). Parameterised SQL only. */
 export class PgBadDebtStore implements BadDebtStore {
   async insertRequest(tx: Transaction, r: WriteOffRequestRecord): Promise<void> {
     await tx.query(

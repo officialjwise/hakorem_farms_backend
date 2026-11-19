@@ -30,7 +30,7 @@ export interface WriteOffRecord {
   readonly recordedAt: Date;
 }
 
-/** WHL's bad-debt write-offs (FR-WHL-012, migration 0272). */
+/** WHL's bad-debt write-offs (FR-WHL-012, migration 0274). */
 export interface BadDebtStore {
   insertRequest(tx: Transaction, request: WriteOffRequestRecord): Promise<void>;
   request(tx: Transaction, id: string): Promise<WriteOffRequestRecord | null>;

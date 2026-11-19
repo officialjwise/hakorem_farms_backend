@@ -60,7 +60,7 @@ export interface StandingOrderFilter {
   readonly status: StandingOrderStatus | null;
 }
 
-/** WHL's standing orders and their runs (FR-WHL-004, migration 0272). */
+/** WHL's standing orders and their runs (FR-WHL-004, migration 0274). */
 export interface StandingOrderStore {
   insert(tx: Transaction, order: Omit<StandingOrderRecord, 'version' | 'lines'>, actorId: string, at: Date): Promise<void>;
   insertLines(tx: Transaction, standingOrderId: string, lines: readonly StandingOrderLineRecord[], actorId: string, at: Date): Promise<void>;

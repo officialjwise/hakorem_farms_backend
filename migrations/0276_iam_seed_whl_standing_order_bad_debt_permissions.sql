@@ -1,9 +1,9 @@
--- 0274_iam_seed_whl_standing_order_bad_debt_permissions
+-- 0276_iam_seed_whl_standing_order_bad_debt_permissions
 -- B10 continued 3 (FR-WHL-004, FR-WHL-012, ADR-0017, ADR-0035): the permissions of the standing order and bad-debt
 -- operations as contract/openapi.yaml names them, and the BAD_DEBT_WRITE_OFF approval: whatever its amount, decided by
 -- a holder of whl.bad_debt.approve other than the person who asked, with a fresh step-up. Asking and approving are
 -- separate permissions, so the maker (the Accountant) can never be the checker (the Owner) by grant either. Granted to
--- no role here; 0275 grants them.
+-- no role here; 0277 grants them.
 -- Data category: none (lookup rows).
 -- Rollback: tested (`pnpm db:rollback`).
 

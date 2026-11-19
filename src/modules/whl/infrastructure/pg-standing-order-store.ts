@@ -29,7 +29,7 @@ const RUN = `standing_order_id, run_date::text, outcome, order_id, reason, recor
 type RawRun = { standing_order_id: string; run_date: string; outcome: StandingOrderRunRecord['outcome']; order_id: string | null; reason: string | null; recorded_at: Date };
 const runOf = (r: RawRun): StandingOrderRunRecord => ({ standingOrderId: r.standing_order_id, runDate: r.run_date, outcome: r.outcome, orderId: r.order_id, reason: r.reason, recordedAt: r.recorded_at });
 
-/** WHL's standing orders and their runs (migration 0272). Parameterised SQL only. */
+/** WHL's standing orders and their runs (migration 0274). Parameterised SQL only. */
 export class PgStandingOrderStore implements StandingOrderStore {
   async insert(tx: Transaction, o: Omit<StandingOrderRecord, 'version' | 'lines'>, actorId: string, at: Date): Promise<void> {
     await tx.query(

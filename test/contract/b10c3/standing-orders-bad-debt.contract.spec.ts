@@ -11,7 +11,7 @@ import { issueInvoice } from '../../support/pay';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
-/** WHL's standing orders and the bad-debt write-off (B10 continued 3) answer in the shapes of contract/openapi.yaml 2.17.0. */
+/** WHL's standing orders and the bad-debt write-off (B10 continued 3) answer in the shapes of contract/openapi.yaml 2.18.0. */
 let database: TestDatabase;
 let api: TestApp;
 let accountant: TestSession;

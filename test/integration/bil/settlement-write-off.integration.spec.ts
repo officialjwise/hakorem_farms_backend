@@ -16,10 +16,10 @@ import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
 /**
- * BIL's settlement functions as 0271 replaced them (the parent session's leave of 2026-11-18, ADR-0090): on a document
+ * BIL's settlement functions as 0273 replaced them (the parent session's leave of 2026-11-18, ADR-0090): on a document
  * with nothing written off, `bil.document_settlement_keep`, both forms of `bil.apply_settlement` and
  * `bil.credit_note_refund` answer exactly what 0182's and 0187's did, proved by running one sequence of every kind of
- * step under the old bodies (taken word for word from 0271's down step) and under the new, on two documents of the
+ * step under the old bodies (taken word for word from 0273's down step) and under the new, on two documents of the
  * same figures, and comparing the summaries after each step. With something written off, the database refuses a
  * credit note or an allocation that would reach into it, and the write-off itself beyond what is outstanding.
  */
@@ -36,9 +36,9 @@ const as = (who: string) => sessions.get(who)!;
 const post = (who: string, path: string, body: object = {}) => consolePost(api.server, as(who), `/v1${path}`, randomUUID()).send(body);
 const actorOf = (who: string): Actor => ({ principalId: users.get(who)!.principalId, kind: 'USER', displayName: who, realm: 'STAFF', sessionId: null, steppedUpAt: null });
 const SEED_PASSWORD = `Seed-${randomUUID()}`;
-const MIGRATION = readFileSync(join(__dirname, '../../../migrations/0271_bil_settlement_write_off.sql'), 'utf8');
+const MIGRATION = readFileSync(join(__dirname, '../../../migrations/0273_bil_settlement_write_off.sql'), 'utf8');
 const UP = MIGRATION.slice(MIGRATION.indexOf('-- migrate:up'), MIGRATION.indexOf('-- migrate:down'));
-/** The four function bodies 0271 installs, and the four it restores on the way down (0182's and 0187's). */
+/** The four function bodies 0273 installs, and the four it restores on the way down (0182's and 0187's). */
 const NEW_BODIES = UP.slice(UP.indexOf('CREATE OR REPLACE FUNCTION bil.document_settlement_keep'), UP.indexOf('-- A bad-debt write-off applied'));
 const OLD_BODIES = MIGRATION.slice(MIGRATION.indexOf("-- 0182's trigger function"), MIGRATION.indexOf('ALTER TABLE bil.document_settlement DROP CONSTRAINT'));
 
@@ -118,7 +118,7 @@ async function customer(name: string): Promise<string> {
   return id;
 }
 
-describe('the settlement functions 0271 replaced, on a document with nothing written off', () => {
+describe('the settlement functions 0273 replaced, on a document with nothing written off', () => {
   it('answer exactly as 0182’s and 0187’s did, step by step', async () => {
     expect(NEW_BODIES.match(/CREATE OR REPLACE FUNCTION/g)).toHaveLength(4);
     expect(OLD_BODIES.match(/CREATE OR REPLACE FUNCTION/g)).toHaveLength(4);
