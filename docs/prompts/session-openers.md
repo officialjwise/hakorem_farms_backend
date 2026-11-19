@@ -3121,6 +3121,13 @@ The owner's decisions of 2026-11-18 for QUO (A-309 as amended), each test-first:
    only its hash is stored (ADR-0074, ADR-0087); test that no read returns it. Tests: an acceptance with no staff
    session is not flagged; one with a staff session is flagged with that staff member; a decline with a staff session
    is flagged too; a mutation that skips the flag turns a test red.
+5. The owner, 2026-11-19 (from the frontend's F10m): approving a below-floor quote only approves it. It neither issues
+   the version nor makes a link; the salesperson then issues and sends it and sees the link once, as for any quote. No
+   live link may exist that nobody has seen. B10's `QUOTE_BELOW_MARGIN` handler issues the version on approval today
+   (`Quotes.issueIn` from `onApproved`), so this is a LOUD behaviour change on 2.12.0's approval: record it as a dated
+   assumption. Tests: the approval leaves the version approved, not issued, with no token; issuing and sending after
+   approval returns the link once; no read ever returns a token; a mutation that makes a link at approval turns a test
+   red.
 Run scenario 2 of docs/UAT.md as a dry run and record every difference, including the two rules that scenario flags for
 the owner (credit check and delivery fee on a partial dispatch), decided conservatively and put to the owner. The
 standing orders and the bad-debt write-off of B10 continued 3 are in it where the scenario touches them.
@@ -3184,6 +3191,19 @@ with five eggs returned refunds exactly 917 (5,500 x 5 / 30 = 916.67, half-up); 
 refunds exactly 5,500 in total, never more; a mutation using the single-egg price, or rounding each egg on its own, turns a
 test red. Lane A's B09b continued 2 adds to createReturn's description that a line is returned in its sold unit; B11
 extends it to a part of a crate returned as single eggs.
+The owner, 2026-11-19 (from the frontend's F11; the numbers checked on the frontend's main at 5242161):
+- CR-056: grant B11's permissions in the seed. A Driver sees and records only their own runs and may upload
+  proof-of-delivery photographs only; a Storekeeper picks and packs; a Manager plans runs and dispatches. Each grant
+  gets a wrong-role refusal test and an other-driver's-run refusal test.
+- CR-057: the driver hands delivery cash in at a till shift. Add the operation: the till records each collection
+  handed in, against the driver's run, and the driver variance report shows anything short. It is never typed in as
+  loose cash. The cash goes only onto the receiving cashier's own open shift, through PAY's TillShiftCheck (ADR-0077),
+  and each collection is handed in exactly once. Test it with exact pesewas, including a short hand-in. POS is lane
+  A's: the parent session gives B11 leave for this one additive POS operation and its tests, keeping lane A's till-cash
+  rules unchanged.
+- CR-054: a proper short-pick shape with the customer's consent, instead of a same-product substitution.
+- CR-055: recording a part delivery.
+- The part-crate return rule above stands.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
 ```
 
