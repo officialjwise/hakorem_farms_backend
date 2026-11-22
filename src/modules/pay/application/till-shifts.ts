@@ -14,10 +14,16 @@ export interface TillCashRequest {
   /** Who records it: the shift's own cashier, or someone who may recover another cashier's till. */
   readonly actorId: string;
   readonly direction: TillCashDirection;
+  /**
+   * Cash a till took offline in a shift that has since stopped taking entries, recorded on that shift as a late entry
+   * (ADR-0077 Amendments, the owner on 2026-11-18): the shift must no longer take entries, and the actor must be its own
+   * cashier. Absent or false, the shift must be OPEN.
+   */
+  readonly lateEntry?: boolean;
 }
 
 /** Why cash may not move through the named shift. */
-export type TillCashRefusal = 'SHIFT_UNKNOWN' | 'SHIFT_NOT_OPEN' | 'SHIFT_NOT_OWN' | 'SHIFT_OTHER_REGISTER' | 'SHIFT_OTHER_BRANCH';
+export type TillCashRefusal = 'SHIFT_UNKNOWN' | 'SHIFT_NOT_OPEN' | 'SHIFT_NOT_OWN' | 'SHIFT_OTHER_REGISTER' | 'SHIFT_OTHER_BRANCH' | 'SHIFT_STILL_OPEN' | 'LATE_ENTRY_ONLY_IN';
 
 export type TillCashAnswer = { readonly ok: true; readonly register: { readonly id: string; readonly code: string; readonly locationId: string } } | { readonly ok: false; readonly refusal: TillCashRefusal };
 

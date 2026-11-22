@@ -187,6 +187,48 @@ export function judgeTillCash(
   return ok(null);
 }
 
+/** What a late entry is: a sale's cash tender, or one of the movements a till records (ADR-0077 Amendments). */
+export type LateEntryKind = 'SALE_CASH' | 'CASH_DROP' | 'PAY_OUT' | 'PAY_IN';
+
+/** A sale's cash and a pay-in put cash into the drawer, so raise what it should hold; a drop and a pay-out lower it. */
+export function lateEntryEffect(kind: LateEntryKind): 'RAISES' | 'LOWERS' {
+  return kind === 'SALE_CASH' || kind === 'PAY_IN' ? 'RAISES' : 'LOWERS';
+}
+
+/**
+ * The post-close adjustment of a late entry (◆ `pos.ShiftLateEntryPosted`, Dr 6900 Cr 1000 when short, Dr 1000 Cr 6900
+ * when over): the drawer was counted, or will be, against figures that leave the entry out, so the shift's over or short
+ * moves by exactly the entry. Cash the till took that never reached the count shows short by exactly its amount; a drop
+ * the count already missed is no longer short. Exact pesewas, nothing rounded.
+ */
+export function lateEntryAdjustment(kind: LateEntryKind, amount: Money): { readonly direction: 'SHORT' | 'OVER'; readonly amount: Money; readonly amountsPesewas: { readonly short: number; readonly over: number } } {
+  if (amount.compareTo(Money.zero()) <= 0) throw new Error('a late entry moves an amount above zero');
+  const short = lateEntryEffect(kind) === 'RAISES';
+  return { direction: short ? 'SHORT' : 'OVER', amount, amountsPesewas: { short: short ? amount.toJsonInteger() : 0, over: short ? 0 : amount.toJsonInteger() } };
+}
+
+/** Why cash from the queue may not go onto a closed shift as a late entry. */
+export type LateTillCashRefusal = 'SHIFT_STILL_OPEN' | 'LATE_ENTRY_ONLY_IN' | 'SHIFT_OTHER_BRANCH' | 'SHIFT_OTHER_REGISTER' | 'SHIFT_NOT_OWN';
+
+/**
+ * Whether cash the till took may be recorded as a late entry on the shift it happened in (ADR-0077 Amendments, the
+ * owner on 2026-11-18): only once the shift has stopped taking entries (closing, closed or force-closed; an open shift
+ * takes it as any cash), only into the till, only on the till and branch named, and only by the shift's own cashier, to
+ * whom the till's queue is attributed. Never anyone else's shift, not even for a manager recovering a till: a late
+ * entry is the cashier's own record arriving late, never cash put on a shift by someone else.
+ */
+export function judgeLateTillCash(
+  shift: { readonly status: 'OPEN' | 'CLOSING' | 'CLOSED'; readonly registerId: string; readonly branchId: string; readonly cashierId: string },
+  cash: { readonly registerId: string | null; readonly branchId: string; readonly actorId: string; readonly direction: 'IN' | 'OUT' },
+): Result<null, LateTillCashRefusal> {
+  if (shift.status === 'OPEN') return err('SHIFT_STILL_OPEN');
+  if (cash.direction !== 'IN') return err('LATE_ENTRY_ONLY_IN');
+  if (cash.branchId !== shift.branchId) return err('SHIFT_OTHER_BRANCH');
+  if (cash.registerId !== shift.registerId) return err('SHIFT_OTHER_REGISTER');
+  if (cash.actorId !== shift.cashierId) return err('SHIFT_NOT_OWN');
+  return ok(null);
+}
+
 /**
  * What a till shift has left of the seller's per-shift override limit (FR-POS-004): the limit less the price already
  * given below list on the shift's sales, and never less than nothing. A role with no per-shift limit has none left.

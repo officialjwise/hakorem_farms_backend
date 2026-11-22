@@ -52,6 +52,11 @@ export interface TenderRequest {
   readonly register: { readonly id: string; readonly code: string } | null;
   readonly receivedAt: Date;
   readonly allocations: readonly { readonly billingDocumentId: string; readonly amountPesewas: bigint }[];
+  /**
+   * Cash a till took offline on a shift that has since closed, recorded on that shift as a late entry (ADR-0077
+   * Amendments, the owner on 2026-11-18): only cash, only by the shift's own cashier, only on a shift no longer open.
+   */
+  readonly lateEntry?: boolean;
 }
 
 /**
@@ -216,6 +221,7 @@ export class Payments {
     if (method.kind === 'CASH' && request.register === null) broken.push({ field: `${field}/register`, rule: 'REGISTER_REQUIRED' });
     // Cash enters a till only inside a till shift (the owner on A-212 (a)); POS checks the shift is open under its lock.
     if (method.kind === 'CASH' && request.register !== null && (request.shiftDocumentId ?? null) === null) broken.push({ field: `${field}/register`, rule: 'SHIFT_REQUIRED' });
+    if (request.lateEntry === true && method.kind !== 'CASH') broken.push({ field: `${field}/methodCode`, rule: 'LATE_ENTRY_ONLY_CASH' });
     const plan = planTender(
       Money.ofPesewas(request.amountPesewas),
       request.allocations.map((a) => Money.ofPesewas(a.amountPesewas)),
@@ -241,6 +247,7 @@ export class Payments {
       actorId: actor.principalId,
       allocations: request.allocations,
       postsAtReceipt: true,
+      ...(request.lateEntry === true ? { lateEntry: true } : {}),
     }, `${field}/register`);
     const [view] = await this.viewsIn(tx, [id]);
     await this.audit.record(tx, { module: 'pay', action: 'RECORD', entityType: 'Payment', entityId: id, branchId: request.branchId, before: null, after: { ...view! } });
@@ -317,8 +324,9 @@ export class Payments {
     // Cash into a till only through its open shift, whoever calls (ADR-0077); the database holds that it names one.
     if (p.methodKind === 'CASH' && p.register !== null) {
       if (p.shiftDocumentId === null) throw new PaymentInvalidError([{ field, rule: 'SHIFT_REQUIRED' }]);
-      await this.tillCashIn(tx, { shiftDocumentId: p.shiftDocumentId, registerId: p.register.id, branchId: p.branchId, actorId, direction: 'IN' }, field);
+      await this.tillCashIn(tx, { shiftDocumentId: p.shiftDocumentId, registerId: p.register.id, branchId: p.branchId, actorId, direction: 'IN', ...(p.lateEntry === true ? { lateEntry: true } : {}) }, field);
     }
+    if (p.lateEntry === true && !(p.methodKind === 'CASH' && p.register !== null)) throw new PaymentInvalidError([{ field, rule: 'LATE_ENTRY_ONLY_CASH' }]);
     await this.documents.register(tx, { id: p.id, docType: 'PAYMENT', ownerModule: 'pay', branchId: p.branchId, actorId });
     await this.store.insert(tx, p);
     let allocated = 0n;

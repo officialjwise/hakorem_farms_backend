@@ -38,6 +38,32 @@ export interface CashMoved extends TillPosting {
 }
 
 /**
+ * ◆ `pos.ShiftLateEntryPosted` (ADR-0077 Amendments, the owner on 2026-11-18): cash from the till's queue recorded as a
+ * late entry on the shift it happened in, after that shift stopped taking entries, and the post-close adjustment it
+ * moves the shift's over or short by: `short` Dr 6900 Cr 1000, `over` Dr 1000 Cr 6900, against the till, exactly the
+ * entry's amount (one of the two is zero). The subject is the late entry, so it posts once. The finding itself reaches
+ * the daily exception report's source as `OFFLINE_LATE_CASH` (a sale's `pos.OfflineSaleFlagged`, a movement's
+ * `pos.OfflineCashMovementFlagged`), for a supervisor's review.
+ */
+export interface ShiftLateEntryPosted extends TillPosting {
+  readonly lateEntryId: string;
+  readonly sourceKind: 'SALE_CASH' | 'CASH_DROP' | 'PAY_OUT' | 'PAY_IN';
+  readonly paymentId: string | null;
+  readonly orderId: string | null;
+  readonly movementId: string | null;
+  readonly deviceId: string;
+  readonly amountPesewas: number;
+  readonly expectedEffect: 'RAISES' | 'LOWERS';
+  readonly adjustmentDirection: 'SHORT' | 'OVER';
+  readonly shiftState: 'CLOSING' | 'CLOSED' | 'FORCE_CLOSED';
+  readonly severity: 'REVIEW' | 'URGENT';
+  readonly occurredAt: string;
+  readonly recordedAt: string;
+  readonly abuseCases: readonly number[];
+  readonly amountsPesewas: { readonly short: number; readonly over: number };
+}
+
+/**
  * ◆ `pos.ShiftClosed`: a count signed off. It names the cashier, the supervisor and the over or short for the daily
  * exception report (`SHIFT_OVER_SHORT`, abuse case 17, B12).
  */
@@ -128,6 +154,7 @@ export interface OfflineSaleFlagged extends OfflineSaleSource {
     | 'TENDERS_DIFFER'
     | 'UNMATCHED_PAYMENT'
     | 'OFFLINE_CASH_NOT_TAKEN'
+    | 'OFFLINE_LATE_CASH'
     | 'OFFLINE_LATE_POSTING'
     | 'TILL_CLOCK_OUT_OF_TOLERANCE'
     | 'OFFLINE_SALE_TOO_OLD'
@@ -210,7 +237,7 @@ export interface OfflineCashMovementFlagged {
   readonly kind: 'CASH_DROP' | 'PAY_OUT' | 'PAY_IN';
   readonly occurredAt: string;
   readonly recordedAt: string;
-  readonly exceptionKind: 'CASH_MOVEMENT_REJECTED' | 'TILL_CLOCK_OUT_OF_TOLERANCE' | 'AUTHORISATION_FAILURE';
+  readonly exceptionKind: 'CASH_MOVEMENT_REJECTED' | 'TILL_CLOCK_OUT_OF_TOLERANCE' | 'AUTHORISATION_FAILURE' | 'OFFLINE_LATE_CASH';
   readonly severity: 'URGENT' | 'REVIEW';
   readonly summary: string;
   readonly amountPesewas: number;

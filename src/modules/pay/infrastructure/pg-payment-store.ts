@@ -183,9 +183,9 @@ export class PgPaymentStore implements PaymentStore {
       `INSERT INTO pay.payment (id, payment_method_id, method_kind, amount_pesewas, customer_id, order_document_id, shift_document_id, register_ref, register_code,
                                 provider, provider_reference, external_reference, payer_phone_masked,
                                 verification, received_at, cleared_at, status, branch_id, created_by, updated_by, posted_at, posted_by,
-                                bank_account_id, cheque_due_on, reverses_payment_id)
+                                bank_account_id, cheque_due_on, reverses_payment_id, late_entry)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $16, $17, $18, $19, $10, $11, $12, $13, $14, $15, $15, $12, CASE WHEN $12::timestamptz IS NULL THEN NULL ELSE $15::uuid END,
-               $20, $21::date, $22)`,
+               $20, $21::date, $22, $23)`,
       [
         p.id,
         p.paymentMethodId,
@@ -209,6 +209,7 @@ export class PgPaymentStore implements PaymentStore {
         p.bankAccountId ?? null,
         p.chequeDueOn ?? null,
         p.reversesPaymentId ?? null,
+        p.lateEntry ?? false,
       ],
     );
   }
@@ -298,9 +299,11 @@ export class PgPaymentStore implements PaymentStore {
     const { rows } = await tx.query<{ payment_method_id: string; method_kind: MethodKind; n: number; amount: string; refunded: string }>(
       // Cash refunded counts against the shift it was paid out of (A-273 (i), ADR-0077), whichever shift took the
       // payment; another method's refunds go back through its provider and count against the payments of the shift.
+      // A late entry is left out: the close counted the drawer without it, and it posts its own adjustment (ADR-0077
+      // Amendments, 2026-11-18).
       `WITH taken AS (
          SELECT payment_method_id, method_kind, count(*)::int AS n, sum(amount_pesewas) AS amount, sum(refunded_pesewas) AS refunded
-           FROM pay.payment WHERE shift_document_id = $1 AND status = 'CLEARED'
+           FROM pay.payment WHERE shift_document_id = $1 AND status = 'CLEARED' AND NOT late_entry
           GROUP BY payment_method_id, method_kind),
        paid_out AS (
          SELECT p.payment_method_id, p.method_kind, sum(r.amount_pesewas) AS amount

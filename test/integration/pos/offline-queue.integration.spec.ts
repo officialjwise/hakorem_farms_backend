@@ -384,7 +384,7 @@ describe('the cash movements of a sync batch: applied exactly once on their own 
     expect(await num('SELECT count(*)::text AS n FROM pos.cash_movement_sync WHERE client_movement_id = $1', [other.id])).toBe(0);
   });
 
-  it('records a closed shift movement nowhere, answers it REJECTED SHIFT_NOT_OPEN and raises it, the closed figures untouched', async () => {
+  it('records a closed shift movement on that shift as a late entry, its adjustment posted, the closed figures untouched (ADR-0077 Amendments, the owner on 2026-11-18)', async () => {
     const q3 = shifts.get('Q3')!;
     const declared = await post('esi', `/shifts/${q3.id}/close`, { declared: [{ paymentMethodId: id('CASH'), declaredPesewas: 0 }], lastDeviceCounter: 0 });
     expect(declared.status, JSON.stringify(declared.body)).toBe(200);
@@ -392,27 +392,29 @@ describe('the cash movements of a sync batch: applied exactly once on their own 
     const signed = await post('manager', `/shifts/${q3.id}/approve-close`, { reason: 'Counted with Esi' });
     expect(signed.status, JSON.stringify(signed.body)).toBe(200);
     const frozen = await one('SELECT expected_cash_pesewas::text AS e, status FROM pos.shift WHERE id = $1', [q3.id]);
-    const late = movement('PAY_OUT', 400, 'FUEL_PAYOUT', ago(1 * MINUTE), { note: 'Fuel for the generator' });
+    const late = movement('PAY_IN', 400, 'FLOAT_TOP_UP', ago(1 * MINUTE));
     const synced = await sync('esi', 'Q3', [], [late]);
     expect(synced.status, JSON.stringify(synced.body)).toBe(200);
-    expect(synced.body.cashMovementResults).toEqual([{ clientId: late.id, outcome: 'REJECTED', reason: 'SHIFT_NOT_OPEN' }]);
-    expect(await num('SELECT count(*)::text AS n FROM pos.cash_movement WHERE id = $1', [late.id])).toBe(0);
+    expect(synced.body.cashMovementResults).toEqual([{ clientId: late.id, outcome: 'APPLIED', reason: null }]);
+    expect(await one('SELECT shift_id, late_entry FROM pos.cash_movement WHERE id = $1', [late.id])).toEqual({ shift_id: q3.id, late_entry: true });
     expect(await one('SELECT expected_cash_pesewas::text AS e, status FROM pos.shift WHERE id = $1', [q3.id])).toEqual(frozen);
-    expect((await outbox('pos.OfflineCashMovementFlagged', late.id)).map((r) => [r.payload['exceptionKind'], r.payload['severity'], (r.payload['fact'] as Record<string, unknown>)['shiftStatus']])).toEqual([['CASH_MOVEMENT_REJECTED', 'URGENT', 'CLOSED']]);
+    // The pay-in Dr 1000 400 Cr 1010 400; the count never saw it, so the adjustment Dr 6900 400 Cr 1000 400.
+    expect([await balance('1000', [q3.id]), await balance('1010', [q3.id]), await balance('6900', [q3.id])]).toEqual([0, -400, 400]);
+    expect((await outbox('pos.OfflineCashMovementFlagged', late.id)).map((r) => [r.payload['exceptionKind'], r.payload['severity'], (r.payload['fact'] as Record<string, unknown>)['shiftState']])).toEqual([['OFFLINE_LATE_CASH', 'REVIEW', 'CLOSED']]);
   });
 
-  it('records a force-closed shift movement nowhere, answers it REJECTED SHIFT_NOT_OPEN and raises it', async () => {
+  it('still judges a force-closed shift movement by the rules: a drop the records never held is refused TILL_OVERDRAWN and raised', async () => {
     const q2 = shifts.get('Q2')!;
     await step('manager');
     const forced = await post('manager', `/shifts/${q2.id}/force-close`, { reason: 'The tablet will not power on and the cashier has gone home' });
     expect(forced.status, JSON.stringify(forced.body)).toBe(200);
     const late = movement('CASH_DROP', 1_000, 'SAFE_DROP', ago(1 * MINUTE));
     const synced = await sync('ama', 'Q2', [], [late]);
-    expect(synced.body.cashMovementResults).toEqual([{ clientId: late.id, outcome: 'REJECTED', reason: 'SHIFT_NOT_OPEN' }]);
+    expect(synced.body.cashMovementResults).toEqual([{ clientId: late.id, outcome: 'REJECTED', reason: 'TILL_OVERDRAWN' }]);
     expect(await num('SELECT count(*)::text AS n FROM pos.cash_movement WHERE id = $1', [late.id])).toBe(0);
     expect(await num("SELECT count(*)::text AS n FROM pos.cash_movement WHERE shift_id = $1 AND kind <> 'FLOAT_IN'", [q2.id])).toBe(0);
     const raised = await outbox('pos.OfflineCashMovementFlagged', late.id);
-    expect(raised.map((r) => [r.payload['exceptionKind'], r.payload['severity'], (r.payload['fact'] as Record<string, unknown>)['forceClosed']])).toEqual([['CASH_MOVEMENT_REJECTED', 'URGENT', true]]);
+    expect(raised.map((r) => [r.payload['exceptionKind'], r.payload['severity']])).toEqual([['CASH_MOVEMENT_REJECTED', 'URGENT']]);
   });
 
   it('holds exactly once in the database: a second applied row for one movement, and any change to the log, are refused', async () => {
