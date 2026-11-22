@@ -24,7 +24,7 @@ import { LedgerReconciliation } from './modules/fin';
 import { BalanceReconciliation, ReservationExpiry, StockAlertSweep } from './modules/inv';
 import { MortalityEvidenceReturns } from './modules/liv';
 import { QuoteExpiry } from './modules/quo';
-import { AccountHolds, Dunning } from './modules/whl';
+import { AccountHolds, Dunning, StandingOrders } from './modules/whl';
 import { CatalogueListing } from './modules/shp';
 import { ProviderPayments, Refunds } from './modules/pay';
 
@@ -44,6 +44,11 @@ const RESERVATION_EXPIRY_EVERY_MS = 60_000;
 const MORTALITY_EVIDENCE_RETURNS_EVERY_MS = 60_000;
 /** The storefront's listing is at most a minute behind prices and stock (A-178); carts and checkouts price live. */
 const CATALOGUE_REFRESH_EVERY_MS = 60_000;
+/**
+ * Every hour (FR-WHL-004, A-320): each standing order due today is made on the first run of the day, and one created
+ * later in the day for today on the next; a date is made once however often this runs.
+ */
+const STANDING_ORDERS_EVERY_MS = 3_600_000;
 /** Every fifteen minutes: an issued quote past its validity is expired and its stock given back (FR-QUO-009, A-309). */
 const QUOTE_EXPIRY_EVERY_MS = 900_000;
 /** Daily at 02:00 Africa/Accra (UTC), in the heavy-work window: the stock recompute (FR-INV-003, docs/OPERATIONS.md). */
@@ -124,12 +129,21 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const quoteExpiry = app.get(QuoteExpiry);
   const accountHolds = app.get(AccountHolds);
   const dunning = app.get(Dunning);
+  const standingOrders = app.get(StandingOrders);
   // The modules' scheduled jobs (ADR-0049, docs/OPERATIONS.md "Scheduled jobs").
   const jobs: ScheduledJob[] = [
     { name: 'reservation-expiry', when: { everyMs: RESERVATION_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await reservationExpiry.run(system)).length }) },
     { name: 'quote-expiry', when: { everyMs: QUOTE_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await quoteExpiry.run(system)).length }) },
     { name: 'account-hold', when: { cron: ACCOUNT_HOLD_CRON }, run: async (system) => ({ released: (await accountHolds.releasePaid(system)).length, held: (await accountHolds.run(system)).length }) },
     { name: 'dunning', when: { cron: DUNNING_CRON }, run: async (system) => ({ queued: (await dunning.run(system)).length }) },
+    {
+      name: 'standing-orders',
+      when: { everyMs: STANDING_ORDERS_EVERY_MS },
+      run: async (system) => {
+        const runs = await standingOrders.run(system);
+        return { runs: runs.length, created: runs.filter((r) => r.outcome === 'CREATED').length, heldForCredit: runs.filter((r) => r.outcome === 'HELD_FOR_CREDIT').length };
+      },
+    },
     { name: 'catalogue-refresh', when: { everyMs: CATALOGUE_REFRESH_EVERY_MS }, run: async () => catalogue.refresh() },
     {
       name: 'provider-sweep',

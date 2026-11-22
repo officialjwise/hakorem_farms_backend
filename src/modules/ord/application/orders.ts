@@ -329,60 +329,104 @@ export class Orders {
       if (customer === undefined || !customer.isLive) broken.push({ field: '/customerId', rule: 'CUSTOMER_NOT_ACTIVE' });
       if (broken.length > 0) throw new OrderInvalidError(broken);
 
-      const branch = (await this.refs.branchesIn(tx, [branchId])).get(branchId)!;
-      const orderId = this.nextId();
       const limit = await this.overrides.lineLimitIn(tx, actor!, branchId);
-      const { lines: priced, flagged } = await this.priceLines(tx, orderId, branchId, request, at, limit);
-      await this.documents.register(tx, { id: orderId, docType: 'SALES_ORDER', ownerModule: 'ord', branchId, actorId: actor!.principalId });
-      const orderNo = await this.numbers.allocateIn(tx, { docType: 'SALES_ORDER', fiscalYear: Number(toBusinessDate(at).slice(0, 4)), branchId, branchCode: branch.code, documentId: orderId });
-      const approval =
-        flagged.length === 0
-          ? null
-          : await this.overrides.requestIn(tx, actor!, { orderId, orderNo, branchId, customerId: request.customerId, salespersonId: actor!.principalId, lines: flagged });
-      const lines = priced.map((l) => (l.varianceRequiresApproval ? { ...l, varianceApprovalRequestId: approval!.id } : l));
-      const estimated = Money.sum(lines.map((l) => Money.ofPesewas(l.estimatedLineTotalPesewas)));
-      await this.store.insertOrder(tx, {
-        id: orderId,
-        orderNo,
-        channel: request.channel,
-        customerId: request.customerId,
-        contactName: null,
-        contactPhone: null,
-        paymentTerms: request.paymentTerms,
-        fulfilmentMode: request.fulfilmentMode,
-        sourceDocumentId: null,
-        shiftDocumentId: null,
-        salespersonId: actor!.principalId,
-        taxInclusive: true,
-        deliveryFeePesewas: 0n,
-        estimatedTotalPesewas: estimated.pesewas,
-        maximumTotalPesewas: estimated.pesewas,
-        isOffline: false,
-        placedAt: at,
-        notes: request.notes ?? null,
-        branchId,
-        actorId: actor!.principalId,
-      });
-      await this.store.recordStatus(tx, orderId, { id: this.nextId(), fromStatus: null, toStatus: 'PLACED', reason: null, occurredAt: at, actorId: actor!.principalId });
-      await this.store.insertLines(tx, lines);
-      const view = await this.viewOf(tx, orderId);
-      const placed: OrderPlaced = {
-        orderId,
-        orderNo,
-        channel: request.channel,
-        branchId,
-        customerId: request.customerId,
-        paymentTerms: request.paymentTerms,
-        estimatedTotalPesewas: estimated.toJsonInteger(),
-        placedAt: at.toISOString(),
-      };
-      await this.events.publish(tx, { type: ORDER_PLACED, subjectType: 'SalesOrder', subjectId: orderId, branchId, payload: placed, occurredAt: at });
-      await this.audit.record(tx, { module: 'ord', action: 'CREATE', entityType: 'SalesOrder', entityId: orderId, branchId, before: null, after: { ...view } });
+      const { view, approval } = await this.placeIn(tx, actor!, { branchId, request, at, limit, salespersonId: actor!.principalId, sourceDocumentId: null });
       const response: StoredResponse<SalesOrderView | ApprovalPendingView> =
-        approval === null ? { status: 201, body: view } : { status: 202, body: this.overrides.pendingView(approval, { id: orderId, number: orderNo }) };
+        approval === null ? { status: 201, body: view } : { status: 202, body: this.overrides.pendingView(approval, { id: view.id, number: view.orderNo! }) };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
     });
+  }
+
+  /**
+   * An order entered PLACED, its lines priced by the engine now, numbered, published and audited, in the caller's
+   * transaction under its series lock: `createOrder`'s and a standing order's run's (FR-WHL-004) one way in. A line priced
+   * outside the band or below list beyond `limit` asks for a `PRICE_OVERRIDE` approval (answered as `approval`).
+   */
+  private async placeIn(
+    tx: Transaction,
+    actor: Actor,
+    p: { readonly branchId: string; readonly request: OrderCreateRequest; readonly at: Date; readonly limit: bigint; readonly salespersonId: string; readonly sourceDocumentId: string | null },
+  ): Promise<{ readonly view: SalesOrderView; readonly approval: Awaited<ReturnType<PriceOverrides['requestIn']>> | null }> {
+    const { branchId, request, at, limit } = p;
+    const branch = (await this.refs.branchesIn(tx, [branchId])).get(branchId)!;
+    const orderId = this.nextId();
+    const { lines: priced, flagged } = await this.priceLines(tx, orderId, branchId, request, at, limit);
+    await this.documents.register(tx, { id: orderId, docType: 'SALES_ORDER', ownerModule: 'ord', branchId, actorId: actor.principalId });
+    const orderNo = await this.numbers.allocateIn(tx, { docType: 'SALES_ORDER', fiscalYear: Number(toBusinessDate(at).slice(0, 4)), branchId, branchCode: branch.code, documentId: orderId });
+    const approval =
+      flagged.length === 0
+        ? null
+        : await this.overrides.requestIn(tx, actor, { orderId, orderNo, branchId, customerId: request.customerId, salespersonId: p.salespersonId, lines: flagged });
+    const lines = priced.map((l) => (l.varianceRequiresApproval ? { ...l, varianceApprovalRequestId: approval!.id } : l));
+    const estimated = Money.sum(lines.map((l) => Money.ofPesewas(l.estimatedLineTotalPesewas)));
+    await this.store.insertOrder(tx, {
+      id: orderId,
+      orderNo,
+      channel: request.channel,
+      customerId: request.customerId,
+      contactName: null,
+      contactPhone: null,
+      paymentTerms: request.paymentTerms,
+      fulfilmentMode: request.fulfilmentMode,
+      sourceDocumentId: p.sourceDocumentId,
+      shiftDocumentId: null,
+      salespersonId: p.salespersonId,
+      taxInclusive: true,
+      deliveryFeePesewas: 0n,
+      estimatedTotalPesewas: estimated.pesewas,
+      maximumTotalPesewas: estimated.pesewas,
+      isOffline: false,
+      placedAt: at,
+      notes: request.notes ?? null,
+      branchId,
+      actorId: actor.principalId,
+    });
+    await this.store.recordStatus(tx, orderId, { id: this.nextId(), fromStatus: null, toStatus: 'PLACED', reason: null, occurredAt: at, actorId: actor.principalId });
+    await this.store.insertLines(tx, lines);
+    const view = await this.viewOf(tx, orderId);
+    const placed: OrderPlaced = {
+      orderId,
+      orderNo,
+      channel: request.channel,
+      branchId,
+      customerId: request.customerId,
+      paymentTerms: request.paymentTerms,
+      estimatedTotalPesewas: estimated.toJsonInteger(),
+      placedAt: at.toISOString(),
+    };
+    await this.events.publish(tx, { type: ORDER_PLACED, subjectType: 'SalesOrder', subjectId: orderId, branchId, payload: placed, occurredAt: at });
+    await this.audit.record(tx, { module: 'ord', action: 'CREATE', entityType: 'SalesOrder', entityId: orderId, branchId, before: null, after: { ...view } });
+    return { view, approval };
+  }
+
+  /**
+   * A standing order's run (FR-WHL-004, B10 continued 3): a credit order of the standing order's customer at its branch,
+   * collected, entered PLACED by the Scheduler (`actor`, a SYSTEM principal) for its salesperson, every line priced by
+   * the engine on the run date at the list price, the standing order its source document. Nothing is reserved or
+   * confirmed: confirming it runs the credit check like any other order (CR-046). A line the engine cannot price is
+   * `QuoteRequiredError`; anything else the order refuses is `OrderInvalidError`. It authorises nothing: WHL's job does.
+   */
+  async placeStandingIn(
+    tx: Transaction,
+    actor: Actor,
+    request: { readonly standingOrderId: string; readonly branchId: string; readonly customerId: string; readonly salespersonId: string; readonly lines: readonly { readonly productId: string; readonly quantity: string; readonly uom: string }[] },
+  ): Promise<SalesOrderView> {
+    if (actor.kind !== 'SYSTEM') throw new Error('a standing order is placed by the Scheduler only');
+    const order: OrderCreateRequest = {
+      channel: 'WHOLESALE',
+      customerId: request.customerId,
+      fulfilmentMode: 'COLLECTION',
+      paymentTerms: 'CREDIT',
+      lines: request.lines.map((l) => ({ productId: l.productId, quantity: l.quantity, uom: l.uom })),
+      notes: null,
+    };
+    const customer = (await this.refs.customersIn(tx, [request.customerId])).get(request.customerId);
+    if (customer === undefined || !customer.isLive) throw new OrderInvalidError([{ field: '/customerId', rule: 'CUSTOMER_NOT_ACTIVE' }]);
+    const { view, approval } = await this.placeIn(tx, actor, { branchId: request.branchId, request: order, at: this.clock.now(), limit: 0n, salespersonId: request.salespersonId, sourceDocumentId: request.standingOrderId });
+    // At the list price no line differs from it, so no override is ever asked for here.
+    if (approval !== null) throw new Error(`standing order ${request.standingOrderId}: a list-priced line asked for a price override`);
+    return view;
   }
 
   /**

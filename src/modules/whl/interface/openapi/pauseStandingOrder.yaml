@@ -1,0 +1,80 @@
+operationId: pauseStandingOrder
+tags:
+  - whl
+summary: "Pause a standing order"
+description: "An active standing order makes nothing until it is resumed; audited with the reason. Refusals: 422 `STANDING_ORDER_INVALID` with each rule in `details[].code` (`NOT_ACTIVE`).\n\nPermission: `whl.standing_order.manage`."
+x-permission: whl.standing_order.manage
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Hotel closed for renovation until January"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/StandingOrder"
+        example:
+          id: "019a7b04-1914-70f6-862f-1840dc69911e"
+          customer:
+            id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+            publicId: cus_TWMB751S2DFXTAM8
+            name: "Royal Palm Hotel Ltd"
+          status: ACTIVE
+          frequency: WEEKLY
+          weekday: 2
+          weekdays:
+            - 2
+          dayOfMonth: null
+          intervalDays: null
+          startsOn: "2026-10-06"
+          endsOn: null
+          nextRunOn: "2026-11-17"
+          deliveryAddress: null
+          lines:
+            - id: "019a7b04-3803-7ada-9012-b678561a2f56"
+              lineNo: 1
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-0001
+                name: "Full chicken, 15 kg pack"
+              quantity: "2.000"
+              uom: PACK
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

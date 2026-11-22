@@ -30,6 +30,13 @@ import { DUNNING_STORE, type DunningStore } from './application/dunning-store';
 import { PgDunningStore } from './infrastructure/pg-dunning-store';
 import { ReceivablesController } from './interface/receivables.controller';
 import { StatementsController } from './interface/statements.controller';
+import { BAD_DEBT_STORE, type BadDebtStore } from './application/bad-debt-store';
+import { BAD_DEBT_WRITE_OFF_KIND, BAD_DEBT_WRITTEN_OFF, BadDebts } from './application/bad-debts';
+import { STANDING_ORDER_STORE, type StandingOrderStore } from './application/standing-order-store';
+import { StandingOrders } from './application/standing-orders';
+import { PgBadDebtStore } from './infrastructure/pg-bad-debt-store';
+import { PgStandingOrderStore } from './infrastructure/pg-standing-order-store';
+import { StandingOrdersController } from './interface/standing-orders.controller';
 
 /**
  * WHL (layer 10): wholesale and business accounts. B08 continued 2d builds customer statements: the customer's trade
@@ -42,16 +49,64 @@ import { StatementsController } from './interface/statements.controller';
  */
 @Module({
   imports: [IamModule, MdmModule, DocModule, FinModule, BilModule, PayModule, OrdModule],
-  controllers: [StatementsController, BusinessAccountsController, ReceivablesController],
+  controllers: [StatementsController, BusinessAccountsController, ReceivablesController, StandingOrdersController],
   providers: [
     { provide: STATEMENT_STORE, useClass: PgStatementStore },
     { provide: ACCOUNT_STORE, useClass: PgAccountStore },
     { provide: DUNNING_STORE, useClass: PgDunningStore },
+    { provide: STANDING_ORDER_STORE, useClass: PgStandingOrderStore },
+    { provide: BAD_DEBT_STORE, useClass: PgBadDebtStore },
+    {
+      provide: StandingOrders,
+      useFactory: (
+        uow: UnitOfWork,
+        store: StandingOrderStore,
+        accounts: AccountStore,
+        credit: CreditControl,
+        orders: Orders,
+        refs: MasterDataRefs,
+        registry: DocumentRegistry,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new StandingOrders(uow, store, accounts, credit, orders, refs, registry, authoriser, idempotency, audit, cursors, clock),
+      inject: [UnitOfWork, STANDING_ORDER_STORE, ACCOUNT_STORE, CreditControl, Orders, MasterDataRefs, DocumentRegistry, Authoriser, Idempotency, AuditTrail, Cursors, CLOCK],
+    },
+    {
+      provide: BadDebts,
+      useFactory: (
+        uow: UnitOfWork,
+        store: BadDebtStore,
+        billing: Billing,
+        journals: Journals,
+        refs: MasterDataRefs,
+        registry: DocumentRegistry,
+        approvals: Approvals,
+        authoriser: Authoriser,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        events: DomainEvents,
+        clock: Clock,
+      ) => new BadDebts(uow, store, billing, journals, refs, registry, approvals, authoriser, idempotency, audit, events, clock),
+      inject: [UnitOfWork, BAD_DEBT_STORE, Billing, Journals, MasterDataRefs, DocumentRegistry, Approvals, Authoriser, Idempotency, AuditTrail, DomainEvents, CLOCK],
+    },
     {
       provide: Ageing,
-      useFactory: (uow: UnitOfWork, store: DunningStore, billing: Billing, allocations: AllocationsAsAt, journals: Journals, refs: MasterDataRefs, authoriser: Authoriser, cursors: Cursors, clock: Clock) =>
-        new Ageing(uow, store, billing, allocations, journals, refs, authoriser, cursors, clock),
-      inject: [UnitOfWork, DUNNING_STORE, Billing, AllocationsAsAt, Journals, MasterDataRefs, Authoriser, Cursors, CLOCK],
+      useFactory: (
+        uow: UnitOfWork,
+        store: DunningStore,
+        billing: Billing,
+        allocations: AllocationsAsAt,
+        journals: Journals,
+        refs: MasterDataRefs,
+        authoriser: Authoriser,
+        cursors: Cursors,
+        clock: Clock,
+        writeOffs: BadDebtStore,
+      ) => new Ageing(uow, store, billing, allocations, journals, refs, authoriser, cursors, clock, writeOffs),
+      inject: [UnitOfWork, DUNNING_STORE, Billing, AllocationsAsAt, Journals, MasterDataRefs, Authoriser, Cursors, CLOCK, BAD_DEBT_STORE],
     },
     {
       provide: Dunning,
@@ -106,8 +161,9 @@ import { StatementsController } from './interface/statements.controller';
         principals: PrincipalNames,
         cursors: Cursors,
         clock: Clock,
-      ) => new BusinessAccounts(uow, store, credit, refs, parties, approvals, authoriser, idempotency, audit, events, registry, principals, cursors, clock),
-      inject: [UnitOfWork, ACCOUNT_STORE, CreditControl, MasterDataRefs, PartiesAdmin, Approvals, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK],
+        writeOffs: BadDebtStore,
+      ) => new BusinessAccounts(uow, store, credit, refs, parties, approvals, authoriser, idempotency, audit, events, registry, principals, cursors, clock, writeOffs),
+      inject: [UnitOfWork, ACCOUNT_STORE, CreditControl, MasterDataRefs, PartiesAdmin, Approvals, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, PRINCIPAL_NAMES, Cursors, CLOCK, BAD_DEBT_STORE],
     },
     { provide: AccountHolds, useFactory: (accounts: BusinessAccounts) => new AccountHolds(accounts), inject: [BusinessAccounts] },
     {
@@ -130,7 +186,7 @@ import { StatementsController } from './interface/statements.controller';
       inject: [UnitOfWork, STATEMENT_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DocumentRegistry, NumberSeries, Journals, Documents, Cursors, CLOCK, Ageing],
     },
   ],
-  exports: [Statements, BusinessAccounts, CreditControl, AccountHolds, Ageing, Dunning],
+  exports: [Statements, BusinessAccounts, CreditControl, AccountHolds, Ageing, Dunning, StandingOrders, BadDebts],
 })
 export class WhlModule implements OnModuleInit {
   constructor(
@@ -140,6 +196,7 @@ export class WhlModule implements OnModuleInit {
     @Inject(BusinessAccounts) private readonly accounts: BusinessAccounts,
     @Inject(CreditControl) private readonly credit: CreditControl,
     @Inject(ORDER_CONFIRMATION_POLICIES) private readonly policies: OrderConfirmationPolicy[],
+    @Inject(BadDebts) private readonly badDebts: BadDebts,
   ) {}
 
   onModuleInit(): void {
@@ -148,6 +205,10 @@ export class WhlModule implements OnModuleInit {
     this.approvals.registerHandler(CREDIT_OVERRIDE_KIND, this.credit.approvalHandler);
     this.approvals.registerHandler(ACCOUNT_RELEASE_KIND, this.accounts.releaseHandler);
     this.approvals.registerHandler(CREDIT_LIMIT_CHANGE_KIND, this.accounts.limitHandler);
+    this.approvals.registerHandler(BAD_DEBT_WRITE_OFF_KIND, this.badDebts.approvalHandler);
+    this.events.registerConsumer(this.badDebts.recoveries);
+    // ◆ ADR-0003: FIN posts the write-off (Dr 6940, Cr 1200 against the customer) in the approving transaction.
+    this.events.declareLedgerEvents([BAD_DEBT_WRITTEN_OFF]);
     // ORD's OrderConfirmationPolicy port (MODULE_BOUNDARIES section 6): WHL answers for credit orders.
     if (!this.policies.includes(this.credit)) this.policies.push(this.credit);
   }

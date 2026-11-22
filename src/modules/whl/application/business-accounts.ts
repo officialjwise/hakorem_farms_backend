@@ -17,6 +17,7 @@ import type { AsyncConsumer } from '../../../platform/events/domain-events';
 import { DISPATCHER_PRINCIPAL } from '../../../platform/events/outbox-dispatcher';
 import { pageProbe } from '../domain/paging';
 import type { AccountChangeRecord, AccountRecord, AccountStore } from './account-store';
+import type { BadDebtStore } from './bad-debt-store';
 import type { CreditControl } from './credit-control';
 import { AccountExistsError, AccountInvalidError, AskerCannotApproveError } from './errors';
 
@@ -135,6 +136,7 @@ export class BusinessAccounts {
     private readonly principals: PrincipalNames,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly writeOffs: BadDebtStore,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -305,6 +307,8 @@ export class BusinessAccounts {
   async releasePaidIn(tx: Transaction, customerId: string, actorId: string): Promise<boolean> {
     const account = await this.store.account(tx, customerId, true);
     if (account?.status !== 'ON_HOLD') return false;
+    // A debt written off was never paid: the hold of a customer who has had one stays until a person releases it (A-321 (e)).
+    if ((await this.writeOffs.writtenOffFor(tx, customerId)) > 0n) return false;
     if (!releasesOnPayment(account.holdAutomatic, await this.credit.openItemsIn(tx, customerId), toBusinessDate(this.clock.now()))) return false;
     await this.store.releaseAutomatic(tx, customerId, actorId, this.clock.now());
     const after = (await this.store.account(tx, customerId, true))!;

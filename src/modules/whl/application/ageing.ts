@@ -9,6 +9,7 @@ import type { MasterDataRefs } from '../../mdm';
 import type { AllocationsAsAt } from '../../pay';
 import { ageCustomer, sumAgeing, type AgeingFigures } from '../domain/ageing';
 import { pageFrom } from '../domain/paging';
+import type { BadDebtStore } from './bad-debt-store';
 import type { DunningStore } from './dunning-store';
 
 const READ = 'whl.ageing.read';
@@ -89,6 +90,7 @@ export class Ageing {
     private readonly authoriser: Authoriser,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly writeOffs: BadDebtStore,
   ) {}
 
   report(actor: Actor | undefined, query: AgeingQuery, cursor: string | undefined, limit: number): Promise<AgeingReportView> {
@@ -144,13 +146,15 @@ export class Ageing {
   private async figuresIn(tx: Transaction, filter: { readonly branchIds: readonly string[]; readonly customerId: string | null; readonly asOf: string }): Promise<Map<string, AgeingFigures>> {
     const documents = await this.billing.receivablesAsAtIn(tx, filter);
     const applied = await this.allocations.netAppliedIn(tx, documents.map((d) => d.id), filter.asOf);
+    // A bad debt written off by the day is no longer owed on it (FR-WHL-012, ADR-0090): 1200 was credited the same day.
+    const writtenOff = await this.writeOffs.writtenOffAsAt(tx, documents.map((d) => d.id), filter.asOf);
     const ledger = await this.journals.customerReceivableBalancesIn(tx, filter);
     const items = new Map<string, ReceivableAsAtRecord[]>();
     for (const d of documents) items.set(d.customerId, [...(items.get(d.customerId) ?? []), d]);
     const result = new Map<string, AgeingFigures>();
     for (const customerId of new Set([...items.keys(), ...ledger.keys()])) {
       const figures = ageCustomer(
-        (items.get(customerId) ?? []).map((d) => ({ issueDate: d.issueDate, dueDate: d.dueDate, grossPesewas: d.grossPesewas, creditedPesewas: d.creditedPesewas, appliedPesewas: applied.get(d.id) ?? 0n })),
+        (items.get(customerId) ?? []).map((d) => ({ issueDate: d.issueDate, dueDate: d.dueDate, grossPesewas: d.grossPesewas, creditedPesewas: d.creditedPesewas, appliedPesewas: (applied.get(d.id) ?? 0n) + (writtenOff.get(d.id) ?? 0n) })),
         ledger.get(customerId) ?? 0n,
         filter.asOf,
       );

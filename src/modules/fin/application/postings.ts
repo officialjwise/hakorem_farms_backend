@@ -69,6 +69,14 @@ interface SupplierInvoicePosting {
   readonly levies: readonly PurchaseLevy[];
 }
 
+/** The fields of WHL's `whl.BadDebtWrittenOff` FIN reads. */
+interface BadDebtPosting {
+  readonly writeOffId: string;
+  readonly customerId: string;
+  readonly branchId: string;
+  readonly amountPesewas: number;
+}
+
 /** POS's till events (migration 0228): one translator for all, each amount against the till's register. */
 export const TILL_POSTING_EVENTS = ['pos.ShiftOpened', 'pos.CashDropped', 'pos.CashPaidIn', 'pos.CashPaidOut', 'pos.ShiftClosed'] as const;
 
@@ -135,6 +143,7 @@ export class LedgerPostings {
       ['pay.ProviderSettled', (tx, event) => this.providerSettled(tx, event.payload as unknown as ProviderSettledPosting)],
       ['pay.UnidentifiedReceiptHeld', (tx, event) => this.unidentifiedReceipt(tx, event.payload as unknown as UnidentifiedReceiptPosting)],
       ...TILL_POSTING_EVENTS.map((code) => [code, async (_tx: Transaction, event: EventEnvelope) => this.till(event.payload as unknown as TillPosting)] as const),
+      ['whl.BadDebtWrittenOff', (tx, event) => this.badDebt(tx, event.payload as unknown as BadDebtPosting)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
       ['fin.DepreciationRun', async (_tx, event) => this.depreciationRun(event.payload as unknown as DepreciationRunPosted)],
@@ -202,6 +211,17 @@ export class LedgerPostings {
       sourceDocumentId: payload.sourceDocumentId,
       eventSubjectId: payload.movementId,
       reversesSubjectId: payload.reversesMovementId,
+    };
+  }
+
+  /** `whl.BadDebtWrittenOff` (ADR-0003, ADR-0090): Dr 6940 the amount; Cr 1200 against the customer. */
+  private async badDebt(tx: Transaction, payload: BadDebtPosting): Promise<Translated> {
+    const customer = (await this.refs.customersIn(tx, [payload.customerId])).get(payload.customerId);
+    return {
+      amounts: [{ key: 'amount', amount: Money.fromJsonInteger(payload.amountPesewas), subledgers: [customerParty(payload.customerId, customer?.name ?? null)] }],
+      sourceDocumentId: payload.writeOffId,
+      eventSubjectId: payload.writeOffId,
+      branchId: payload.branchId,
     };
   }
 
