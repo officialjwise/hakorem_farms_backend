@@ -84,6 +84,8 @@ One revision. Immutable once issued; a change is a new version. Posted statuses:
 
 - UNIQUE (`quote_id`, `version_no`); at most one `ISSUED` and one open (`DRAFT`, `PENDING_APPROVAL`) version per quote. Issuing a version sets the issued one to `SUPERSEDED`. Issued, a version is frozen but for its status (`ck_quote_version_frozen`, HK004). The acceptance link's token hash is in `quo.quote_link_token` (ADR-0087).
 
+
+**As changed in B10 continued 3b (migration 0278, A-323, the owner, 2026-11-19):** `status` gains `APPROVED`: a version below the margin floor that a second person approved, holding no stock, having sent nothing and having no link. `quo.quote_version_guard` moves `PENDING_APPROVAL` only to `DRAFT` or `APPROVED`, `APPROVED` only to `ISSUED`, exactly as approved; `ck_quote_version_approved_state` (an APPROVED version names its approval and an approver who is not its author); `uq_quote_version_open` counts APPROVED as open.
 ### `quo.quote_line` · DOCUMENT
 
 Frozen with its version.

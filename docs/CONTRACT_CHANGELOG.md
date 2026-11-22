@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.19.0, LOUD for a quote approved below the margin floor (the owner, 2026-11-19):** no field removed or retyped. `QuoteVersion.status` gains `APPROVED`. Approving `QUOTE_BELOW_MARGIN` no longer issues the version: it is `APPROVED`, holds nothing, sends nothing and has no link, and the quote reads `DRAFT`; `issueQuoteVersion` by anyone but its approver then issues it at the figures approved and answers its link once (new rule `APPROVER_CANNOT_ISSUE`). A client that waited for an approval to issue must now issue. See its entry.
 - **2.18.0:** additive. No existing field, parameter or status of an implemented operation changed. Nine planned WHL operations move into code (eight standing order operations and `writeOffBadDebt`) with planned shapes widened before any client used them: `StandingOrder` gains `weekdays`, `intervalDays` and the frequency `EVERY_N_DAYS` (`weekday` deprecated, the first of `weekdays`), `StandingOrderRun` gains `reason` and the outcomes `HELD_FOR_CREDIT` and `MISSED`; `writeOffBadDebt` answers only 202 (the planned 200 is gone) and may answer 404. **Behaviour a client of BIL's documents should read:** a document with an amount written off as bad debt shows that much less `outstandingPesewas`, keeps `UNPAID` or `PART_PAID` as its payment status, and takes no payment or credit note onto the amount written off. See its entry.
 - **2.17.0, LOUD for a witnessed cash drop and for an offline price difference:** no field removed or retyped. Four operations are new (`setTillPin`, `listTillPinVerifiers`, `reportTillPinEvents`, `listShiftWitnesses`). **Behaviour:** a `CASH_DROP` that names `witnessId` now also needs `witnessPinVersion`, the witness's till PIN version in force (422 `CASH_MOVEMENT_INVALID` `WITNESS_PIN_REQUIRED`, `WITNESS_PIN_UNKNOWN`, `WITNESS_PIN_SUPERSEDED`, `WITNESS_PIN_LOCKED`; at sync `REJECTED` with that reason); a synced sale's every price difference is now raised, URGENT beyond the cashier's limit (before: REVIEW, and only beyond it); an unverified tender's approver is checked against `approvedByPinVersion` (absent: URGENT).
 - **2.16.1:** no shape changed. `holdBusinessAccount`'s description: a hold the daily job placed is released by itself once nothing is past due (the owner, decision 4 on A-314); a person's hold only through `releaseBusinessAccount`. `whl.AccountReleased` gains `automatic`.
@@ -30,6 +31,13 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.19.0 (2026-11-22, B10 continued 3b)
+
+Minor, LOUD on 2.12.0's margin approval. A-323, migration 0278, the owner's decision of 2026-11-19 (frontend F10m).
+
+- `QuoteVersion.status` gains `APPROVED` (a version below the floor approved by a second person and not yet issued).
+- **Behaviour:** the `QUOTE_BELOW_MARGIN` approval only approves: no stock held, no `quo.QuoteIssued`, no link; the quote reads `DRAFT`. `issueQuoteVersion` on an APPROVED version issues it at the figures approved and answers `acceptanceLinkToken` once; its approver is refused with 422 `QUOTE_INVALID` `APPROVER_CANNOT_ISSUE`. No read returns a token.
 
 ## 2.18.0 (2026-11-19, B10 continued 3)
 
