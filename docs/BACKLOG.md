@@ -118,6 +118,8 @@ Each item says why it is parked and what would bring it back.
 | BL-087 | The X and Z reports show an offline mobile money tender taken unverified on the shift, beside the verified ones | Only CLEARED payments count in a shift's totals, and an unverified tender stays PENDING (A-279 (j)) | The owner wants the shift's reports to show it | A-279 (j) |
 | BL-088 | A manager recovering a device sends the cashier's queued shift open on the cashier's behalf | `ShiftOpen` names no cashier, so the sender becomes the shift's cashier (A-279 (k)) | A till is recovered with a shift open that never reached the server | A-279 (k), OFFLINE_SYNC 11 |
 | BL-089 | A manager clears a locked till PIN or a forgotten one without its owner setting a new PIN, under a second person's approval | Today only the PIN's owner clears a lock, by setting a new PIN at an online sign-in (A-280 (c), ADR-0080); a cashier away from a signed-in device cannot sell offline until then | The owner finds the lock keeps tills idle | A-280 (c), ADR-0080 |
+| BL-100 | A supervisor marks a late entry on a closed shift reviewed, with a note, from a read of the shift's late entries | Late entries reach the daily exception report's source as `OFFLINE_LATE_CASH` and B12 builds the queue; no review operation exists (A-281 (e)) | The owner wants late entries reviewed before B12's report | A-281 (e), ADR-0077 Amendments |
+| BL-101 | `getShift` answers the over or short as adjusted by its late entries beside the close's own | The shift's close figures are frozen and the adjustments are on the journal (A-281 (g)) | A screen shows a shift's late entries | A-281 (g) |
 
 ## Parked in B09u
 
