@@ -3121,13 +3121,9 @@ The owner's decisions of 2026-11-18 for QUO (A-309 as amended), each test-first:
    only its hash is stored (ADR-0074, ADR-0087); test that no read returns it. Tests: an acceptance with no staff
    session is not flagged; one with a staff session is flagged with that staff member; a decline with a staff session
    is flagged too; a mutation that skips the flag turns a test red.
-5. The owner, 2026-11-19 (from the frontend's F10m): approving a below-floor quote only approves it. It neither issues
-   the version nor makes a link; the salesperson then issues and sends it and sees the link once, as for any quote. No
-   live link may exist that nobody has seen. B10's `QUOTE_BELOW_MARGIN` handler issues the version on approval today
-   (`Quotes.issueIn` from `onApproved`), so this is a LOUD behaviour change on 2.12.0's approval: record it as a dated
-   assumption. Tests: the approval leaves the version approved, not issued, with no token; issuing and sending after
-   approval returns the link once; no read ever returns a token; a mutation that makes a link at approval turns a test
-   red.
+5. Built in B10 continued 3b (A-323, contract 2.19.0): a below-floor approval only approves (`APPROVED`); the
+   salesperson issues it and sees the link once. Nothing to do but keep it: the several-links work of item 2 starts
+   from an APPROVED version issued by its salesperson, never from an approval.
 Run scenario 2 of docs/UAT.md as a dry run and record every difference, including the two rules that scenario flags for
 the owner (credit check and delivery fee on a partial dispatch), decided conservatively and put to the owner. The
 standing orders and the bad-debt write-off of B10 continued 3 are in it where the scenario touches them.

@@ -92,6 +92,9 @@ describe('the status machines (FR-QUO-006, FR-QUO-009)', () => {
   it('moves a quote only along its edges', () => {
     expect([canMoveQuote('DRAFT', 'ISSUED'), canMoveQuote('ISSUED', 'ACCEPTED'), canMoveQuote('ACCEPTED', 'CONVERTED'), canMoveQuote('EXPIRED', 'ACCEPTED'), canMoveQuote('CONVERTED', 'CANCELLED')]).toEqual([true, true, true, false, false]);
   });
+  it('approves a version below the floor without issuing it; only the approved version is issued (the owner, 2026-11-19)', () => {
+    expect([canMoveVersion('PENDING_APPROVAL', 'APPROVED'), canMoveVersion('PENDING_APPROVAL', 'ISSUED'), canMoveVersion('APPROVED', 'ISSUED'), canMoveVersion('APPROVED', 'DRAFT'), canMoveVersion('DRAFT', 'APPROVED')]).toEqual([true, false, true, false, false]);
+  });
   it('freezes an issued version: it is only superseded or accepted', () => {
     expect([canMoveVersion('ISSUED', 'SUPERSEDED'), canMoveVersion('ISSUED', 'ACCEPTED'), canMoveVersion('ISSUED', 'DRAFT'), canMoveVersion('PENDING_APPROVAL', 'DRAFT'), canMoveVersion('SUPERSEDED', 'ISSUED')]).toEqual([true, true, false, true, false]);
   });

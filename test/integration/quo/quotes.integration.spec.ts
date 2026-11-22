@@ -157,7 +157,7 @@ describe('a quote is made of versions; an issued one never changes (FR-QUO-006, 
 });
 
 describe('below the margin floor a version waits for a different person (FR-QUO-005, the gate)', () => {
-  it('answers 202 at 263,996 (9.998 percent, shown as 10.00, compared exactly), refuses its author and the wrong role, and issues once the Owner approves', async () => {
+  it('answers 202 at 263,996 (9.998 percent, shown as 10.00, compared exactly), refuses its author and the wrong role; the Owner\'s approval only approves, and the salesperson issues it and sees the link once (the owner, 2026-11-19)', async () => {
     const made = await draft('manager', [goatLine(65_999)]);
     expect(made.status, JSON.stringify(made.body)).toBe(201);
     const v = made.body.currentVersion;
@@ -175,15 +175,28 @@ describe('below the margin floor a version waits for a different person (FR-QUO-
     expect([byAuthor.status, byAuthor.body.error?.code]).toEqual([422, 'MAKER_CANNOT_CHECK']);
     const byOwner = await approve('owner', asked.body.approvalRequestId);
     expect(byOwner.status, JSON.stringify(byOwner.body)).toBe(200);
+    // Approved, not issued: no stock held, no message queued, no link made.
     const after = await get('manager', `/quotes/${made.body.id}`);
-    expect([after.body.status, after.body.currentVersion.status, after.body.currentVersion.issuedBy.id]).toEqual(['ISSUED', 'ISSUED', users.get('manager')!.principalId]);
-    const approved = await one('SELECT approved_by FROM quo.quote_version WHERE id = $1', [v.id]);
-    expect(approved['approved_by']).toBe(users.get('owner')!.principalId);
-    // The re-issue after approval sends no second message: it answers a fresh link, and the outbox holds one QuoteIssued.
-    const again = await issue('manager', v.id);
-    expect([again.status, again.body.status, again.body.acceptanceLinkToken]).toEqual([200, 'ISSUED', expect.stringMatching(/^quo_/)]);
-    const sent = await one("SELECT count(*)::int AS n FROM platform.outbox_message WHERE event_type = 'quo.QuoteIssued' AND subject_id = $1", [made.body.id]);
-    expect(sent['n']).toBe(1);
+    expect([after.body.status, after.body.currentVersion.status, after.body.currentVersion.issuedBy, after.body.currentVersion.acceptanceLinkToken]).toEqual(['DRAFT', 'APPROVED', null, null]);
+    const approved = await one('SELECT approved_by, issued_by FROM quo.quote_version WHERE id = $1', [v.id]);
+    expect([approved['approved_by'], approved['issued_by']]).toEqual([users.get('owner')!.principalId, null]);
+    expect(await heldBy(made.body.id)).toEqual({ qty: '0.000', n: 0 });
+    const links = async () => (await one('SELECT count(*)::int AS n FROM quo.quote_link_token WHERE quote_version_id = $1', [v.id]))['n'];
+    const sent = async () => (await one("SELECT count(*)::int AS n FROM platform.outbox_message WHERE event_type = 'quo.QuoteIssued' AND subject_id = $1", [made.body.id]))['n'];
+    expect([await links(), await sent()]).toEqual([0, 0]);
+    // The approver may not issue what they approved (ADR-0017, held by the database too).
+    const byApprover = await issue('owner', v.id);
+    expect([byApprover.status, byApprover.body.error?.details?.[0]?.code]).toEqual([422, 'APPROVER_CANNOT_ISSUE']);
+    expect(await links()).toBe(0);
+    // The salesperson issues it: the figures approved stand, the stock is held, one message, the link answered once.
+    const issued = await issue('manager', v.id);
+    expect([issued.status, issued.body.status, issued.body.netPesewas, issued.body.acceptanceLinkToken], JSON.stringify(issued.body)).toEqual([200, 'ISSUED', 263_996, expect.stringMatching(/^quo_/)]);
+    expect([await links(), await sent()]).toEqual([1, 1]);
+    const read = await get('manager', `/quotes/${made.body.id}`);
+    expect([read.body.status, read.body.currentVersion.status, read.body.currentVersion.issuedBy.id, read.body.currentVersion.acceptanceLinkToken]).toEqual(['ISSUED', 'ISSUED', users.get('manager')!.principalId, null]);
+    const versions = await get('manager', `/quotes/${made.body.id}/versions`);
+    expect(versions.body.data.every((x: { acceptanceLinkToken: string | null }) => x.acceptanceLinkToken === null)).toBe(true);
+    expect(JSON.stringify([read.body, versions.body])).not.toContain(issued.body.acceptanceLinkToken as string);
   });
 
   it("refuses the version's author as its checker even when someone else asked to issue it (ADR-0017)", async () => {
@@ -211,6 +224,10 @@ describe('below the margin floor a version waits for a different person (FR-QUO-
       await sqlStateOf(
         app().query("UPDATE quo.quote_version SET status = 'ISSUED', issued_at = now(), issued_by = $2, approved_by = $2, approved_at = now(), version = version + 1 WHERE id = $1", [v.id, salesId]),
       ),
+    ).toBe('HK004');
+    // Since 0278 a waiting version is only approved, never issued straight away (HK004 above), and never approved by its author.
+    expect(
+      await sqlStateOf(app().query("UPDATE quo.quote_version SET status = 'APPROVED', approved_by = $2, approved_at = now(), version = version + 1 WHERE id = $1", [v.id, salesId])),
     ).toBe(SQLSTATE.checkViolation);
   });
 });

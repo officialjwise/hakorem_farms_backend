@@ -2,7 +2,7 @@ import { halfUpDivide, Money, type Quantity } from '@hakorem/kernel';
 
 export const QUOTE_STATUSES = ['DRAFT', 'PENDING_APPROVAL', 'ISSUED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CONVERTED', 'CANCELLED'] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
-export const VERSION_STATUSES = ['DRAFT', 'PENDING_APPROVAL', 'ISSUED', 'SUPERSEDED', 'ACCEPTED'] as const;
+export const VERSION_STATUSES = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ISSUED', 'SUPERSEDED', 'ACCEPTED'] as const;
 export type VersionStatus = (typeof VERSION_STATUSES)[number];
 export type PriceBasis = 'PER_HEAD' | 'PER_KG' | 'PER_UNIT';
 
@@ -102,7 +102,9 @@ const QUOTE_EDGES: Readonly<Record<QuoteStatus, readonly QuoteStatus[]>> = {
 
 const VERSION_EDGES: Readonly<Record<VersionStatus, readonly VersionStatus[]>> = {
   DRAFT: ['PENDING_APPROVAL', 'ISSUED'],
-  PENDING_APPROVAL: ['DRAFT', 'ISSUED'],
+  // The owner, 2026-11-19: an approval below the floor only approves; the salesperson issues the approved version.
+  PENDING_APPROVAL: ['DRAFT', 'APPROVED'],
+  APPROVED: ['ISSUED'],
   ISSUED: ['SUPERSEDED', 'ACCEPTED'],
   SUPERSEDED: [],
   ACCEPTED: [],

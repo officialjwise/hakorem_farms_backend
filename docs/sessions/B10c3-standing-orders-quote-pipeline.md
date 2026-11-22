@@ -144,6 +144,26 @@ To **B10 continued 4**: QUO's remainder, CR-047 point 2, the owner's QUO decisio
 
 A report cannot name the runs of the commit that adds it; every run on the final head is named in the session's closing message to the parent session, and the pull request merges only when each is green.
 
+## Added after the first merge: B10 continued 3b (branch `b10c3b-margin-approval-issues-nothing`, contract 2.19.0, 2026-11-22)
+
+The owner's item 1 of 2026-11-19, built at the parent session's request as a small follow-up through the merge slot. #116 merged as `965bf59`; main's push run on it, 45080168111, is green.
+
+- **The change (A-323, migration 0278, LOUD on 2.12.0):** a `QUOTE_BELOW_MARGIN` approval only approves: the version becomes `APPROVED` and the quote reads `DRAFT`, with no stock held, no `quo.QuoteIssued` and no link. `issueQuoteVersion` by anyone but the approver then issues it at the figures approved and answers its link once. The approver is refused `APPROVER_CANNOT_ISSUE`. B10's handler issued the version on approval until now; that was the LOUD behaviour.
+- **The database:** the guard moves `PENDING_APPROVAL` only to `DRAFT` or `APPROVED`, and `APPROVED` only to `ISSUED`, exactly as approved. `ck_quote_version_approved_state` names the approval and an approver who is not the author. `uq_quote_version_open` counts APPROVED as open. The rollback restores 0253's guard and refuses once a version is APPROVED.
+- **Test first:**
+  - `test/integration/quo/quotes.integration.spec.ts`'s gate test was rewritten and run red against the old behaviour (ISSUED where APPROVED was expected).
+  - It now proves these steps in order:
+    - approved, not issued, no token, nothing held, nothing sent;
+    - the approver refused;
+    - the salesperson's issue answers the link once (one token row, one message);
+    - no read of the quote or its versions carries it.
+  - The domain's version edges were red first (`quote.spec.ts`). The direct-SQL test now expects HK004 for a waiting version made ISSUED, and 23514 for one approved by its author.
+- **Mutation checks:**
+  - **A link minted at approval:** red. The database refuses a token for an unissued version, so the approval fails.
+  - **Issuing at approval, in the application only:** red. The approval fails.
+  - **The old behaviour, application and database together:** this is the red run the test was written against.
+- **Runs:** unit 1,803 passed; the QUO, WHL, ORD and both walk integration suites 235 passed (17 files); contract 132 passed; the rollback walk passed with 0278; lint, typecheck, Redocly, versioning against `main` clean. CI on the follow-up head is named in the closing message.
+
 ## Next session
 
 B10 continued 4, copied from `docs/prompts/session-openers.md` (inserted by this phase's split).
