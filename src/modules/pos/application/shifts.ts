@@ -34,7 +34,9 @@ export const CASH_PAID_OUT = 'pos.CashPaidOut';
 export const SHIFT_CLOSED = 'pos.ShiftClosed';
 export const SHIFT_FORCE_CLOSED = 'pos.ShiftForceClosed';
 export const OFFLINE_SHIFT_FLAGGED = 'pos.OfflineShiftFlagged';
-export const POS_LEDGER_EVENTS = [SHIFT_OPENED, CASH_DROPPED, CASH_PAID_IN, CASH_PAID_OUT, SHIFT_CLOSED] as const;
+/** ◆ A late entry's post-close adjustment (ADR-0077 Amendments), published by `OfflineSync`. */
+export const SHIFT_LATE_ENTRY_POSTED = 'pos.ShiftLateEntryPosted';
+export const POS_LEDGER_EVENTS = [SHIFT_OPENED, CASH_DROPPED, CASH_PAID_IN, CASH_PAID_OUT, SHIFT_CLOSED, SHIFT_LATE_ENTRY_POSTED] as const;
 
 const READ = 'pos.shift.read';
 const REPORT = 'pos.shift.report';

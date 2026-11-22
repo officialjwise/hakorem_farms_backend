@@ -43,14 +43,13 @@ import type { CashMoved, DeviceCounterGap, OfflineCashMovementFlagged, OfflineSa
 import type { Devices } from './devices';
 import { SyncBatchTooLargeError } from './errors';
 import { OFFLINE_UNVERIFIED_MOBILE_MONEY } from './offline-packs';
-import { MOVEMENT_EVENTS } from './shifts';
+import { MOVEMENT_EVENTS, SHIFT_LATE_ENTRY_POSTED } from './shifts';
 import type { RegisterRecord, SaleSyncRecord, ShiftRecord, TillStore } from './till-store';
 
 export const OFFLINE_SALE_FLAGGED = 'pos.OfflineSaleFlagged';
 export const OFFLINE_SALE_REJECTED = 'pos.OfflineSaleRejected';
 export const DEVICE_COUNTER_GAP = 'pos.DeviceCounterGap';
 export const OFFLINE_CASH_MOVEMENT_FLAGGED = 'pos.OfflineCashMovementFlagged';
-export const SHIFT_LATE_ENTRY_POSTED = 'pos.ShiftLateEntryPosted';
 const SELL = 'pos.sale.create';
 const MOVE = 'pos.cash.move';
 /** The supervisor's permission: who may approve an unverified tender on the device (OFFLINE_SYNC 5.3) or witness a drop. */
