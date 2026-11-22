@@ -415,7 +415,7 @@ export class Quotes {
     return this.write(actor, CREATE, 'reviseQuote', quoteId, { ...request }, key, async (tx, quote, at) => {
       if (quote.status !== 'ISSUED') throw stateError(quote.status);
       const versions = await this.store.versionsOf(tx, [quoteId]);
-      if (versions.some((v) => v.status === 'DRAFT' || v.status === 'PENDING_APPROVAL')) throw new QuoteInvalidError([{ field: '', rule: 'VERSION_OPEN' }]);
+      if (versions.some((v) => v.status === 'DRAFT' || v.status === 'PENDING_APPROVAL' || v.status === 'APPROVED')) throw new QuoteInvalidError([{ field: '', rule: 'VERSION_OPEN' }]);
       const from = isSet(request.copyFromVersionId) ? versions.find((v) => v.id === request.copyFromVersionId) : versions.find((v) => v.status === 'ISSUED');
       if (from === undefined) throw new QuoteInvalidError([{ field: '/copyFromVersionId', rule: 'VERSION_UNKNOWN' }]);
       const inputs = (await this.store.linesOf(tx, [from.id])).map(inputOf);
@@ -484,6 +484,13 @@ export class Quotes {
       const version = (await this.store.version(tx, versionId))!;
       if (version.status === 'ISSUED') return { status: 200, body: (await this.versionViewsIn(tx, [version]))[0]! };
       if (version.status === 'PENDING_APPROVAL') return { status: 202, body: await this.pendingOf(tx, quote, version) };
+      if (version.status === 'APPROVED') {
+        // The owner, 2026-11-19: the approved figures stand; the person who approved them never issues them (ADR-0017).
+        if (!['DRAFT', 'ISSUED'].includes(quote.status)) throw stateError(quote.status);
+        if (version.approvedBy === actor!.principalId) throw new QuoteInvalidError([{ field: '', rule: 'APPROVER_CANNOT_ISSUE' }]);
+        await this.issueIn(tx, quote, version, { issuerId: actor!.principalId, approvedBy: version.approvedBy, channels: request.channels, at, actorId: actor!.principalId });
+        return { status: 200, body: (await this.versionViewsIn(tx, [(await this.store.version(tx, versionId))!]))[0]! };
+      }
       if (version.status !== 'DRAFT' || !['DRAFT', 'PENDING_APPROVAL', 'ISSUED'].includes(quote.status)) throw stateError(version.status === 'DRAFT' ? quote.status : version.status);
       const inputs = (await this.store.linesOf(tx, [versionId])).map(inputOf);
       const broken: QuoteRule[] = [];
@@ -685,7 +692,11 @@ export class Quotes {
       // ADR-0017: the checker is neither the maker who asked (IAM refuses that) nor the version's author.
       if (request.decidedBy === version.createdBy) throw new QuoteAuthorCannotApproveError('the author of a quote version cannot approve its margin');
       if (!['DRAFT', 'PENDING_APPROVAL', 'ISSUED'].includes(quote.status)) throw stateError(quote.status);
-      await this.issueIn(tx, quote, version, { issuerId: request.requestedBy, approvedBy: request.decidedBy, channels: ['SMS'], at, actorId: request.decidedBy! });
+      // The owner, 2026-11-19: approving only approves. Nothing is held, sent or linked until the salesperson issues it
+      // and sees its link once; no live link exists that nobody has seen.
+      await this.store.setVersionStatus(tx, version.id, { status: 'APPROVED', approvedBy: request.decidedBy!, approvedAt: at }, request.decidedBy!, at);
+      if (quote.status === 'PENDING_APPROVAL') await this.store.updateQuote(tx, quote.id, { status: 'DRAFT' }, request.decidedBy!, at);
+      await this.audit.record(tx, { module: 'quo', action: 'APPROVE_MARGIN', entityType: 'QuoteVersion', entityId: version.id, branchId: quote.branchId, before: { status: 'PENDING_APPROVAL' }, after: { status: 'APPROVED', approvedBy: request.decidedBy } });
     },
     onRejected: async (tx: Transaction, request: ApprovalRecord) => {
       const at = this.clock.now();
@@ -732,7 +743,7 @@ export class Quotes {
     await this.store.setVersionStatus(
       tx,
       version.id,
-      { status: 'ISSUED', issuedAt: o.at, issuedBy: o.issuerId, ...(o.approvedBy === null ? {} : { approvedBy: o.approvedBy, approvedAt: o.at }) },
+      { status: 'ISSUED', issuedAt: o.at, issuedBy: o.issuerId, ...(o.approvedBy === null || version.approvedBy !== null ? {} : { approvedBy: o.approvedBy, approvedAt: o.at }) },
       o.actorId,
       o.at,
     );
