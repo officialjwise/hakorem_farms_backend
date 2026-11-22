@@ -117,7 +117,7 @@ export interface CashMovementView {
   readonly witnessPinVersion: number | null;
   /** A drop taken while no supervisor was signed in at the branch (A-273 (d)). */
   readonly unwitnessed: boolean;
-  /** Recorded from the till's queue on a shift that had closed, as a late entry (2.18.0, ADR-0077 Amendments). */
+  /** Recorded from the till's queue on a shift that had closed, as a late entry (2.20.0, ADR-0077 Amendments). */
   readonly lateEntry: boolean;
   readonly actor: PrincipalRef;
   readonly occurredAt: string;

@@ -33590,7 +33590,7 @@ components:
           description: "The witness's till PIN version the drop was confirmed with (2.17.0, ADR-0080): a witness whose PIN the till checked. Null with no witness, and on a drop recorded before 2.17.0."
         lateEntry:
           type: boolean
-          description: "True on a movement a till queued on this shift and synced after the shift had closed, was closing or was force-closed (2.18.0, the owner on 2026-11-18, ADR-0077 Amendments): recorded here as a late entry, left out of the shift's close and posted with its own post-close adjustment of the over or short. False on every other movement. Always sent."
+          description: "True on a movement a till queued on this shift and synced after the shift had closed, was closing or was force-closed (2.20.0, the owner on 2026-11-18, ADR-0077 Amendments): recorded here as a late entry, left out of the shift's close and posted with its own post-close adjustment of the over or short. False on every other movement. Always sent."
         actor:
           $ref: "#/components/schemas/PrincipalRef"
         occurredAt:
