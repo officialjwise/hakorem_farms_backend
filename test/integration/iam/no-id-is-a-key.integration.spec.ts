@@ -51,6 +51,8 @@ const TAKES_NO_IDENTIFIER = [
   'listMyQuotes',
   // B10 continued 5: the pipeline takes a period, no identifier (another branch's quotes are in no row: quo/quote-document-pipeline).
   'getQuotePipeline',
+  // B11 continued 2: the driver's own cash takes a date, no identifier (another driver's cash is in no row: del/driver-cash-hand-in).
+  'getMyCashSummary',
 ];
 
 /** Public by design, each proved in its own block below or in its module's tests (named here). */
