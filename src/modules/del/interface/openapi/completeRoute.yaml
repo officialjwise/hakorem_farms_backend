@@ -1,0 +1,110 @@
+operationId: completeRoute
+tags:
+  - del
+summary: "Close a route"
+description: "Closes a started run (2.32.0, B11 continued 3; the owner, 2026-11-23): **only when nothing is left on the van and nothing is still held by the driver.** Every stop's goods must have left the van, delivered (`DELIVERED`) or returned to stock (`RETURNED`; a write-off with a reason joins them in a later version); a stop still assigned, on its way or failed with its goods aboard is refused 422 `ROUTE_INVALID` `GOODS_ON_VAN`, one detail per stop (`field` `/stops/{deliveryId}`). Every collection made on the run must have been handed in at a till shift (`handInDriverCash`); while any is held, 422 `ROUTE_INVALID` `CASH_NOT_HANDED_IN`. Closed, the run is `COMPLETED` and frozen, and its `handIns` name the till hand-ins that took its cash, recorded against it by the database (A-345 (g)). The database holds the same rule at commit. A planned or closed run is refused 422 `INVALID_STATE_TRANSITION`. The same key answers the first close. Audited.\n\nPermission: `del.route.manage`."
+x-permission: del.route.manage
+x-error-codes:
+  - ROUTE_INVALID
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Route"
+        example:
+          id: "019a7b0a-04d3-7580-9ab9-60df274ad9bd"
+          driver:
+            id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+            displayName: "Kwesi Appiah"
+          routeDate: "2026-11-13"
+          vehicle:
+            id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+            code: VAN-GT4521
+            name: "Delivery van GT-4521-24"
+            kind: VEHICLE
+          status: COMPLETED
+          stops:
+            - stopNo: 1
+              delivery:
+                id: "019a7b08-15e3-7749-9c81-7d678c3af645"
+                deliveryNo: DLN-2026-DDW-000191
+                recipientName: "Royal Palm Hotel, kitchen"
+                area: "Airport Residential"
+                status: DELIVERED
+                codDuePesewas: 0
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+            - stopNo: 2
+              delivery:
+                id: "019a7b08-53c1-7b10-b048-b9d67f9c32b4"
+                deliveryNo: DLN-2026-DDW-000192
+                recipientName: "Kofi Agyeman"
+                area: "East Legon"
+                status: DELIVERED
+                codDuePesewas: 0
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+            - stopNo: 3
+              delivery:
+                id: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
+                deliveryNo: DLN-2026-DDW-000193
+                recipientName: "Asantewaa Chop Bar"
+                area: Adenta
+                status: DELIVERED
+                codDuePesewas: 24000
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+            - stopNo: 4
+              delivery:
+                id: "019a7b09-2c4a-7048-a580-0d5ad3738638"
+                deliveryNo: DLN-2026-DDW-000194
+                recipientName: "Grace Nyarko"
+                area: "Tema Community 11"
+                status: DELIVERED
+                codDuePesewas: 130000
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+          stopsOnVan: 0
+          codDueTotalPesewas: 154000
+          codCollectedPesewas: 154000
+          codHeldPesewas: 0
+          handIns:
+            - id: "019a7b2c-5e10-7c3a-9d41-0b6f2e8a1c77"
+          startedAt: "2026-11-13T07:30:00Z"
+          completedAt: "2026-11-13T17:10:00Z"
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

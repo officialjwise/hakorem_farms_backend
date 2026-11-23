@@ -208,4 +208,29 @@ export class PgDeliveryStore implements DeliveryStore {
       [id, d.collectedPesewas.toString(), d.at, d.actorId],
     );
   }
+
+  async markOnTheWay(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query(`UPDATE del.delivery SET status = 'OUT_FOR_DELIVERY', on_the_way_at = $2, updated_by = $3, version = version + 1 WHERE id = $1`, [id, d.at, d.actorId]);
+  }
+
+  async markFailed(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query(`UPDATE del.delivery SET status = 'FAILED', attempt_count = attempt_count + 1, updated_at = $2, updated_by = $3, version = version + 1 WHERE id = $1`, [id, d.at, d.actorId]);
+  }
+
+  async attemptById(tx: Transaction, id: string): Promise<AttemptRecord | null> {
+    const row = (
+      await tx.query<{ id: string; delivery_id: string; attempt_no: number; outcome: 'DELIVERED' | 'FAILED'; failure_reason_code: string | null; next_action: 'REATTEMPT' | 'RETURN_TO_STOCK' | null; latitude: string | null; longitude: string | null; occurred_at: Date; created_by: string }>(
+        `SELECT id, delivery_id, attempt_no, outcome, failure_reason_code, next_action, latitude::text, longitude::text, occurred_at, created_by FROM del.delivery_attempt WHERE id = $1`,
+        [id],
+      )
+    ).rows[0];
+    return row === undefined
+      ? null
+      : { id: row.id, deliveryId: row.delivery_id, attemptNo: row.attempt_no, outcome: row.outcome, failureReasonCode: row.failure_reason_code, nextAction: row.next_action, latitude: row.latitude, longitude: row.longitude, occurredAt: row.occurred_at, actorId: row.created_by };
+  }
+
+  async routeStatusOf(tx: Transaction, deliveryId: string): Promise<'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | null> {
+    const row = (await tx.query<{ status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' }>(`SELECT r.status FROM del.route_stop s JOIN del.route r ON r.id = s.route_id WHERE s.delivery_id = $1`, [deliveryId])).rows[0];
+    return row?.status ?? null;
+  }
 }

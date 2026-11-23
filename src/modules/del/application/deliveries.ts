@@ -15,13 +15,17 @@ import type { MasterDataRefs, Storefront } from '../../mdm';
 import type { DriverCash } from '../../pay';
 import { codVariance, judgeProof, takesProof, type DeliveryStatus, type ProofFile, type VarianceReason } from '../domain/deliveries';
 import { nextAttemptNo, pageProbe } from '../domain/numbering';
-import type { CodCollected, DeliveryCompleted } from '../events';
+import { judgeFailure, judgeOnTheWay, takesFailure } from '../domain/routes';
+import type { CodCollected, DeliveryCompleted, DeliveryFailed, DeliveryOnTheWay } from '../events';
 import { DeliveryInvalidError } from './errors';
 import type { ContentsLine, DeliveryRecord, DeliveryStore, ProofRecord } from './delivery-store';
 
 const READ = 'del.delivery.read';
 const READ_MINE = 'del.delivery.read.assigned';
 const PROOF = 'del.proof.create';
+const UPDATE_MINE = 'del.delivery.update.assigned';
+export const DELIVERY_ON_THE_WAY = 'del.DeliveryOnTheWay';
+export const DELIVERY_FAILED = 'del.DeliveryFailed';
 /** Who may drive a delivery: a holder of the driver's proof permission at the delivery's branch (CR-056 item 1). */
 const DRIVES = PROOF;
 export const DELIVERY_COMPLETED = 'del.DeliveryCompleted';
@@ -68,6 +72,22 @@ export interface ProofRequest {
   readonly codVarianceReasonCode?: string | undefined;
   readonly codVarianceNote?: string | undefined;
   readonly capturedAt: Date;
+}
+
+/** The contract's `OnTheWay`. */
+export interface OnTheWayRequest {
+  readonly occurredAt: Date;
+  readonly etaMinutes?: number | undefined;
+}
+
+/** The contract's `DeliveryFailure`: the attempt's id is the device's (an offline queue resends it). */
+export interface FailureRequest {
+  readonly id: string;
+  readonly failureReasonCode: string;
+  readonly nextAction: 'REATTEMPT' | 'RETURN_TO_STOCK';
+  readonly latitude?: string | undefined;
+  readonly longitude?: string | undefined;
+  readonly occurredAt: Date;
 }
 
 export interface DeliveryQuery {
@@ -318,6 +338,7 @@ export class Deliveries {
     const delivery = await this.mineIn(tx, actor, PROOF, id, true);
     if (earlier !== null) return { status: 200, body: (await this.viewsIn(tx, [delivery]))[0]! };
     if (!takesProof(delivery.status)) throw invalidState(`delivery ${id}`, delivery.status);
+    await this.assertRouteStartedIn(tx, id);
 
     const due = Money.ofPesewas(delivery.codDuePesewas);
     const collected = Money.ofPesewas(body.codCollectedPesewas);
@@ -413,6 +434,115 @@ export class Deliveries {
     const after = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
     await this.audit.record(tx, { module: 'del', action: 'DELIVER', entityType: 'Delivery', entityId: id, branchId: delivery.branchId, before: { ...before }, after: { ...after } });
     return { status: 200, body: after };
+  }
+
+  /**
+   * markOnTheWay (FR-DEL-007, FR-DEL-012): the caller's own delivery waiting on the van sets off, its time recorded once
+   * and the customer told through the outbox (`del.DeliveryOnTheWay`); one already on its way answers as it stands and
+   * records nothing; a finished or failed one is refused 422. A delivery on a run that has not started is refused.
+   */
+  markOnTheWay(actor: Actor | undefined, id: string, body: OnTheWayRequest, key: string): Promise<StoredResponse<DeliveryView>> {
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, UPDATE_MINE);
+      const claim = await this.idempotency.claim(tx, { operationId: 'markOnTheWay', principalId: actor!.principalId, key, request: { deliveryId: id, ...body } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<DeliveryView>;
+      const delivery = await this.mineIn(tx, actor, UPDATE_MINE, id, true);
+      const judged = judgeOnTheWay(delivery.status);
+      if (judged === 'REFUSE') throw invalidState(`delivery ${id}`, delivery.status);
+      if (judged === 'RECORD') {
+        await this.assertRouteStartedIn(tx, id);
+        if (body.occurredAt.getTime() < delivery.dispatchedAt.getTime()) throw new DeliveryInvalidError([{ field: '/occurredAt', rule: 'OCCURRED_BEFORE_DISPATCH' }]);
+        const before = (await this.viewsIn(tx, [delivery]))[0]!;
+        await this.store.markOnTheWay(tx, id, { at: body.occurredAt, actorId: actor!.principalId });
+        const event: DeliveryOnTheWay = {
+          deliveryId: id,
+          deliveryNo: delivery.deliveryNo,
+          orderDocumentId: delivery.orderDocumentId,
+          branchId: delivery.branchId,
+          driverId: actor!.principalId,
+          etaMinutes: body.etaMinutes ?? null,
+          occurredAt: body.occurredAt.toISOString(),
+        };
+        await this.events.publish<DeliveryOnTheWay>(tx, { type: DELIVERY_ON_THE_WAY, subjectType: 'Delivery', subjectId: id, branchId: delivery.branchId, payload: event, occurredAt: body.occurredAt });
+        const after = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
+        await this.audit.record(tx, { module: 'del', action: 'ON_THE_WAY', entityType: 'Delivery', entityId: id, branchId: delivery.branchId, before: { ...before }, after: { ...after, etaMinutes: body.etaMinutes ?? null } });
+      }
+      const response = { status: 200, body: (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]! };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
+
+  /**
+   * recordFailedDelivery (FR-DEL-011): on the caller's own delivery waiting on the van or on its way, an attempt that
+   * failed with a DELIVERY_FAILURE reason and what the driver asks next (REATTEMPT or RETURN_TO_STOCK); the delivery is
+   * FAILED, the goods stay on the van, and ORD moves the order to DELIVERY_FAILED (`del.DeliveryFailed`), in one
+   * transaction. The attempt's id is the device's: sent again it answers the delivery as it stands and records nothing;
+   * an id already used for another delivery is refused.
+   */
+  recordFailure(actor: Actor | undefined, id: string, body: FailureRequest, key: string): Promise<StoredResponse<DeliveryView>> {
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, UPDATE_MINE);
+      const claim = await this.idempotency.claim(tx, { operationId: 'recordFailedDelivery', principalId: actor!.principalId, key, request: { deliveryId: id, ...body } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<DeliveryView>;
+      const response = await this.failureIn(tx, actor!, id, body);
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
+
+  private async failureIn(tx: Transaction, actor: Actor, id: string, body: FailureRequest): Promise<StoredResponse<DeliveryView>> {
+    const earlier = await this.store.attemptById(tx, body.id);
+    if (earlier !== null && earlier.deliveryId !== id) throw new DeliveryInvalidError([{ field: '/id', rule: 'ID_IN_USE' }]);
+    const delivery = await this.mineIn(tx, actor, UPDATE_MINE, id, true);
+    if (earlier !== null) return { status: 200, body: (await this.viewsIn(tx, [delivery]))[0]! };
+    if (!takesFailure(delivery.status)) throw invalidState(`delivery ${id}`, delivery.status);
+    await this.assertRouteStartedIn(tx, id);
+    const reason = (await this.refs.reasonCodesIn(tx, [body.failureReasonCode])).get(body.failureReasonCode);
+    const broken = judgeFailure({
+      reason: reason === undefined ? 'UNKNOWN' : { domain: reason.domain, requiresNote: reason.requiresNote },
+      occurredAt: body.occurredAt,
+      dispatchedAt: delivery.dispatchedAt,
+      latitude: body.latitude,
+      longitude: body.longitude,
+    });
+    if (broken.length > 0) throw new DeliveryInvalidError(broken);
+
+    const before = (await this.viewsIn(tx, [delivery]))[0]!;
+    const attemptNo = nextAttemptNo(delivery.attemptCount);
+    await this.store.insertAttempt(tx, {
+      id: body.id,
+      deliveryId: id,
+      attemptNo,
+      outcome: 'FAILED',
+      failureReasonCode: body.failureReasonCode,
+      nextAction: body.nextAction,
+      latitude: body.latitude ?? null,
+      longitude: body.longitude ?? null,
+      occurredAt: body.occurredAt,
+      actorId: actor.principalId,
+    });
+    await this.store.markFailed(tx, id, { at: this.clock.now(), actorId: actor.principalId });
+    const failed: DeliveryFailed = {
+      deliveryId: id,
+      deliveryNo: delivery.deliveryNo,
+      orderDocumentId: delivery.orderDocumentId,
+      branchId: delivery.branchId,
+      driverId: actor.principalId,
+      attemptNo,
+      failureReasonCode: body.failureReasonCode,
+      nextAction: body.nextAction,
+      occurredAt: body.occurredAt.toISOString(),
+    };
+    await this.events.publish<DeliveryFailed>(tx, { type: DELIVERY_FAILED, subjectType: 'Delivery', subjectId: id, branchId: delivery.branchId, payload: failed, occurredAt: body.occurredAt });
+    const after = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
+    await this.audit.record(tx, { module: 'del', action: 'FAIL', entityType: 'Delivery', entityId: id, branchId: delivery.branchId, before: { ...before }, after: { ...after, failureReasonCode: body.failureReasonCode, nextAction: body.nextAction } });
+    return { status: 200, body: after };
+  }
+
+  /** A delivery on a run is acted on at the doorstep only once its run has started (422 ROUTE_NOT_STARTED); one on no run is not held back. */
+  private async assertRouteStartedIn(tx: Transaction, id: string): Promise<void> {
+    if ((await this.store.routeStatusOf(tx, id)) === 'PLANNED') throw new DeliveryInvalidError([{ field: '', rule: 'ROUTE_NOT_STARTED' }]);
   }
 
   /**

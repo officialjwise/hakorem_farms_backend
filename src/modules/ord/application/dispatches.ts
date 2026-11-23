@@ -7,7 +7,7 @@ import type { DomainEvents, EventEnvelope } from '../../../platform/events/domai
 import { translate } from '../../../platform/i18n/messages';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Billing, IssueLineRequest } from '../../bil';
-import type { ContentsLine, Deliveries, DeliveryCompleted } from '../../del';
+import type { ContentsLine, Deliveries, DeliveryCompleted, DeliveryFailed } from '../../del';
 import type { Authoriser } from '../../iam';
 import type { Reservations, Stock, StockUnits } from '../../inv';
 import type { MasterDataRefs, Storefront } from '../../mdm';
@@ -306,6 +306,28 @@ export class Dispatches {
     };
     await this.events.publish<OrderDelivered>(tx, { type: ORDER_DELIVERED, subjectType: 'SalesOrder', subjectId: header.id, branchId: header.branchId, payload: delivered, occurredAt: at });
     await this.audit.record(tx, { module: 'ord', action: 'DELIVER', entityType: 'SalesOrder', entityId: header.id, branchId: header.branchId, before: { status: 'DISPATCHED' }, after: { status: completed ? 'COMPLETED' : 'DELIVERED', deliveryId: done.deliveryId } });
+  }
+
+  /**
+   * `del.DeliveryFailed`, in DEL's transaction (ADR-0010, FR-DEL-011): the order moves DISPATCHED to DELIVERY_FAILED with
+   * the attempt's reason. Nothing moves: the goods stay on the van, the farm's, until a reattempt or a return to stock.
+   */
+  async failedIn(tx: Transaction, event: EventEnvelope): Promise<void> {
+    const failed = event.payload as unknown as DeliveryFailed;
+    const header = await this.orderStore.lock(tx, failed.orderDocumentId);
+    if (header === null) return;
+    if (header.status !== 'DISPATCHED') throw invalidState(`order ${header.id}`, header.status);
+    const at = new Date(failed.occurredAt);
+    await this.moveIn(tx, header, 'DELIVERY_FAILED', `Attempt ${failed.attemptNo} on ${failed.deliveryNo} failed: ${failed.failureReasonCode}`, at, event.actorId);
+    await this.audit.record(tx, {
+      module: 'ord',
+      action: 'DELIVERY_FAILED',
+      entityType: 'SalesOrder',
+      entityId: header.id,
+      branchId: header.branchId,
+      before: { status: 'DISPATCHED' },
+      after: { status: 'DELIVERY_FAILED', deliveryId: failed.deliveryId, failureReasonCode: failed.failureReasonCode, nextAction: failed.nextAction },
+    });
   }
 
   /** Each open line as weighed and picked: a catch-weight line in kilograms, any other in its sold unit (FR-BIL-005). */

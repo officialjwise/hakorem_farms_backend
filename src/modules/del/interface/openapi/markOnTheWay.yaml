@@ -1,0 +1,111 @@
+operationId: markOnTheWay
+tags:
+  - del
+summary: "Tell the customer I am on the way"
+description: "The driver sets off for a stop (2.32.0; FR-DEL-007, FR-DEL-012): a delivery assigned to the caller and waiting on the van moves to `OUT_FOR_DELIVERY`, its time recorded once, and the customer's message is queued through the outbox in the same transaction. One already on its way answers as it stands and records nothing more. A delivered, failed, returned or cancelled stop is refused 422 `INVALID_STATE_TRANSITION`; a stop on a run not started 422 `DELIVERY_INVALID` `ROUTE_NOT_STARTED`; a time before dispatch `OCCURRED_BEFORE_DISPATCH`. Another driver's delivery 403. The same key answers the first result. Audited.\n\nPermission: `del.delivery.update.assigned`. Ownership: deliveries assigned to the caller."
+x-permission: del.delivery.update.assigned
+x-error-codes:
+  - DELIVERY_INVALID
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/OnTheWay"
+      example:
+        occurredAt: "2026-11-13T11:20:00Z"
+        etaMinutes: 25
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Delivery"
+        example:
+          id: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
+          deliveryNo: DLN-2026-DDW-000193
+          status: OUT_FOR_DELIVERY
+          order:
+            id: "019a7b09-0d5b-7665-9b9d-6f2359c2e801"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004207
+          slot:
+            id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
+            date: "2026-11-14"
+            startsAt: "10:00"
+            endsAt: "12:00"
+            available: true
+            remaining: 4
+          deliveryZone:
+            id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+            code: ACC-EAST
+            name: "Accra East: Madina, Adenta, East Legon"
+          recipientName: "Asantewaa Chop Bar"
+          recipientPhone: "+233557018924"
+          address:
+            recipientName: "Asantewaa Chop Bar"
+            recipientPhone: "+233557018924"
+            line1: "Adenta Barrier, beside Total filling station"
+            area: Adenta
+            city: Accra
+            region: "Greater Accra"
+            digitalAddress: GD-021-7731
+            directions: "Yellow kiosk behind the station"
+          latitude: "5.705933"
+          longitude: "-0.159074"
+          contents:
+            - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+              name: "Eggs, big, crate of 30"
+              quantity: "4.000"
+              uom: CRATE
+              weightKg: null
+          driver:
+            id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+            displayName: "Kwesi Appiah"
+          vehicle:
+            id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+            code: VAN-GT4521
+            name: "Delivery van GT-4521-24"
+            kind: VEHICLE
+          codDuePesewas: 24000
+          codCollectedPesewas: null
+          attemptCount: 0
+          dispatchedAt: "2026-11-13T11:00:00Z"
+          deliveredAt: null
+          proof: null
+          deliveryNoteDocumentId: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

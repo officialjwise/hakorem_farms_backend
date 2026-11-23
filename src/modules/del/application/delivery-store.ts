@@ -95,4 +95,11 @@ export interface DeliveryStore {
   insertProof(tx: Transaction, p: ProofRecord): Promise<void>;
   /** ASSIGNED or OUT_FOR_DELIVERY to DELIVERED with the cash collected; one more attempt. */
   markDelivered(tx: Transaction, id: string, d: { readonly collectedPesewas: bigint; readonly at: Date; readonly actorId: string }): Promise<void>;
+  /** ASSIGNED to OUT_FOR_DELIVERY, its time recorded (FR-DEL-007). */
+  markOnTheWay(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void>;
+  /** To FAILED, one attempt more (FR-DEL-011). */
+  markFailed(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void>;
+  attemptById(tx: Transaction, id: string): Promise<AttemptRecord | null>;
+  /** The status of the route the delivery sits on; null when it is on none. */
+  routeStatusOf(tx: Transaction, deliveryId: string): Promise<'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | null>;
 }

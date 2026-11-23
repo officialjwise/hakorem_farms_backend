@@ -1,0 +1,116 @@
+operationId: createRoute
+tags:
+  - del
+summary: "Plan a driver's route for a day"
+description: "A driver's run for a day (2.32.0, B11 continued 3; FR-DEL-005, A-337): the deliveries dispatch loaded onto the vehicle (ADR-0092), in the order given, for one driver who drives for the vehicle's branch, on that live vehicle, on a date not past; one run per driver per day. Each stop is a delivery `ASSIGNED` to that driver on that vehicle at that branch, on no other run, dispatched on or before the run's date. Written `PLANNED`; stops are ordered by a person (no optimisation). **Refusals:** 422 `ROUTE_INVALID` with `NO_STOPS`, `STOP_REPEATED`, `DELIVERY_UNKNOWN`, `OTHER_BRANCH`, `NOT_ASSIGNED`, `NOT_THE_DRIVERS`, `NOT_ON_THE_VEHICLE`, `ON_ANOTHER_ROUTE`, `DISPATCHED_AFTER_ROUTE_DATE`, `ROUTE_DATE_PAST`, `DRIVER_HAS_A_ROUTE` or `NOT_A_VEHICLE`; 422 `DELIVERY_INVALID` with `NOT_A_DRIVER` or `NOT_A_VEHICLE`. The same key answers the first run. Audited.\n\nPermission: `del.route.manage`."
+x-permission: del.route.manage
+x-error-codes:
+  - ROUTE_INVALID
+  - DELIVERY_INVALID
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/RouteCreate"
+      example:
+        driverId: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+        routeDate: "2026-11-14"
+        vehicleLocationId: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+        deliveryIds:
+          - "019a7b08-15e3-7749-9c81-7d678c3af645"
+          - "019a7b08-53c1-7b10-b048-b9d67f9c32b4"
+          - "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Route"
+        example:
+          id: "019a7b0a-04d3-7580-9ab9-60df274ad9bd"
+          driver:
+            id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+            displayName: "Kwesi Appiah"
+          routeDate: "2026-11-13"
+          vehicle:
+            id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+            code: VAN-GT4521
+            name: "Delivery van GT-4521-24"
+            kind: VEHICLE
+          status: PLANNED
+          stops:
+            - stopNo: 1
+              delivery:
+                id: "019a7b08-15e3-7749-9c81-7d678c3af645"
+                deliveryNo: DLN-2026-DDW-000191
+                recipientName: "Royal Palm Hotel, kitchen"
+                area: "Airport Residential"
+                status: ASSIGNED
+                codDuePesewas: 0
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+            - stopNo: 2
+              delivery:
+                id: "019a7b08-53c1-7b10-b048-b9d67f9c32b4"
+                deliveryNo: DLN-2026-DDW-000192
+                recipientName: "Kofi Agyeman"
+                area: "East Legon"
+                status: ASSIGNED
+                codDuePesewas: 0
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+            - stopNo: 3
+              delivery:
+                id: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
+                deliveryNo: DLN-2026-DDW-000193
+                recipientName: "Asantewaa Chop Bar"
+                area: Adenta
+                status: ASSIGNED
+                codDuePesewas: 24000
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+            - stopNo: 4
+              delivery:
+                id: "019a7b09-2c4a-7048-a580-0d5ad3738638"
+                deliveryNo: DLN-2026-DDW-000194
+                recipientName: "Grace Nyarko"
+                area: "Tema Community 11"
+                status: ASSIGNED
+                codDuePesewas: 130000
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+          stopsOnVan: 4
+          codDueTotalPesewas: 154000
+          codCollectedPesewas: 0
+          codHeldPesewas: 0
+          handIns: []
+          startedAt: null
+          completedAt: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

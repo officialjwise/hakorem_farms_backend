@@ -8,6 +8,7 @@ registerMessages({
   'del.reference_not_found': 'Something this request refers to does not exist.',
   'del.delivery_invalid': 'This delivery cannot be recorded like this.',
   'del.driver_cash_invalid': "This driver's cash cannot be handed in like this.",
+  'del.route_invalid': "This driver's run cannot be planned, started or closed like this.",
 });
 
 function details(rules: readonly { readonly field: string; readonly rule: string }[], messageKey: string): ErrorDetail[] {
@@ -56,5 +57,14 @@ export class DriverCashInvalidError extends BusinessRuleError {
   readonly messageKey = 'del.driver_cash_invalid';
   constructor(rules: readonly { readonly field: string; readonly rule: string }[]) {
     super(`hand-in breaks ${rules.map((r) => r.rule).join(', ')}`, details(rules, 'del.driver_cash_invalid'));
+  }
+}
+
+/** 422 ROUTE_INVALID: a driver's run breaks a rule; `details[].code` names it (FR-DEL-005, the owner's close rule, 2026-11-23). */
+export class RouteInvalidError extends BusinessRuleError {
+  readonly code = 'ROUTE_INVALID';
+  readonly messageKey = 'del.route_invalid';
+  constructor(rules: readonly { readonly field: string; readonly rule: string }[]) {
+    super(`route breaks ${rules.map((r) => r.rule).join(', ')}`, details(rules, 'del.route_invalid'));
   }
 }

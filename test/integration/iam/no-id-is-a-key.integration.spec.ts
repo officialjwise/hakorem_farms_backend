@@ -53,6 +53,8 @@ const TAKES_NO_IDENTIFIER = [
   'getQuotePipeline',
   // B11 continued 2: the driver's own cash takes a date, no identifier (another driver's cash is in no row: del/driver-cash-hand-in).
   'getMyCashSummary',
+  // B11 continued 3: the driver's own run takes a date, no identifier (another driver's run is in no row: del/routes).
+  'getMyRoute',
 ];
 
 /** Public by design, each proved in its own block below or in its module's tests (named here). */

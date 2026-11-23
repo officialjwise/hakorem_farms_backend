@@ -8,6 +8,11 @@ export function nextAttemptNo(attempts: number): number {
   return attempts + 1;
 }
 
+/** A run's stops are numbered from 1 in the order of visit (`pk_route_stop`). */
+export function stopNo(index: number): number {
+  return index + 1;
+}
+
 const DAY_MS = 86_400_000;
 
 /** The last millisecond of an Africa/Accra calendar date (UTC+0 the year round, no daylight saving). */
