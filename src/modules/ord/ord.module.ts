@@ -11,8 +11,10 @@ import { CLOCK } from '../../platform/platform.module';
 import { BilModule, Billing } from '../bil';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { InvModule, Reservations, Stock, StockExceptions, StockMovements, StockQueries, StockUnits } from '../inv';
-import { MasterDataRefs, MdmModule, PricingService } from '../mdm';
+import { Deliveries, DelModule, DELIVERY_COMPLETED } from '../del';
+import { MasterDataRefs, MdmModule, PricingService, Storefront } from '../mdm';
 import { PayModule, Payments, ProviderPayments, Receipts, Refunds } from '../pay';
+import { Dispatches } from './application/dispatches';
 import { FULFILMENT_STORE, type FulfilmentStore } from './application/fulfilment-store';
 import { Fulfilments } from './application/fulfilments';
 import { OnlineOrders } from './application/online-orders';
@@ -39,7 +41,7 @@ import { ReturnsController } from './interface/returns.controller';
  * placement follow in B09a continued 2c (A-225), which adds `OrderReversals` (cancellation and the void under `SALE_VOID`), B09a continued 2d adds `Returns` (returns against the sale under `RETURN`, A-228), and B09a continued 2e adds `PriceOverrides` (`PRICE_OVERRIDE`, A-230) and the proforma; POS's counter sale (B9b) and fulfilment's dispatch (B11) call `SalePosting.postIn`.
  */
 @Module({
-  imports: [IamModule, MdmModule, InvModule, BilModule, PayModule],
+  imports: [IamModule, MdmModule, InvModule, BilModule, PayModule, DelModule],
   controllers: [OrdersController, ReturnsController, MyOrdersController, OrderTrackingController, FulfilmentsController, OrderFulfilmentController, MyOrderConsentController],
   providers: [
     { provide: ORDER_STORE, useClass: PgOrderStore },
@@ -78,6 +80,7 @@ import { ReturnsController } from './interface/returns.controller';
         clock: Clock,
         overrides: PriceOverrides,
         fulfilmentStore: FulfilmentStore,
+        deliveries: Deliveries,
       ) =>
         new Orders(
           uow,
@@ -102,6 +105,7 @@ import { ReturnsController } from './interface/returns.controller';
           clock,
           overrides,
           fulfilmentStore,
+          deliveries,
         ),
       inject: [
         UnitOfWork,
@@ -126,6 +130,7 @@ import { ReturnsController } from './interface/returns.controller';
         CLOCK,
         PriceOverrides,
         FULFILMENT_STORE,
+        Deliveries,
       ],
     },
     {
@@ -301,8 +306,32 @@ import { ReturnsController } from './interface/returns.controller';
       ) => new SalePosting(store, refs, pricing, stock, units, reservations, billing, payments, numbers, documents, events, idempotency, audit, clock, overrides, queries),
       inject: [ORDER_STORE, MasterDataRefs, PricingService, Stock, StockUnits, Reservations, Billing, Payments, NumberSeries, DocumentRegistry, DomainEvents, Idempotency, AuditTrail, CLOCK, PriceOverrides, StockQueries],
     },
+    {
+      provide: Dispatches,
+      useFactory: (
+        uow: UnitOfWork,
+        store: FulfilmentStore,
+        orderStore: OrderStore,
+        fulfilments: Fulfilments,
+        refs: MasterDataRefs,
+        storefront: Storefront,
+        units: StockUnits,
+        stock: Stock,
+        reservations: Reservations,
+        billing: Billing,
+        payments: Payments,
+        refunds: Refunds,
+        deliveries: Deliveries,
+        events: DomainEvents,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        authoriser: Authoriser,
+        clock: Clock,
+      ) => new Dispatches(uow, store, orderStore, fulfilments, refs, storefront, units, stock, reservations, billing, payments, refunds, deliveries, events, idempotency, audit, authoriser, clock),
+      inject: [UnitOfWork, FULFILMENT_STORE, ORDER_STORE, Fulfilments, MasterDataRefs, Storefront, StockUnits, Stock, Reservations, Billing, Payments, Refunds, Deliveries, DomainEvents, Idempotency, AuditTrail, Authoriser, CLOCK],
+    },
   ],
-  exports: [SalePosting, Orders, OrderReversals, Returns, OnlineOrders, Fulfilments, ORDER_CONFIRMATION_POLICIES],
+  exports: [SalePosting, Orders, OrderReversals, Returns, OnlineOrders, Fulfilments, Dispatches, ORDER_CONFIRMATION_POLICIES],
 })
 export class OrdModule implements OnModuleInit {
   constructor(
@@ -312,18 +341,21 @@ export class OrdModule implements OnModuleInit {
     @Inject(PriceOverrides) private readonly overrides: PriceOverrides,
     @Inject(OnlineOrders) private readonly online: OnlineOrders,
     @Inject(DomainEvents) private readonly events: DomainEvents,
+    @Inject(Dispatches) private readonly dispatches: Dispatches,
   ) {}
 
   /**
    * Registers the `SALE_VOID`, `RETURN` and `PRICE_OVERRIDE` approval handlers, and the online order's transactional
    * subscribers (ADR-0010: a module keeping its own aggregate consistent with a lower module's fact, A-232): the
-   * order's own money confirms it, a failed charge or a checkout's hold that ends first cancels it.
+   * order's own money confirms it, a failed charge or a checkout's hold that ends first cancels it; a delivery DEL
+   * completes issues the order's goods from the vehicle and moves it to DELIVERED (B11 continued).
    */
   onModuleInit(): void {
     this.events.subscribeInTransaction('pay.PaymentCleared', (tx, event) => this.online.paymentClearedIn(tx, event));
     this.events.subscribeInTransaction('pay.PaymentFailed', (tx, event) => this.online.paymentFailedIn(tx, event));
     this.events.subscribeInTransaction('inv.ReservationExpired', (tx, event) => this.online.holdEndedIn(tx, event));
     this.events.subscribeInTransaction('inv.ReservationReleased', (tx, event) => this.online.holdEndedIn(tx, event));
+    this.events.subscribeInTransaction(DELIVERY_COMPLETED, (tx, event) => this.dispatches.deliveredIn(tx, event));
     this.approvals.registerHandler(SALE_VOID_KIND, this.reversals.approvalHandler);
     this.approvals.registerHandler(RETURN_KIND, this.returns.approvalHandler);
     this.approvals.registerHandler(PRICE_OVERRIDE_KIND, this.overrides.approvalHandler);

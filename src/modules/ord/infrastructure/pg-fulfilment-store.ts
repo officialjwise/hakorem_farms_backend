@@ -20,7 +20,7 @@ const big = (value: unknown): bigint | null => (value === null ? null : BigInt(v
 const HEADER = `id, fulfilment_no, sales_order_id, pick_location_id, status, picker_id, picked_at, packed_at, dispatched_at, package_count,
                 cancel_reason, branch_id, version, created_by`;
 const pickColumns = (a: string) => `${a}id, ${a}fulfilment_id, ${a}pick_list_line_id, ${a}sales_order_line_id, ${a}stock_unit_id, ${a}pack_barcode,
-  ${a}qty::text AS qty, ${a}qty_base::text AS qty_base, ${a}weight_kg::text AS weight_kg, ${a}weight_source, ${a}withdrawn_at, ${a}recorded_at, ${a}created_by`;
+  ${a}qty::text AS qty, ${a}qty_base::text AS qty_base, ${a}weight_kg::text AS weight_kg, ${a}weight_source, ${a}stock_movement_id, ${a}withdrawn_at, ${a}recorded_at, ${a}created_by`;
 const PICK = pickColumns('');
 const CONSENT = `id, sales_order_id, sales_order_line_id, kind, status, proposed_product_id, proposed_stock_unit_id, proposed_qty::text AS proposed_qty,
                  proposed_uom, price_list_entry_id, price_basis, resolved_unit_price_pesewas::text AS resolved, floor_unit_price_pesewas::text AS floor,
@@ -58,6 +58,7 @@ function pick(r: Row): PickRecord {
     qtyBase: r['qty_base'] as string,
     weightKg: r['weight_kg'] as string | null,
     weightSource: r['weight_source'] as PickRecord['weightSource'],
+    stockMovementId: (r['stock_movement_id'] as string | null) ?? null,
     withdrawnAt: r['withdrawn_at'] as Date | null,
     recordedAt: r['recorded_at'] as Date,
     createdBy: r['created_by'] as string,
@@ -320,5 +321,41 @@ export class PgFulfilmentStore implements FulfilmentStore {
 
   async setSubstituteLine(tx: Transaction, consentId: string, lineId: string, _at: Date, actorId: string): Promise<void> {
     await tx.query('UPDATE ord.order_consent SET substitute_line_id = $2, updated_by = $3, version = version + 1 WHERE id = $1', [consentId, lineId, actorId]);
+  }
+
+  async dispatch(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query("UPDATE ord.fulfilment SET status = 'DISPATCHED', dispatched_at = $2, updated_at = $2, updated_by = $3, version = version + 1 WHERE id = $1", [id, d.at, d.actorId]);
+  }
+
+  async setPickMovement(tx: Transaction, pickId: string, movementId: string, at: Date, actorId: string): Promise<void> {
+    await tx.query('UPDATE ord.fulfilment_line SET stock_movement_id = $2, updated_at = $3, updated_by = $4 WHERE id = $1', [pickId, movementId, at, actorId]);
+  }
+
+  async insertIssue(tx: Transaction, i: { readonly pickId: string; readonly movementId: string; readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query('INSERT INTO ord.fulfilment_issue (fulfilment_line_id, stock_movement_id, recorded_at, created_by) VALUES ($1, $2, $3, $4)', [i.pickId, i.movementId, i.at, i.actorId]);
+  }
+
+  async issuesOf(tx: Transaction, pickIds: readonly string[]): Promise<Map<string, string>> {
+    if (pickIds.length === 0) return new Map();
+    const { rows } = await tx.query<{ pick: string; movement: string }>('SELECT fulfilment_line_id AS pick, stock_movement_id AS movement FROM ord.fulfilment_issue WHERE fulfilment_line_id = ANY($1::uuid[])', [[...pickIds]]);
+    return new Map(rows.map((r) => [r.pick, r.movement]));
+  }
+
+  async fixLine(tx: Transaction, lineId: string, status: 'FULFILLED' | 'PARTIAL'): Promise<void> {
+    await tx.query('UPDATE ord.sales_order_line SET line_status = $2 WHERE id = $1', [lineId, status]);
+  }
+
+  async setLineMovement(tx: Transaction, lineId: string, movementId: string): Promise<void> {
+    await tx.query('UPDATE ord.sales_order_line SET stock_movement_id = $2 WHERE id = $1 AND stock_movement_id IS NULL', [lineId, movementId]);
+  }
+
+  async invoiceOrder(tx: Transaction, orderId: string, i: { readonly billingDocumentId: string; readonly finalTotalPesewas: bigint; readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query('UPDATE ord.sales_order SET billing_document_id = $2, final_total_pesewas = $3, updated_at = $4, updated_by = $5, version = version + 1 WHERE id = $1', [
+      orderId,
+      i.billingDocumentId,
+      i.finalTotalPesewas.toString(),
+      i.at,
+      i.actorId,
+    ]);
   }
 }

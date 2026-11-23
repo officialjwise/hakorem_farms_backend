@@ -140,6 +140,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'getPublicReceipt', 'revokeReceiptLink', 'payInvoiceAtTill',
         'listFulfilments', 'createFulfilment', 'getFulfilment', 'recordPicks', 'packFulfilment', 'cancelFulfilment',
         'proposeSubstitution', 'proposeShortPick', 'recordCustomerConsent', 'answerMyOrderConsent',
+        'dispatchFulfilment', 'listDeliveries', 'getDelivery', 'getMyDelivery', 'recordProofOfDelivery',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

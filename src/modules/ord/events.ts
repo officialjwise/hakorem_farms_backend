@@ -230,3 +230,47 @@ export interface FulfilmentPacked {
   readonly weighedTotalPesewas: number;
   readonly packedAt: string;
 }
+
+/**
+ * `ord.OrderDispatched` v1 (B11 continued, FR-ORD-011, FR-DEL-012): a delivery order dispatched onto a vehicle, its
+ * billing document issued on the weighed quantity, its deposits allocated and the cash due on delivery fixed. Written to
+ * the outbox in the dispatch's own transaction, so the customer's one message with the weights and the final total exists
+ * exactly when the dispatch committed (NTF sends it, B11 continued 3). No identifier in it is a link's key (ADR-0074).
+ */
+export interface OrderDispatched {
+  readonly orderId: string;
+  readonly orderNo: string;
+  readonly branchId: string;
+  readonly customerId: string | null;
+  /** The number the message goes to: the order's contact, else the delivery's recipient. */
+  readonly contactPhone: string;
+  readonly billingDocumentId: string;
+  readonly billingDocumentNo: string;
+  readonly finalTotalPesewas: number;
+  readonly allocatedPesewas: number;
+  readonly refundRequestedPesewas: number;
+  readonly codDuePesewas: number;
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly lines: readonly { readonly orderLineId: string; readonly name: string; readonly quantity: string; readonly uom: string; readonly weightKg: string | null }[];
+  readonly dispatchedAt: string;
+}
+
+/**
+ * `ord.OrderDelivered` v1 (B11 continued, FR-DEL-008, FR-DEL-012): a dispatched order delivered, its goods issued from
+ * the vehicle; `completed` when nothing was left to pay. The customer's delivered message (NTF, B11 continued 3).
+ */
+export interface OrderDelivered {
+  readonly orderId: string;
+  readonly orderNo: string;
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly contactPhone: string | null;
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly billingDocumentId: string;
+  readonly codCollectedPesewas: number;
+  readonly outstandingPesewas: number;
+  readonly completed: boolean;
+  readonly deliveredAt: string;
+}

@@ -37,6 +37,7 @@ import type { ApprovalPendingView } from './order-reversals';
 import type { FlaggedLine, PriceOverrides } from './price-overrides';
 import type { FulfilmentStore } from './fulfilment-store';
 import { orderFulfilmentExtrasIn, type OrderFulfilmentExtras } from './order-extras';
+import type { Deliveries, DeliverySummaryView } from '../../del';
 import type { NewOrderLine, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, ShiftSalesSummary } from './order-store';
 
 const READ = 'ord.order.read';
@@ -167,7 +168,8 @@ export interface SalesOrderView {
   readonly deliveryAddress: unknown;
   readonly deliveryZone: null;
   readonly deliveryFeePesewas: number;
-  readonly delivery: null;
+  /** The order's live delivery once dispatched (B11 continued); null before. */
+  readonly delivery: DeliverySummaryView | null;
   readonly taxInclusive: boolean;
   readonly estimatedTotalPesewas: number;
   readonly maximumTotalPesewas: number;
@@ -241,6 +243,7 @@ export class Orders {
     private readonly clock: Clock,
     private readonly overrides: PriceOverrides,
     private readonly fulfilmentStore: FulfilmentStore,
+    private readonly deliveries: Deliveries,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -987,6 +990,7 @@ export class Orders {
       orders.flatMap((o) => (o.billingDocumentId === null ? [] : [o.billingDocumentId])),
     );
     const extras = await orderFulfilmentExtrasIn(tx, this.fulfilmentStore, this.refs, orders);
+    const deliveries = await this.deliveries.summariesOfOrdersIn(tx, orders.map((o) => o.id));
     const views: SalesOrderView[] = [];
     for (const o of orders) {
       const customer = o.customerId === null ? undefined : customers.get(o.customerId);
@@ -1010,7 +1014,7 @@ export class Orders {
         deliveryAddress: o.deliveryAddressSnapshot,
         deliveryZone: null,
         deliveryFeePesewas: json(o.deliveryFeePesewas),
-        delivery: null,
+        delivery: deliveries.get(o.id) ?? null,
         taxInclusive: o.taxInclusive,
         estimatedTotalPesewas: json(o.estimatedTotalPesewas),
         maximumTotalPesewas: json(o.maximumTotalPesewas),

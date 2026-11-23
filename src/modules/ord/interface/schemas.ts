@@ -134,6 +134,8 @@ export const PickRecordBody = z.strictObject({
 
 export const PackRecordBody = z.strictObject({ packageCount: z.number().int().min(1).max(999) });
 
+export const DispatchRecordBody = z.strictObject({ driverId: z.uuid().optional(), vehicleLocationId: z.uuid().optional() });
+
 export const FulfilmentReasonBody = z.strictObject({ reason: Text(500) });
 
 export const SubstitutionCreateBody = z.strictObject({
