@@ -183,9 +183,9 @@ export class PgPaymentStore implements PaymentStore {
       `INSERT INTO pay.payment (id, payment_method_id, method_kind, amount_pesewas, customer_id, order_document_id, shift_document_id, register_ref, register_code,
                                 provider, provider_reference, external_reference, payer_phone_masked,
                                 verification, received_at, cleared_at, status, branch_id, created_by, updated_by, posted_at, posted_by,
-                                bank_account_id, cheque_due_on, reverses_payment_id, late_entry)
+                                bank_account_id, cheque_due_on, reverses_payment_id, late_entry, driver_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $16, $17, $18, $19, $10, $11, $12, $13, $14, $15, $15, $12, CASE WHEN $12::timestamptz IS NULL THEN NULL ELSE $15::uuid END,
-               $20, $21::date, $22, $23)`,
+               $20, $21::date, $22, $23, $24)`,
       [
         p.id,
         p.paymentMethodId,
@@ -210,6 +210,7 @@ export class PgPaymentStore implements PaymentStore {
         p.chequeDueOn ?? null,
         p.reversesPaymentId ?? null,
         p.lateEntry ?? false,
+        p.driverId ?? null,
       ],
     );
   }

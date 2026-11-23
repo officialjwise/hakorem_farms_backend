@@ -75,6 +75,8 @@ export interface NewPayment {
   readonly reversesPaymentId?: string | null;
   /** Cash recorded on a shift that had stopped taking entries, as a late entry (ADR-0077 Amendments, 2026-11-18). */
   readonly lateEntry?: boolean;
+  /** Cash collected on delivery and held by this driver until it is handed in at a till shift (B11 continued, A-339). */
+  readonly driverId?: string | null;
 }
 
 /** A reversal asked for (`pay.payment_reversal`), waiting for a different person's approval. */

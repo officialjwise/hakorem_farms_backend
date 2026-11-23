@@ -494,6 +494,32 @@ export class Payments {
     });
   }
 
+  /**
+   * A cleared payment's deposit applied to billing documents in the caller's serializable transaction (ORD's dispatch
+   * allocates an order's deposit to its invoice on the weighed quantity, FR-ORD-011): exactly the rules, caps, ledger
+   * rows and ◆ `pay.DepositAllocated` of `allocatePayment`, under the payment's row lock, with its audit row. It
+   * authorises nothing: the caller's command has.
+   */
+  async allocateIn(tx: Transaction, actor: Actor, paymentId: string, allocations: readonly { readonly billingDocumentId: string; readonly amountPesewas: bigint }[]): Promise<void> {
+    if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
+    const [payment] = await this.store.payments(tx, [paymentId], true);
+    if (payment === undefined) throw new NotFoundError('no such payment');
+    const broken: PaymentRule[] = [];
+    if (payment.status !== 'CLEARED') broken.push({ field: '', rule: 'PAYMENT_NOT_CLEARED' });
+    if (allocations.length === 0) broken.push({ field: '/allocations', rule: 'NO_ALLOCATIONS' });
+    broken.push(...(await this.allocationRulesIn(tx, payment, allocations)));
+    if (broken.length > 0) throw new PaymentInvalidError(broken);
+    const [before] = await this.documentViews(tx, [payment]);
+    for (const [i, a] of allocations.entries()) {
+      const allocationId = this.nextId();
+      await this.capped(`/allocations/${i}/amountPesewas`, () => this.store.allocate(tx, { id: allocationId, paymentId, billingDocumentId: a.billingDocumentId, amountPesewas: a.amountPesewas, direction: 'APPLY', actorId: actor.principalId }));
+      await this.billing.settleIn(tx, a.billingDocumentId, a.amountPesewas, 'APPLY');
+      await this.publishAllocation(tx, payment, { allocationId, billingDocumentId: a.billingDocumentId, applied: a.amountPesewas, unapplied: 0n, reverses: null });
+    }
+    const [after] = await this.documentViewsIn(tx, [paymentId]);
+    await this.audit.record(tx, { module: 'pay', action: 'ALLOCATE', entityType: 'Payment', entityId: paymentId, branchId: payment.branchId, before: { ...before! }, after: { ...after! } });
+  }
+
   /** An allocation command: authorised, idempotent, serializable, at the payment's branch, with its audit event. */
   private async command(
     actor: Actor | undefined,
