@@ -10,6 +10,8 @@ import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
 import { Settings } from '../../platform/settings/settings';
+import { APP_CONFIG, receiptLinkTemplate, type AppConfig } from '../../platform/config/app-config';
+import { AudModule, BusinessProfiles } from '../aud';
 import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { InvModule, StockQueries, StockUnits } from '../inv';
 import { MasterDataRefs, MdmModule, PricingService, TaxService } from '../mdm';
@@ -31,6 +33,10 @@ import { PIN_STORE, type PinStore } from './application/pin-store';
 import { TillPins } from './application/till-pins';
 import { PgPinStore } from './infrastructure/pg-pin-store';
 import { PosController } from './interface/pos.controller';
+import { ReceiptsController } from './interface/receipts.controller';
+import { ReceiptLinks } from './application/receipt-links';
+import { RECEIPT_LINK_STORE, type ReceiptLinkStore } from './application/receipt-link-store';
+import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
 
 /**
  * POS (layer 10): the till. B9b builds registers and shifts: the opening float, cash drops, pay-outs and pay-ins, the
@@ -41,8 +47,8 @@ import { PosController } from './interface/pos.controller';
  * continued 2 adds the offline pack (`OfflinePacks`), reading INV's stock standing at the till.
  */
 @Module({
-  imports: [IamModule, MdmModule, FinModule, InvModule, BilModule, PayModule, OrdModule],
-  controllers: [PosController],
+  imports: [IamModule, AudModule, MdmModule, FinModule, InvModule, BilModule, PayModule, OrdModule],
+  controllers: [PosController, ReceiptsController],
   providers: [
     { provide: TILL_STORE, useClass: PgTillStore },
     { provide: PIN_STORE, useClass: PgPinStore },
@@ -115,8 +121,9 @@ import { PosController } from './interface/pos.controller';
         settings: Settings,
         audit: AuditTrail,
         clock: Clock,
-      ) => new OfflinePacks(uow, store, devices, pricing, tax, refs, stock, units, authoriser, settings, audit, clock),
-      inject: [UnitOfWork, TILL_STORE, Devices, PricingService, TaxService, MasterDataRefs, StockQueries, StockUnits, Authoriser, Settings, AuditTrail, CLOCK],
+        config: AppConfig,
+      ) => new OfflinePacks(uow, store, devices, pricing, tax, refs, stock, units, authoriser, settings, audit, clock, receiptLinkTemplate(config)),
+      inject: [UnitOfWork, TILL_STORE, Devices, PricingService, TaxService, MasterDataRefs, StockQueries, StockUnits, Authoriser, Settings, AuditTrail, CLOCK, APP_CONFIG],
     },
     {
       provide: OfflineSync,
@@ -137,8 +144,16 @@ import { PosController } from './interface/pos.controller';
         payments: Payments,
         unverified: UnverifiedTenders,
         pins: TillPins,
-      ) => new OfflineSync(uow, store, devices, posting, orders, refs, pricing, authoriser, ledger, settings, events, audit, clock, payments, unverified, pins),
-      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, MasterDataRefs, PricingService, Authoriser, Ledger, Settings, DomainEvents, AuditTrail, CLOCK, Payments, UnverifiedTenders, TillPins],
+        receipts: ReceiptLinks,
+      ) => new OfflineSync(uow, store, devices, posting, orders, refs, pricing, authoriser, ledger, settings, events, audit, clock, payments, unverified, pins, receipts),
+      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, MasterDataRefs, PricingService, Authoriser, Ledger, Settings, DomainEvents, AuditTrail, CLOCK, Payments, UnverifiedTenders, TillPins, ReceiptLinks],
+    },
+    { provide: RECEIPT_LINK_STORE, useClass: PgReceiptLinkStore },
+    {
+      provide: ReceiptLinks,
+      useFactory: (uow: UnitOfWork, store: ReceiptLinkStore, orders: Orders, billing: Billing, refs: MasterDataRefs, profiles: BusinessProfiles, clock: Clock) =>
+        new ReceiptLinks(uow, store, orders, billing, refs, profiles, clock, createUuidV7Generator(clock)),
+      inject: [UnitOfWork, RECEIPT_LINK_STORE, Orders, Billing, MasterDataRefs, BusinessProfiles, CLOCK],
     },
     {
       provide: Shifts,

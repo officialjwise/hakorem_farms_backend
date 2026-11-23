@@ -112,6 +112,7 @@ export default defineConfig({
         // the folders below adds its gate here, uncommented, before its gate passes.
         ...fullCoverage('packages/kernel/src/**/*.ts'),
         ...fullCoverage('src/modules/mdm/domain/pricing/**/*.ts'), // B4: the ADR-0004 walk and price list rules
+        ...fullCoverage('src/modules/pos/domain/receipt-link.ts'), // B09b continued 4: the receipt token's form and its binding (ADR-0083)
         ...fullCoverage('src/modules/mdm/domain/tax/**/*.ts'), // B4 continued: the tax calculator and scheme versions (ADR-0020)
         ...fullCoverage('src/modules/doc/domain/templates.ts'), // B08 continued 2b: the template sandbox (FR-DOC-004)
         ...fullCoverage('src/platform/documents/*-writer.ts'), // B08 continued 2b: archived bytes and reprint markers (FR-BIL-009)

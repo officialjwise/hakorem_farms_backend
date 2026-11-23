@@ -165,6 +165,8 @@ const OfflineSale = z.strictObject({
     )
     .min(1)
     .max(10),
+  /** The receipt link's token the till made (CR-033 point 2, ADR-0083): 22 to 86 base64url characters, at least 128 bits. */
+  receiptToken: z.string().regex(/^[A-Za-z0-9_-]{22,86}$/).optional(),
   payloadHash: z.string().regex(/^[0-9a-f]{64}$/),
 });
 export const OfflineSyncBatch = z.strictObject({
@@ -196,3 +198,6 @@ export const TillPinReport = z.strictObject({
     .max(MAX_SIGN_OUTS)
     .optional(),
 });
+
+/** A receipt link's token in the path: any short text, so a malformed one is answered 404 like any other (ADR-0083). */
+export const ReceiptTokenParam = z.string().min(1).max(200);

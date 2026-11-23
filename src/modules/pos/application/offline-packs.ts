@@ -69,6 +69,8 @@ export interface OfflinePackView {
   readonly register: { readonly id: string; readonly code: string; readonly name: string };
   /** The sequence the till's next shift takes, which a shift opened offline prints in its references (OFFLINE_SYNC 10, A-279 (c)). */
   readonly nextShiftSeq: number;
+  /** The receipt link the till fills with each sale's own token (CR-033 point 1, ADR-0083); null while the shop's address is unset. */
+  readonly receiptLinkTemplate: string | null;
   readonly generatedAt: string;
   readonly validUntil: string;
   readonly priceListVersionIds: readonly string[];
@@ -116,6 +118,7 @@ export class OfflinePacks {
     private readonly settings: Settings,
     private readonly audit: AuditTrail,
     private readonly clock: Clock,
+    private readonly linkTemplate: string | null = null,
   ) {}
 
   get(actor: Actor | undefined, registerId: string, deviceCredential: string | undefined): Promise<OfflinePackView> {
@@ -148,6 +151,7 @@ export class OfflinePacks {
       const view: OfflinePackView = {
         register: { id: register.id, code: register.code, name: register.name },
         nextShiftSeq: await this.store.nextShiftSeq(tx, register.id),
+        receiptLinkTemplate: this.linkTemplate,
         generatedAt: now.toISOString(),
         validUntil: packValidUntil(now, maxHours).toISOString(),
         priceListVersionIds: selling.priceListVersionIds,

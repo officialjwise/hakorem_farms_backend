@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.24.0:** additive. No existing field, parameter or status changed. `getPublicReceipt` is new (public, by the till's token alone); `OfflineSale.receiptToken` and `OfflinePack.receiptLinkTemplate` are new and optional; a sync result may name the new exception `RECEIPT_TOKEN_REFUSED`. See its entry.
 - **2.23.0, LOUD for `issueQuoteVersion` on stock not on hand (the owner, 2026-11-18):** no field removed or retyped. A quote for stock not on hand is issued subject to stock where it was refused with `STOCK_SHORT`; `getQuotePipeline` moves into code with its planned shape; `QuoteVersion.subjectToStock`, `QuoteLine.availableQuantity`, `heldQuantity` and `subjectToStock`, `PublicQuote.subjectToStock` and `PublicQuoteLine.subjectToStock` are new and always sent; `QuoteVersion.documentId` and `PublicQuote.documentUrl` are now filled.
 - **2.22.0, LOUD for `syncOfflineSales` beyond stock and for `resolveReconciliationBreak` on an unverified tender:** no field removed or retyped. `BreakResolve.posting` gains `VERIFIED`; a bare close of an `UNVERIFIED_PAYMENT` break whose tender still waits is now refused (`VERIFICATION_REQUIRED`). An offline line beyond stock at a location that does not allow negative now moves the stock below zero, instead of moving nothing; its `NEGATIVE_STOCK` names the movement. `reversePayment` takes `MOBILE_MONEY_NOT_RECEIVED`.
 - **2.21.0, LOUD for `approveRequest` on a credit note (BL-093):** no field removed or retyped. Two operations are new (`revokeQuoteLink`; `listMyQuotes` moves into code with its planned shape). `QuoteVersion` gains `acceptanceLinkId` and `links` (new `QuoteLink`, never a token); `PublicQuote` gains `acceptedName` and `decidedAt` (CR-047 point 2); the planned `ExceptionKind` gains `QUOTE_ACCEPTED_BY_STAFF`. **Behaviour:** a revoked link opens nothing (404); a credit note the database refuses at its approval answers 422 `CREDIT_NOTE_EXCEEDS_ORIGINAL` where it answered 500. See its entry.
@@ -35,6 +36,16 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.24.0 (2026-11-23, B09b continued 4)
+
+Minor, additive (CR-033 points 1 and 2, ADR-0074 Amendments, ADR-0083). A-284, migration 0292.
+
+- **New operation:** `getPublicReceipt` (`GET /shop/receipts/{token}`, public, no session, rate-limited as every public read): the counter sale's digital receipt by the till's token alone, `PublicReceipt` (new, with `PublicReceiptBusiness`, `PublicReceiptLine` and `PublicReceiptTender`): `state` `RECORDED`, `saleReference` (the order number), `receiptNo`, `occurredAt`, `validUntil`, `business` (name, phone, address; null while no profile is set), `lines`, `totalPesewas`, `tenders` (as the till took them), `changePesewas`, `currency`. No id of anything. Anything that is not a live link's token is 404 `NOT_FOUND`, one answer for all: a guess, an altered token, an expired or revoked link, the sale's id, its numbers, a SKU.
+- **Request field (optional):** `OfflineSale.receiptToken`, `^[A-Za-z0-9_-]{22,86}$`, the token the till made for the sale; covered by `payloadHash`. Stored only as its SHA-256. A token already bound to another sale, or shaped like a UUID, refuses only that sale's link: the sale is recorded and its result names the exception `RECEIPT_TOKEN_REFUSED`.
+- **Response field (always sent, nullable):** `OfflinePack.receiptLinkTemplate`, the https link containing `{token}`, null while the shop's address is not configured.
+- The SMS that sends the link (`SyncResultItem.receiptMessage`, CR-033 point 3) is B11's and not in this version.
+- No existing field removed, retyped or made required on a request.
 
 ## 2.23.0 (2026-11-23, B10 continued 5)
 

@@ -108,6 +108,9 @@ const environmentSchema = z
     // The public media origin (ADR-0045): it serves S3_BUCKET_PUBLIC_MEDIA, where only the variants of product
     // photographs are published, never an original. Unset in development and test: the bucket's own path-style URL.
     MEDIA_PUBLIC_BASE_URL: z.string().url().optional(),
+    // The receipt link (CR-033, ADR-0083): the shop's https address the till's links open, `<base>/r/<token>`. Unset, the
+    // offline pack carries no template and a till makes no link; the sale is still recorded.
+    RECEIPT_LINK_BASE_URL: z.string().url().regex(/^https:\/\/[^/?#]+(\/[^?#]*)?$/, 'must be an https URL with no query').optional(),
     // The malware scanner (A-057, ADR-0044): ClamAV's daemon, which the worker sends every upload to.
     CLAMAV_HOST: z.string().min(1).optional(),
     CLAMAV_PORT: z.coerce.number().int().min(1).max(65_535).default(3_310),
@@ -259,4 +262,10 @@ export function publicMediaBaseUrl(config: Pick<AppConfig, 'MEDIA_PUBLIC_BASE_UR
   const local = config.APP_ENV === 'development' || config.APP_ENV === 'test';
   if (!local || config.S3_ENDPOINT === undefined || config.S3_BUCKET_PUBLIC_MEDIA === undefined) return null;
   return `${config.S3_ENDPOINT.replace(/\/+$/, '')}/${config.S3_BUCKET_PUBLIC_MEDIA}`;
+}
+
+/** The template the offline pack hands the till (CR-033 point 1): `<RECEIPT_LINK_BASE_URL>/r/{token}`, or null when unset. */
+export function receiptLinkTemplate(config: Pick<AppConfig, 'RECEIPT_LINK_BASE_URL'>): string | null {
+  const base = config.RECEIPT_LINK_BASE_URL;
+  return base === undefined ? null : `${base.replace(/\/+$/, '')}/r/{token}`;
 }
