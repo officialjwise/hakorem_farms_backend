@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.26.0"
+  version: "2.27.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -227,7 +227,7 @@ paths:
       tags:
         - platform
       summary: "Upload a file"
-      description: "Stores the file under a random key outside the web root and queues a malware scan; it is `PENDING` until the scanner says `CLEAN`, and only a `CLEAN` file is ever served. The type is found from the bytes, never the name or the declared type, and must be on the purpose's allow-list: images (JPEG, PNG, WebP) for photographs, signatures and proof of delivery; images and PDF for supplier, investor and evidence documents; PDF for statements and agreements; XLSX or CSV for imports. `EXPORT` files are written by the server for a master data export and take no upload (415 `FILE_TYPE_NOT_ALLOWED`). Images are capped at 5 MB and PDF and spreadsheets at 10 MB; a body over 10 MB is refused while it arrives. Reference the returned id from the record that uses it.\n\n**EVIDENCE (1.31.0, B06r):** a holder of `platform.file.upload.evidence` alone (the Farm hand) may upload `EVIDENCE` and nothing else; any other purpose is refused to them with 403 `FORBIDDEN`. A death's photograph is used while still `PENDING` its scan and approved only once `CLEAN`. The client should open the camera directly for death evidence, never the gallery (the owner's rule, 2026-11-15): a deterrent only, since the server cannot tell a camera photograph from a gallery one. A photograph whose exact bytes are attached to a second death report is flagged for the exception report; it is matched by exact bytes (SHA-256) only, so a re-saved, resized or cropped copy is not.\n\nPermission: `platform.file.upload`, or `platform.file.upload.evidence` for an `EVIDENCE` file."
+      description: "Stores the file under a random key outside the web root and queues a malware scan; it is `PENDING` until the scanner says `CLEAN`, and only a `CLEAN` file is ever served. The type is found from the bytes, never the name or the declared type, and must be on the purpose's allow-list: images (JPEG, PNG, WebP) for photographs, signatures and proof of delivery; images and PDF for supplier, investor and evidence documents; PDF for statements and agreements; XLSX or CSV for imports. `EXPORT` files are written by the server for a master data export and take no upload (415 `FILE_TYPE_NOT_ALLOWED`). Images are capped at 5 MB and PDF and spreadsheets at 10 MB; a body over 10 MB is refused while it arrives. Reference the returned id from the record that uses it.\n\n**EVIDENCE (1.31.0, B06r):** a holder of `platform.file.upload.evidence` alone (the Farm hand) may upload `EVIDENCE` and nothing else; any other purpose is refused to them with 403 `FORBIDDEN`. A death's photograph is used while still `PENDING` its scan and approved only once `CLEAN`. The client should open the camera directly for death evidence, never the gallery (the owner's rule, 2026-11-15): a deterrent only, since the server cannot tell a camera photograph from a gallery one. A photograph whose exact bytes are attached to a second death report is flagged for the exception report; it is matched by exact bytes (SHA-256) only, so a re-saved, resized or cropped copy is not.\n\n**PROOF_OF_DELIVERY and SIGNATURE (2.27.0, B11 continued):** a holder of `platform.file.upload.proof` alone (the Driver) may upload a `PROOF_OF_DELIVERY` photograph or a `SIGNATURE` and nothing else; any other purpose is refused to them with 403 `FORBIDDEN`. A proof of delivery names only a file of its own use that the driver uploaded and the scan has not held (`recordProofOfDelivery`). There is no listing of files: a file is read by its id, and its signed link (five minutes) is given only to the person who uploaded it or a holder of `platform.file.read.any`.\n\nPermission: `platform.file.upload`, or `platform.file.upload.evidence` for an `EVIDENCE` file, or `platform.file.upload.proof` for a `PROOF_OF_DELIVERY` or `SIGNATURE` file."
       x-error-codes:
         - VALIDATION_FAILED
         - IDEMPOTENCY_KEY_REQUIRED
@@ -16791,7 +16791,7 @@ paths:
       tags:
         - mdm
       summary: "List reason codes"
-      description: "A fixed list changed only by migration, as the threat model requires; the contract has no write operation for it. Ordered by code. The example shows a part of the list, not all of it. `GOODS_RECEIPT_REJECTION` (B09e continued 2, 2.3.0) holds the reasons for goods rejected at the door, which a goods receipt line names in `rejectionReasonCode`: `CRACKED`, `BROKEN`, `DIRTY`, `SHORT`, `WRONG_ITEM_DELIVERED` and `QUALITY_REJECTED`. `STOCK_ADJUSTMENT` holds `BREAKAGE` (broken or cracked in store, no note) and `RODENT_DAMAGE`, both written off to the `WASTAGE` loss group.\n\nPermission: `mdm.reason_code.read`."
+      description: "A fixed list changed only by migration, as the threat model requires; the contract has no write operation for it. Ordered by code. The example shows a part of the list, not all of it. `GOODS_RECEIPT_REJECTION` (B09e continued 2, 2.3.0) holds the reasons for goods rejected at the door, which a goods receipt line names in `rejectionReasonCode`: `CRACKED`, `BROKEN`, `DIRTY`, `SHORT`, `WRONG_ITEM_DELIVERED` and `QUALITY_REJECTED`. `STOCK_ADJUSTMENT` holds `BREAKAGE` (broken or cracked in store, no note) and `RODENT_DAMAGE`, both written off to the `WASTAGE` loss group. `COD_VARIANCE` (B11 continued, 2.27.0) holds why a driver collected less than the amount due on delivery, which a proof of delivery names in `codVarianceReasonCode`: `CUSTOMER_PAID_SHORT` and `CUSTOMER_PAYS_LATER`, each with a note. `REFUND` gains `WEIGHED_BELOW_PAID`, the refund dispatch asks for when the weighed total comes to less than was paid.\n\nPermission: `mdm.reason_code.read`."
       x-error-codes:
         - VALIDATION_FAILED
         - UNAUTHENTICATED
@@ -16821,6 +16821,7 @@ paths:
               - BILLING_ADJUSTMENT
               - PAYMENT_REVERSAL
               - GOODS_RECEIPT_REJECTION
+              - COD_VARIANCE
         - name: cursor
           in: query
           required: false
@@ -53154,7 +53155,7 @@ paths:
       tags:
         - ord
       summary: "Dispatch: load the vehicle and issue the invoice"
-      description: "Issues the invoice against weighed quantity, allocates any deposit, requests the refund of an overpayment or sets the amount due on delivery, moves stock onto the vehicle and notifies the customer, in one transaction.\n\nPermission: `ord.fulfilment.dispatch`."
+      description: "Dispatches a packed delivery order onto a vehicle with its driver (B11 continued, FR-ORD-011, FR-BIL-005, ADR-0021, ADR-0091), in one serializable transaction: every packed pick list of the order goes (the order must be `PACKED`, else 422 `INVALID_STATE_TRANSITION`); the billing document is issued on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT` for a guest), a catch-weight line in kilograms at its price, with the order's delivery fee as its own line, charged once; the order's deposits are allocated to it oldest first, what they hold beyond it is asked back to the original method (`WEIGHED_BELOW_PAID`, a refund waiting for its approval), and what they do not cover becomes the cash due on delivery; the order's reservations end and each pick moves from its pick location onto the vehicle (never below zero online: 422 `INSUFFICIENT_STOCK`, nor stock promised to another order); the delivery is made (`DLN-...`, assigned to the driver and vehicle) and the order moves to `DISPATCHED`. `ord.OrderDispatched` is written to the outbox in the same transaction for the customer's message with the weights and the final total. Refusals: 422 `FULFILMENT_INVALID` with `NOT_A_DELIVERY` (a collection order is handed over with `collectFulfilment`, B11 continued 2), `CREDIT_DISPATCH_NOT_AVAILABLE` (an order on account, B11 continued 2), `DELIVERY_ADDRESS_REQUIRED`, `DRIVER_REQUIRED` or `VEHICLE_REQUIRED`; 422 `DELIVERY_INVALID` with `NOT_A_DRIVER` (not a driver at the branch) or `NOT_A_VEHICLE` (not a live vehicle of the branch).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.dispatch`."
       x-permission: ord.fulfilment.dispatch
       parameters:
         - name: id
@@ -66089,7 +66090,7 @@ paths:
       tags:
         - del
       summary: "List deliveries"
-      description: "Permission: `del.delivery.read`."
+      description: "A branch's deliveries, newest first, at the branches the caller reads whole, by the Africa/Accra date they were dispatched (`date`), `status`, `driverId`, `zoneId` or `orderId` (B11 continued, additive). Each is as `getDelivery` shows it.\n\nPermission: `del.delivery.read`."
       x-permission: del.delivery.read
       parameters:
         - name: date
@@ -66110,6 +66111,12 @@ paths:
             type: string
             format: uuid
         - name: zoneId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: orderId
           in: query
           required: false
           schema:
@@ -66174,7 +66181,8 @@ paths:
                         latitude: "5.687214"
                         longitude: "-0.166402"
                         contents:
-                          - name: "Full chicken, 15 kg pack"
+                          - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                            name: "Full chicken, 15 kg pack"
                             quantity: "1.000"
                             uom: PACK
                             weightKg: "14.650"
@@ -66222,7 +66230,8 @@ paths:
                         latitude: "5.605311"
                         longitude: "-0.171590"
                         contents:
-                          - name: "Beef, 15 kg pack"
+                          - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                            name: "Beef, 15 kg pack"
                             quantity: "3.000"
                             uom: PACK
                             weightKg: "45.600"
@@ -66276,7 +66285,8 @@ paths:
                         latitude: "5.636082"
                         longitude: "-0.153811"
                         contents:
-                          - name: "Goat meat, 15 kg pack"
+                          - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                            name: "Goat meat, 15 kg pack"
                             quantity: "1.000"
                             uom: PACK
                             weightKg: "14.950"
@@ -66302,6 +66312,8 @@ paths:
                           longitude: "-0.153820"
                           positionAccuracyM: 12
                           codCollectedPesewas: 0
+                          codVarianceReasonCode: null
+                          codVarianceNote: null
                           capturedAt: "2026-11-13T11:48:00Z"
                         deliveryNoteDocumentId: "019a7ae0-d078-7982-8eba-a0fa0e8519d7"
                         currency: GHS
@@ -66339,7 +66351,8 @@ paths:
                         latitude: "5.705933"
                         longitude: "-0.159074"
                         contents:
-                          - name: "Eggs, big, crate of 30"
+                          - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                            name: "Eggs, big, crate of 30"
                             quantity: "4.000"
                             uom: CRATE
                             weightKg: null
@@ -66393,7 +66406,8 @@ paths:
                         latitude: "5.669810"
                         longitude: "-0.016735"
                         contents:
-                          - name: "Tomatoes, crate"
+                          - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                            name: "Tomatoes, crate"
                             quantity: "2.000"
                             uom: CRATE
                             weightKg: null
@@ -66447,7 +66461,8 @@ paths:
                         latitude: "5.534776"
                         longitude: "-0.420183"
                         contents:
-                          - name: Goat
+                          - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                            name: Goat
                             quantity: "2.000"
                             uom: HEAD
                             weightKg: null
@@ -66473,6 +66488,8 @@ paths:
                           longitude: "-0.153820"
                           positionAccuracyM: 12
                           codCollectedPesewas: 0
+                          codVarianceReasonCode: null
+                          codVarianceNote: null
                           capturedAt: "2026-11-13T11:48:00Z"
                         deliveryNoteDocumentId: "019a7ae0-d078-7982-8eba-a0fa0e8519d7"
                         currency: GHS
@@ -66506,7 +66523,7 @@ paths:
       tags:
         - del
       summary: "Get a delivery"
-      description: "Permission: `del.delivery.read`."
+      description: "A delivery as dispatch made it (B11 continued, FR-DEL-003): the order, the recipient, the address and the contents as dispatched (each line naming its `orderLineId`, CR-055 point 1), the driver and the vehicle, the cash due on delivery fixed by the server at dispatch from the billing document on the weighed quantity, and the proof once delivered. Read at the delivery's branch; another branch's is refused 403, an unknown one 404. `slot` is null until delivery booking arrives (B11 continued 2).\n\nPermission: `del.delivery.read`."
       x-permission: del.delivery.read
       parameters:
         - name: id
@@ -66561,7 +66578,8 @@ paths:
                 latitude: "5.687214"
                 longitude: "-0.166402"
                 contents:
-                  - name: "Full chicken, 15 kg pack"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Full chicken, 15 kg pack"
                     quantity: "1.000"
                     uom: PACK
                     weightKg: "14.650"
@@ -66661,7 +66679,8 @@ paths:
                 latitude: "5.687214"
                 longitude: "-0.166402"
                 contents:
-                  - name: "Full chicken, 15 kg pack"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Full chicken, 15 kg pack"
                     quantity: "1.000"
                     uom: PACK
                     weightKg: "14.650"
@@ -66765,7 +66784,8 @@ paths:
                 latitude: "5.687214"
                 longitude: "-0.166402"
                 contents:
-                  - name: "Full chicken, 15 kg pack"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Full chicken, 15 kg pack"
                     quantity: "1.000"
                     uom: PACK
                     weightKg: "14.650"
@@ -66870,7 +66890,8 @@ paths:
                 latitude: "5.669810"
                 longitude: "-0.016735"
                 contents:
-                  - name: "Tomatoes, crate"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Tomatoes, crate"
                     quantity: "2.000"
                     uom: CRATE
                     weightKg: null
@@ -66979,7 +67000,8 @@ paths:
                 latitude: "5.687214"
                 longitude: "-0.166402"
                 contents:
-                  - name: "Full chicken, 15 kg pack"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Full chicken, 15 kg pack"
                     quantity: "1.000"
                     uom: PACK
                     weightKg: "14.650"
@@ -67841,7 +67863,7 @@ paths:
       tags:
         - del
       summary: "Get one of my deliveries"
-      description: "Permission: `del.delivery.read.assigned`. Ownership: deliveries assigned to the caller."
+      description: "A delivery assigned to the caller (B11 continued, FR-DEL-004): another driver's, or one assigned to nobody, is refused 403 whatever else the caller holds; an unknown id is 404. The same `Delivery` the back office reads, with the cash to collect (`codDuePesewas`).\n\nPermission: `del.delivery.read.assigned`. Ownership: deliveries assigned to the caller."
       x-permission: del.delivery.read.assigned
       parameters:
         - name: id
@@ -67896,7 +67918,8 @@ paths:
                 latitude: "5.705933"
                 longitude: "-0.159074"
                 contents:
-                  - name: "Eggs, big, crate of 30"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Eggs, big, crate of 30"
                     quantity: "4.000"
                     uom: CRATE
                     weightKg: null
@@ -68002,7 +68025,8 @@ paths:
                 latitude: "5.705933"
                 longitude: "-0.159074"
                 contents:
-                  - name: "Eggs, big, crate of 30"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Eggs, big, crate of 30"
                     quantity: "4.000"
                     uom: CRATE
                     weightKg: null
@@ -68046,7 +68070,7 @@ paths:
       tags:
         - del
       summary: "Record proof of delivery and cash collected"
-      description: "Completes the delivery and the order, records any cash on delivery as a payment held by the driver, and notifies the customer. Collected cash differing from the amount due is on the driver variance report.\n\nPermission: `del.proof.create`. Ownership: deliveries assigned to the caller.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+      description: "Completes a delivery assigned to the caller that is `ASSIGNED` or `OUT_FOR_DELIVERY` (else 422 `INVALID_STATE_TRANSITION`), in one serializable transaction (B11 continued, FR-DEL-008, FR-DEL-009): the recipient's name and a `signatureFileId` (a `SIGNATURE` file) or a `photoFileId` (a `PROOF_OF_DELIVERY` file), each uploaded by the caller and not held by the malware scan; the position when known; and the cash collected. The cash is never above the amount due fixed at dispatch; less than due needs `codVarianceReasonCode` (a `COD_VARIANCE` reason) and its `codVarianceNote` when the reason asks for one, and is reported short for the driver variance report and the daily exception report; collected cash is recorded as a payment held by the driver (account 1020), allocated to the delivery's billing document, and handed in later at a till shift (B11 continued 2). The order's goods are issued from the vehicle to the customer, and the order moves to `DELIVERED`, then `COMPLETED` when nothing is left to pay. Refusals: 422 `DELIVERY_INVALID` with `EVIDENCE_REQUIRED`, `FILE_UNKNOWN`, `FILE_NOT_PROOF`, `FILE_NOT_YOURS`, `FILE_NOT_CLEAN`, `ABOVE_DUE`, `REASON_REQUIRED`, `REASON_UNKNOWN`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `REASON_NOT_NEEDED`, `POSITION_INCOMPLETE`, `CAPTURED_BEFORE_DISPATCH` or `ID_IN_USE` (the proof's id already used for another delivery); another driver's delivery 403.\n\nPermission: `del.proof.create`. Ownership: deliveries assigned to the caller.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the delivery as it stands and records nothing again."
       x-permission: del.proof.create
       parameters:
         - name: id
@@ -68119,7 +68143,8 @@ paths:
                 latitude: "5.705933"
                 longitude: "-0.159074"
                 contents:
-                  - name: "Eggs, big, crate of 30"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Eggs, big, crate of 30"
                     quantity: "4.000"
                     uom: CRATE
                     weightKg: null
@@ -68233,7 +68258,8 @@ paths:
                 latitude: "5.669810"
                 longitude: "-0.016735"
                 contents:
-                  - name: "Tomatoes, crate"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Tomatoes, crate"
                     quantity: "2.000"
                     uom: CRATE
                     weightKg: null
@@ -102652,6 +102678,10 @@ components:
     DeliveryContentsLine:
       type: object
       properties:
+        orderLineId:
+          type: string
+          format: uuid
+          description: "The order line this is of (CR-055 point 1)."
         name:
           type: string
         quantity:
@@ -102663,6 +102693,7 @@ components:
             - $ref: "#/components/schemas/Kilograms"
             - type: "null"
       required:
+        - orderLineId
         - name
         - quantity
         - uom
@@ -102702,6 +102733,15 @@ components:
         capturedAt:
           type: string
           format: date-time
+        codVarianceReasonCode:
+          type:
+            - string
+            - "null"
+          description: "Why less than the amount due was collected: a `COD_VARIANCE` reason (B11 continued); null when the amount due was collected."
+        codVarianceNote:
+          type:
+            - string
+            - "null"
       required:
         - id
         - recipientName
@@ -102711,6 +102751,8 @@ components:
         - longitude
         - positionAccuracyM
         - codCollectedPesewas
+        - codVarianceReasonCode
+        - codVarianceNote
         - capturedAt
     Delivery:
       type: object
@@ -103048,7 +103090,15 @@ components:
         codCollectedPesewas:
           allOf:
             - $ref: "#/components/schemas/Pesewas"
-          description: "Cash actually received. Recorded against the driver."
+          description: "Cash actually received, recorded against the driver. Never above the amount due (422 `DELIVERY_INVALID` `ABOVE_DUE`)."
+        codVarianceReasonCode:
+          type: string
+          description: "Required when less than the amount due was collected, and refused otherwise: a `COD_VARIANCE` reason (`CUSTOMER_PAID_SHORT`, `CUSTOMER_PAYS_LATER`, B11 continued)."
+        codVarianceNote:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Required when the reason asks for a note."
         capturedAt:
           type: string
           format: date-time
@@ -106979,6 +107029,11 @@ components:
         - bil.document.read
         - bil.document.reprint
         - bil.proforma.create
+        - del.delivery.assign
+        - del.delivery.read
+        - del.delivery.read.assigned
+        - del.delivery.update.assigned
+        - del.proof.create
         - del.slot.manage
         - del.slot.read
         - doc.document.read
@@ -107131,6 +107186,7 @@ components:
         - mdm.weight_band.create
         - mdm.weight_band.read
         - mdm.weight_band.update
+        - ord.fulfilment.dispatch
         - ord.fulfilment.pick
         - ord.fulfilment.read
         - ord.order.cancel
@@ -107164,6 +107220,7 @@ components:
         - platform.file.read.any
         - platform.file.upload
         - platform.file.upload.evidence
+        - platform.file.upload.proof
         - pos.cash.move
         - pos.device.enrol
         - pos.device.read
@@ -107243,6 +107300,8 @@ components:
         - bil.document.read
         - bil.document.reprint
         - bil.proforma.create
+        - del.delivery.assign
+        - del.delivery.read
         - del.slot.manage
         - del.slot.read
         - doc.document.read
@@ -107373,6 +107432,7 @@ components:
         - mdm.weight_band.create
         - mdm.weight_band.read
         - mdm.weight_band.update
+        - ord.fulfilment.dispatch
         - ord.fulfilment.pick
         - ord.fulfilment.read
         - ord.order.cancel
@@ -107793,9 +107853,14 @@ components:
       isSystem: true
       requiresTotp: false
       permissions:
+        - del.delivery.read.assigned
+        - del.delivery.update.assigned
+        - del.proof.create
         - iam.session.read
         - iam.session.revoke
         - mdm.product.read
+        - mdm.reason_code.read
+        - platform.file.upload.proof
       limits: []
     - id: "01900000-0000-7000-8000-000000000109"
       code: INVESTOR
