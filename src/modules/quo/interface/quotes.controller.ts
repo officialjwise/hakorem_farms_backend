@@ -7,7 +7,7 @@ import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operatio
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { SalesOrderView } from '../../ord';
-import { Quotes, type ApprovalPendingView, type Page, type QuoteVersionView, type QuoteView } from '../application/quotes';
+import { Quotes, type ApprovalPendingView, type Page, type PublicQuoteView, type QuoteVersionView, type QuoteView } from '../application/quotes';
 import { Rfqs, type RfqView } from '../application/rfqs';
 import { IdParam, PageQuery, QuoteAcceptanceRecord, QuoteConvert, QuoteCreate, QuoteIssue, QuotePageQuery, QuoteVersionCreate, QuoteVersionUpdate, ReasonRequest, RfqCreate, RfqPageQuery, RfqUpdate } from './schemas';
 
@@ -167,5 +167,29 @@ export class QuotesController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<SalesOrderView> {
     return reply(res, this.quotes.convert(actor, id, body, key));
+  }
+
+  @Post('quote-links/:id/revoke')
+  @Operation({ operationId: 'revokeQuoteLink', ...WRITE, permission: 'quo.quote.issue' })
+  revokeQuoteLink(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ReasonRequest)) body: z.infer<typeof ReasonRequest>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<QuoteVersionView> {
+    return reply(res, this.quotes.revokeLink(actor, id, body.reason, key));
+  }
+}
+
+/** A signed-in customer's own quotes (FR-QUO-013, listMyQuotes): the handler finds the customer of the session. */
+@Controller('me/quotes')
+export class MyQuotesController {
+  constructor(@Inject(Quotes) private readonly quotes: Quotes) {}
+
+  @Get()
+  @Operation({ operationId: 'listMyQuotes', access: 'SESSION', realms: ['CUSTOMER'], permission: null, idempotent: false, csrf: false, rateLimit: 'console' })
+  listMyQuotes(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(PageQuery)) q: z.infer<typeof PageQuery>): Promise<Page<PublicQuoteView>> {
+    return this.quotes.mine(actor, q.cursor, q.limit);
   }
 }

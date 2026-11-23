@@ -1,0 +1,142 @@
+operationId: revokeQuoteLink
+tags:
+  - quo
+summary: "Revoke one acceptance link of a quote version"
+description: "Revokes one acceptance link of an issued quote version, with the reason (the owner, 2026-11-18): from then on that link opens nothing, 404 `NOT_FOUND` as a link that never existed, while the version's other links keep working. Use it when a link reached the wrong person. A link is revoked once (422 `INVALID_STATE_TRANSITION` with `REVOKED`); revoking never reopens anything. A link the caller cannot reach at its branch, real or not, is 404. Answers the version with its `links`, never a token. Audited.\n\nPermission: `quo.quote.issue`."
+x-permission: quo.quote.issue
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - INVALID_STATE_TRANSITION
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Sent to the wrong WhatsApp number"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/QuoteVersion"
+        example:
+          id: "019a7aff-de67-76dd-9c15-76ab3936ef89"
+          versionNo: 2
+          status: ISSUED
+          validUntil: "2026-11-20T18:00:00Z"
+          terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+          deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+          deliveryFeePesewas: 6000
+          taxInclusive: false
+          netPesewas: 1716000
+          taxPesewas: 1200
+          grossPesewas: 1717200
+          estimatedCostPesewas: 1188000
+          marginPercent: "30.77"
+          belowMarginFloor: false
+          approvalRequestId: null
+          changeNote: "Reduced to eighteen goats and added delivery"
+          issuedAt: "2026-11-13T15:00:00Z"
+          issuedBy:
+            id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+            displayName: "Kojo Antwi"
+          lines:
+            - id: "019a7aff-fd56-70c1-a5f9-14e2b2e78dc0"
+              lineNo: 1
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-0004
+                name: Goat
+              description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+              grade: null
+              weightBand:
+                id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                code: GOAT-M
+                minKg: "18.000"
+                maxKg: "28.000"
+              stockUnit: null
+              reservationId: null
+              quantity: "18.000"
+              uom: HEAD
+              priceBasis: PER_HEAD
+              resolvedUnitPricePesewas: 85000
+              unitPricePesewas: 95000
+              lineNetPesewas: 1710000
+              estimatedUnitCostPesewas: 66000
+              baseQuantity: "18.000"
+          acceptance: null
+          documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+          currency: GHS
+          createdBy:
+            id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+            displayName: "Esi Appiah"
+          createdAt: "2026-11-13T15:00:00Z"
+          version: 1
+          acceptanceLinkToken: null
+          acceptanceLinkId: null
+          links:
+            - id: "019a7b02-1d3e-7f40-8a51-6b7c8d9e0f12"
+              state: REVOKED
+              createdAt: "2026-11-13T15:00:00Z"
+              createdBy:
+                id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                displayName: "Kojo Antwi"
+              expiresAt: "2026-11-20T18:00:00Z"
+              revokedAt: "2026-11-13T15:20:00Z"
+              revokedBy:
+                id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                displayName: "Kojo Antwi"
+              revokeReason: "Sent to the wrong WhatsApp number"
+            - id: "019a7b02-6c1d-7a22-9e33-4f5a6b7c8d90"
+              state: OPEN
+              createdAt: "2026-11-13T15:21:00Z"
+              createdBy:
+                id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                displayName: "Kojo Antwi"
+              expiresAt: "2026-11-20T18:00:00Z"
+              revokedAt: null
+              revokedBy: null
+              revokeReason: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

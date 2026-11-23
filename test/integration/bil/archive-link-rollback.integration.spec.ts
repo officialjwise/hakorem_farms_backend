@@ -48,6 +48,7 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0282_quo_quote_links_revoked_and_decided',
       '0281_fin_pos_late_entry_postings',
       '0280_pos_late_entry',
       '0279_pay_late_entry',

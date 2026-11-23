@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.20.0"
+  version: "2.21.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -3444,6 +3444,7 @@ paths:
         - INVOICE_MAKER_CANNOT_APPROVE
         - VARIANCE_NOT_ALLOWED
         - SUPPLIER_INVOICE_INVALID
+        - CREDIT_NOTE_EXCEEDS_ORIGINAL
         - EVIDENCE_NOT_SCANNED
         - PROCESSING_ORDER_INVALID
         - PERIOD_NOT_OPEN
@@ -59769,6 +59770,8 @@ paths:
                 status: ISSUED
                 validUntil: "2026-11-20T18:00:00Z"
                 customerName: "Emmanuel Tetteh"
+                acceptedName: null
+                decidedAt: null
                 lines:
                   - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                     quantity: "18.000"
@@ -60517,6 +60520,8 @@ paths:
                           createdAt: "2026-11-13T15:00:00Z"
                           version: 1
                           acceptanceLinkToken: null
+                          acceptanceLinkId: null
+                          links: []
                         versionCount: 2
                         acceptedVersionId: null
                         convertedOrder: null
@@ -60569,6 +60574,8 @@ paths:
                           createdAt: "2026-11-13T15:00:00Z"
                           version: 1
                           acceptanceLinkToken: null
+                          acceptanceLinkId: null
+                          links: []
                         versionCount: 1
                         acceptedVersionId: "019a7b00-3b34-7488-89c0-5151a649ca2f"
                         convertedOrder:
@@ -60624,6 +60631,8 @@ paths:
                           createdAt: "2026-11-13T15:00:00Z"
                           version: 1
                           acceptanceLinkToken: null
+                          acceptanceLinkId: null
+                          links: []
                         versionCount: 1
                         acceptedVersionId: "019a7b00-7912-784e-ad87-8dc099ab069e"
                         convertedOrder: null
@@ -60676,6 +60685,8 @@ paths:
                           createdAt: "2026-11-13T15:00:00Z"
                           version: 1
                           acceptanceLinkToken: null
+                          acceptanceLinkId: null
+                          links: []
                         versionCount: 1
                         acceptedVersionId: null
                         convertedOrder: null
@@ -60728,6 +60739,8 @@ paths:
                           createdAt: "2026-11-13T15:00:00Z"
                           version: 1
                           acceptanceLinkToken: null
+                          acceptanceLinkId: null
+                          links: []
                         versionCount: 1
                         acceptedVersionId: null
                         convertedOrder: null
@@ -60780,6 +60793,8 @@ paths:
                           createdAt: "2026-11-13T15:00:00Z"
                           version: 1
                           acceptanceLinkToken: null
+                          acceptanceLinkId: null
+                          links: []
                         versionCount: 1
                         acceptedVersionId: null
                         convertedOrder: null
@@ -60912,6 +60927,8 @@ paths:
                   createdAt: "2026-11-13T15:00:00Z"
                   version: 1
                   acceptanceLinkToken: null
+                  acceptanceLinkId: null
+                  links: []
                 versionCount: 1
                 acceptedVersionId: null
                 convertedOrder: null
@@ -61037,6 +61054,8 @@ paths:
                   createdAt: "2026-11-13T15:00:00Z"
                   version: 1
                   acceptanceLinkToken: null
+                  acceptanceLinkId: null
+                  links: []
                 versionCount: 2
                 acceptedVersionId: null
                 convertedOrder: null
@@ -61158,6 +61177,8 @@ paths:
                         createdAt: "2026-11-13T15:00:00Z"
                         version: 1
                         acceptanceLinkToken: null
+                        acceptanceLinkId: null
+                        links: []
                       - id: "019a7b01-708a-776a-aca2-7f7c6733f85a"
                         versionNo: 4
                         status: SUPERSEDED
@@ -61211,6 +61232,8 @@ paths:
                         createdAt: "2026-11-11T15:00:00Z"
                         version: 1
                         acceptanceLinkToken: null
+                        acceptanceLinkId: null
+                        links: []
                       - id: "019a7b01-8f79-714e-b686-1db3e0e49691"
                         versionNo: 3
                         status: SUPERSEDED
@@ -61264,6 +61287,8 @@ paths:
                         createdAt: "2026-11-13T15:00:00Z"
                         version: 1
                         acceptanceLinkToken: null
+                        acceptanceLinkId: null
+                        links: []
                       - id: "019a7b01-ae68-7b31-8069-bbeb5a9534c9"
                         versionNo: 2
                         status: SUPERSEDED
@@ -61317,6 +61342,8 @@ paths:
                         createdAt: "2026-11-11T15:00:00Z"
                         version: 1
                         acceptanceLinkToken: null
+                        acceptanceLinkId: null
+                        links: []
                       - id: "019a7b01-cd57-7515-9a4d-5a22d446d300"
                         versionNo: 1
                         status: SUPERSEDED
@@ -61370,6 +61397,8 @@ paths:
                         createdAt: "2026-11-13T15:00:00Z"
                         version: 1
                         acceptanceLinkToken: null
+                        acceptanceLinkId: null
+                        links: []
                     page:
                       nextCursor: null
                       limit: 25
@@ -61497,6 +61526,8 @@ paths:
                 createdAt: "2026-11-13T09:10:00Z"
                 version: 1
                 acceptanceLinkToken: null
+                acceptanceLinkId: null
+                links: []
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -61626,6 +61657,8 @@ paths:
                 createdAt: "2026-11-13T15:00:00Z"
                 version: 1
                 acceptanceLinkToken: null
+                acceptanceLinkId: null
+                links: []
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -61749,6 +61782,8 @@ paths:
                 createdAt: "2026-11-13T15:00:00Z"
                 version: 1
                 acceptanceLinkToken: null
+                acceptanceLinkId: null
+                links: []
         "202":
           description: "Accepted for approval. Nothing has taken effect yet."
           content:
@@ -61881,6 +61916,8 @@ paths:
                   createdAt: "2026-11-13T15:00:00Z"
                   version: 1
                   acceptanceLinkToken: null
+                  acceptanceLinkId: null
+                  links: []
                 versionCount: 1
                 acceptedVersionId: "019a7b00-7912-784e-ad87-8dc099ab069e"
                 convertedOrder: null
@@ -62000,6 +62037,8 @@ paths:
                   createdAt: "2026-11-13T15:00:00Z"
                   version: 1
                   acceptanceLinkToken: null
+                  acceptanceLinkId: null
+                  links: []
                 versionCount: 1
                 acceptedVersionId: null
                 convertedOrder: null
@@ -62142,6 +62181,8 @@ paths:
                   createdAt: "2026-11-13T15:00:00Z"
                   version: 1
                   acceptanceLinkToken: null
+                  acceptanceLinkId: null
+                  links: []
                 versionCount: 2
                 acceptedVersionId: null
                 convertedOrder: null
@@ -62366,6 +62407,150 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/quote-links/{id}/revoke":
+    post:
+      operationId: revokeQuoteLink
+      tags:
+        - quo
+      summary: "Revoke one acceptance link of a quote version"
+      description: "Revokes one acceptance link of an issued quote version, with the reason (the owner, 2026-11-18): from then on that link opens nothing, 404 `NOT_FOUND` as a link that never existed, while the version's other links keep working. Use it when a link reached the wrong person. A link is revoked once (422 `INVALID_STATE_TRANSITION` with `REVOKED`); revoking never reopens anything. A link the caller cannot reach at its branch, real or not, is 404. Answers the version with its `links`, never a token. Audited.\n\nPermission: `quo.quote.issue`."
+      x-permission: quo.quote.issue
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - INVALID_STATE_TRANSITION
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+            example:
+              reason: "Sent to the wrong WhatsApp number"
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuoteVersion"
+              example:
+                id: "019a7aff-de67-76dd-9c15-76ab3936ef89"
+                versionNo: 2
+                status: ISSUED
+                validUntil: "2026-11-20T18:00:00Z"
+                terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                deliveryEstimate: "Delivered to Prampram on 11 December, morning"
+                deliveryFeePesewas: 6000
+                taxInclusive: false
+                netPesewas: 1716000
+                taxPesewas: 1200
+                grossPesewas: 1717200
+                estimatedCostPesewas: 1188000
+                marginPercent: "30.77"
+                belowMarginFloor: false
+                approvalRequestId: null
+                changeNote: "Reduced to eighteen goats and added delivery"
+                issuedAt: "2026-11-13T15:00:00Z"
+                issuedBy:
+                  id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                  displayName: "Kojo Antwi"
+                lines:
+                  - id: "019a7aff-fd56-70c1-a5f9-14e2b2e78dc0"
+                    lineNo: 1
+                    product:
+                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                      sku: LIV-0004
+                      name: Goat
+                    description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                    grade: null
+                    weightBand:
+                      id: "019a7a8c-59e3-796a-9ea3-9f80c83a185e"
+                      code: GOAT-M
+                      minKg: "18.000"
+                      maxKg: "28.000"
+                    stockUnit: null
+                    reservationId: null
+                    quantity: "18.000"
+                    uom: HEAD
+                    priceBasis: PER_HEAD
+                    resolvedUnitPricePesewas: 85000
+                    unitPricePesewas: 95000
+                    lineNetPesewas: 1710000
+                    estimatedUnitCostPesewas: 66000
+                    baseQuantity: "18.000"
+                acceptance: null
+                documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
+                currency: GHS
+                createdBy:
+                  id: "019a7a90-1c2e-7d55-9a11-2f3e4c5d6e7f"
+                  displayName: "Esi Appiah"
+                createdAt: "2026-11-13T15:00:00Z"
+                version: 1
+                acceptanceLinkToken: null
+                acceptanceLinkId: null
+                links:
+                  - id: "019a7b02-1d3e-7f40-8a51-6b7c8d9e0f12"
+                    state: REVOKED
+                    createdAt: "2026-11-13T15:00:00Z"
+                    createdBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    expiresAt: "2026-11-20T18:00:00Z"
+                    revokedAt: "2026-11-13T15:20:00Z"
+                    revokedBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    revokeReason: "Sent to the wrong WhatsApp number"
+                  - id: "019a7b02-6c1d-7a22-9e33-4f5a6b7c8d90"
+                    state: OPEN
+                    createdAt: "2026-11-13T15:21:00Z"
+                    createdBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    expiresAt: "2026-11-20T18:00:00Z"
+                    revokedAt: null
+                    revokedBy: null
+                    revokeReason: null
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
   "/quotes/pipeline":
     get:
       operationId: getQuotePipeline
@@ -62507,6 +62692,13 @@ paths:
       tags:
         - quo
       summary: "List my quotes"
+      description: "A signed-in customer's own quotes (FR-QUO-013), at every branch, newest first, in the buyer's shape: every quote issued to the customer the session belongs to, showing the accepted version, else the live one, else the last issued. Never a draft, a withdrawn quote, a cost, a floor or a margin. `status` is `ISSUED`, `ACCEPTED` (also once converted to an order), `DECLINED` or `EXPIRED` (past its validity). Nobody else's quote is listed, and no operation opens a quote by its id or number in the customer realm. A staff session is 403; no session 401.\n\nNo permission: the customer's own account."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -62539,6 +62731,8 @@ paths:
                         status: ISSUED
                         validUntil: "2026-11-20T18:00:00Z"
                         customerName: "Emmanuel Tetteh"
+                        acceptedName: null
+                        decidedAt: null
                         lines:
                           - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             quantity: "18.000"
@@ -62559,6 +62753,8 @@ paths:
                         status: ACCEPTED
                         validUntil: "2026-11-20T18:00:00Z"
                         customerName: "Emmanuel Tetteh"
+                        acceptedName: "Emmanuel Tetteh"
+                        decidedAt: "2026-11-15T09:12:00Z"
                         lines:
                           - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             quantity: "18.000"
@@ -62579,6 +62775,8 @@ paths:
                         status: EXPIRED
                         validUntil: "2026-11-20T18:00:00Z"
                         customerName: "Emmanuel Tetteh"
+                        acceptedName: null
+                        decidedAt: null
                         lines:
                           - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             quantity: "18.000"
@@ -62599,6 +62797,8 @@ paths:
                         status: DECLINED
                         validUntil: "2026-11-20T18:00:00Z"
                         customerName: "Emmanuel Tetteh"
+                        acceptedName: null
+                        decidedAt: "2026-11-16T14:40:00Z"
                         lines:
                           - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             quantity: "18.000"
@@ -62619,6 +62819,8 @@ paths:
                         status: ACCEPTED
                         validUntil: "2026-11-20T18:00:00Z"
                         customerName: "Emmanuel Tetteh"
+                        acceptedName: "Emmanuel Tetteh"
+                        decidedAt: "2026-11-15T09:12:00Z"
                         lines:
                           - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
                             quantity: "18.000"
@@ -62652,6 +62854,8 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -99518,6 +99722,17 @@ components:
           format: date-time
         customerName:
           type: string
+        acceptedName:
+          type:
+            - string
+            - "null"
+          description: "2.21.0 (CR-047 point 2): the name the buyer accepted in, when `status` is `ACCEPTED`; otherwise null."
+        decidedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: "2.21.0 (CR-047 point 2): when the quote was accepted or declined; otherwise null. A replaced version's link answers 422 `QUOTE_LINK_CLOSED` `REPLACED` with nothing of the quote (ADR-0087), so no `supersededAt` is shown."
         lines:
           type: array
           items:
@@ -99551,6 +99766,8 @@ components:
         - status
         - validUntil
         - customerName
+        - acceptedName
+        - decidedAt
         - lines
         - deliveryFeePesewas
         - netPesewas
@@ -99951,7 +100168,18 @@ components:
           type:
             - string
             - "null"
-          description: "The acceptance link's token (CR-047, ADR-0074): `quo_` and 256 random bits, answered only by the `issueQuoteVersion` call that made it and null everywhere else; the server keeps only its SHA-256. The link is `/shop/quotes/{token}`. Each call answers a fresh token for the same version; every token of a version opens it until the version is replaced or its validity ends."
+          description: "The acceptance link's token (CR-047, ADR-0074): `quo_` and 256 random bits, answered only by the `issueQuoteVersion` call that made it and null everywhere else; the server keeps only its SHA-256. The link is `/shop/quotes/{token}`. Each call answers a fresh token for the same version; every token of a version opens it until the version is replaced, accepted, declined, withdrawn or its validity ends, or that one link is revoked (`revokeQuoteLink`)."
+        acceptanceLinkId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "2.21.0: the id of the link whose token this answer carries, to revoke it by (`revokeQuoteLink`); null wherever `acceptanceLinkToken` is null."
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteLink"
+          description: "2.21.0 (the owner, 2026-11-18): every acceptance link made for this version, oldest first, each with its state. Several may be live at once; each is revoked on its own. Never a token: only its hash is kept."
       required:
         - id
         - versionNo
@@ -99979,6 +100207,56 @@ components:
         - createdAt
         - version
         - acceptanceLinkToken
+        - acceptanceLinkId
+        - links
+    QuoteLink:
+      type: object
+      description: "One acceptance link of a quote version (2.21.0, the owner, 2026-11-18): several may be live at once. The token was shown once, in the answer that made it, and is never readable again (ADR-0074, ADR-0087)."
+      properties:
+        id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+            - OPEN
+            - ACCEPTED
+            - DECLINED
+            - EXPIRED
+            - REPLACED
+            - WITHDRAWN
+            - REVOKED
+          description: "What the buyer meets through this link now: `OPEN` (it opens the live version), `ACCEPTED` or `DECLINED` (it shows the decision), `EXPIRED`, `REPLACED` or `WITHDRAWN` (it answers 422 `QUOTE_LINK_CLOSED`), or `REVOKED` (it opens nothing, 404, as a link that never existed)."
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          $ref: "#/components/schemas/PrincipalRef"
+        expiresAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        revokedBy:
+          anyOf:
+            - $ref: "#/components/schemas/PrincipalRef"
+            - type: "null"
+        revokeReason:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - state
+        - createdAt
+        - createdBy
+        - expiresAt
+        - revokedAt
+        - revokedBy
+        - revokeReason
     Quote:
       type: object
       properties:
@@ -104150,6 +104428,7 @@ components:
         - RECONCILIATION_BREAK
         - SYNC_REJECTED
         - LATE_POSTING
+        - QUOTE_ACCEPTED_BY_STAFF
       description: "One kind per detection in the threat model. Every abuse case lands here as at least one kind."
     ExceptionItem:
       type: object

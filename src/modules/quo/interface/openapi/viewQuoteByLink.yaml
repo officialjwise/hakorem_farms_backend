@@ -31,6 +31,8 @@ responses:
           status: ISSUED
           validUntil: "2026-11-20T18:00:00Z"
           customerName: "Emmanuel Tetteh"
+          acceptedName: null
+          decidedAt: null
           lines:
             - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
               quantity: "18.000"

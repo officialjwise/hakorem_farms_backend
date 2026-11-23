@@ -98,6 +98,8 @@ responses:
                   createdAt: "2026-11-13T15:00:00Z"
                   version: 1
                   acceptanceLinkToken: null
+                  acceptanceLinkId: null
+                  links: []
                 - id: "019a7b01-708a-776a-aca2-7f7c6733f85a"
                   versionNo: 4
                   status: SUPERSEDED
@@ -151,6 +153,8 @@ responses:
                   createdAt: "2026-11-11T15:00:00Z"
                   version: 1
                   acceptanceLinkToken: null
+                  acceptanceLinkId: null
+                  links: []
                 - id: "019a7b01-8f79-714e-b686-1db3e0e49691"
                   versionNo: 3
                   status: SUPERSEDED
@@ -204,6 +208,8 @@ responses:
                   createdAt: "2026-11-13T15:00:00Z"
                   version: 1
                   acceptanceLinkToken: null
+                  acceptanceLinkId: null
+                  links: []
                 - id: "019a7b01-ae68-7b31-8069-bbeb5a9534c9"
                   versionNo: 2
                   status: SUPERSEDED
@@ -257,6 +263,8 @@ responses:
                   createdAt: "2026-11-11T15:00:00Z"
                   version: 1
                   acceptanceLinkToken: null
+                  acceptanceLinkId: null
+                  links: []
                 - id: "019a7b01-cd57-7515-9a4d-5a22d446d300"
                   versionNo: 1
                   status: SUPERSEDED
@@ -310,6 +318,8 @@ responses:
                   createdAt: "2026-11-13T15:00:00Z"
                   version: 1
                   acceptanceLinkToken: null
+                  acceptanceLinkId: null
+                  links: []
               page:
                 nextCursor: null
                 limit: 25

@@ -149,6 +149,8 @@ export interface QuoteStore {
   quoteIdsOfRfqs(tx: Transaction, rfqIds: readonly string[]): Promise<ReadonlyMap<string, string[]>>;
 
   insertQuote(tx: Transaction, quote: Omit<QuoteRecord, 'version' | 'status' | 'currentVersionNo' | 'acceptedVersionId' | 'convertedOrderId' | 'declineReason' | 'cancelReason'>): Promise<void>;
+  /** Ids of one customer's quotes that were ever issued, at every branch, newest first, before `beforeId` (listMyQuotes). */
+  quoteIdsOfCustomer(tx: Transaction, customerId: string, beforeId: string | null, limit: number): Promise<string[]>;
   quotes(tx: Transaction, ids: readonly string[]): Promise<QuoteRecord[]>;
   lockQuote(tx: Transaction, id: string): Promise<QuoteRecord | null>;
   listQuotes(tx: Transaction, filter: QuoteFilter, beforeId: string | null, limit: number): Promise<QuoteRecord[]>;
@@ -188,5 +190,36 @@ export interface QuoteStore {
   acceptancesOf(tx: Transaction, versionIds: readonly string[]): Promise<AcceptanceRecord[]>;
 
   insertLinkToken(tx: Transaction, token: { readonly id: string; readonly quoteVersionId: string; readonly tokenHash: Buffer; readonly expiresAt: Date }, actorId: string, at: Date): Promise<void>;
-  linkToken(tx: Transaction, tokenHash: Buffer): Promise<{ readonly quoteVersionId: string; readonly tokenHash: Buffer; readonly expiresAt: Date } | null>;
+  linkToken(tx: Transaction, tokenHash: Buffer): Promise<{ readonly id: string; readonly quoteVersionId: string; readonly tokenHash: Buffer; readonly expiresAt: Date; readonly revoked: boolean } | null>;
+  /** A version's links, oldest first, never their tokens (only the hash is kept, ADR-0074). */
+  linksOf(tx: Transaction, versionIds: readonly string[]): Promise<LinkRecord[]>;
+  link(tx: Transaction, id: string): Promise<LinkRecord | null>;
+  insertLinkRevocation(tx: Transaction, revocation: { readonly id: string; readonly linkTokenId: string; readonly reason: string }, actorId: string, at: Date): Promise<void>;
+  insertLinkDecision(tx: Transaction, decision: LinkDecisionRecord, actorId: string, at: Date): Promise<void>;
+  linkDecisionsOf(tx: Transaction, versionIds: readonly string[]): Promise<LinkDecisionRecord[]>;
+}
+
+/** An acceptance link of a version (quo.quote_link_token with its revocation, if any). */
+export interface LinkRecord {
+  readonly id: string;
+  readonly quoteVersionId: string;
+  readonly createdAt: Date;
+  readonly createdBy: string;
+  readonly expiresAt: Date;
+  readonly revokedAt: Date | null;
+  readonly revokedBy: string | null;
+  readonly revokeReason: string | null;
+}
+
+/** The device and session behind a decision made through a link (quo.quote_link_decision, abuse case 40). */
+export interface LinkDecisionRecord {
+  readonly id: string;
+  readonly linkTokenId: string;
+  readonly quoteVersionId: string;
+  readonly decision: 'ACCEPTED' | 'DECLINED';
+  readonly ip: string | null;
+  readonly userAgent: string | null;
+  readonly staffPrincipalId: string | null;
+  readonly staffSessionId: string | null;
+  readonly decidedAt: Date;
 }

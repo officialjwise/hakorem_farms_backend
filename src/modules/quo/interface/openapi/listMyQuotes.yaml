@@ -1,0 +1,172 @@
+operationId: listMyQuotes
+tags:
+  - quo
+summary: "List my quotes"
+description: "A signed-in customer's own quotes (FR-QUO-013), at every branch, newest first, in the buyer's shape: every quote issued to the customer the session belongs to, showing the accepted version, else the live one, else the last issued. Never a draft, a withdrawn quote, a cost, a floor or a margin. `status` is `ISSUED`, `ACCEPTED` (also once converted to an order), `DECLINED` or `EXPIRED` (past its validity). Nobody else's quote is listed, and no operation opens a quote by its id or number in the customer realm. A staff session is 403; no session 401.\n\nNo permission: the customer's own account."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - customerSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PublicQuotePage"
+        examples:
+          default:
+            value:
+              data:
+                - quoteNo: QUO-2026-DDW-000088
+                  versionNo: 2
+                  status: ISSUED
+                  validUntil: "2026-11-20T18:00:00Z"
+                  customerName: "Emmanuel Tetteh"
+                  acceptedName: null
+                  decidedAt: null
+                  lines:
+                    - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                      quantity: "18.000"
+                      uom: HEAD
+                      priceBasis: PER_HEAD
+                      unitPricePesewas: 95000
+                      lineNetPesewas: 1710000
+                  deliveryFeePesewas: 6000
+                  netPesewas: 1716000
+                  taxPesewas: 1200
+                  grossPesewas: 1717200
+                  currency: GHS
+                  terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                  deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                  documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+                - quoteNo: QUO-2026-DDW-000079
+                  versionNo: 2
+                  status: ACCEPTED
+                  validUntil: "2026-11-20T18:00:00Z"
+                  customerName: "Emmanuel Tetteh"
+                  acceptedName: "Emmanuel Tetteh"
+                  decidedAt: "2026-11-15T09:12:00Z"
+                  lines:
+                    - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                      quantity: "18.000"
+                      uom: HEAD
+                      priceBasis: PER_HEAD
+                      unitPricePesewas: 95000
+                      lineNetPesewas: 1710000
+                  deliveryFeePesewas: 6000
+                  netPesewas: 1716000
+                  taxPesewas: 1200
+                  grossPesewas: 1717200
+                  currency: GHS
+                  terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                  deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                  documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+                - quoteNo: QUO-2026-DDW-000070
+                  versionNo: 2
+                  status: EXPIRED
+                  validUntil: "2026-11-20T18:00:00Z"
+                  customerName: "Emmanuel Tetteh"
+                  acceptedName: null
+                  decidedAt: null
+                  lines:
+                    - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                      quantity: "18.000"
+                      uom: HEAD
+                      priceBasis: PER_HEAD
+                      unitPricePesewas: 95000
+                      lineNetPesewas: 1710000
+                  deliveryFeePesewas: 6000
+                  netPesewas: 1716000
+                  taxPesewas: 1200
+                  grossPesewas: 1717200
+                  currency: GHS
+                  terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                  deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                  documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+                - quoteNo: QUO-2026-DDW-000061
+                  versionNo: 2
+                  status: DECLINED
+                  validUntil: "2026-11-20T18:00:00Z"
+                  customerName: "Emmanuel Tetteh"
+                  acceptedName: null
+                  decidedAt: "2026-11-16T14:40:00Z"
+                  lines:
+                    - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                      quantity: "18.000"
+                      uom: HEAD
+                      priceBasis: PER_HEAD
+                      unitPricePesewas: 95000
+                      lineNetPesewas: 1710000
+                  deliveryFeePesewas: 6000
+                  netPesewas: 1716000
+                  taxPesewas: 1200
+                  grossPesewas: 1717200
+                  currency: GHS
+                  terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                  deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                  documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+                - quoteNo: QUO-2026-DDW-000052
+                  versionNo: 2
+                  status: ACCEPTED
+                  validUntil: "2026-11-20T18:00:00Z"
+                  customerName: "Emmanuel Tetteh"
+                  acceptedName: "Emmanuel Tetteh"
+                  decidedAt: "2026-11-15T09:12:00Z"
+                  lines:
+                    - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
+                      quantity: "18.000"
+                      uom: HEAD
+                      priceBasis: PER_HEAD
+                      unitPricePesewas: 95000
+                      lineNetPesewas: 1710000
+                  deliveryFeePesewas: 6000
+                  netPesewas: 1716000
+                  taxPesewas: 1200
+                  grossPesewas: 1717200
+                  currency: GHS
+                  terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
+                  deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
+                  documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

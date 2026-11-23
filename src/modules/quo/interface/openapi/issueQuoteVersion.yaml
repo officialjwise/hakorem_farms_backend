@@ -103,6 +103,8 @@ responses:
           createdAt: "2026-11-13T15:00:00Z"
           version: 1
           acceptanceLinkToken: null
+          acceptanceLinkId: null
+          links: []
   "202":
     description: "Accepted for approval. Nothing has taken effect yet."
     content:

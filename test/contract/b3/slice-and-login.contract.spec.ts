@@ -486,6 +486,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     issueQuoteVersion: QuoIssue,
     recordQuoteAcceptance: QuoAcceptanceRecord,
     declineQuote: QuoReasonRequest,
+    revokeQuoteLink: QuoReasonRequest,
     cancelQuote: QuoReasonRequest,
     convertQuote: QuoConvert,
     forceCloseShift: PosReasonBody,

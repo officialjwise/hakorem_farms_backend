@@ -42,6 +42,27 @@ export interface QuoteDecided {
   readonly at: string;
 }
 
+/**
+ * `quo.QuoteLinkDecidedInStaffBrowser` v1 (B10 continued 4, abuse case 40): a quote accepted or declined through its
+ * link from a browser that also held a signed-in staff session, naming that staff member, for the exception report's
+ * source (`QUOTE_ACCEPTED_BY_STAFF`, B12). Raised for review; the decision itself is never blocked. No address, user
+ * agent or token: those stay in `quo.quote_link_decision`.
+ */
+export interface QuoteLinkDecidedInStaffBrowser {
+  readonly quoteId: string;
+  readonly quoteNo: string;
+  readonly versionId: string;
+  readonly versionNo: number;
+  readonly branchId: string;
+  readonly salespersonId: string;
+  readonly linkId: string;
+  readonly decision: 'ACCEPTED' | 'DECLINED';
+  readonly staffPrincipalId: string;
+  readonly grossPesewas: number;
+  readonly abuseCase: 40;
+  readonly at: string;
+}
+
 export interface QuoteConverted {
   readonly quoteId: string;
   readonly quoteNo: string;

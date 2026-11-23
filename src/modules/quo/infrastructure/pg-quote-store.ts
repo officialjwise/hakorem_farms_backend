@@ -1,6 +1,8 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type {
   AcceptanceRecord,
+  LinkDecisionRecord,
+  LinkRecord,
   LineRecord,
   QuoteFilter,
   QuoteRecord,
@@ -21,6 +23,12 @@ const QUOTE = `id, quote_no AS "quoteNo", rfq_id AS "rfqId", customer_id AS "cus
   salesperson_id AS "salespersonId", product_line AS "productLine", current_version_no AS "currentVersionNo", accepted_version_id AS "acceptedVersionId",
   converted_order_id AS "convertedOrderId", decline_reason AS "declineReason", cancel_reason AS "cancelReason", status, branch_id AS "branchId", version,
   created_at AS "createdAt", created_by AS "createdBy"`;
+
+const LINK = `t.id, t.quote_version_id AS "quoteVersionId", t.recorded_at AS "createdAt", t.actor_id AS "createdBy", t.expires_at AS "expiresAt",
+  r.recorded_at AS "revokedAt", r.actor_id AS "revokedBy", r.reason AS "revokeReason"`;
+
+const DECISION = `id, link_token_id AS "linkTokenId", quote_version_id AS "quoteVersionId", decision, host(ip) AS ip, user_agent AS "userAgent",
+  staff_principal_id AS "staffPrincipalId", staff_session_id AS "staffSessionId", decided_at AS "decidedAt"`;
 
 const VERSION = `id, quote_id AS "quoteId", version_no AS "versionNo", status, valid_until AS "validUntil", terms, delivery_estimate AS "deliveryEstimate",
   delivery_fee_pesewas::text AS "deliveryFeePesewas", tax_inclusive AS "taxInclusive", net_pesewas::text AS "netPesewas", tax_pesewas::text AS "taxPesewas",
@@ -293,8 +301,57 @@ export class PgQuoteStore implements QuoteStore {
     await tx.query('INSERT INTO quo.quote_link_token (id, quote_version_id, token_hash, recorded_at, expires_at, actor_id) VALUES ($1, $2, $3, $4, $5, $6)', [t.id, t.quoteVersionId, t.tokenHash, at, t.expiresAt, actorId]);
   }
 
-  async linkToken(tx: Transaction, tokenHash: Buffer): Promise<{ quoteVersionId: string; tokenHash: Buffer; expiresAt: Date } | null> {
-    const r = (await tx.query('SELECT quote_version_id AS "quoteVersionId", token_hash AS "tokenHash", expires_at AS "expiresAt" FROM quo.quote_link_token WHERE token_hash = $1', [tokenHash])).rows[0];
-    return (r as { quoteVersionId: string; tokenHash: Buffer; expiresAt: Date } | undefined) ?? null;
+  async linkToken(tx: Transaction, tokenHash: Buffer): Promise<{ id: string; quoteVersionId: string; tokenHash: Buffer; expiresAt: Date; revoked: boolean } | null> {
+    const r = (
+      await tx.query(
+        `SELECT t.id, t.quote_version_id AS "quoteVersionId", t.token_hash AS "tokenHash", t.expires_at AS "expiresAt",
+                EXISTS (SELECT 1 FROM quo.quote_link_revocation r WHERE r.link_token_id = t.id) AS revoked
+           FROM quo.quote_link_token t WHERE t.token_hash = $1`,
+        [tokenHash],
+      )
+    ).rows[0];
+    return (r as { id: string; quoteVersionId: string; tokenHash: Buffer; expiresAt: Date; revoked: boolean } | undefined) ?? null;
+  }
+
+  async linksOf(tx: Transaction, versionIds: readonly string[]): Promise<LinkRecord[]> {
+    if (versionIds.length === 0) return [];
+    return (
+      await tx.query(`SELECT ${LINK} FROM quo.quote_link_token t LEFT JOIN quo.quote_link_revocation r ON r.link_token_id = t.id WHERE t.quote_version_id = ANY($1::uuid[]) ORDER BY t.id`, [
+        versionIds,
+      ])
+    ).rows as LinkRecord[];
+  }
+
+  async link(tx: Transaction, id: string): Promise<LinkRecord | null> {
+    return ((await tx.query(`SELECT ${LINK} FROM quo.quote_link_token t LEFT JOIN quo.quote_link_revocation r ON r.link_token_id = t.id WHERE t.id = $1`, [id])).rows[0] as LinkRecord | undefined) ?? null;
+  }
+
+  async insertLinkRevocation(tx: Transaction, r: { id: string; linkTokenId: string; reason: string }, actorId: string, at: Date): Promise<void> {
+    await tx.query('INSERT INTO quo.quote_link_revocation (id, link_token_id, reason, recorded_at, actor_id) VALUES ($1, $2, $3, $4, $5)', [r.id, r.linkTokenId, r.reason, at, actorId]);
+  }
+
+  async insertLinkDecision(tx: Transaction, d: LinkDecisionRecord, actorId: string, at: Date): Promise<void> {
+    await tx.query(
+      `INSERT INTO quo.quote_link_decision (id, link_token_id, quote_version_id, decision, ip, user_agent, staff_principal_id, staff_session_id, decided_at, recorded_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
+      [d.id, d.linkTokenId, d.quoteVersionId, d.decision, d.ip, d.userAgent, d.staffPrincipalId, d.staffSessionId, d.decidedAt, at, actorId],
+    );
+  }
+
+  async linkDecisionsOf(tx: Transaction, versionIds: readonly string[]): Promise<LinkDecisionRecord[]> {
+    if (versionIds.length === 0) return [];
+    return (await tx.query(`SELECT ${DECISION} FROM quo.quote_link_decision WHERE quote_version_id = ANY($1::uuid[])`, [versionIds])).rows as LinkDecisionRecord[];
+  }
+
+  async quoteIdsOfCustomer(tx: Transaction, customerId: string, beforeId: string | null, limit: number): Promise<string[]> {
+    return (
+      await tx.query(
+        `SELECT q.id FROM quo.quote q
+          WHERE q.customer_id = $1 AND ($2::uuid IS NULL OR q.id < $2) AND q.status IN ('ISSUED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CONVERTED')
+            AND EXISTS (SELECT 1 FROM quo.quote_version v WHERE v.quote_id = q.id AND v.issued_at IS NOT NULL)
+          ORDER BY q.id DESC LIMIT $3`,
+        [customerId, beforeId, limit],
+      )
+    ).rows.map((r) => (r as { id: string }).id);
   }
 }
