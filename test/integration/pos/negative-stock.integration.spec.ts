@@ -340,12 +340,18 @@ describe('the true-up on arrival: exact, insert-only, the books reconciled at ev
     ]);
     expect(await account('1335', p)).toBe(-10_000 + 5_000 - 12_000);
     clock.advanceBy(60_000);
-    await receive(p, '5.000', 27_500); // 3 owed: 27,500 x 3 / 5 = 16,500, the older 1 first, then the 2
-    expect(await settlements(p)).toEqual([
-      { qty: '1.000', cleared: '5000', value: '6000' },
+    // 2 arrive at 11,000 against 3 owed: the older row's 1 first, then 1 of the newer 2; the whole 11,000 out.
+    await receive(p, '2.000', 11_000);
+    expect((await settlements(p)).slice(1)).toEqual([
       { qty: '1.000', cleared: '5000', value: '5500' },
-      { qty: '2.000', cleared: '12000', value: '11000' },
+      { qty: '1.000', cleared: '6000', value: '5500' },
     ]);
+    expect([await poolAt(p, 'DDW'), await account('1335', p)]).toEqual([{ qty: '-1.000', value: '0' }, -6_000]);
+    await expectReconciled(p);
+    clock.advanceBy(60_000);
+    // 3 at 16,500 settle the last 1 at 5,500 against its 6,000.
+    await receive(p, '3.000', 16_500);
+    expect((await settlements(p)).at(3)).toEqual({ qty: '1.000', cleared: '6000', value: '5500' });
     expect([await poolAt(p, 'DDW'), await account('1335', p)]).toEqual([{ qty: '2.000', value: '11000' }, 0]);
     // 6 sold: 2 at 5,000, 1 at 6,000, 3 at 5,500 = 32,500.
     expect(await account('5020', p)).toBe(32_500);
