@@ -29,6 +29,15 @@ When the connection returns, the counter and the drivers send what they did whil
 | `AUTHORISATION_FAILURE` at sync (URGENT) | The cashier's grant was revoked while the device was offline, and the sale was recorded anyway | Check why the grant was revoked and whether the sale is genuine; this may be an incident | 7 |
 | `DRIVER_VARIANCE` | A driver's cash differs from what was due, or a proof conflicted with a delivery that had changed | Compare the proof, the amount due and the reconciliation | 12 |
 
+## Stock sold below zero offline (ADR-0081, abuse case 36)
+
+The sale is recorded and its stock moves below zero. What the branch's pool lacked is costed at the last known cost into 1335, `inv.count_task` opens one count of that product at that location, and the `NEGATIVE_STOCK` item is REVIEW, or URGENT when no cost was ever known.
+
+1. The storekeeper counts the product at that location.
+2. If stock arrived and was never booked, post the goods receipt or the gain. The true-up runs by itself and 1335 returns to zero.
+3. If the stock is truly missing, post an adjustment loss with its reason, under approval where the threshold applies.
+4. Several sales below zero by one cashier with no arrival to explain them is abuse case 36: take it to the owner.
+
 ## A counter gap
 
 A missing device counter means a sale was made and not synced, or was removed from the device. The response to each sync lists the missing values (`counterGaps`).

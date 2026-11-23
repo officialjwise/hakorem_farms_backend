@@ -188,3 +188,14 @@ A cash sale posts three linked entries (stock issue, invoice, payment) sharing o
 **Applied in B09a continued 1d (2026-11-16, ADR-0066, A-216).** The row `pay.RefundPaid` gains the amount key `creditRefund` for a refund against a credit note: Dr 1200 against the customer, Cr the tender (migration 0184), the row's "1200 or 2200"; a cheque's bank payout credits 1100 against its bank account through the `BANK_TRANSFER` tender. Exact-amount tests in `src/modules/fin/domain/event-amounts.spec.ts` and `test/integration/pay/credit-note-refunds.integration.spec.ts`. The decision is unchanged.
 
 **Applied in B09b continued 3b (2026-11-19, ADR-0077 Amendments, A-281).** The row `pos.ShiftLateEntryPosted` is catalogued with two amount keys, `short` (Dr 6900, Cr 1000 against the till's REGISTER party) and `over` (Dr 1000 against the till, Cr 6900), migration 0281, one of the two zero: the post-close adjustment of a late entry on a till shift, exactly the entry's amount, posting once per late entry (`uq_journal_entry_pos_late_entry`). No existing row, account or determination changes. Its exact-amount test is `test/integration/pos/late-cash.integration.spec.ts`. The owner's clearing account for unverified mobile money (replacing A-279 (h)'s Dr 1110) is B09b continued 3c's.
+
+**Applied in B09b continued 3c (2026-11-23, the owner's decisions 2 and 3 of 2026-11-18, ADR-0081, A-282, A-283).** Two accounts are added, with new rows only; no existing rule, account or determination changes.
+- **1115 Mobile money awaiting verification** (asset, against the wallet, BANK_ACCOUNT). An unverified offline mobile money tender is booked here, never straight to 1110, the way a cheque waits in 1130. 1120 is not used for it, because 1120 holds provider-cleared receipts against the provider. `pay.PaymentCleared` marked `unverified` debits it through the determinant `MOBILE_MONEY_AWAITING_VERIFICATION` (determination 281). 0263's `UNVERIFIED_MOBILE_MONEY` (1110) is no longer named.
+- **`pay.UnverifiedPaymentVerified`** (rules 284, 285) moves the tender from 1115 to 1110 against the wallet, exactly once per verification (`uq_journal_entry_unverified_verified`). A tender reversed as never received mirrors its receipt (Dr 1200, Cr 1115), so 1110 is never touched.
+- **1335 Stock sold ahead of receipt** (asset, credit balance while open).
+  - `inv.NegativeStockCosted` (rules 286, 287): Dr cost of sales by GL group, Cr 1335.
+  - `inv.NegativeStockTrueUp` (rules 288 to 291): `cleared` Dr 1335, Cr cost of sales; `trueUp` Dr cost of sales, Cr inventory by GL group.
+  - Each posts once per subject (`uq_journal_entry_negative_stock`).
+
+Migrations 0285 and 0287. The exact-amount tests are `test/integration/pos/unverified-clearing.integration.spec.ts` and `test/integration/pos/negative-stock.integration.spec.ts`. The decision is unchanged.
+

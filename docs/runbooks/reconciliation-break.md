@@ -128,6 +128,15 @@ POST /reconciliation/breaks/{id}/resolve      # body: a note, and the resolution
 
 Every resolution carries a note, and the resolving user is recorded. The maker of a correction is not its approver where an approval applies.
 
+## D2. An unverified mobile money tender (A-282, OFFLINE_SYNC 9.9)
+
+The tender waits in 1115 against the wallet.
+
+1. Verified with the provider (a statement line or the provider's dashboard): resolve its `UNVERIFIED_PAYMENT` break with `posting: VERIFIED` and the evidence in the note. A second person approves it, and it moves to 1110 exactly once.
+2. Past `pay.unverified_window_days`: the hourly `unverified-tender-overdue` job raises it URGENT once (`pay.UnverifiedPaymentOverdue`). It stays in 1115.
+3. Never received: `reversePayment` with `MOBILE_MONEY_NOT_RECEIVED`, approved by a second person. It posts Dr 1200, Cr 1115, the receivable is the customer's again, and 1110 is never touched. Then close the break with a note.
+4. A bare close of a tender still waiting is refused (`VERIFICATION_REQUIRED`).
+
 ## E. Projection drift
 
 `rpt` and `cst` hold read models fed by events. The books are not wrong; the report is. Find the projector that lags or errs (`queue-backlog.md`), fix the cause, and rebuild the projection from events with the projector's rebuild command (specified in B11 and B12 for each projection). Re-run `projection-compare` and confirm `SUCCESS`. Until then, figures of record come from the module that owns them (the ledger, the stock ledger), and the owner is told the dashboard may be stale.

@@ -96,6 +96,14 @@ Before investigating, rule out the known benign causes.
 
 A second drift in a week on the same product or location is a defect, not a counting problem. Open a bug with the correlation ids of the movements around the divergence, add a test, and tell the owner.
 
+## An arrival refused with `ck_stock_reversal_value` (ADR-0081)
+
+An offline sale below zero is costed and trued up on arrival (ADR-0081). An arrival into a pool that owes stock is wrapped by a nil lift and a pool-valued issue, so it is never refused. The exception is a pool that went below zero **before migration 0286**, which has no `inv.negative_stock_cost` row. An arrival that brings it to exactly zero meets `ck_cost_pool_empty` and is refused as `ck_stock_reversal_value`.
+
+1. Confirm the case: `SELECT qty, value_pesewas FROM inv.cost_pool WHERE product_id = $1 AND branch_id = $2` shows a negative quantity, and `inv.negative_stock_cost` has no row for the product and branch.
+2. Do not edit the pool. Receive the stock in two goods receipts: one of a single unit, then the rest. Neither leaves the pool at quantity zero.
+3. Have the accountant correct cost of sales for the uncovered quantity with an approved manual journal, as ADR-0018 says for a pool that predates the true-up.
+
 ## Verification
 
 - `stock-balance-recompute` run by hand: outcome `SUCCESS`; the health check `last_stock_recompute` is `OK`.

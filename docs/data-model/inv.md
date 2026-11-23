@@ -30,13 +30,14 @@ Behaviour of each kind of movement.
 | `name` | `text` | NOT NULL | |
 | `is_value_only` | `boolean` | NOT NULL | Quantity must be zero; adds cost to a unit |
 | `allows_negative` | `boolean` | NOT NULL | May take a physical balance below zero, raising an exception |
+| `negative_anywhere` | `boolean` | NOT NULL DEFAULT false, `ck_movement_type_negative_anywhere` (only with `allows_negative`) | At any physical location, not only one that allows negative: `SALE_ISSUE_OFFLINE` and `NEGATIVE_TRUE_UP` only (migration 0286, ADR-0081) |
 | `blocked_by_hold` | `boolean` | NOT NULL | Rejected while the stock unit is under hold |
 | `requires_reason` | `boolean` | NOT NULL | `reason_code` mandatory |
 | `requires_stock_unit` | `boolean` | NOT NULL | Only tracked stock may use it |
 | `blocked_when_expired` | `boolean` | NOT NULL DEFAULT false | Refused for a lot past its expiry date; `SALE_ISSUE` and `SALE_ISSUE_OFFLINE` (migration 0064, FR-INV-016) |
 | `posting_event` | `text` | NULL | The event published for the ledger (ADR-0003); null if none |
 
-Seeded: `RECEIPT_PURCHASE`, `RECEIPT_HARVEST`, `BIRTH`, `OPENING_BALANCE`, `TRANSFER_INTERNAL`, `TRANSFER_DISPATCH`, `TRANSFER_RECEIPT`, `SALE_ISSUE`, `SALE_ISSUE_OFFLINE` (allows negative), `SALE_RETURN`, `PROCESS_CONSUME`, `PROCESS_OUTPUT`, `FEED_ISSUE`, `MEDICATION_ISSUE`, `COST_CAPITALISE` (value only), `MORTALITY`, `CULL`, `ADJUST_GAIN`, `ADJUST_LOSS`, `STOCKTAKE_GAIN`, `STOCKTAKE_LOSS`, `SUPPLIER_RETURN`. `SALE_ISSUE`, `SALE_ISSUE_OFFLINE`, `PROCESS_CONSUME` and `TRANSFER_DISPATCH` are blocked by hold.
+Seeded: `RECEIPT_PURCHASE`, `RECEIPT_HARVEST`, `BIRTH`, `OPENING_BALANCE`, `TRANSFER_INTERNAL`, `TRANSFER_DISPATCH`, `TRANSFER_RECEIPT`, `SALE_ISSUE`, `SALE_ISSUE_OFFLINE` (allows negative), `SALE_RETURN`, `PROCESS_CONSUME`, `PROCESS_OUTPUT`, `FEED_ISSUE`, `MEDICATION_ISSUE`, `COST_CAPITALISE` (value only), `MORTALITY`, `CULL`, `ADJUST_GAIN`, `ADJUST_LOSS`, `STOCKTAKE_GAIN`, `STOCKTAKE_LOSS`, `SUPPLIER_RETURN`. `SALE_ISSUE`, `SALE_ISSUE_OFFLINE`, `PROCESS_CONSUME` and `TRANSFER_DISPATCH` are blocked by hold. Migration 0286 adds `NEGATIVE_TRUE_UP_IN` (the nil lift before an arrival into a pool owing stock sold ahead of receipt) and `NEGATIVE_TRUE_UP` (its pool-valued issue after the arrival), made only by `Stock.postIn`'s true-up and named by their settlement (ADR-0081).
 
 ### `inv.stock_unit` · MASTER
 
@@ -228,6 +229,41 @@ A stock fact that needs a person: negative stock, an offline conflict, a tempera
 
 - Only the resolution columns and `status` may be updated, once.
 - **A held transfer variance** (ADR-0048, migration 0060): a `TRANSFER_VARIANCE` with no `movement_id` holds its quantity in the in-transit location until resolved, only as `WRITE_OFF` (its adjustment) or `FOUND` (its transfer) with the resolution document (`ck_stock_exception_held_resolution`). The movement trigger `inv.protect_in_transit` refuses a movement that would take an in-transit balance below what open variances hold (HK010 `ck_stock_held`) and any movement type blocked by hold leaving in-transit (`ck_stock_in_transit`); a resolution marks its exception resolved before it posts. Index `ix_stock_exception_held`.
+
+### `inv.negative_stock_cost` · LEDGER
+
+B09b continued 3c (migration 0286, ADR-0081, A-283): what an offline sale's `SALE_ISSUE_OFFLINE` issued beyond what the branch's cost pool held, valued at the last known cost. Written only by `trg_stock_movement_negative_cost` (AFTER INSERT, after `trg_stock_movement_apply`), never by hand (`ck_negative_stock_cost`, `pg_trigger_depth`). Insert-only (`platform.reject_change`).
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK, `gen_random_uuid()` | Trigger-created |
+| `movement_id` | `uuid` | NOT NULL, UNIQUE, FK `inv.stock_movement` | The offline sale's issue |
+| `product_id`, `stock_unit_id`, `branch_id`, `location_id` | `uuid` | the pool and the place | |
+| `uncovered_qty` | `qty` | NOT NULL, `> 0` | The quantity the pool did not hold |
+| `cost_known` | `boolean` | NOT NULL | False when no cost was ever known: valued at nil, raised URGENT |
+| `basis_movement_id`, `basis_qty`, `basis_value_pesewas` | | all null exactly when `cost_known` is false (`ck_negative_stock_cost_basis`) | The pool's average when it covered part, else the latest earlier uncovered row's basis or valued movement not itself short |
+| `value_pesewas` | `pesewas` | NOT NULL, `ck_negative_stock_cost_value`: half-up of basis value x uncovered / basis quantity, once | Posted by ◆ `inv.NegativeStockCosted` (Dr cost of sales, Cr 1335) |
+| `recorded_at`, `actor_id` | | the movement's | |
+
+### `inv.negative_stock_settlement` · LEDGER
+
+B09b continued 3c (migration 0286): what a true-up on arrival settled of each uncovered row. Written by `inv.settle_negative_stock(lift, arrival, true_up, actor)`, oldest row first. The arrival's quantity settles up to what is still uncovered, the true-up's value is split by cumulative half-up on quantity, and each row's last known value is cleared by cumulative half-up on its own uncovered quantity. Insert-only.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `cost_id` | `uuid` | NOT NULL, FK `inv.negative_stock_cost`; UNIQUE with `true_up_movement_id` | |
+| `lift_movement_id`, `arrival_movement_id`, `true_up_movement_id` | `uuid` | NOT NULL, FK `inv.stock_movement` | The `NEGATIVE_TRUE_UP_IN`, the arrival, the `NEGATIVE_TRUE_UP` |
+| `qty` | `qty` | NOT NULL, `> 0`; the sum per cost row never above `uncovered_qty` (`ck_negative_stock_settled`) | |
+| `cleared_value_pesewas` | `pesewas` | NOT NULL, cumulative half-up (`ck_negative_true_up`) | Leaves 1335 |
+| `true_up_value_pesewas` | `pesewas` | NOT NULL; the sum per true-up equals its movement's value | Leaves inventory |
+| `recorded_at`, `actor_id` | | | |
+
+- `trg_stock_movement_true_up_named` (DEFERRABLE INITIALLY DEFERRED): a `NEGATIVE_TRUE_UP_IN` or `NEGATIVE_TRUE_UP` movement commits only when named by its settlement rows, with the lift and the issue equal and the lift at nil (`ck_negative_true_up`).
+
+### `inv.count_task` · WORK
+
+B09b continued 3c (migration 0286, A-283 (f)): a count of a product (and unit) at a location, raised by `trg_stock_exception_count_task` with the `NEGATIVE_STOCK` of an offline sale (its movement a `SALE_ISSUE_OFFLINE`, or none). Columns: `id`, `branch_id`, `location_id`, `product_id`, `stock_unit_id`, `stock_exception_id` (the first exception), `status` (`OPEN`, `DONE`), `raised_at` (the exception's), `done_at`, `done_by` (`ck_count_task_done`). One open per product, unit and location (`uq_count_task_open`, NULLS NOT DISTINCT). No read or close operation yet (BL-104).
 
 ### `inv.goods_receipt` · DOCUMENT
 
