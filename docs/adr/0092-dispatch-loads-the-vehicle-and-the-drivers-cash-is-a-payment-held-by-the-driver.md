@@ -1,6 +1,6 @@
 # ADR-0092: Dispatch loads the vehicle and issues the document on the weighed quantity; the driver's cash is a payment held by the driver
 
-- **Status:** Proposed
+- **Status:** Accepted (the owner, 2026-11-23: A-337 to A-341 approved)
 - **Date:** 2026-11-23
 - **Session:** B11 continued (lane B)
 - **Deciders:** backend track; the owner reviews A-337 to A-340
