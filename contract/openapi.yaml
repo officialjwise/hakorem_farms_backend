@@ -55877,7 +55877,7 @@ paths:
       tags:
         - pos
       summary: "Download the offline pack for a shift"
-      description: "Everything a till needs to sell for a shift with no network (2.11.0, FR-POS-010, OFFLINE_SYNC 5.1, B09b continued 2): a cache with an age, never trusted at sync. Read by a holder of `pos.sale.create` at the till's branch and location from an enrolled device of that till (`X-Device-Credential`: 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device). It carries the channel `POS` prices of every product a counter may sell (`ACTIVE`, held in stock, priced by a list in force), each in every unit it is sold by at this register at that unit's own price (`sellingUnits`, CR-038), whether each product's prices include tax (`taxInclusive`, CR-031), the price list versions and the tax scheme version in force with its cells, the animals and lots standing at the till's location with whether a sale may take them now (never a cost), the payment methods the counter takes, the `PRICE_OVERRIDE` reasons and the `CASH_MOVEMENT` reasons `recordCashMovement` takes (CR-032 point 6), and the policy: `maxOfflineHours` and `maxQueuedSales` from the settings `pos.offline.max_hours` (8) and `pos.offline.max_queued_sales` (500) for the branch, `offlineTenderMethodIds` the methods allowed offline (cash only by default; mobile money as well only while `pos.offline.allow_unverified_mobile_money` is on for the branch), and the caller's per-line and per-shift price override limits, and `pinMaxWrongTries`, the wrong till PIN tries before a PIN locks (2.17.0, CR-032 point 3). `uoms` names every unit the pack's products are sold or counted in, singular and plural (2.17.0, CR-051). `validUntil` is `generatedAt` plus `maxOfflineHours`. A product priced by grade or weight (a live animal) has no single band (`priceBand` null). Each issue is audited with the device and the versions it gave.\n\nPermission: `pos.sale.create`."
+      description: "Everything a till needs to sell for a shift with no network (2.11.0, FR-POS-010, OFFLINE_SYNC 5.1, B09b continued 2): a cache with an age, never trusted at sync. Read by a holder of `pos.sale.create` at the till's branch and location from an enrolled device of that till (`X-Device-Credential`: 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device). It carries the channel `POS` prices of every product a counter may sell (`ACTIVE`, held in stock, priced by a list in force), each in every unit it is sold by at this register at that unit's own price (`sellingUnits`, CR-038), whether each product's prices include tax (`taxInclusive`, CR-031), the price list versions and the tax scheme version in force with its cells, the animals and lots standing at the till's location with whether a sale may take them now (never a cost), the payment methods the counter takes, the `PRICE_OVERRIDE` reasons and the `CASH_MOVEMENT` reasons `recordCashMovement` takes (CR-032 point 6), and the policy: `maxOfflineHours` and `maxQueuedSales` from the settings `pos.offline.max_hours` (8) and `pos.offline.max_queued_sales` (500) for the branch, `offlineTenderMethodIds` the methods allowed offline (cash only by default; mobile money as well only while `pos.offline.allow_unverified_mobile_money` is on for the branch), and the caller's per-line and per-shift price override limits, and `pinMaxWrongTries`, the wrong till PIN tries before a PIN locks (2.17.0, CR-032 point 3). `uoms` names every unit the pack's products are sold or counted in, singular and plural (2.17.0, CR-051). `validUntil` is `generatedAt` plus `maxOfflineHours`. A product priced by grade or weight (a live animal) has no single band (`priceBand` null); instead each sellable animal in `stockUnits` carries its own `priceBand` and `priceListEntryId`, resolved by the pricing engine as the counter would for a buyer with no account from that animal's own grade and latest weight (2.27.0, CR-052), with `lastWeighedAt` and `lastWeightSource`; an animal the engine cannot price, or one that cannot be sold now, has none and `unpricedReason` says why (`MISSING_GRADE_OR_WEIGHT`, `NO_RULE`, `QUOTE_ONLY`, `NOT_SELLABLE`). A lot carries no price of its own: it sells at its product's band. The server prices every synced sale again at its own time (`syncOfflineSales`). Each issue is audited with the device and the versions it gave.\n\nPermission: `pos.sale.create`."
       x-permission: pos.sale.create
       parameters:
         - name: id
@@ -56129,28 +56129,72 @@ paths:
                     locationId: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
                     gradeId: null
                     lastWeightKg: "26.400"
+                    lastWeighedAt: "2026-11-23T06:40:00Z"
+                    lastWeightSource: SCALE
                     sellable: true
+                    priceListEntryId: "019a7afc-6a10-7c21-9e3f-2b8d4c6e1a01"
+                    priceBand:
+                      listPricePesewas: 65000
+                      floorPricePesewas: 40000
+                      ceilingPricePesewas: 90000
+                      basis: PER_HEAD
+                    unpricedReason: null
                   - id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
                     identifier: G-0157
                     productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
                     locationId: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
                     gradeId: null
                     lastWeightKg: "31.800"
+                    lastWeighedAt: "2026-11-23T06:42:00Z"
+                    lastWeightSource: SCALE
                     sellable: true
+                    priceListEntryId: "019a7afc-6a10-7c21-9e3f-2b8d4c6e1a02"
+                    priceBand:
+                      listPricePesewas: 120000
+                      floorPricePesewas: 90000
+                      ceilingPricePesewas: 150000
+                      basis: PER_HEAD
+                    unpricedReason: null
                   - id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
                     identifier: G-0163
                     productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
                     locationId: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
                     gradeId: null
                     lastWeightKg: "22.150"
+                    lastWeighedAt: "2026-11-22T07:05:00Z"
+                    lastWeightSource: SCALE
                     sellable: false
+                    priceListEntryId: null
+                    priceBand: null
+                    unpricedReason: NOT_SELLABLE
                   - id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
                     identifier: G-0171
                     productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
                     locationId: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
                     gradeId: null
                     lastWeightKg: "24.900"
+                    lastWeighedAt: "2026-11-22T07:10:00Z"
+                    lastWeightSource: SCALE
                     sellable: true
+                    priceListEntryId: "019a7afc-6a10-7c21-9e3f-2b8d4c6e1a01"
+                    priceBand:
+                      listPricePesewas: 65000
+                      floorPricePesewas: 40000
+                      ceilingPricePesewas: 90000
+                      basis: PER_HEAD
+                    unpricedReason: null
+                  - id: "019a7a8f-d1e4-7f02-8a6b-3c9e5d7f2b10"
+                    identifier: G-0190
+                    productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    locationId: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+                    gradeId: null
+                    lastWeightKg: null
+                    lastWeighedAt: null
+                    lastWeightSource: null
+                    sellable: true
+                    priceListEntryId: null
+                    priceBand: null
+                    unpricedReason: MISSING_GRADE_OR_WEIGHT
                 paymentMethods:
                   - id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
                     code: CASH
@@ -56648,7 +56692,7 @@ paths:
       tags:
         - pos
       summary: "Sync sales and cash movements queued while offline"
-      description: "The sales a till queued while it had no network (2.13.0, 2.15.0, FR-POS-011 to FR-POS-014, ADR-0027, OFFLINE_SYNC 6 to 9, B09b continued 2b), applied exactly once each by its client UUIDv7, in ascending `deviceCounter` whatever order they arrive in, each in its own transaction, so a failure never loses the rest of the batch and re-sending a whole batch is always safe. The batch takes no `Idempotency-Key`: a sale already applied answers `DUPLICATE` with its first result and consumes no number. **Who:** the shift's cashier holding `pos.sale.create` at the till's branch and location, or a holder of `pos.shift.force_close` at the branch recovering the till (with a fresh step-up), from an enrolled device of the shift's till that is not revoked (`X-Device-Credential`: 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device or a `deviceId` other than the credential's). A shift that names nothing is 404. More than 500 sales is 400 `SYNC_BATCH_TOO_LARGE` and applies nothing. Each sale is attributed to the shift's cashier, never to the session that synced it. **Refused only for integrity** (`REJECTED_INTEGRITY`, nothing recorded, `orderId`, `orderNo`, `receiptNo` and `grossPesewas` null, one exception `SYNC_REJECTED`): an id that is not a UUIDv7; content that does not match `payloadHash` (SHA-256 over the sale less its hash in RFC 8785 canonical JSON, OFFLINE_SYNC 4.4); an id applied before with other content; a device counter of the shift that belongs to another applied sale; a sale the catalogue cannot read (an unknown product or payment method, a unit with no conversion, a line the till's own rules forbid). **Everything else is recorded** (`APPLIED`, or `APPLIED_WITH_EXCEPTION` with each exception named), never refused: the order (`isOffline`, placed and completed at `occurredAt`), its receipt with the official number allocated here, issued at `occurredAt` and dated that day, or the first open date when its period has since locked, marked `syncedFromOffline` with the `provisionalRef` the till printed, and its cash. Each line's stock moves as `SALE_ISSUE_OFFLINE`: countable and lot stock may go below zero (`NEGATIVE_STOCK`), **from 2.22.0 at any location** (the owner, 2026-11-18, ADR-0081, A-283): the stock moves, what the branch's cost pool lacked is costed at its last known cost and trued up when stock arrives, and a count of that product at that location is raised; the item is REVIEW, URGENT when no cost was ever known, with abuse cases 11 and 36; an animal sold elsewhere (`SERIAL_CONFLICT`), under a hold or past its expiry (`HOLD_CONFLICT`) or reserved (`RESERVATION_CONFLICT`) is recorded with no movement and a stock exception in its place. Each line is re-priced in its own unit (`uom`, absent the first unit the product is sold by, CR-038) as of `occurredAt`; the price the till charged always posts, and the server's price is worked out only to compare (2.17.0, the owner on 2026-11-18): every difference is raised to the daily exception report's source as `PRICE_OVERRIDE` and no approval is asked for after the fact (A-278 (h) as amended), for review within the cashier's own override limit (the source only, not told to the till) and URGENT beyond it or out of the band (told to the till); a price beyond the limit stands on the rules only with `overrideApproval`, a supervisor's PIN on the till verified at sync and a variance within that supervisor's own line limit, and anything else is outside the rules; a line no list prices now is `NOT_PRICED_AT_SYNC`; a unit the product is not sold by is `UNIT_NOT_SOLD`. Only cash is taken, and only onto its own shift while it is open, with one exception (2.15.0, B09b continued 2c): while `pos.offline.allow_unverified_mobile_money` is on for the branch, a mobile money tender carrying `unverifiedMobileMoney` is recorded as an `UNVERIFIED` payment, PENDING, on its own open shift, allocated to the receipt and held in the farm's mobile money wallet, with an `UNVERIFIED_PAYMENT` reconciliation break (REVIEW; URGENT when the pack did not offer the method or the approver the till names is no supervisor at the branch) that becomes urgent after `pay.unverified_window_days` unmatched; the sale's result names no exception for it, the break is the record. Any other tender (`UNMATCHED_PAYMENT`, URGENT) is not recorded and the receipt stays outstanding by it. **Cash for a shift that is closing, closed or force-closed** (2.20.0, the owner on 2026-11-18, ADR-0077 Amendments, replacing `OFFLINE_CASH_NOT_TAKEN`) is recorded on that same shift as a late entry, by the shift's cashier at the till's time, allocated to the receipt, and never onto another shift: the shift is not reopened and its close is unchanged, the close having counted the drawer without it, so its over or short moves by a post-close adjustment of exactly the cash (Dr 6900 Cr 1000 against the till, `pos.ShiftLateEntryPosted`); cash the cashier did not hand in shows the shift short by exactly its amount. It is `OFFLINE_LATE_CASH`, REVIEW, or URGENT when the till dates it after the shift closed, for a supervisor's review on the daily exception report's source. A sale on a closed shift is `OFFLINE_LATE_POSTING`; a sale whose period has locked is flagged on the report but not to the till. A till clock more than `sync.clock_tolerance_seconds` (300) ahead of the server or before the shift opened is `TILL_CLOCK_OUT_OF_TOLERANCE`; a sale older than `sync.max_sale_age_hours` (8) is `OFFLINE_SALE_TOO_OLD`; a cashier whose grant was revoked while offline is `AUTHORISATION_FAILURE`; tenders that do not sum to the receipt are `TENDERS_DIFFER`; a printed reference other than the shift and counter make is `PROVISIONAL_REF_MISMATCH`. Every exception reaches the daily exception report's source. `grossPesewas` is the total the server recorded, for the till to compare with its own (CR-031). `counterGaps` lists every device counter of the shift missing below the highest received, on every sync until it arrives; each newly missing value is raised once (`DEVICE_COUNTER_GAP`). `cashMovementResults` (2.15.0, B09b continued 2c): one answer per movement in the batch, applied after its sales in the till's order, each in its own transaction and decided once by its client id. `APPLIED`: recorded on the batch's own shift at the till's `occurredAt` though hours old (a till time more than the tolerance ahead of the server is recorded at the server's time, one before the shift opened at the shift's opening, each flagged), attributed to the shift's cashier, by the rules `recordCashMovement` holds; a drop with no `witnessId` is recorded unwitnessed and marked, since the till cannot know who was signed in (a witness's PIN is B09b continued 3's). `DUPLICATE`: applied before, by a sync or online, with the same content. A movement whose shift is closing, closed or force-closed is `APPLIED` on that shift as a late entry (2.20.0, the owner on 2026-11-18), by the same rules, its post-close adjustment moving the over or short by exactly its amount (a drop or a pay-out Dr 1000 Cr 6900, a pay-in Dr 6900 Cr 1000), and raised `OFFLINE_LATE_CASH` for a supervisor's review; it is never put on another shift. `REJECTED` with its reason, recorded nowhere and raised for the daily exception report: `ID_REUSED_WITH_OTHER_CONTENT`, `ID_NOT_UUID_V7`, or the rule of `recordCashMovement` it breaks (`TILL_OVERDRAWN`, `REASON_REQUIRED`, `REASON_NOT_FOR_KIND`, `NOTE_REQUIRED`, `WITNESS_IS_MAKER`, `WITNESS_NOT_SUPERVISOR`, `WITNESS_ONLY_ON_DROP`, `AMOUNT_NOT_POSITIVE`); a movement refused once is answered with the same reason on every later sync and is never applied afterwards. See docs/OFFLINE_SYNC.md.\n\nPermission: `pos.sale.create`."
+      description: "The sales a till queued while it had no network (2.13.0, 2.15.0, FR-POS-011 to FR-POS-014, ADR-0027, OFFLINE_SYNC 6 to 9, B09b continued 2b), applied exactly once each by its client UUIDv7, in ascending `deviceCounter` whatever order they arrive in, each in its own transaction, so a failure never loses the rest of the batch and re-sending a whole batch is always safe. The batch takes no `Idempotency-Key`: a sale already applied answers `DUPLICATE` with its first result and consumes no number. **Who:** the shift's cashier holding `pos.sale.create` at the till's branch and location, or a holder of `pos.shift.force_close` at the branch recovering the till (with a fresh step-up), from an enrolled device of the shift's till that is not revoked (`X-Device-Credential`: 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device or a `deviceId` other than the credential's). A shift that names nothing is 404. More than 500 sales is 400 `SYNC_BATCH_TOO_LARGE` and applies nothing. Each sale is attributed to the shift's cashier, never to the session that synced it. **Refused only for integrity** (`REJECTED_INTEGRITY`, nothing recorded, `orderId`, `orderNo`, `receiptNo` and `grossPesewas` null, one exception `SYNC_REJECTED`): an id that is not a UUIDv7; content that does not match `payloadHash` (SHA-256 over the sale less its hash in RFC 8785 canonical JSON, OFFLINE_SYNC 4.4); an id applied before with other content; a device counter of the shift that belongs to another applied sale; a sale the catalogue cannot read (an unknown product or payment method, a unit with no conversion, a line the till's own rules forbid). **Everything else is recorded** (`APPLIED`, or `APPLIED_WITH_EXCEPTION` with each exception named), never refused: the order (`isOffline`, placed and completed at `occurredAt`), its receipt with the official number allocated here, issued at `occurredAt` and dated that day, or the first open date when its period has since locked, marked `syncedFromOffline` with the `provisionalRef` the till printed, and its cash. Each line's stock moves as `SALE_ISSUE_OFFLINE`: countable and lot stock may go below zero (`NEGATIVE_STOCK`), **from 2.22.0 at any location** (the owner, 2026-11-18, ADR-0081, A-283): the stock moves, what the branch's cost pool lacked is costed at its last known cost and trued up when stock arrives, and a count of that product at that location is raised; the item is REVIEW, URGENT when no cost was ever known, with abuse cases 11 and 36; an animal sold elsewhere (`SERIAL_CONFLICT`), under a hold or past its expiry (`HOLD_CONFLICT`) or reserved (`RESERVATION_CONFLICT`) is recorded with no movement and a stock exception in its place. Each line is re-priced in its own unit (`uom`, absent the first unit the product is sold by, CR-038) as of `occurredAt`; the price the till charged always posts, and the server's price is worked out only to compare (2.17.0, the owner on 2026-11-18): every difference is raised to the daily exception report's source as `PRICE_OVERRIDE` and no approval is asked for after the fact (A-278 (h) as amended), for review within the cashier's own override limit (the source only, not told to the till) and URGENT beyond it or out of the band (told to the till); a price beyond the limit stands on the rules only with `overrideApproval`, a supervisor's PIN on the till verified at sync and a variance within that supervisor's own line limit, and anything else is outside the rules; a line no list prices now is `NOT_PRICED_AT_SYNC`; a unit the product is not sold by is `UNIT_NOT_SOLD`. **An animal (2.27.0, CR-052):** the server prices its line from the weight and grade the line carries, else from the animal's own latest weight and grade the server holds at sync, exactly as `getOfflinePack` priced it from the weight it then held. So an animal weighed again since the pack, on the farm or on the till's scale at the sale (`weightKg` and `weightSource` on the line), is priced by the server from that latest weight, in whatever band it now falls; the till charged its pack's price (or a price agreed inside that band), that price stands, and the difference to the new band's list price is the variance, raised as `PRICE_OVERRIDE` by the rules above (REVIEW within the cashier's limit, URGENT beyond it or outside the new band), its facts naming the weight, grade and weight source the server priced from (`pricedFrom`). A line whose price differs from the server's and names no `varianceReasonCode` (the till charged what its pack said) is recorded under the server's reason `OFFLINE_PACK_PRICE`, never refused; the pack does not offer that reason to a cashier. Only cash is taken, and only onto its own shift while it is open, with one exception (2.15.0, B09b continued 2c): while `pos.offline.allow_unverified_mobile_money` is on for the branch, a mobile money tender carrying `unverifiedMobileMoney` is recorded as an `UNVERIFIED` payment, PENDING, on its own open shift, allocated to the receipt and held in the farm's mobile money wallet, with an `UNVERIFIED_PAYMENT` reconciliation break (REVIEW; URGENT when the pack did not offer the method or the approver the till names is no supervisor at the branch) that becomes urgent after `pay.unverified_window_days` unmatched; the sale's result names no exception for it, the break is the record. Any other tender (`UNMATCHED_PAYMENT`, URGENT) is not recorded and the receipt stays outstanding by it. **Cash for a shift that is closing, closed or force-closed** (2.20.0, the owner on 2026-11-18, ADR-0077 Amendments, replacing `OFFLINE_CASH_NOT_TAKEN`) is recorded on that same shift as a late entry, by the shift's cashier at the till's time, allocated to the receipt, and never onto another shift: the shift is not reopened and its close is unchanged, the close having counted the drawer without it, so its over or short moves by a post-close adjustment of exactly the cash (Dr 6900 Cr 1000 against the till, `pos.ShiftLateEntryPosted`); cash the cashier did not hand in shows the shift short by exactly its amount. It is `OFFLINE_LATE_CASH`, REVIEW, or URGENT when the till dates it after the shift closed, for a supervisor's review on the daily exception report's source. A sale on a closed shift is `OFFLINE_LATE_POSTING`; a sale whose period has locked is flagged on the report but not to the till. A till clock more than `sync.clock_tolerance_seconds` (300) ahead of the server or before the shift opened is `TILL_CLOCK_OUT_OF_TOLERANCE`; a sale older than `sync.max_sale_age_hours` (8) is `OFFLINE_SALE_TOO_OLD`; a cashier whose grant was revoked while offline is `AUTHORISATION_FAILURE`; tenders that do not sum to the receipt are `TENDERS_DIFFER`; a printed reference other than the shift and counter make is `PROVISIONAL_REF_MISMATCH`. Every exception reaches the daily exception report's source. `grossPesewas` is the total the server recorded, for the till to compare with its own (CR-031). `counterGaps` lists every device counter of the shift missing below the highest received, on every sync until it arrives; each newly missing value is raised once (`DEVICE_COUNTER_GAP`). `cashMovementResults` (2.15.0, B09b continued 2c): one answer per movement in the batch, applied after its sales in the till's order, each in its own transaction and decided once by its client id. `APPLIED`: recorded on the batch's own shift at the till's `occurredAt` though hours old (a till time more than the tolerance ahead of the server is recorded at the server's time, one before the shift opened at the shift's opening, each flagged), attributed to the shift's cashier, by the rules `recordCashMovement` holds; a drop with no `witnessId` is recorded unwitnessed and marked, since the till cannot know who was signed in (a witness's PIN is B09b continued 3's). `DUPLICATE`: applied before, by a sync or online, with the same content. A movement whose shift is closing, closed or force-closed is `APPLIED` on that shift as a late entry (2.20.0, the owner on 2026-11-18), by the same rules, its post-close adjustment moving the over or short by exactly its amount (a drop or a pay-out Dr 1000 Cr 6900, a pay-in Dr 6900 Cr 1000), and raised `OFFLINE_LATE_CASH` for a supervisor's review; it is never put on another shift. `REJECTED` with its reason, recorded nowhere and raised for the daily exception report: `ID_REUSED_WITH_OTHER_CONTENT`, `ID_NOT_UUID_V7`, or the rule of `recordCashMovement` it breaks (`TILL_OVERDRAWN`, `REASON_REQUIRED`, `REASON_NOT_FOR_KIND`, `NOTE_REQUIRED`, `WITNESS_IS_MAKER`, `WITNESS_NOT_SUPERVISOR`, `WITNESS_ONLY_ON_DROP`, `AMOUNT_NOT_POSITIVE`); a movement refused once is answered with the same reason on every later sync and is never applied afterwards. See docs/OFFLINE_SYNC.md.\n\nPermission: `pos.sale.create`."
       x-permission: pos.sale.create
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
@@ -98766,8 +98810,46 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Kilograms"
             - type: "null"
+        lastWeighedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: "When the unit's last weight was taken (2.27.0, CR-052); null when it was never weighed."
+        lastWeightSource:
+          type:
+            - string
+            - "null"
+          enum:
+            - SCALE
+            - MANUAL
+            - ESTIMATE
+            - null
+          description: "How an animal's last weight was taken, from its weighing history (2.27.0, CR-052); null for a lot, for an animal never weighed, and for a weight the history does not hold."
         sellable:
           type: boolean
+        priceListEntryId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "The price list entry this animal's own price resolved from (2.27.0, CR-052); null for a lot and for an animal with no price here (`unpricedReason`)."
+        priceBand:
+          anyOf:
+            - $ref: "#/components/schemas/PriceBand"
+            - type: "null"
+          description: "This animal's own band, resolved by the pricing engine as the counter would for a buyer with no account, from the animal's own grade and latest weight (`gradeId`, `lastWeightKg`), one head in the first unit its product is sold by here, never derived (2.27.0, CR-052). The till keeps an agreed price inside its floor and ceiling. Null for a lot (it sells at its product's `priceBand`; the scale gives the weight) and for an animal with no price here. The server prices every synced sale again (`syncOfflineSales`): the price charged stands and a difference is raised."
+        unpricedReason:
+          type:
+            - string
+            - "null"
+          enum:
+            - MISSING_GRADE_OR_WEIGHT
+            - NO_RULE
+            - QUOTE_ONLY
+            - NOT_SELLABLE
+            - null
+          description: "Why an animal has no price at this till (2.27.0, CR-052): the engine's reason (it needs a grade or a weight the animal lacks, no list prices it, or it is sold only through a quote), or `NOT_SELLABLE` (reserved, on hold or otherwise not to be sold now). Null for a priced animal and for a lot."
       required:
         - id
         - identifier

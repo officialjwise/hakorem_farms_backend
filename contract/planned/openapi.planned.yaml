@@ -31878,8 +31878,46 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Kilograms"
             - type: "null"
+        lastWeighedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: "When the unit's last weight was taken (2.27.0, CR-052); null when it was never weighed."
+        lastWeightSource:
+          type:
+            - string
+            - "null"
+          enum:
+            - SCALE
+            - MANUAL
+            - ESTIMATE
+            - null
+          description: "How an animal's last weight was taken, from its weighing history (2.27.0, CR-052); null for a lot, for an animal never weighed, and for a weight the history does not hold."
         sellable:
           type: boolean
+        priceListEntryId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "The price list entry this animal's own price resolved from (2.27.0, CR-052); null for a lot and for an animal with no price here (`unpricedReason`)."
+        priceBand:
+          anyOf:
+            - $ref: "#/components/schemas/PriceBand"
+            - type: "null"
+          description: "This animal's own band, resolved by the pricing engine as the counter would for a buyer with no account, from the animal's own grade and latest weight (`gradeId`, `lastWeightKg`), one head in the first unit its product is sold by here, never derived (2.27.0, CR-052). The till keeps an agreed price inside its floor and ceiling. Null for a lot (it sells at its product's `priceBand`; the scale gives the weight) and for an animal with no price here. The server prices every synced sale again (`syncOfflineSales`): the price charged stands and a difference is raised."
+        unpricedReason:
+          type:
+            - string
+            - "null"
+          enum:
+            - MISSING_GRADE_OR_WEIGHT
+            - NO_RULE
+            - QUOTE_ONLY
+            - NOT_SELLABLE
+            - null
+          description: "Why an animal has no price at this till (2.27.0, CR-052): the engine's reason (it needs a grade or a weight the animal lacks, no list prices it, or it is sold only through a quote), or `NOT_SELLABLE` (reserved, on hold or otherwise not to be sold now). Null for a priced animal and for a lot."
       required:
         - id
         - identifier
