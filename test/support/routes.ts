@@ -283,6 +283,8 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
 /** Reads whose query has a required parameter: without it the request is refused as invalid before it is authorised. */
 export const VALID_QUERY: Record<string, string> = { listStockAvailability: `?branchId=${randomUUID()}`, listGrowth: '?groupBy=PEN&from=2026-10-01&to=2026-10-31', listSupplierScores: '?periodStart=2026-10-01', listAccountActivity: '?from=2026-11-01&to=2026-11-30',
   getTrialBalance: '?from=2026-11-01&to=2026-11-30',
+  // B10 continued 5: the quote pipeline for a period, by salesperson.
+  getQuotePipeline: '?from=2026-11-01&to=2026-11-30&groupBy=SALESPERSON',
   getProfitAndLoss: '?from=2026-11-01&to=2026-11-30',
   getBalanceSheet: '?asOf=2026-11-30',
   getCashFlow: '?from=2026-11-01&to=2026-11-30',

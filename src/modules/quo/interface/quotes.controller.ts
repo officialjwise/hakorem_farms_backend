@@ -7,9 +7,9 @@ import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operatio
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { SalesOrderView } from '../../ord';
-import { Quotes, type ApprovalPendingView, type Page, type PublicQuoteView, type QuoteVersionView, type QuoteView } from '../application/quotes';
+import { Quotes, type ApprovalPendingView, type Page, type PublicQuoteView, type QuotePipelineView, type QuoteVersionView, type QuoteView } from '../application/quotes';
 import { Rfqs, type RfqView } from '../application/rfqs';
-import { IdParam, PageQuery, QuoteAcceptanceRecord, QuoteConvert, QuoteCreate, QuoteIssue, QuotePageQuery, QuoteVersionCreate, QuoteVersionUpdate, ReasonRequest, RfqCreate, RfqPageQuery, RfqUpdate } from './schemas';
+import { IdParam, PageQuery, QuoteAcceptanceRecord, QuoteConvert, QuoteCreate, QuoteIssue, QuotePageQuery, QuotePipelineQuery, QuoteVersionCreate, QuoteVersionUpdate, ReasonRequest, RfqCreate, RfqPageQuery, RfqUpdate } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -71,6 +71,13 @@ export class QuotesController {
   @Operation({ operationId: 'createQuote', ...WRITE, permission: 'quo.quote.create' })
   createQuote(@CurrentActor() actor: Actor | undefined, @Body(zodPipe(QuoteCreate)) body: z.infer<typeof QuoteCreate>, @IdempotencyKeyHeader() key: string, @Res({ passthrough: true }) res: Response): Promise<QuoteView> {
     return reply(res, this.quotes.create(actor, body, key));
+  }
+
+  /** Declared before `quotes/:id`, so `/quotes/pipeline` is never read as a quote's id. */
+  @Get('quotes/pipeline')
+  @Operation({ operationId: 'getQuotePipeline', ...READ, permission: 'quo.report.read' })
+  getQuotePipeline(@CurrentActor() actor: Actor | undefined, @Query(zodPipe(QuotePipelineQuery)) q: z.infer<typeof QuotePipelineQuery>): Promise<QuotePipelineView> {
+    return this.quotes.pipeline(actor, { from: q.from, to: q.to, groupBy: q.groupBy }, q.cursor, q.limit);
   }
 
   @Get('quotes/:id')

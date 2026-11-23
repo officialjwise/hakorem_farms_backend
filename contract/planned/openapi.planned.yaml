@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.22.0"
+  version: "2.23.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -5224,141 +5224,7 @@ paths:
   "/quotes/{id}/cancel": {}
   "/quotes/{id}/convert": {}
   "/quote-links/{id}/revoke": {}
-  "/quotes/pipeline":
-    get:
-      operationId: getQuotePipeline
-      tags:
-        - quo
-      summary: "Quote pipeline: issued, accepted, declined, expired and win rate"
-      description: "Permission: `quo.report.read`."
-      x-permission: quo.report.read
-      parameters:
-        - name: from
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: to
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: groupBy
-          in: query
-          required: true
-          schema:
-            type: string
-            enum:
-              - SALESPERSON
-              - PRODUCT_LINE
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/QuotePipeline"
-              examples:
-                default:
-                  value:
-                    data:
-                      - group:
-                          id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
-                          label: "Kojo Antwi"
-                        issued: 24
-                        accepted: 15
-                        declined: 5
-                        expired: 4
-                        converted: 14
-                        winRatePercent: "62.50"
-                        issuedValuePesewas: 18420000
-                        wonValuePesewas: 11930000
-                      - group:
-                          id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                          label: "Kwabena Owusu"
-                        issued: 9
-                        accepted: 5
-                        declined: 2
-                        expired: 2
-                        converted: 5
-                        winRatePercent: "55.56"
-                        issuedValuePesewas: 6120000
-                        wonValuePesewas: 3305000
-                      - group:
-                          id: null
-                          label: "Live animals"
-                        issued: 21
-                        accepted: 13
-                        declined: 4
-                        expired: 4
-                        converted: 12
-                        winRatePercent: "61.90"
-                        issuedValuePesewas: 19800000
-                        wonValuePesewas: 12450000
-                      - group:
-                          id: null
-                          label: Meat
-                        issued: 10
-                        accepted: 6
-                        declined: 3
-                        expired: 1
-                        converted: 6
-                        winRatePercent: "60.00"
-                        issuedValuePesewas: 4100000
-                        wonValuePesewas: 2465000
-                      - group:
-                          id: null
-                          label: "Produce and eggs"
-                        issued: 2
-                        accepted: 1
-                        declined: 0
-                        expired: 1
-                        converted: 1
-                        winRatePercent: "50.00"
-                        issuedValuePesewas: 640000
-                        wonValuePesewas: 320000
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                    currency: GHS
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                    currency: GHS
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/quotes/pipeline": {}
   "/me/quotes": {}
   "/business-accounts": {}
   "/business-accounts/{customerId}": {}
@@ -35773,6 +35639,9 @@ components:
           $ref: "#/components/schemas/Pesewas"
         lineNetPesewas:
           $ref: "#/components/schemas/Pesewas"
+        subjectToStock:
+          type: boolean
+          description: "2.23.0 (the owner, 2026-11-18, A-328): not all of this line was on hand when the quote was issued; the farm holds what is there and confirms the rest. The farm's stock level is not shown."
       required:
         - description
         - quantity
@@ -35780,6 +35649,7 @@ components:
         - priceBasis
         - unitPricePesewas
         - lineNetPesewas
+        - subjectToStock
     PublicQuote:
       type: object
       properties:
@@ -35838,6 +35708,10 @@ components:
             - string
             - "null"
           format: uri
+          description: "2.23.0 (FR-QUO-007, A-330): a signed, expiring URL to the quote version's archived PDF, made for this caller (the link's holder, or the customer signed in) and logged; it lapses after the platform's signed-URL lifetime, so read the quote again for a fresh one. Null until the version has been rendered, archived and scanned clean, a few seconds after issue."
+        subjectToStock:
+          type: boolean
+          description: "2.23.0 (the owner, 2026-11-18, A-328): a line was not wholly on hand when the quote was issued, so it is supplied subject to stock."
       required:
         - quoteNo
         - versionNo
@@ -35855,6 +35729,7 @@ components:
         - terms
         - deliveryEstimate
         - documentUrl
+        - subjectToStock
     QuoteAcceptByLink:
       type: object
       properties:
@@ -36114,6 +35989,19 @@ components:
             - $ref: "#/components/schemas/Quantity"
             - type: "null"
           description: "The line's quantity in the product's base unit (90.000 eggs for 3 crates), what is reserved; null on a free-text line."
+        availableQuantity:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+          description: "2.23.0 (the owner, 2026-11-18, A-328): what was on hand to promise at the branch in the base unit when the version was issued (a balance below zero counts as nothing); null before issue and on a free-text line."
+        heldQuantity:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+          description: "2.23.0 (the owner, 2026-11-18, A-328): what the version holds in the base unit: the line's base quantity or what was on hand, whichever is less, never more. An animal the line does not name is chosen at conversion and holds nothing (0.000). Null before issue and on a free-text line."
+        subjectToStock:
+          type: boolean
+          description: "2.23.0 (the owner, 2026-11-18, A-328): the line was not wholly on hand when the version was issued (`availableQuantity` below `baseQuantity`): it is supplied subject to stock."
       required:
         - id
         - lineNo
@@ -36131,6 +36019,9 @@ components:
         - lineNetPesewas
         - estimatedUnitCostPesewas
         - baseQuantity
+        - availableQuantity
+        - heldQuantity
+        - subjectToStock
     QuoteAcceptance:
       type: object
       properties:
@@ -36200,6 +36091,9 @@ components:
           description: "Margin over cost, (net less cost) over cost, as a percentage to two places rounded half away from zero (FR-QUO-003): 19.05 for 1,700,000 over 1,428,000. It may be negative (sold below cost) or above 100, so it is not a `Percent`. Null when the cost is unknown or nil. The floor is judged exactly on the amounts, never on this rounded figure."
         belowMarginFloor:
           type: boolean
+        subjectToStock:
+          type: boolean
+          description: "2.23.0 (the owner, 2026-11-18, A-328): a line was not wholly on hand when the version was issued; it was issued all the same, holding only what was there (see each line's `availableQuantity` and `heldQuantity`). False before issue."
         approvalRequestId:
           type:
             - string
@@ -36231,6 +36125,7 @@ components:
             - string
             - "null"
           format: uuid
+          description: "2.23.0 (FR-QUO-007, A-330): the archived rendering of this version (`getArchivedDocument`), its own revision of the quote's document, set once a few seconds after issue; null before."
         currency:
           $ref: "#/components/schemas/Currency"
         createdBy:
@@ -36273,6 +36168,7 @@ components:
         - estimatedCostPesewas
         - marginPercent
         - belowMarginFloor
+        - subjectToStock
         - approvalRequestId
         - changeNote
         - issuedAt

@@ -1,4 +1,4 @@
-import { halfUpDivide, Money, type Quantity } from '@hakorem/kernel';
+import { halfUpDivide, Money, Quantity } from '@hakorem/kernel';
 
 export const QUOTE_STATUSES = ['DRAFT', 'PENDING_APPROVAL', 'ISSUED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CONVERTED', 'CANCELLED'] as const;
 export type QuoteStatus = (typeof QUOTE_STATUSES)[number];
@@ -146,22 +146,34 @@ export function linkState(f: LinkFacts): LinkState {
   return 'OPEN';
 }
 
-export type ReservationPlan =
-  | { readonly kind: 'PLAN'; readonly pieces: readonly { readonly index: number; readonly qty: Quantity }[] }
-  | { readonly kind: 'SHORT'; readonly short: Quantity };
+/** What a quote line holds (`planHold`): the pieces to reserve, what was there to promise, what is held and what is not. */
+export interface HoldPlan {
+  readonly pieces: readonly { readonly index: number; readonly qty: Quantity }[];
+  /** Everything on hand to promise from, a balance below zero counted as nothing (ADR-0081). */
+  readonly available: Quantity;
+  /** What is reserved: `wanted` or what is on hand, whichever is less. Never more than is there (ADR-0019). */
+  readonly held: Quantity;
+  /** What is not on hand: the line is subject to stock when this is above nothing (the owner, 2026-11-18). */
+  readonly short: Quantity;
+}
 
-/** The pieces of available stock, oldest first as given, that cover `wanted` in the base unit, or how much is short. */
-export function planReservation(wanted: Quantity, available: readonly Quantity[]): ReservationPlan {
+/**
+ * The pieces of available stock, oldest first as given, that hold `wanted` in the base unit, or as much of it as is on
+ * hand (the owner, 2026-11-18: a quote for stock not on hand is issued subject to stock, holding only what is there).
+ */
+export function planHold(wanted: Quantity, available: readonly Quantity[]): HoldPlan {
   let left = wanted;
+  let there = Quantity.zero();
   const pieces: { index: number; qty: Quantity }[] = [];
   for (const [index, qty] of available.entries()) {
-    if (left.isZero()) break;
     if (qty.isZero() || qty.isNegative()) continue;
+    there = there.plus(qty);
+    if (left.isZero()) continue;
     const take = qty.compareTo(left) >= 0 ? left : qty;
     pieces.push({ index, qty: take });
     left = left.minus(take);
   }
-  return left.isZero() ? { kind: 'PLAN', pieces } : { kind: 'SHORT', short: left };
+  return { pieces, available: there, held: wanted.minus(left), short: left };
 }
 
 /**

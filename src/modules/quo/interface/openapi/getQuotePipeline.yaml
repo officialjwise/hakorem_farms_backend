@@ -1,0 +1,139 @@
+operationId: getQuotePipeline
+tags:
+  - quo
+summary: "Quote pipeline: issued, accepted, declined, expired and win rate"
+description: "The quote pipeline of the caller's branches (FR-QUO-013): the quotes created from the start of `from` to the end of `to` (Accra dates, both included) that were ever issued, one row per salesperson or per product line, ordered by its label. `issued` counts them all; `accepted` those accepted, converted ones included; `declined`, `expired` and `converted` those standing so; the rest are still open. `winRatePercent` is accepted over accepted plus declined plus expired, half-up to two places, `0.00` with nothing closed. `issuedValuePesewas` is the gross of each quote's accepted version, else its last issued one; `wonValuePesewas` of those accepted. A draft, a version waiting for approval and a withdrawn quote are not in it. The rows reconcile to `listQuotes` over the same instants, status by status (the SRS's 4 accepted, 3 declined and 3 expired give 40.00). A product line is the product's ledger group; a quote of free text only is `No product line`, its `group.id` null as every product line's. `to` before `from` is 400 `VALIDATION_FAILED` `PERIOD_ENDS_BEFORE_IT_STARTS`.\n\nPermission: `quo.report.read` (Sales, the Manager and the Owner, A-329)."
+x-permission: quo.report.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - PASSWORD_CHANGE_REQUIRED
+  - RATE_LIMITED
+parameters:
+  - name: from
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: groupBy
+    in: query
+    required: true
+    schema:
+      type: string
+      enum:
+        - SALESPERSON
+        - PRODUCT_LINE
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/QuotePipeline"
+        examples:
+          default:
+            value:
+              data:
+                - group:
+                    id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                    label: "Kojo Antwi"
+                  issued: 24
+                  accepted: 15
+                  declined: 5
+                  expired: 4
+                  converted: 14
+                  winRatePercent: "62.50"
+                  issuedValuePesewas: 18420000
+                  wonValuePesewas: 11930000
+                - group:
+                    id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                    label: "Kwabena Owusu"
+                  issued: 9
+                  accepted: 5
+                  declined: 2
+                  expired: 2
+                  converted: 5
+                  winRatePercent: "55.56"
+                  issuedValuePesewas: 6120000
+                  wonValuePesewas: 3305000
+                - group:
+                    id: null
+                    label: "Live animals"
+                  issued: 21
+                  accepted: 13
+                  declined: 4
+                  expired: 4
+                  converted: 12
+                  winRatePercent: "61.90"
+                  issuedValuePesewas: 19800000
+                  wonValuePesewas: 12450000
+                - group:
+                    id: null
+                    label: Meat
+                  issued: 10
+                  accepted: 6
+                  declined: 3
+                  expired: 1
+                  converted: 6
+                  winRatePercent: "60.00"
+                  issuedValuePesewas: 4100000
+                  wonValuePesewas: 2465000
+                - group:
+                    id: null
+                    label: "Produce and eggs"
+                  issued: 2
+                  accepted: 1
+                  declined: 0
+                  expired: 1
+                  converted: 1
+                  winRatePercent: "50.00"
+                  issuedValuePesewas: 640000
+                  wonValuePesewas: 320000
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              currency: GHS
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

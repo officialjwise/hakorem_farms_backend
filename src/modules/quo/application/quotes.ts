@@ -7,8 +7,9 @@ import { issueLinkToken, linkTokenHash, sameLinkTokenHash } from '../../../platf
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { DocumentRefRecord, DocumentRegistry } from '../../../platform/documents/document-registry';
 import type { NumberSeries } from '../../../platform/documents/number-series';
-import { ForbiddenError, InvalidStateTransitionError, NotFoundError, UnauthenticatedError, VersionConflictError } from '../../../platform/errors/api-error';
-import type { DomainEvents } from '../../../platform/events/domain-events';
+import { ForbiddenError, InvalidStateTransitionError, NotFoundError, UnauthenticatedError, ValidationFailedError, VersionConflictError } from '../../../platform/errors/api-error';
+import type { AsyncConsumer, DomainEvents } from '../../../platform/events/domain-events';
+import { DOCUMENT_ARCHIVED, type DocumentArchived, type Documents } from '../../doc';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import { translate } from '../../../platform/i18n/messages';
@@ -32,22 +33,24 @@ import {
   DEFAULT_MARGIN_FLOOR_BASIS_POINTS,
   linkState,
   lineNet,
-  planReservation,
+  planHold,
   unitCost,
   versionFigures,
   type LinkState,
   type PriceBasis,
   type QuoteStatus,
 } from '../domain/quote';
+import { offsetPage, pipelineFigures, pipelinePeriod } from '../domain/pipeline';
 import type { QuoteConverted, QuoteDecided, QuoteIssued, QuoteLinkDecidedInStaffBrowser } from '../events';
 import { QuoteAlreadyConvertedError, QuoteAlreadyDecidedError, QuoteAuthorCannotApproveError, QuoteInvalidError, QuoteLinkClosedError, type QuoteRule } from './errors';
 import { STOREFRONT_PRINCIPAL } from './public-actor';
-import type { AcceptanceRecord, LineRecord, LinkDecisionRecord, LinkRecord, QuoteFilter, QuoteRecord, QuoteStore, VersionRecord } from './quote-store';
+import type { AcceptanceRecord, LineRecord, LineStockRecord, LinkDecisionRecord, LinkRecord, QuoteFilter, QuoteRecord, QuoteStore, VersionRecord } from './quote-store';
 
 const READ = 'quo.quote.read';
 const CREATE = 'quo.quote.create';
 const ISSUE = 'quo.quote.issue';
 const CONVERT = 'quo.quote.convert';
+const REPORT = 'quo.report.read';
 export const QUOTE = 'QUOTE';
 export const QUOTE_BELOW_MARGIN_KIND = 'QUOTE_BELOW_MARGIN';
 export const QUOTE_ISSUED = 'quo.QuoteIssued';
@@ -154,6 +157,12 @@ export interface QuoteLineView {
   readonly unitPricePesewas: number;
   readonly lineNetPesewas: number;
   readonly estimatedUnitCostPesewas: number | null;
+  /** What was on hand to promise in the base unit when the version was issued; null before issue and on a free-text line (A-328). */
+  readonly availableQuantity: string | null;
+  /** What the version holds in the base unit: never more than was on hand; null before issue and on a free-text line. */
+  readonly heldQuantity: string | null;
+  /** The line was not wholly on hand when issued (the owner, 2026-11-18): supplied subject to stock. */
+  readonly subjectToStock: boolean;
 }
 
 /** The contract's `QuoteVersion`, with the version's author and its optimistic lock (B10, additive). */
@@ -172,6 +181,8 @@ export interface QuoteVersionView {
   readonly estimatedCostPesewas: number | null;
   readonly marginPercent: string | null;
   readonly belowMarginFloor: boolean;
+  /** A line was not wholly on hand when the version was issued: the quote is subject to stock (A-328). */
+  readonly subjectToStock: boolean;
   readonly approvalRequestId: string | null;
   readonly changeNote: string | null;
   readonly issuedAt: string | null;
@@ -245,7 +256,9 @@ export interface PublicQuoteView {
   readonly acceptedName: string | null;
   /** CR-047 point 2: when the quote was accepted or declined, or null. */
   readonly decidedAt: string | null;
-  readonly lines: readonly { readonly description: string; readonly quantity: string; readonly uom: string; readonly priceBasis: PriceBasis; readonly unitPricePesewas: number; readonly lineNetPesewas: number }[];
+  readonly lines: readonly { readonly description: string; readonly quantity: string; readonly uom: string; readonly priceBasis: PriceBasis; readonly unitPricePesewas: number; readonly lineNetPesewas: number; readonly subjectToStock: boolean }[];
+  /** A line was not wholly on hand when the quote was issued: it is supplied subject to stock (A-328). */
+  readonly subjectToStock: boolean;
   readonly deliveryFeePesewas: number;
   readonly netPesewas: number;
   readonly taxPesewas: number;
@@ -254,6 +267,33 @@ export interface PublicQuoteView {
   readonly terms: string | null;
   readonly deliveryEstimate: string | null;
   readonly documentUrl: string | null;
+}
+
+/** The contract's `PipelineRow`: one salesperson or product line over the period (FR-QUO-013). */
+export interface PipelineRowView {
+  readonly group: { readonly id: string | null; readonly label: string };
+  readonly issued: number;
+  readonly accepted: number;
+  readonly declined: number;
+  readonly expired: number;
+  readonly converted: number;
+  readonly winRatePercent: string;
+  readonly issuedValuePesewas: number;
+  readonly wonValuePesewas: number;
+}
+
+/** The contract's `QuotePipeline`. */
+export interface QuotePipelineView {
+  readonly data: readonly PipelineRowView[];
+  readonly page: { readonly nextCursor: string | null; readonly limit: number; readonly hasMore: boolean };
+  readonly currency: 'GHS';
+}
+
+export interface PipelineQuery {
+  /** Accra calendar dates, both included: the quotes created from the start of `from` to the end of `to`. */
+  readonly from: string;
+  readonly to: string;
+  readonly groupBy: 'SALESPERSON' | 'PRODUCT_LINE';
 }
 
 /** The contract's `QuoteDecision`. */
@@ -325,6 +365,7 @@ export class Quotes {
     private readonly cursors: Cursors,
     private readonly clock: Clock,
     private readonly staffSessions: StaffSessionLookup,
+    private readonly archive: Documents,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -342,6 +383,42 @@ export class Quotes {
       const rows = found.slice(0, limit);
       const hasMore = found.length > limit;
       return { data: await this.viewsIn(tx, rows), page: { nextCursor: hasMore ? this.cursors.encode(binding, { id: rows.at(-1)!.id }) : null, limit, hasMore } };
+    });
+  }
+
+  /**
+   * getQuotePipeline (FR-QUO-013): the quotes of the caller's branches created in the period and ever issued, by
+   * salesperson or by product line: how many are open, accepted (converted ones included), declined, expired and
+   * converted, the win rate and their gross (the accepted version's, else the last issued). It reconciles to
+   * listQuotes over the same branches and instants, status by status; a draft, a version waiting and a withdrawn quote
+   * are not in it (A-329). Groups are ordered by label, paged by a cursor bound to the caller and the filter.
+   */
+  pipeline(actor: Actor | undefined, query: PipelineQuery, cursor: string | undefined, limit: number): Promise<QuotePipelineView> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, REPORT);
+      if (query.to < query.from) throw new ValidationFailedError('the period ends before it starts', [{ field: '/to', code: 'PERIOD_ENDS_BEFORE_IT_STARTS', message: 'The end date is before the start date.' }]);
+      const branchIds = await this.wholeBranches(tx, actor!, REPORT);
+      const cells = await this.store.pipelineCells(tx, { branchIds, ...pipelinePeriod(query.from, query.to), groupBy: query.groupBy });
+      const keys = [...new Set(cells.map((c) => c.groupKey))];
+      const people = query.groupBy === 'SALESPERSON' ? await this.principals.refs(tx, keys.filter(isSet)) : new Map<string, Ref>();
+      const groups = keys
+        .map((key) => ({
+          id: query.groupBy === 'SALESPERSON' ? key : null,
+          label: query.groupBy === 'SALESPERSON' ? (people.get(key!)?.displayName ?? key!) : (key ?? 'No product line'),
+          key: key ?? '',
+        }))
+        .sort((a, b) => (a.label === b.label ? (a.key < b.key ? -1 : 1) : a.label < b.label ? -1 : 1));
+      const binding = { operationId: 'getQuotePipeline', principalId: actor!.principalId, filters: { ...query } };
+      const start = cursor === undefined ? 0 : Number(this.cursors.decode(cursor, binding)['offset'] ?? '0');
+      const { page, next } = offsetPage(groups, start, limit);
+      return {
+        data: page.map((g) => {
+          const f = pipelineFigures(cells.filter((c) => (c.groupKey ?? '') === g.key));
+          return { group: { id: g.id, label: g.label }, ...f, issuedValuePesewas: json(f.issuedValuePesewas), wonValuePesewas: json(f.wonValuePesewas) };
+        }),
+        page: { nextCursor: next === null ? null : this.cursors.encode(binding, { offset: String(next) }), limit, hasMore: next !== null },
+        currency: 'GHS',
+      };
     });
   }
 
@@ -721,7 +798,7 @@ export class Quotes {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => {
       const { quote, version, state } = await this.byLinkIn(tx, token);
       if (state !== 'OPEN' && state !== 'ACCEPTED' && state !== 'DECLINED') throw new QuoteLinkClosedError(state);
-      return this.publicViewIn(tx, quote, version, state === 'OPEN' ? 'ISSUED' : state);
+      return this.publicViewIn(tx, quote, version, state === 'OPEN' ? 'ISSUED' : state, STOREFRONT_PRINCIPAL);
     });
   }
 
@@ -762,7 +839,7 @@ export class Quotes {
       for (const id of page) {
         const quote = quotes.find((q) => q.id === id)!;
         const version = shownVersion(quote, versions.filter((v) => v.quoteId === id));
-        data.push(await this.publicViewIn(tx, quote, version, publicStatus(quote, version, at)));
+        data.push(await this.publicViewIn(tx, quote, version, publicStatus(quote, version, at), actor.principalId));
       }
       const hasMore = found.length > limit;
       const last = page.at(-1);
@@ -833,7 +910,7 @@ export class Quotes {
       await this.store.setVersionStatus(tx, superseded.id, { status: 'SUPERSEDED' }, o.actorId, o.at);
       await this.reservations.releaseHeldByIn(tx, o.actorId, quote.id, `Quote ${quote.quoteNo} version ${superseded.versionNo} replaced by version ${version.versionNo}`);
     }
-    await this.reserveLinesIn(tx, quote, version, o.actorId);
+    await this.reserveLinesIn(tx, quote, version, o.actorId, o.at);
     await this.store.setVersionStatus(
       tx,
       version.id,
@@ -842,6 +919,16 @@ export class Quotes {
       o.at,
     );
     if (quote.status !== 'ISSUED') await this.store.updateQuote(tx, quote.id, { status: 'ISSUED' }, o.actorId, o.at);
+    // FR-QUO-007: rendered and archived once per version, after commit, as that version's revision of the quote's
+    // document (uq_archived_document_revision). A replay or a further link never reaches here.
+    await this.archive.requestRenderIn(tx, {
+      businessDocumentId: quote.id,
+      docType: QUOTE,
+      documentNo: quote.quoteNo,
+      branchId: quote.branchId,
+      revision: version.versionNo,
+      renderData: await this.renderDataIn(tx, quote, version, o.at),
+    });
     const issued: QuoteIssued = {
       quoteId: quote.id,
       quoteNo: quote.quoteNo,
@@ -870,8 +957,13 @@ export class Quotes {
     });
   }
 
-  /** Every product line held for the validity in the base unit (CR-045): a named unit, or lots oldest first. */
-  private async reserveLinesIn(tx: Transaction, quote: QuoteRecord, version: VersionRecord, actorId: string): Promise<void> {
+  /**
+   * Every product line held for the validity in the base unit (CR-045): a named unit, or lots oldest first, as much as
+   * is on hand and never more (the owner, 2026-11-18, ADR-0019, A-328). A line not wholly on hand is issued subject to
+   * stock, never refused; what was there and what was held are recorded once per line (quo.quote_line_stock). A balance
+   * below zero (ADR-0081) is nothing on hand. An unnamed animal is still chosen at conversion and not held (A-309 (f)).
+   */
+  private async reserveLinesIn(tx: Transaction, quote: QuoteRecord, version: VersionRecord, actorId: string, at: Date): Promise<void> {
     const lines = await this.store.linesOf(tx, [version.id]);
     const products = await this.refs.productsIn(
       tx,
@@ -884,34 +976,30 @@ export class Quotes {
     );
     const balances = await this.stock.promisableIn(tx, quote.branchId, [...products.keys()]);
     const left = balances.map((b) => b.availableQty);
-    const short: QuoteRule[] = [];
     for (const [i, line] of lines.entries()) {
       const product = line.productId === null ? undefined : products.get(line.productId);
       if (product === undefined || line.baseQty === null) continue;
+      const wanted = Quantity.parse(line.baseQty);
       const pieces: { productId: string; stockUnitId: string | null; locationId: string; qty: Quantity }[] = [];
+      let available: Quantity;
       if (line.stockUnitId !== null) {
         const unit = units.get(line.stockUnitId);
-        if (unit === undefined || unit.currentLocationId === null || unit.status !== 'ACTIVE' || unit.reserved || unit.holds.length > 0) {
-          short.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_SHORT' });
-          continue;
-        }
-        pieces.push({ productId: product.id, stockUnitId: unit.id, locationId: unit.currentLocationId, qty: Quantity.parse(line.baseQty) });
-      } else if (product.tracking === 'SERIAL') {
-        continue;
+        const free = unit !== undefined && unit.currentLocationId !== null && unit.status === 'ACTIVE' && !unit.reserved && unit.holds.length === 0;
+        available = free ? wanted : Quantity.zero();
+        if (free) pieces.push({ productId: product.id, stockUnitId: unit.id, locationId: unit.currentLocationId!, qty: wanted });
       } else {
         const offered = balances.map((b, index) => ({ b, index })).filter(({ b }) => b.productId === product.id);
-        const plan = planReservation(
-          Quantity.parse(line.baseQty),
+        const plan = planHold(
+          wanted,
           offered.map(({ index }) => left[index]!),
         );
-        if (plan.kind === 'SHORT') {
-          short.push({ field: lineField(i, 'quantity'), rule: 'STOCK_SHORT' });
-          continue;
-        }
-        for (const p of plan.pieces) {
-          const { b, index } = offered[p.index]!;
-          left[index] = left[index]!.minus(p.qty);
-          pieces.push({ productId: b.productId, stockUnitId: b.stockUnitId, locationId: b.locationId, qty: p.qty });
+        available = plan.available;
+        if (product.tracking !== 'SERIAL') {
+          for (const p of plan.pieces) {
+            const { b, index } = offered[p.index]!;
+            left[index] = left[index]!.minus(p.qty);
+            pieces.push({ productId: b.productId, stockUnitId: b.stockUnitId, locationId: b.locationId, qty: p.qty });
+          }
         }
       }
       const held: string[] = [];
@@ -919,6 +1007,8 @@ export class Quotes {
         try {
           held.push(await this.reservations.reserveIn(tx, actorId, { ...piece, holderDocumentId: quote.id, expiresAt: version.validUntil }));
         } catch (error) {
+          // Only a change between the balance read and the reservation lands here; the locks taken before BEGIN make it
+          // a concurrent one, refused rather than held short of what was read.
           if (error instanceof InsufficientStockError || error instanceof StockUnitNotAvailableError || error instanceof StockUnitReservedError || error instanceof StockUnitOnHoldError) {
             throw new QuoteInvalidError([{ field: lineField(i, line.stockUnitId === null ? 'quantity' : 'stockUnitId'), rule: 'STOCK_SHORT' }]);
           }
@@ -926,8 +1016,71 @@ export class Quotes {
         }
       }
       if (held.length === 1) await this.store.holdLine(tx, line.id, held[0]!);
+      await this.store.insertLineStock(
+        tx,
+        { id: this.nextId(), quoteLineId: line.id, quoteVersionId: version.id, availableQty: available.toDecimalString(), heldQty: Quantity.sum(pieces.map((p) => p.qty)).toDecimalString() },
+        actorId,
+        at,
+      );
     }
-    if (short.length > 0) throw new QuoteInvalidError(short);
+  }
+
+  /** What the quote's template prints, every figure formatted here and the template computing nothing (FR-QUO-007). */
+  private async renderDataIn(tx: Transaction, quote: QuoteRecord, version: VersionRecord, at: Date): Promise<Record<string, unknown>> {
+    const lines = await this.store.linesOf(tx, [version.id]);
+    const stock = await this.store.lineStockOf(tx, [version.id]);
+    const branch = (await this.refs.branchesIn(tx, [quote.branchId])).get(quote.branchId)!;
+    const customer = quote.customerId === null ? undefined : (await this.refs.customersIn(tx, [quote.customerId])).get(quote.customerId);
+    const printed = lines.map((l) => ({
+      description: l.description,
+      quantity: l.qty,
+      uom: l.uom,
+      unitPrice: formatCedis(l.unitPricePesewas),
+      amount: formatCedis(l.lineNetPesewas),
+      subjectToStock: isSubjectToStock(l, stock),
+    }));
+    return {
+      title: 'Quotation',
+      quoteNo: quote.quoteNo,
+      versionNo: version.versionNo,
+      issuedOn: toBusinessDate(at),
+      validUntil: toBusinessDate(version.validUntil),
+      customerName: customer?.name ?? quote.contactName,
+      branch: { code: branch.code, name: branch.name },
+      lines: printed,
+      deliveryFee: formatCedis(version.deliveryFeePesewas),
+      net: formatCedis(version.netPesewas),
+      tax: formatCedis(version.taxPesewas),
+      gross: formatCedis(version.grossPesewas),
+      pricing: version.taxInclusive ? 'include tax' : 'exclude tax',
+      subjectToStock: printed.some((l) => l.subjectToStock),
+      terms: version.terms,
+      deliveryEstimate: version.deliveryEstimate,
+    };
+  }
+
+  /**
+   * QUO's consumer of `doc.DocumentArchived` (ADR-0061): an issued version learns its archived rendering, once
+   * (ck_quote_version_frozen lets `archived_document_id` be set once). The revision is the version number; a
+   * redelivery finds it already named and changes nothing.
+   */
+  readonly archiveLinks: AsyncConsumer = {
+    name: 'quo.quote-archive-link',
+    eventTypes: [DOCUMENT_ARCHIVED],
+    isolation: 'read committed',
+    handle: async (tx, event) => {
+      const archived = event.payload as unknown as DocumentArchived;
+      if (archived.docType !== QUOTE) return;
+      const version = await this.store.versionByNo(tx, archived.businessDocumentId, archived.revision);
+      if (version === null) throw new Error(`quote ${archived.businessDocumentId} has no version ${archived.revision}`);
+      await this.store.setArchivedDocument(tx, version.id, archived.archivedDocumentId, event.actorId, this.clock.now());
+    },
+  };
+
+  /** A signed, expiring URL to a version's archived PDF for the buyer this view is for; null while it is rendering. */
+  private async documentUrlIn(tx: Transaction, version: VersionRecord, onBehalfOf: string): Promise<string | null> {
+    if (version.archivedDocumentId === null) return null;
+    return (await this.archive.signedUrlIn(tx, version.archivedDocumentId, 'quo.quote.document', onBehalfOf))?.url ?? null;
   }
 
   /** The balance locks an issue takes before BEGIN, so two quotes for the last crate queue (ADR-0005, A-060). */
@@ -1357,6 +1510,7 @@ export class Quotes {
     const lines = await this.store.linesOf(tx, ids);
     const acceptances = await this.store.acceptancesOf(tx, ids);
     const links = await this.store.linksOf(tx, ids);
+    const stock = await this.store.lineStockOf(tx, ids);
     const quotes = await this.store.quotes(tx, [...new Set(versions.map((v) => v.quoteId))]);
     const people = await this.principals.refs(
       tx,
@@ -1383,6 +1537,7 @@ export class Quotes {
     const name = (id: string): Ref => people.get(id) ?? { id, displayName: id };
     return versions.map((v) => {
       const acceptance = acceptances.find((a) => a.quoteVersionId === v.id);
+      const own = lines.filter((l) => l.quoteVersionId === v.id);
       return {
         id: v.id,
         versionNo: v.versionNo,
@@ -1398,13 +1553,12 @@ export class Quotes {
         estimatedCostPesewas: jsonOrNull(v.estimatedCostPesewas),
         marginPercent: v.marginPercent,
         belowMarginFloor: v.belowMarginFloor,
+        subjectToStock: own.some((l) => isSubjectToStock(l, stock)),
         approvalRequestId: v.approvalRequestId,
         changeNote: v.changeNote,
         issuedAt: v.issuedAt?.toISOString() ?? null,
         issuedBy: v.issuedBy === null ? null : name(v.issuedBy),
-        lines: lines
-          .filter((l) => l.quoteVersionId === v.id)
-          .map((l) => {
+        lines: own.map((l) => {
             const product = l.productId === null ? undefined : products.get(l.productId);
             const grade = l.gradeId === null ? undefined : grades.get(l.gradeId);
             const band = l.weightBandId === null ? undefined : bands.get(l.weightBandId);
@@ -1426,6 +1580,9 @@ export class Quotes {
               unitPricePesewas: json(l.unitPricePesewas),
               lineNetPesewas: json(l.lineNetPesewas),
               estimatedUnitCostPesewas: jsonOrNull(l.estimatedUnitCostPesewas),
+              availableQuantity: stock.find((r) => r.quoteLineId === l.id)?.availableQty ?? null,
+              heldQuantity: stock.find((r) => r.quoteLineId === l.id)?.heldQty ?? null,
+              subjectToStock: isSubjectToStock(l, stock),
             };
           }),
         acceptance: acceptance === undefined ? null : { method: acceptance.method, acceptedName: acceptance.acceptedName, acceptedAt: acceptance.acceptedAt.toISOString() },
@@ -1441,8 +1598,10 @@ export class Quotes {
     });
   }
 
-  private async publicViewIn(tx: Transaction, quote: QuoteRecord, version: VersionRecord, status: PublicQuoteView['status']): Promise<PublicQuoteView> {
+  /** The buyer's view; its document URL is signed for, and its access logged under, `viewer` (the Storefront or the customer). */
+  private async publicViewIn(tx: Transaction, quote: QuoteRecord, version: VersionRecord, status: PublicQuoteView['status'], viewer: string): Promise<PublicQuoteView> {
     const lines = await this.store.linesOf(tx, [version.id]);
+    const stock = await this.store.lineStockOf(tx, [version.id]);
     const customer = quote.customerId === null ? undefined : (await this.refs.customersIn(tx, [quote.customerId])).get(quote.customerId);
     const [acceptance] = status === 'ACCEPTED' ? await this.store.acceptancesOf(tx, [version.id]) : [];
     const [declined] = status === 'DECLINED' ? await this.store.linkDecisionsOf(tx, [version.id]) : [];
@@ -1456,7 +1615,8 @@ export class Quotes {
       // A decline through the link is dated by the link's decision; one staff recorded (declineQuote) has no time the
       // buyer gave, so it is null (A-325).
       decidedAt: (acceptance?.acceptedAt ?? declined?.decidedAt ?? null)?.toISOString() ?? null,
-      lines: lines.map((l) => ({ description: l.description, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, unitPricePesewas: json(l.unitPricePesewas), lineNetPesewas: json(l.lineNetPesewas) })),
+      lines: lines.map((l) => ({ description: l.description, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, unitPricePesewas: json(l.unitPricePesewas), lineNetPesewas: json(l.lineNetPesewas), subjectToStock: isSubjectToStock(l, stock) })),
+      subjectToStock: lines.some((l) => isSubjectToStock(l, stock)),
       deliveryFeePesewas: json(version.deliveryFeePesewas),
       netPesewas: json(version.netPesewas),
       taxPesewas: json(version.taxPesewas),
@@ -1464,9 +1624,15 @@ export class Quotes {
       currency: 'GHS',
       terms: version.terms,
       deliveryEstimate: version.deliveryEstimate,
-      documentUrl: null,
+      documentUrl: await this.documentUrlIn(tx, version, viewer),
     };
   }
+}
+
+/** A line not wholly on hand when its version was issued: what was there is below what it asks for (A-328). */
+function isSubjectToStock(line: LineRecord, stock: readonly LineStockRecord[]): boolean {
+  const row = stock.find((r) => r.quoteLineId === line.id);
+  return row !== undefined && line.baseQty !== null && Quantity.parse(row.availableQty).compareTo(Quantity.parse(line.baseQty)) < 0;
 }
 
 /** A link as staff see it: its state as the buyer would meet it, or REVOKED; never its token. */

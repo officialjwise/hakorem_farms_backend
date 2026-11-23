@@ -33,6 +33,11 @@ export interface RenderRequest {
   readonly renderData: Record<string, unknown>;
   /** The event that asked for the document, when one did (the remittance advice: `pur.SupplierRemittanceReady`). */
   readonly causationId?: string | undefined;
+  /**
+   * The revision this rendering is of the document, 1 unless the type is revised (a quote's version, a signed delivery
+   * note; `ck_archived_document_revision`). Each revision is archived once (`uq_archived_document_revision`).
+   */
+  readonly revision?: number | undefined;
 }
 
 /** The contract's `ArchivedDocument`. */
@@ -100,6 +105,7 @@ export class Documents {
       branchId: request.branchId,
       templateVersionId: a4.activeVersionId!,
       thermalTemplateVersionId: thermal?.activeVersionId ?? null,
+      ...(request.revision === undefined ? {} : { revision: request.revision }),
     };
     const envelope = await this.events.publish(tx, {
       type: RENDER_REQUESTED,
@@ -166,7 +172,7 @@ export class Documents {
       sha256: pdfObject.sha256,
       thermal,
       renderData: job.renderData,
-      revision: 1,
+      revision: request.revision ?? 1,
       actorId,
     });
     await this.store.jobDone(tx, job.id, archivedId);
@@ -177,9 +183,23 @@ export class Documents {
       documentNo: request.documentNo,
       branchId: request.branchId,
       sha256: pdfObject.sha256.toString('hex'),
-      revision: 1,
+      revision: request.revision ?? 1,
     };
     await this.events.publish(tx, { type: DOCUMENT_ARCHIVED, subjectType: 'BusinessDocument', subjectId: request.businessDocumentId, branchId: request.branchId, causationId: event.id, payload: archived });
+  }
+
+  /**
+   * A signed, expiring URL to an archived rendering's PDF, for a module that hands its own document to someone it has
+   * already authorised (a quote's buyer by the link's token or their own session, FR-QUO-007), in the caller's
+   * transaction. Logged to `platform.file_access_log` with `purpose` and the actor; null until the scan has passed it.
+   */
+  async signedUrlIn(tx: Transaction, archivedDocumentId: string, purpose: string, actorId: string): Promise<SignedUrlView | null> {
+    const [record] = await this.store.archived(tx, [archivedDocumentId]);
+    if (record === undefined) return null;
+    const file = await this.files.find(tx, record.fileId);
+    if (file === null || file.scanStatus !== 'CLEAN') return null;
+    const link = await this.files.signedLink(tx, file, purpose, this.signedUrlTtlSeconds, actorId);
+    return { url: link.url, expiresAt: link.expiresAt.toISOString() };
   }
 
   /** Archived renderings by id, for a module that serves or checks them (BIL's reprints and numbering audit). */

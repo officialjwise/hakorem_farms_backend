@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.22.0"
+  version: "2.23.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -59779,6 +59779,7 @@ paths:
                     priceBasis: PER_HEAD
                     unitPricePesewas: 95000
                     lineNetPesewas: 1710000
+                    subjectToStock: false
                 deliveryFeePesewas: 6000
                 netPesewas: 1716000
                 taxPesewas: 1200
@@ -59787,6 +59788,7 @@ paths:
                 terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
                 deliveryEstimate: "Delivered to Prampram on 11 December, morning"
                 documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+                subjectToStock: false
         "400":
           $ref: "#/components/responses/BadRequest"
         "404":
@@ -60481,6 +60483,7 @@ paths:
                           estimatedCostPesewas: 1188000
                           marginPercent: "30.77"
                           belowMarginFloor: false
+                          subjectToStock: false
                           approvalRequestId: null
                           changeNote: "Reduced to eighteen goats and added delivery"
                           issuedAt: "2026-11-13T15:00:00Z"
@@ -60511,6 +60514,9 @@ paths:
                               lineNetPesewas: 1710000
                               estimatedUnitCostPesewas: 66000
                               baseQuantity: "18.000"
+                              availableQuantity: "18.000"
+                              heldQuantity: "18.000"
+                              subjectToStock: false
                           acceptance: null
                           documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                           currency: GHS
@@ -60558,6 +60564,7 @@ paths:
                           estimatedCostPesewas: null
                           marginPercent: null
                           belowMarginFloor: false
+                          subjectToStock: false
                           approvalRequestId: null
                           changeNote: null
                           issuedAt: "2026-11-13T15:00:00Z"
@@ -60615,6 +60622,7 @@ paths:
                           estimatedCostPesewas: null
                           marginPercent: null
                           belowMarginFloor: false
+                          subjectToStock: false
                           approvalRequestId: null
                           changeNote: null
                           issuedAt: "2026-11-13T15:00:00Z"
@@ -60669,6 +60677,7 @@ paths:
                           estimatedCostPesewas: null
                           marginPercent: null
                           belowMarginFloor: false
+                          subjectToStock: false
                           approvalRequestId: null
                           changeNote: null
                           issuedAt: "2026-11-13T15:00:00Z"
@@ -60723,6 +60732,7 @@ paths:
                           estimatedCostPesewas: null
                           marginPercent: null
                           belowMarginFloor: false
+                          subjectToStock: false
                           approvalRequestId: null
                           changeNote: null
                           issuedAt: "2026-11-13T15:00:00Z"
@@ -60777,6 +60787,7 @@ paths:
                           estimatedCostPesewas: null
                           marginPercent: null
                           belowMarginFloor: false
+                          subjectToStock: false
                           approvalRequestId: null
                           changeNote: null
                           issuedAt: "2026-11-13T15:00:00Z"
@@ -60911,6 +60922,7 @@ paths:
                   estimatedCostPesewas: null
                   marginPercent: null
                   belowMarginFloor: false
+                  subjectToStock: false
                   approvalRequestId: null
                   changeNote: null
                   issuedAt: "2026-11-13T15:00:00Z"
@@ -61015,6 +61027,7 @@ paths:
                   estimatedCostPesewas: 1188000
                   marginPercent: "30.77"
                   belowMarginFloor: false
+                  subjectToStock: false
                   approvalRequestId: null
                   changeNote: "Reduced to eighteen goats and added delivery"
                   issuedAt: "2026-11-13T15:00:00Z"
@@ -61045,6 +61058,9 @@ paths:
                       lineNetPesewas: 1710000
                       estimatedUnitCostPesewas: 66000
                       baseQuantity: "18.000"
+                      availableQuantity: "18.000"
+                      heldQuantity: "18.000"
+                      subjectToStock: false
                   acceptance: null
                   documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                   currency: GHS
@@ -61138,6 +61154,7 @@ paths:
                         estimatedCostPesewas: 1188000
                         marginPercent: "30.77"
                         belowMarginFloor: false
+                        subjectToStock: false
                         approvalRequestId: null
                         changeNote: "Reduced to eighteen goats and added delivery"
                         issuedAt: "2026-11-13T15:00:00Z"
@@ -61168,6 +61185,9 @@ paths:
                             lineNetPesewas: 1710000
                             estimatedUnitCostPesewas: 66000
                             baseQuantity: "18.000"
+                            availableQuantity: "18.000"
+                            heldQuantity: "18.000"
+                            subjectToStock: false
                         acceptance: null
                         documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                         currency: GHS
@@ -61193,6 +61213,7 @@ paths:
                         estimatedCostPesewas: 1320000
                         marginPercent: "30.75"
                         belowMarginFloor: false
+                        subjectToStock: false
                         approvalRequestId: null
                         changeNote: null
                         issuedAt: "2026-11-11T15:00:00Z"
@@ -61223,6 +61244,9 @@ paths:
                             lineNetPesewas: 1900000
                             estimatedUnitCostPesewas: 66000
                             baseQuantity: "20.000"
+                            availableQuantity: "20.000"
+                            heldQuantity: "20.000"
+                            subjectToStock: false
                         acceptance: null
                         documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                         currency: GHS
@@ -61248,6 +61272,7 @@ paths:
                         estimatedCostPesewas: 1188000
                         marginPercent: "30.77"
                         belowMarginFloor: false
+                        subjectToStock: false
                         approvalRequestId: null
                         changeNote: "Reduced to eighteen goats and added delivery"
                         issuedAt: "2026-11-13T15:00:00Z"
@@ -61278,6 +61303,9 @@ paths:
                             lineNetPesewas: 1710000
                             estimatedUnitCostPesewas: 66000
                             baseQuantity: "18.000"
+                            availableQuantity: "18.000"
+                            heldQuantity: "18.000"
+                            subjectToStock: false
                         acceptance: null
                         documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                         currency: GHS
@@ -61303,6 +61331,7 @@ paths:
                         estimatedCostPesewas: 1320000
                         marginPercent: "30.75"
                         belowMarginFloor: false
+                        subjectToStock: false
                         approvalRequestId: null
                         changeNote: null
                         issuedAt: "2026-11-11T15:00:00Z"
@@ -61333,6 +61362,9 @@ paths:
                             lineNetPesewas: 1900000
                             estimatedUnitCostPesewas: 66000
                             baseQuantity: "20.000"
+                            availableQuantity: "20.000"
+                            heldQuantity: "20.000"
+                            subjectToStock: false
                         acceptance: null
                         documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                         currency: GHS
@@ -61358,6 +61390,7 @@ paths:
                         estimatedCostPesewas: 1188000
                         marginPercent: "30.77"
                         belowMarginFloor: false
+                        subjectToStock: false
                         approvalRequestId: null
                         changeNote: "Reduced to eighteen goats and added delivery"
                         issuedAt: "2026-11-13T15:00:00Z"
@@ -61388,6 +61421,9 @@ paths:
                             lineNetPesewas: 1710000
                             estimatedUnitCostPesewas: 66000
                             baseQuantity: "18.000"
+                            availableQuantity: "18.000"
+                            heldQuantity: "18.000"
+                            subjectToStock: false
                         acceptance: null
                         documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                         currency: GHS
@@ -61489,6 +61525,7 @@ paths:
                 estimatedCostPesewas: 1188000
                 marginPercent: "30.77"
                 belowMarginFloor: false
+                subjectToStock: false
                 approvalRequestId: null
                 changeNote: "Reduced to eighteen goats and added delivery"
                 issuedAt: null
@@ -61517,6 +61554,9 @@ paths:
                     lineNetPesewas: 1710000
                     estimatedUnitCostPesewas: 66000
                     baseQuantity: "18.000"
+                    availableQuantity: null
+                    heldQuantity: null
+                    subjectToStock: false
                 acceptance: null
                 documentId: null
                 currency: GHS
@@ -61618,6 +61658,7 @@ paths:
                 estimatedCostPesewas: 1188000
                 marginPercent: "30.77"
                 belowMarginFloor: false
+                subjectToStock: false
                 approvalRequestId: null
                 changeNote: "Reduced to eighteen goats and added delivery"
                 issuedAt: "2026-11-13T15:00:00Z"
@@ -61648,6 +61689,9 @@ paths:
                     lineNetPesewas: 1710000
                     estimatedUnitCostPesewas: 66000
                     baseQuantity: "18.000"
+                    availableQuantity: "18.000"
+                    heldQuantity: "18.000"
+                    subjectToStock: false
                 acceptance: null
                 documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                 currency: GHS
@@ -61681,7 +61725,7 @@ paths:
       tags:
         - quo
       summary: "Issue a quote version and send the acceptance link"
-      description: "Issues a draft (FR-QUO-004, FR-QUO-005, FR-QUO-007, FR-QUO-012), priced and judged again as things are now. Below the margin floor over cost (seed 10 percent, compared exactly: 264,000 over a cost of 240,000 is at the floor; 263,996 is below it), with any line below the engine's floor, or with a cost unknown, it waits: 202 `ApprovalPending` of kind `QUOTE_BELOW_MARGIN`, decided by a holder of `quo.quote_margin.approve` with step-up who is neither the version's author (`QUOTE_AUTHOR_CANNOT_APPROVE`) nor the person who asked (`MAKER_CANNOT_CHECK`); **approving only approves (the owner, 2026-11-19; 2.19.0, LOUD: until then approval issued the version)**: the version becomes `APPROVED`, holds no stock, sends nothing and has no link; calling this again, by anyone but its approver (`APPROVER_CANNOT_ISSUE`), issues it as below at the figures approved and answers its link once. The database refuses an issued version below the floor without that approval, and an approver who issues it. Otherwise every product line is reserved for the validity in the base unit, a named animal itself, lots oldest first (an unnamed animal is chosen at conversion); stock not there is 422 `QUOTE_INVALID` `STOCK_SHORT` and nothing is held. The live version, if any, is superseded and its hold released, and `quo.QuoteIssued` is queued once for the link to be sent (B11). The answer carries `acceptanceLinkToken`, made now; asking again for an issued version answers a fresh token and sends nothing again. Other refusals: `NO_LINES`, `LINE_NOT_PRICED`, `VALIDITY_PASSED`, `APPROVER_CANNOT_ISSUE`.\n\nPermission: `quo.quote.issue`."
+      description: "Issues a draft (FR-QUO-004, FR-QUO-005, FR-QUO-007, FR-QUO-012), priced and judged again as things are now. Below the margin floor over cost (seed 10 percent, compared exactly: 264,000 over a cost of 240,000 is at the floor; 263,996 is below it), with any line below the engine's floor, or with a cost unknown, it waits: 202 `ApprovalPending` of kind `QUOTE_BELOW_MARGIN`, decided by a holder of `quo.quote_margin.approve` with step-up who is neither the version's author (`QUOTE_AUTHOR_CANNOT_APPROVE`) nor the person who asked (`MAKER_CANNOT_CHECK`); **approving only approves (the owner, 2026-11-19; 2.19.0, LOUD: until then approval issued the version)**: the version becomes `APPROVED`, holds no stock, sends nothing and has no link; calling this again, by anyone but its approver (`APPROVER_CANNOT_ISSUE`), issues it as below at the figures approved and answers its link once. The database refuses an issued version below the floor without that approval, and an approver who issues it. Otherwise every product line is reserved for the validity in the base unit, a named animal itself, lots oldest first (an unnamed animal is chosen at conversion), as much as is on hand and never more. **Stock not on hand is no longer refused (the owner, 2026-11-18; 2.23.0, LOUD: until then it was 422 `QUOTE_INVALID` `STOCK_SHORT`)**: the version is issued `subjectToStock`, each line showing what was there (`availableQuantity`) and what it holds (`heldQuantity`); `STOCK_SHORT` now answers only a balance that changed under a concurrent issue. The version is rendered and archived once as its own revision of the quote's document (`documentId`, FR-QUO-007). The live version, if any, is superseded and its hold released, and `quo.QuoteIssued` is queued once for the link to be sent (B11). The answer carries `acceptanceLinkToken`, made now; asking again for an issued version answers a fresh token and sends nothing again. Other refusals: `NO_LINES`, `LINE_NOT_PRICED`, `VALIDITY_PASSED`, `APPROVER_CANNOT_ISSUE`.\n\nPermission: `quo.quote.issue`."
       x-permission: quo.quote.issue
       x-error-codes:
         - VALIDATION_FAILED
@@ -61743,6 +61787,7 @@ paths:
                 estimatedCostPesewas: 1188000
                 marginPercent: "30.77"
                 belowMarginFloor: false
+                subjectToStock: false
                 approvalRequestId: null
                 changeNote: "Reduced to eighteen goats and added delivery"
                 issuedAt: "2026-11-13T15:00:00Z"
@@ -61773,6 +61818,9 @@ paths:
                     lineNetPesewas: 1710000
                     estimatedUnitCostPesewas: 66000
                     baseQuantity: "18.000"
+                    availableQuantity: "18.000"
+                    heldQuantity: "18.000"
+                    subjectToStock: false
                 acceptance: null
                 documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                 currency: GHS
@@ -61900,6 +61948,7 @@ paths:
                   estimatedCostPesewas: null
                   marginPercent: null
                   belowMarginFloor: false
+                  subjectToStock: false
                   approvalRequestId: null
                   changeNote: null
                   issuedAt: "2026-11-13T15:00:00Z"
@@ -62021,6 +62070,7 @@ paths:
                   estimatedCostPesewas: null
                   marginPercent: null
                   belowMarginFloor: false
+                  subjectToStock: false
                   approvalRequestId: null
                   changeNote: null
                   issuedAt: "2026-11-13T15:00:00Z"
@@ -62142,6 +62192,7 @@ paths:
                   estimatedCostPesewas: 1188000
                   marginPercent: "30.77"
                   belowMarginFloor: false
+                  subjectToStock: false
                   approvalRequestId: null
                   changeNote: "Reduced to eighteen goats and added delivery"
                   issuedAt: "2026-11-13T15:00:00Z"
@@ -62172,6 +62223,9 @@ paths:
                       lineNetPesewas: 1710000
                       estimatedUnitCostPesewas: 66000
                       baseQuantity: "18.000"
+                      availableQuantity: "18.000"
+                      heldQuantity: "18.000"
+                      subjectToStock: false
                   acceptance: null
                   documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                   currency: GHS
@@ -62472,6 +62526,7 @@ paths:
                 estimatedCostPesewas: 1188000
                 marginPercent: "30.77"
                 belowMarginFloor: false
+                subjectToStock: false
                 approvalRequestId: null
                 changeNote: "Reduced to eighteen goats and added delivery"
                 issuedAt: "2026-11-13T15:00:00Z"
@@ -62502,6 +62557,9 @@ paths:
                     lineNetPesewas: 1710000
                     estimatedUnitCostPesewas: 66000
                     baseQuantity: "18.000"
+                    availableQuantity: "18.000"
+                    heldQuantity: "18.000"
+                    subjectToStock: false
                 acceptance: null
                 documentId: "019a7ae0-54bc-71f4-872c-281c27c1a0fa"
                 currency: GHS
@@ -62557,8 +62615,14 @@ paths:
       tags:
         - quo
       summary: "Quote pipeline: issued, accepted, declined, expired and win rate"
-      description: "Permission: `quo.report.read`."
+      description: "The quote pipeline of the caller's branches (FR-QUO-013): the quotes created from the start of `from` to the end of `to` (Accra dates, both included) that were ever issued, one row per salesperson or per product line, ordered by its label. `issued` counts them all; `accepted` those accepted, converted ones included; `declined`, `expired` and `converted` those standing so; the rest are still open. `winRatePercent` is accepted over accepted plus declined plus expired, half-up to two places, `0.00` with nothing closed. `issuedValuePesewas` is the gross of each quote's accepted version, else its last issued one; `wonValuePesewas` of those accepted. A draft, a version waiting for approval and a withdrawn quote are not in it. The rows reconcile to `listQuotes` over the same instants, status by status (the SRS's 4 accepted, 3 declined and 3 expired give 40.00). A product line is the product's ledger group; a quote of free text only is `No product line`, its `group.id` null as every product line's. `to` before `from` is 400 `VALIDATION_FAILED` `PERIOD_ENDS_BEFORE_IT_STARTS`.\n\nPermission: `quo.report.read` (Sales, the Manager and the Owner, A-329)."
       x-permission: quo.report.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - RATE_LIMITED
       parameters:
         - name: from
           in: query
@@ -62740,6 +62804,7 @@ paths:
                             priceBasis: PER_HEAD
                             unitPricePesewas: 95000
                             lineNetPesewas: 1710000
+                            subjectToStock: false
                         deliveryFeePesewas: 6000
                         netPesewas: 1716000
                         taxPesewas: 1200
@@ -62748,6 +62813,7 @@ paths:
                         terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
                         deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
                         documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+                        subjectToStock: false
                       - quoteNo: QUO-2026-DDW-000079
                         versionNo: 2
                         status: ACCEPTED
@@ -62762,6 +62828,7 @@ paths:
                             priceBasis: PER_HEAD
                             unitPricePesewas: 95000
                             lineNetPesewas: 1710000
+                            subjectToStock: false
                         deliveryFeePesewas: 6000
                         netPesewas: 1716000
                         taxPesewas: 1200
@@ -62770,6 +62837,7 @@ paths:
                         terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
                         deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
                         documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+                        subjectToStock: false
                       - quoteNo: QUO-2026-DDW-000070
                         versionNo: 2
                         status: EXPIRED
@@ -62784,6 +62852,7 @@ paths:
                             priceBasis: PER_HEAD
                             unitPricePesewas: 95000
                             lineNetPesewas: 1710000
+                            subjectToStock: false
                         deliveryFeePesewas: 6000
                         netPesewas: 1716000
                         taxPesewas: 1200
@@ -62792,6 +62861,7 @@ paths:
                         terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
                         deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
                         documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+                        subjectToStock: false
                       - quoteNo: QUO-2026-DDW-000061
                         versionNo: 2
                         status: DECLINED
@@ -62806,6 +62876,7 @@ paths:
                             priceBasis: PER_HEAD
                             unitPricePesewas: 95000
                             lineNetPesewas: 1710000
+                            subjectToStock: false
                         deliveryFeePesewas: 6000
                         netPesewas: 1716000
                         taxPesewas: 1200
@@ -62814,6 +62885,7 @@ paths:
                         terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
                         deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
                         documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+                        subjectToStock: false
                       - quoteNo: QUO-2026-DDW-000052
                         versionNo: 2
                         status: ACCEPTED
@@ -62828,6 +62900,7 @@ paths:
                             priceBasis: PER_HEAD
                             unitPricePesewas: 95000
                             lineNetPesewas: 1710000
+                            subjectToStock: false
                         deliveryFeePesewas: 6000
                         netPesewas: 1716000
                         taxPesewas: 1200
@@ -62836,6 +62909,7 @@ paths:
                         terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
                         deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
                         documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+                        subjectToStock: false
                     page:
                       nextCursor: null
                       limit: 25
@@ -99696,6 +99770,9 @@ components:
           $ref: "#/components/schemas/Pesewas"
         lineNetPesewas:
           $ref: "#/components/schemas/Pesewas"
+        subjectToStock:
+          type: boolean
+          description: "2.23.0 (the owner, 2026-11-18, A-328): not all of this line was on hand when the quote was issued; the farm holds what is there and confirms the rest. The farm's stock level is not shown."
       required:
         - description
         - quantity
@@ -99703,6 +99780,7 @@ components:
         - priceBasis
         - unitPricePesewas
         - lineNetPesewas
+        - subjectToStock
     PublicQuote:
       type: object
       properties:
@@ -99761,6 +99839,10 @@ components:
             - string
             - "null"
           format: uri
+          description: "2.23.0 (FR-QUO-007, A-330): a signed, expiring URL to the quote version's archived PDF, made for this caller (the link's holder, or the customer signed in) and logged; it lapses after the platform's signed-URL lifetime, so read the quote again for a fresh one. Null until the version has been rendered, archived and scanned clean, a few seconds after issue."
+        subjectToStock:
+          type: boolean
+          description: "2.23.0 (the owner, 2026-11-18, A-328): a line was not wholly on hand when the quote was issued, so it is supplied subject to stock."
       required:
         - quoteNo
         - versionNo
@@ -99778,6 +99860,7 @@ components:
         - terms
         - deliveryEstimate
         - documentUrl
+        - subjectToStock
     QuoteAcceptByLink:
       type: object
       properties:
@@ -100037,6 +100120,19 @@ components:
             - $ref: "#/components/schemas/Quantity"
             - type: "null"
           description: "The line's quantity in the product's base unit (90.000 eggs for 3 crates), what is reserved; null on a free-text line."
+        availableQuantity:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+          description: "2.23.0 (the owner, 2026-11-18, A-328): what was on hand to promise at the branch in the base unit when the version was issued (a balance below zero counts as nothing); null before issue and on a free-text line."
+        heldQuantity:
+          anyOf:
+            - $ref: "#/components/schemas/Quantity"
+            - type: "null"
+          description: "2.23.0 (the owner, 2026-11-18, A-328): what the version holds in the base unit: the line's base quantity or what was on hand, whichever is less, never more. An animal the line does not name is chosen at conversion and holds nothing (0.000). Null before issue and on a free-text line."
+        subjectToStock:
+          type: boolean
+          description: "2.23.0 (the owner, 2026-11-18, A-328): the line was not wholly on hand when the version was issued (`availableQuantity` below `baseQuantity`): it is supplied subject to stock."
       required:
         - id
         - lineNo
@@ -100054,6 +100150,9 @@ components:
         - lineNetPesewas
         - estimatedUnitCostPesewas
         - baseQuantity
+        - availableQuantity
+        - heldQuantity
+        - subjectToStock
     QuoteAcceptance:
       type: object
       properties:
@@ -100123,6 +100222,9 @@ components:
           description: "Margin over cost, (net less cost) over cost, as a percentage to two places rounded half away from zero (FR-QUO-003): 19.05 for 1,700,000 over 1,428,000. It may be negative (sold below cost) or above 100, so it is not a `Percent`. Null when the cost is unknown or nil. The floor is judged exactly on the amounts, never on this rounded figure."
         belowMarginFloor:
           type: boolean
+        subjectToStock:
+          type: boolean
+          description: "2.23.0 (the owner, 2026-11-18, A-328): a line was not wholly on hand when the version was issued; it was issued all the same, holding only what was there (see each line's `availableQuantity` and `heldQuantity`). False before issue."
         approvalRequestId:
           type:
             - string
@@ -100154,6 +100256,7 @@ components:
             - string
             - "null"
           format: uuid
+          description: "2.23.0 (FR-QUO-007, A-330): the archived rendering of this version (`getArchivedDocument`), its own revision of the quote's document, set once a few seconds after issue; null before."
         currency:
           $ref: "#/components/schemas/Currency"
         createdBy:
@@ -100196,6 +100299,7 @@ components:
         - estimatedCostPesewas
         - marginPercent
         - belowMarginFloor
+        - subjectToStock
         - approvalRequestId
         - changeNote
         - issuedAt
@@ -106188,6 +106292,7 @@ components:
         - quo.quote.issue
         - quo.quote.read
         - quo.quote_margin.approve
+        - quo.report.read
         - quo.rfq.create
         - quo.rfq.read
         - quo.rfq.update
@@ -106420,6 +106525,7 @@ components:
         - quo.quote.issue
         - quo.quote.read
         - quo.quote_margin.approve
+        - quo.report.read
         - quo.rfq.create
         - quo.rfq.read
         - quo.rfq.update
@@ -106713,6 +106819,7 @@ components:
         - quo.quote.create
         - quo.quote.issue
         - quo.quote.read
+        - quo.report.read
         - quo.rfq.create
         - quo.rfq.read
         - quo.rfq.update

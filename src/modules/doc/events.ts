@@ -12,6 +12,8 @@ export interface RenderRequested {
   /** The template versions active when the document was issued: a reprint keeps them (FR-BIL-010). */
   readonly templateVersionId: string;
   readonly thermalTemplateVersionId: string | null;
+  /** The revision asked for, when the type is revised (a quote's version); absent means 1. */
+  readonly revision?: number;
 }
 
 /** A document's rendering is in the archive, with the SHA-256 of its stored bytes. BIL keeps it as the content hash. */
