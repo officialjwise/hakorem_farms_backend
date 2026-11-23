@@ -48,6 +48,7 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0306_mdm_offline_pack_price_reason',
       '0305_fin_cod_collected_postings',
       '0304_ord_fulfilment_issue',
       '0303_del_deliveries',
