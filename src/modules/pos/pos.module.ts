@@ -34,6 +34,8 @@ import { TillPins } from './application/till-pins';
 import { PgPinStore } from './infrastructure/pg-pin-store';
 import { PosController } from './interface/pos.controller';
 import { ReceiptsController } from './interface/receipts.controller';
+import { TillInvoicesController } from './interface/till-invoices.controller';
+import { TillInvoicePayments } from './application/till-invoices';
 import { ReceiptLinks } from './application/receipt-links';
 import { RECEIPT_LINK_STORE, type ReceiptLinkStore } from './application/receipt-link-store';
 import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
@@ -48,7 +50,7 @@ import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
  */
 @Module({
   imports: [IamModule, AudModule, MdmModule, FinModule, InvModule, BilModule, PayModule, OrdModule],
-  controllers: [PosController, ReceiptsController],
+  controllers: [PosController, ReceiptsController, TillInvoicesController],
   providers: [
     { provide: TILL_STORE, useClass: PgTillStore },
     { provide: PIN_STORE, useClass: PgPinStore },
@@ -149,6 +151,12 @@ import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
       inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, MasterDataRefs, PricingService, Authoriser, Ledger, Settings, DomainEvents, AuditTrail, CLOCK, Payments, UnverifiedTenders, TillPins, ReceiptLinks],
     },
     { provide: RECEIPT_LINK_STORE, useClass: PgReceiptLinkStore },
+    {
+      provide: TillInvoicePayments,
+      useFactory: (uow: UnitOfWork, store: TillStore, devices: Devices, billing: Billing, payments: Payments, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, clock: Clock) =>
+        new TillInvoicePayments(uow, store, devices, billing, payments, authoriser, idempotency, audit, clock),
+      inject: [UnitOfWork, TILL_STORE, Devices, Billing, Payments, Authoriser, Idempotency, AuditTrail, CLOCK],
+    },
     {
       provide: ReceiptLinks,
       useFactory: (uow: UnitOfWork, store: ReceiptLinkStore, orders: Orders, billing: Billing, refs: MasterDataRefs, profiles: BusinessProfiles, clock: Clock, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, principals: PrincipalNames) =>
