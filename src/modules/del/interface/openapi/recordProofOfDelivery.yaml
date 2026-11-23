@@ -1,0 +1,116 @@
+operationId: recordProofOfDelivery
+tags:
+  - del
+summary: "Record proof of delivery and cash collected"
+description: "Completes a delivery assigned to the caller that is `ASSIGNED` or `OUT_FOR_DELIVERY` (else 422 `INVALID_STATE_TRANSITION`), in one serializable transaction (B11 continued, FR-DEL-008, FR-DEL-009): the recipient's name and a `signatureFileId` (a `SIGNATURE` file) or a `photoFileId` (a `PROOF_OF_DELIVERY` file), each uploaded by the caller and not held by the malware scan; the position when known; and the cash collected. The cash is never above the amount due fixed at dispatch; less than due needs `codVarianceReasonCode` (a `COD_VARIANCE` reason) and its `codVarianceNote` when the reason asks for one, and is reported short for the driver variance report and the daily exception report; collected cash is recorded as a payment held by the driver (account 1020), allocated to the delivery's billing document, and handed in later at a till shift (B11 continued 2). The order's goods are issued from the vehicle to the customer, and the order moves to `DELIVERED`, then `COMPLETED` when nothing is left to pay. Refusals: 422 `DELIVERY_INVALID` with `EVIDENCE_REQUIRED`, `FILE_UNKNOWN`, `FILE_NOT_PROOF`, `FILE_NOT_YOURS`, `FILE_NOT_CLEAN`, `ABOVE_DUE`, `REASON_REQUIRED`, `REASON_UNKNOWN`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `REASON_NOT_NEEDED`, `POSITION_INCOMPLETE`, `CAPTURED_BEFORE_DISPATCH` or `ID_IN_USE` (the proof's id already used for another delivery); another driver's delivery 403.\n\nPermission: `del.proof.create`. Ownership: deliveries assigned to the caller.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the delivery as it stands and records nothing again."
+x-permission: del.proof.create
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ProofOfDeliveryCreate"
+      example:
+        id: "019a7b0a-be6d-70d5-b60d-162c01708f09"
+        recipientName: "Asantewaa Boateng"
+        signatureFileId: "019a7b0a-dd5c-7ab9-8ff1-b4637b212d41"
+        photoFileId: "019a7b0a-fc4b-749c-99d4-529af4d2cb78"
+        latitude: "5.705940"
+        longitude: "-0.159080"
+        positionAccuracyM: 9
+        codCollectedPesewas: 24000
+        capturedAt: "2026-11-13T11:52:00Z"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Delivery"
+        example:
+          id: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
+          deliveryNo: DLN-2026-DDW-000193
+          status: DELIVERED
+          order:
+            id: "019a7b09-0d5b-7665-9b9d-6f2359c2e801"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004207
+          slot:
+            id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
+            date: "2026-11-14"
+            startsAt: "10:00"
+            endsAt: "12:00"
+            available: true
+            remaining: 4
+          deliveryZone:
+            id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+            code: ACC-EAST
+            name: "Accra East: Madina, Adenta, East Legon"
+          recipientName: "Asantewaa Chop Bar"
+          recipientPhone: "+233557018924"
+          address:
+            recipientName: "Asantewaa Chop Bar"
+            recipientPhone: "+233557018924"
+            line1: "Adenta Barrier, beside Total filling station"
+            area: Adenta
+            city: Accra
+            region: "Greater Accra"
+            digitalAddress: GD-021-7731
+            directions: "Yellow kiosk behind the station"
+          latitude: "5.705933"
+          longitude: "-0.159074"
+          contents:
+            - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+              name: "Eggs, big, crate of 30"
+              quantity: "4.000"
+              uom: CRATE
+              weightKg: null
+          driver:
+            id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+            displayName: "Kwesi Appiah"
+          vehicle:
+            id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+            code: VAN-GT4521
+            name: "Delivery van GT-4521-24"
+            kind: VEHICLE
+          codDuePesewas: 24000
+          codCollectedPesewas: 24000
+          attemptCount: 0
+          dispatchedAt: "2026-11-13T11:00:00Z"
+          deliveredAt: "2026-11-13T11:52:00Z"
+          proof: null
+          deliveryNoteDocumentId: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

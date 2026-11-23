@@ -1,0 +1,94 @@
+operationId: getMyDelivery
+tags:
+  - del
+summary: "Get one of my deliveries"
+description: "A delivery assigned to the caller (B11 continued, FR-DEL-004): another driver's, or one assigned to nobody, is refused 403 whatever else the caller holds; an unknown id is 404. The same `Delivery` the back office reads, with the cash to collect (`codDuePesewas`).\n\nPermission: `del.delivery.read.assigned`. Ownership: deliveries assigned to the caller."
+x-permission: del.delivery.read.assigned
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Delivery"
+        example:
+          id: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
+          deliveryNo: DLN-2026-DDW-000193
+          status: OUT_FOR_DELIVERY
+          order:
+            id: "019a7b09-0d5b-7665-9b9d-6f2359c2e801"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004207
+          slot:
+            id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
+            date: "2026-11-14"
+            startsAt: "10:00"
+            endsAt: "12:00"
+            available: true
+            remaining: 4
+          deliveryZone:
+            id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+            code: ACC-EAST
+            name: "Accra East: Madina, Adenta, East Legon"
+          recipientName: "Asantewaa Chop Bar"
+          recipientPhone: "+233557018924"
+          address:
+            recipientName: "Asantewaa Chop Bar"
+            recipientPhone: "+233557018924"
+            line1: "Adenta Barrier, beside Total filling station"
+            area: Adenta
+            city: Accra
+            region: "Greater Accra"
+            digitalAddress: GD-021-7731
+            directions: "Yellow kiosk behind the station"
+          latitude: "5.705933"
+          longitude: "-0.159074"
+          contents:
+            - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+              name: "Eggs, big, crate of 30"
+              quantity: "4.000"
+              uom: CRATE
+              weightKg: null
+          driver:
+            id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+            displayName: "Kwesi Appiah"
+          vehicle:
+            id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+            code: VAN-GT4521
+            name: "Delivery van GT-4521-24"
+            kind: VEHICLE
+          codDuePesewas: 24000
+          codCollectedPesewas: null
+          attemptCount: 0
+          dispatchedAt: "2026-11-13T11:00:00Z"
+          deliveredAt: null
+          proof: null
+          deliveryNoteDocumentId: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
