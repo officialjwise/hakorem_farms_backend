@@ -9,10 +9,10 @@
  * moved van to van) and `del.DeliveryRescheduled` (a reattempt moves the order back to DISPATCHED).
  */
 export { DelModule } from './del.module';
-export { Deliveries, DELIVERY_COMPLETED, DELIVERY_FAILED, DELIVERY_ON_THE_WAY, DELIVERY_RETURNED, DELIVERY_WRITTEN_OFF, type DeliveryRequest, type DeliverySummaryView, type DeliveryView, type VanDelivery } from './application/deliveries';
+export { Deliveries, DELIVERY_CANCELLED, DELIVERY_COMPLETED, DELIVERY_FAILED, DELIVERY_ON_THE_WAY, DELIVERY_RETURNED, DELIVERY_WRITTEN_OFF, type DeliveryRequest, type DeliverySummaryView, type DeliveryView, type VanDelivery } from './application/deliveries';
 export type { ContentsLine } from './application/delivery-store';
 export { DriverCashReconciliations, type DriverCashHolderView, type DriverCashReconciliationView, type HandInRequest } from './application/driver-cash';
-export type { DeliveryCompleted, CodCollected, DriverCashRemitted, DeliveryFailed, DeliveryOnTheWay, DeliveryReassigned, DeliveryRescheduled, DeliveryReturned, DeliveryWrittenOff, RouteCompleted } from './events';
+export type { DeliveryCancelled, DeliveryCompleted, CodCollected, DriverCashRemitted, DeliveryFailed, DeliveryOnTheWay, DeliveryReassigned, DeliveryRescheduled, DeliveryReturned, DeliveryWrittenOff, RouteCompleted } from './events';
 export { DELIVERY_REASSIGNED, DELIVERY_RESCHEDULED } from './application/scheduling';
 export { Routes, ROUTE_COMPLETED, type RouteView } from './application/routes';
 export { Slots, type DeliverySlotView, type SlotFacts, type SlotOptionView } from './application/slots';

@@ -221,6 +221,13 @@ export class PgDeliveryStore implements DeliveryStore {
     await tx.query(`UPDATE del.delivery SET status = 'RETURNED', posted_at = $2, posted_by = $3, updated_at = $2, updated_by = $3, version = version + 1 WHERE id = $1`, [id, d.at, d.actorId]);
   }
 
+  async markCancelled(tx: Transaction, id: string, d: { readonly reasonCode: string; readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query(
+      `UPDATE del.delivery SET status = 'CANCELLED', cancel_reason_code = $2, cancelled_at = $3, posted_at = $3, posted_by = $4, updated_at = $3, updated_by = $4, version = version + 1 WHERE id = $1`,
+      [id, d.reasonCode, d.at, d.actorId],
+    );
+  }
+
   async markWrittenOff(tx: Transaction, id: string, d: WriteOffFacts & { readonly at: Date; readonly actorId: string }): Promise<void> {
     await tx.query(
       `UPDATE del.delivery SET status = 'WRITTEN_OFF', written_off_reason_code = $2, written_off_value_pesewas = $3, write_off_document_id = $4, written_off_at = $5,

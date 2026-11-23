@@ -129,6 +129,23 @@ export interface DeliveryReturned {
 }
 
 /**
+ * `del.DeliveryCancelled` v1 (FR-ORD-014, B11 continued 6, A-364 (a)): a dispatched delivery cancelled before it left
+ * the farm, with its `CANCELLATION` reason; ORD moved its goods off the van into the returns hold, credited the document
+ * and moved the order RETURNED in the same transaction. Its slot, if any, is freed by the database.
+ */
+export interface DeliveryCancelled {
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly orderDocumentId: string;
+  readonly branchId: string;
+  readonly driverId: string | null;
+  readonly vehicleLocationId: string | null;
+  readonly returnsLocationId: string;
+  readonly reasonCode: string;
+  readonly cancelledAt: string;
+}
+
+/**
  * `del.DeliveryWrittenOff` v1 (FR-DEL-011, the owner's van rule of 2026-11-23): a failed delivery's goods were written off
  * the van through INV's adjustment, with its reason and its value at cost. `unaccounted` names the driver variance (goods
  * the driver cannot account for, abuse case 48), which the daily exception report reads.

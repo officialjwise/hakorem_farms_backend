@@ -54,6 +54,35 @@ export function judgeWayOut(f: WayOutFacts): VanRule[] {
   return [];
 }
 
+/** A cancellation's reason is a `CANCELLATION` reason, as an order's (cancelOrder). */
+const CANCELLATION = 'CANCELLATION';
+
+export interface CancelFacts {
+  readonly branchId: string;
+  readonly orderStatus: string;
+  readonly returnsLocation: WayOutFacts['returnsLocation'];
+  readonly reason: WayOutFacts['reason'];
+  readonly note: string | null;
+  readonly refundDestination: WayOutFacts['refundDestination'];
+  readonly hasCustomer: boolean;
+}
+
+/**
+ * The goods of a delivery cancelled before it left the farm (A-364 (a)) go back as a failed delivery's do: into a live
+ * RETURNS_HOLD of the branch, not sellable until inspected, the whole document credited. The order must be DISPATCHED
+ * (DEL judges the delivery itself); the reason is a `CANCELLATION` reason, with its note where it asks for one; store
+ * credit is kept only for a customer account. A state refusal is answered alone.
+ */
+export function judgeCancelReturn(f: CancelFacts): VanRule[] {
+  if (f.orderStatus !== 'DISPATCHED') return [{ field: '', rule: 'INVALID_STATE_TRANSITION' }];
+  if (f.reason === null || f.reason === 'UNKNOWN') return [{ field: '/reasonCode', rule: 'REASON_UNKNOWN' }];
+  if (f.reason.domain !== CANCELLATION) return [{ field: '/reasonCode', rule: 'REASON_NOT_ALLOWED' }];
+  if (f.reason.requiresNote && (f.note === null || f.note.trim() === '')) return [{ field: '/note', rule: 'NOTE_REQUIRED' }];
+  if (f.refundDestination === 'STORE_CREDIT' && !f.hasCustomer) return [{ field: '/refundDestination', rule: 'STORE_CREDIT_NEEDS_CUSTOMER' }];
+  const hold = f.returnsLocation;
+  return hold === null || hold === 'MISSING' || hold.kind !== 'RETURNS_HOLD' || hold.branchId !== f.branchId || !hold.isLive ? [{ field: '/returnsLocationId', rule: 'NOT_A_RETURNS_HOLD' }] : [];
+}
+
 /** Goods written off as unaccounted for are the driver's variance; spoiled or damaged goods are wastage. */
 export function isDriverVariance(reasonCode: string | null): boolean {
   return reasonCode === UNACCOUNTED_ON_VAN;

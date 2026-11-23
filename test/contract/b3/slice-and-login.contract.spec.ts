@@ -183,6 +183,7 @@ import {
   ReturnCreateBody,
   ReturnToStockBody,
   DeliveryWriteOffBody,
+  DeliveryCancelBody,
   ShortPickCreateBody,
   SubstitutionCreateBody,
 } from '../../../src/modules/ord/interface/schemas';
@@ -563,6 +564,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     assignDelivery: DeliveryAssign,
     rescheduleDelivery: DeliveryReschedule,
     writeOffDelivery: DeliveryWriteOffBody,
+    cancelDelivery: DeliveryCancelBody,
     cancelFulfilment: FulfilmentReasonBody,
     proposeSubstitution: SubstitutionCreateBody,
     proposeShortPick: ShortPickCreateBody,

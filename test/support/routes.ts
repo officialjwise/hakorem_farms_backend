@@ -296,6 +296,7 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   writeOffDelivery: { reasonCode: 'UNACCOUNTED_ON_VAN', note: 'Driver reports the crate missing' },
   assignDelivery: { driverId: randomUUID(), vehicleLocationId: randomUUID() },
   rescheduleDelivery: { slotId: randomUUID(), reason: 'Customer asked for the afternoon' },
+  cancelDelivery: { reasonCode: 'CUSTOMER_CANCELLED', returnsLocationId: randomUUID() },
   cancelFulfilment: { reason: 'Picked from the wrong shelf' },
   proposeSubstitution: { lineId: randomUUID(), productId: randomUUID(), quantity: '1.000', note: 'Out of big eggs' },
   proposeShortPick: { lineId: randomUUID(), quantity: '1.000', note: 'One crate cracked' },

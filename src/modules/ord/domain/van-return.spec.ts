@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isDriverVariance, judgeWayOut, UNACCOUNTED_ON_VAN, type WayOutFacts } from './van-return';
+import { isDriverVariance, judgeCancelReturn, judgeWayOut, UNACCOUNTED_ON_VAN, type CancelFacts, type WayOutFacts } from './van-return';
 
 const hold = { kind: 'RETURNS_HOLD', branchId: 'b1', isLive: true };
 const toStock = (over: Partial<WayOutFacts> = {}): WayOutFacts => ({
@@ -75,5 +75,35 @@ describe("the van's two other ways out (FR-DEL-011, the owner 2026-11-23)", () =
   it('puts only goods unaccounted for on the driver variance report; spoiled or damaged goods are wastage', () => {
     expect(isDriverVariance(UNACCOUNTED_ON_VAN)).toBe(true);
     for (const code of ['SPOILED', 'DAMAGED', 'EXPIRED', 'COLD_CHAIN_FAILURE', null]) expect(isDriverVariance(code), String(code)).toBe(false);
+  });
+});
+
+describe('the goods of a delivery cancelled before it left (A-364 (a))', () => {
+  const cancel = (over: Partial<CancelFacts> = {}): CancelFacts => ({
+    branchId: 'b1',
+    orderStatus: 'DISPATCHED',
+    returnsLocation: hold,
+    reason: { code: 'CUSTOMER_CANCELLED', domain: 'CANCELLATION', requiresNote: false },
+    note: null,
+    refundDestination: 'ORIGINAL_METHOD',
+    hasCustomer: false,
+    ...over,
+  });
+
+  it('takes a dispatched order back into a live returns hold of its branch with a cancellation reason', () => {
+    expect(judgeCancelReturn(cancel())).toEqual([]);
+    expect(judgeCancelReturn(cancel({ refundDestination: 'STORE_CREDIT', hasCustomer: true }))).toEqual([]);
+  });
+
+  it('refuses an order not dispatched, another location, an unknown or wrong reason, a missing note, and store credit for a guest', () => {
+    expect(judgeCancelReturn(cancel({ orderStatus: 'DELIVERY_FAILED' }))).toEqual([{ field: '', rule: 'INVALID_STATE_TRANSITION' }]);
+    expect(judgeCancelReturn(cancel({ returnsLocation: 'MISSING' }))).toEqual([{ field: '/returnsLocationId', rule: 'NOT_A_RETURNS_HOLD' }]);
+    expect(judgeCancelReturn(cancel({ returnsLocation: { ...hold, kind: 'STORE' } }))).toEqual([{ field: '/returnsLocationId', rule: 'NOT_A_RETURNS_HOLD' }]);
+    expect(judgeCancelReturn(cancel({ returnsLocation: { ...hold, branchId: 'b2' } }))).toEqual([{ field: '/returnsLocationId', rule: 'NOT_A_RETURNS_HOLD' }]);
+    expect(judgeCancelReturn(cancel({ returnsLocation: { ...hold, isLive: false } }))).toEqual([{ field: '/returnsLocationId', rule: 'NOT_A_RETURNS_HOLD' }]);
+    expect(judgeCancelReturn(cancel({ reason: 'UNKNOWN' }))).toEqual([{ field: '/reasonCode', rule: 'REASON_UNKNOWN' }]);
+    expect(judgeCancelReturn(cancel({ reason: { code: 'SPOILED', domain: 'WASTAGE', requiresNote: false } }))).toEqual([{ field: '/reasonCode', rule: 'REASON_NOT_ALLOWED' }]);
+    expect(judgeCancelReturn(cancel({ reason: { code: 'OTHER', domain: 'CANCELLATION', requiresNote: true }, note: '  ' }))).toEqual([{ field: '/note', rule: 'NOTE_REQUIRED' }]);
+    expect(judgeCancelReturn(cancel({ refundDestination: 'STORE_CREDIT' }))).toEqual([{ field: '/refundDestination', rule: 'STORE_CREDIT_NEEDS_CUSTOMER' }]);
   });
 });

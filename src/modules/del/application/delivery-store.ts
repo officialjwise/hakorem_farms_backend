@@ -129,6 +129,8 @@ export interface DeliveryStore {
   attemptById(tx: Transaction, id: string): Promise<AttemptRecord | null>;
   /** FAILED to RETURNED, posted: the goods came off the van into the returns hold (FR-DEL-011). */
   markReturned(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void>;
+  /** SCHEDULED or ASSIGNED to CANCELLED, posted, with its reason (migration 0327). */
+  markCancelled(tx: Transaction, id: string, d: { readonly reasonCode: string; readonly at: Date; readonly actorId: string }): Promise<void>;
   /** FAILED to WRITTEN_OFF, posted, with its reason, its value at cost and the stock adjustment that took the goods. */
   markWrittenOff(tx: Transaction, id: string, d: WriteOffFacts & { readonly at: Date; readonly actorId: string }): Promise<void>;
   /** Deliveries written off with one of these reasons at the branches given, newest first, before `beforeId`, at most `limit`. */

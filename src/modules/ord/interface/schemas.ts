@@ -165,6 +165,14 @@ export const ReturnToStockBody = z.strictObject({
   refundDestination: z.enum(['ORIGINAL_METHOD', 'STORE_CREDIT']).optional(),
 });
 
+/** The contract's `DeliveryCancel` (B11 continued 6, A-364 (a)). */
+export const DeliveryCancelBody = z.strictObject({
+  reasonCode: z.string().min(1).max(64),
+  note: Text(500).optional(),
+  returnsLocationId: z.uuid(),
+  refundDestination: z.enum(['ORIGINAL_METHOD', 'STORE_CREDIT']).optional(),
+});
+
 /** The contract's `DeliveryWriteOff` (B11 continued 4). */
 export const DeliveryWriteOffBody = z.strictObject({
   reasonCode: z.string().min(1).max(64),

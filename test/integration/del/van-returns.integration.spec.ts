@@ -388,3 +388,133 @@ describe("the van's two other ways out: returned to stock or written off with a 
     ).toBe(SQLSTATE.uniqueViolation);
   });
 });
+
+describe('a dispatched delivery cancelled before it leaves: its goods back into the returns hold, the document credited (FR-ORD-014, A-364 (a))', () => {
+  let cod: Crate;
+  let paid: Crate;
+  let onRun: Crate;
+  let failed: Crate;
+  const body = () => ({ reasonCode: 'CUSTOMER_CANCELLED', returnsLocationId: id('location:RETURNS') });
+  const cancel = (who: string, deliveryId: string, sent: object = body(), key = randomUUID()) => post(who, `/deliveries/${deliveryId}/cancel`, sent, key);
+
+  beforeAll(async () => {
+    cod = await dispatchedCrate('driver', 'COD');
+    paid = await dispatchedCrate('driver', 'MOMO');
+    onRun = await dispatchedCrate('otherDriver', 'COD');
+    failed = await dispatchedCrate('otherDriver', 'COD');
+    const tomorrow = toBusinessDate(new Date(clock.now().getTime() + 86_400_000));
+    const made = await post('manager', '/routes', { driverId: id('otherDriver'), routeDate: tomorrow, vehicleLocationId: id('location:VAN1'), deliveryIds: [onRun.deliveryId] });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    clock.advanceBy(60_000);
+    const fail = await post('otherDriver', `/driver/deliveries/${failed.deliveryId}/fail`, { id: nextId(), failureReasonCode: 'CUSTOMER_NOT_AVAILABLE', nextAction: 'RETURN_TO_STOCK', occurredAt: clock.now().toISOString() });
+    expect(fail.status, JSON.stringify(fail.body)).toBe(200);
+  });
+
+  it('refuses the Driver, the Storekeeper, the Cashier, Sales and another branch\'s Manager, writing nothing', async () => {
+    const before = await footprint();
+    for (const who of ['driver', 'storekeeper', 'cashier', 'sales', 'otherManager']) expect((await cancel(who, cod.deliveryId)).status, who).toBe(403);
+    expect((await cancel('manager', randomUUID())).status).toBe(404);
+    expect((await cancel('manager', cod.deliveryId, { reasonCode: 'CUSTOMER_CANCELLED' })).status).toBe(400);
+    expect((await cancel('manager', cod.deliveryId, { ...body(), extra: true })).status).toBe(400);
+    expect(await footprint()).toBe(before);
+  });
+
+  it('refuses a failed delivery, a stop of a planned run, a shelf, a reason not a cancellation, and store credit for a guest, writing nothing', async () => {
+    const before = await footprint();
+    expect(codes(await cancel('manager', failed.deliveryId))).toEqual([422, 'INVALID_STATE_TRANSITION', 'FAILED']);
+    expect(codes(await cancel('manager', onRun.deliveryId))).toEqual([422, 'DELIVERY_INVALID', 'ON_A_RUN']);
+    expect(codes(await cancel('manager', cod.deliveryId, { ...body(), returnsLocationId: id('location:SHOP') }))).toEqual([422, 'DELIVERY_INVALID', 'NOT_A_RETURNS_HOLD']);
+    expect(codes(await cancel('manager', cod.deliveryId, { ...body(), reasonCode: 'SPOILED' }))).toEqual([422, 'DELIVERY_INVALID', 'REASON_NOT_ALLOWED']);
+    expect(codes(await cancel('manager', cod.deliveryId, { ...body(), reasonCode: 'NO_SUCH_REASON' }))).toEqual([422, 'DELIVERY_INVALID', 'REASON_UNKNOWN']);
+    expect(codes(await cancel('manager', cod.deliveryId, { ...body(), refundDestination: 'STORE_CREDIT' }))).toEqual([422, 'DELIVERY_INVALID', 'STORE_CREDIT_NEEDS_CUSTOMER']);
+    expect(await footprint()).toBe(before);
+  });
+
+  it('cancels a crate waiting on the van: CANCELLED with its reason, the eggs into the returns hold, the order RETURNED, the whole document credited, once', async () => {
+    const van = Number(await eggsAt('VAN1'));
+    const hold = Number(await eggsAt('RETURNS'));
+    const key = randomUUID();
+    const done = await cancel('manager', cod.deliveryId, { ...body(), note: 'Customer travelled to Kumasi' }, key);
+    expect(done.status, `${JSON.stringify(done.body)} ${errors()}`).toBe(200);
+    expect(done.body).toMatchObject({ id: cod.deliveryId, status: 'CANCELLED' });
+    expect(await one('SELECT status, cancel_reason_code, (cancelled_at IS NOT NULL) AS dated, (posted_at IS NOT NULL) AS posted FROM del.delivery WHERE id = $1', [cod.deliveryId])).toEqual({
+      status: 'CANCELLED',
+      cancel_reason_code: 'CUSTOMER_CANCELLED',
+      dated: true,
+      posted: true,
+    });
+    const moved = await admin().query<{ type: string; from: string; to: string; qty: string }>(
+      'SELECT movement_type AS type, from_location_id AS from, to_location_id AS to, qty_base::text AS qty FROM inv.stock_movement WHERE source_document_id = $1',
+      [cod.deliveryId],
+    );
+    expect(moved.rows).toEqual([{ type: 'TRANSFER_INTERNAL', from: id('location:VAN1'), to: id('location:RETURNS'), qty: '30.000' }]);
+    expect(Number(await eggsAt('VAN1'))).toBe(van - 30);
+    expect(Number(await eggsAt('RETURNS'))).toBe(hold + 30);
+    const history = await admin().query<{ from: string; to: string; reason: string }>('SELECT from_status AS from, to_status AS to, reason FROM ord.order_status_history WHERE sales_order_id = $1 ORDER BY occurred_at, id', [cod.orderId]);
+    expect(history.rows.slice(-2).map((h) => [h.from, h.to])).toEqual([
+      ['DISPATCHED', 'DELIVERY_FAILED'],
+      ['DELIVERY_FAILED', 'RETURNED'],
+    ]);
+    expect(history.rows.at(-2)!.reason).toContain('cancelled before it left (CUSTOMER_CANCELLED)');
+    expect((await one<{ status: string }>('SELECT status FROM ord.sales_order WHERE id = $1', [cod.orderId])).status).toBe('RETURNED');
+    const way = await wayOut(cod.deliveryId);
+    expect(way).toMatchObject({ status: 'POSTED', way_out: 'RETURN_TO_STOCK', refund_id: null, created_by: id('manager') });
+    const credit = await creditOf(way.credit_note_id!);
+    expect(credit).toMatchObject({ status: 'DRAFT', asked: (await documentOf(cod.billingDocumentId)).gross, original: cod.billingDocumentId, reason: 'DELIVERY_RETURNED', created_by: id('manager') });
+    expect(await count("SELECT count(*)::text AS n FROM platform.outbox_message WHERE event_type = 'del.DeliveryCancelled' AND subject_id = $1", [cod.deliveryId])).toBe(1);
+    expect(await count("SELECT count(*)::text AS n FROM platform.audit_event WHERE entity_id = $1 AND action = 'CANCEL'", [cod.deliveryId])).toBe(1);
+
+    const after = await footprint();
+    const replay = await cancel('manager', cod.deliveryId, { ...body(), note: 'Customer travelled to Kumasi' }, key);
+    expect([replay.status, replay.body]).toEqual([200, done.body]);
+    expect(codes(await cancel('manager', cod.deliveryId))).toEqual([422, 'INVALID_STATE_TRANSITION', 'CANCELLED']);
+    expect(await footprint()).toBe(after);
+    // The driver no longer has it to deliver.
+    expect(codes(await post('driver', `/driver/deliveries/${cod.deliveryId}/fail`, { id: nextId(), failureReasonCode: 'CUSTOMER_NOT_AVAILABLE', nextAction: 'REATTEMPT', occurredAt: clock.now().toISOString() })).slice(0, 2)).toEqual([422, 'INVALID_STATE_TRANSITION']);
+  });
+
+  it('never takes the van below zero, and asks back what a paid-ahead order paid once its credit note is issued', async () => {
+    const onVan = await eggsAt('VAN1');
+    const taken = await post('manager', '/stock-adjustments', { locationId: id('location:VAN1'), reasonCode: 'BREAKAGE', lines: [{ productId: id('EGG-0003'), stockUnitId: id('lot:EGG-0003'), direction: 'LOSS', qty: onVan }] });
+    expect(taken.status, JSON.stringify(taken.body)).toBe(201);
+    expect((await post('manager', `/stock-adjustments/${taken.body.id as string}/submit`, {})).status).toBe(200);
+    const before = await footprint();
+    expect(codes(await cancel('manager', paid.deliveryId)).slice(0, 2)).toEqual([422, 'INSUFFICIENT_STOCK']);
+    expect(await footprint()).toBe(before);
+    expect((await one<{ status: string }>('SELECT status FROM del.delivery WHERE id = $1', [paid.deliveryId])).status).toBe('ASSIGNED');
+    const found = await post('manager', '/stock-adjustments', { locationId: id('location:VAN1'), reasonCode: 'FOUND_STOCK', note: 'Under the seat', lines: [{ productId: id('EGG-0003'), stockUnitId: id('lot:EGG-0003'), direction: 'GAIN', qty: onVan }] });
+    expect((await post('manager', `/stock-adjustments/${found.body.id as string}/submit`, {})).status).toBe(200);
+
+    const done = await cancel('manager', paid.deliveryId, { ...body(), reasonCode: 'CUSTOMER_CANCELLED' });
+    expect(done.status, `${JSON.stringify(done.body)} ${errors()}`).toBe(200);
+    const way = await wayOut(paid.deliveryId);
+    const credit = await creditOf(way.credit_note_id!);
+    expect((await decide('owner', credit.approval, 'approve')).status).toBe(200);
+    const refund = await one<{ amount: string; destination: string; reason: string }>('SELECT amount_pesewas::text AS amount, destination, reason_code AS reason FROM pay.refund WHERE id = $1', [(await wayOut(paid.deliveryId)).refund_id]);
+    const allocated = await one<{ n: string }>('SELECT sum(amount_pesewas)::text AS n FROM pay.payment_allocation WHERE billing_document_id = $1', [paid.billingDocumentId]);
+    expect(refund).toEqual({ amount: allocated.n, destination: 'ORIGINAL_METHOD', reason: 'ORDER_RETURNED' });
+  });
+
+  it('holds the cancellation in the database: a reason and a time exactly when CANCELLED, and frozen after', async () => {
+    const app = database.pool('app');
+    const client = await app.connect();
+    try {
+      await client.query('BEGIN');
+      expect(await sqlStateOf(client.query("UPDATE del.delivery SET status = 'CANCELLED', posted_at = now(), posted_by = created_by, version = version + 1 WHERE id = $1", [failed.deliveryId]))).toBe(SQLSTATE.documentFrozen);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+    const second = await app.connect();
+    try {
+      await second.query('BEGIN');
+      // ASSIGNED to CANCELLED is an edge of the guard, but never without its reason and time (ck_delivery_cancelled).
+      const stillAssigned = (await second.query<{ id: string }>("SELECT id FROM del.delivery WHERE status = 'ASSIGNED' LIMIT 1")).rows[0]!.id;
+      expect(await sqlStateOf(second.query("UPDATE del.delivery SET status = 'CANCELLED', posted_at = now(), posted_by = created_by, version = version + 1 WHERE id = $1", [stillAssigned]))).toBe(SQLSTATE.checkViolation);
+    } finally {
+      await second.query('ROLLBACK');
+      second.release();
+    }
+    expect(await sqlStateOf(app.query("UPDATE del.delivery SET cancel_reason_code = 'OTHER', version = version + 1 WHERE id = $1", [cod.deliveryId]))).toBe(SQLSTATE.documentFrozen);
+  });
+});

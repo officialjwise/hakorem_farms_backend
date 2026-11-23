@@ -67037,8 +67037,10 @@ paths:
       operationId: cancelDelivery
       tags:
         - del
-      summary: "Cancel a delivery before dispatch"
-      description: "Permission: `del.delivery.assign`."
+      summary: "Cancel a dispatched delivery before it leaves"
+      description: "A dispatched delivery cancelled before it left the farm (2.35.0, B11 continued 6; FR-ORD-014, A-364 (a)): its goods still wait on the van (`SCHEDULED` or `ASSIGNED`) and it is a stop of no planned or started run. FR-ORD-014 allows no cancel of an order after dispatch but the delivery return, so the cancellation **is** that return, in one transaction: the delivery `CANCELLED` with its `CANCELLATION` reason (its slot freed); each dispatched pick moved from the vehicle into the branch's returns hold (`returnsLocationId`, a live `RETURNS_HOLD` of the delivery's branch), not sellable until inspected; the order moved `DISPATCHED` to `DELIVERY_FAILED` to `RETURNED`, each step with the cancellation's reason; the whole document credited through the `CREDIT_NOTE` approval and, once that credit note is issued, what the customer paid beyond what the document still asks refunded through the `REFUND` approval, to the original method or to store credit (`refundDestination`, a customer account only), exactly as `returnDeliveryToStock`. `del.DeliveryCancelled` in the outbox. Audited. **Refusals:** a delivery on its way, failed (use `returnDeliveryToStock`) or finished 422 `INVALID_STATE_TRANSITION`; 422 `DELIVERY_INVALID` with `ON_A_RUN`, `NOT_A_RETURNS_HOLD`, `REASON_UNKNOWN`, `REASON_NOT_ALLOWED` (not a `CANCELLATION` reason), `NOTE_REQUIRED` or `STORE_CREDIT_NEEDS_CUSTOMER`; another branch's delivery 403. The same key answers the first cancellation.\n\nPermission: `del.delivery.assign`."
+      x-error-codes:
+        - DELIVERY_INVALID
       x-permission: del.delivery.assign
       parameters:
         - name: id
@@ -67057,9 +67059,11 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReasonCodeRequest"
+              $ref: "#/components/schemas/DeliveryCancel"
             example:
               reasonCode: CUSTOMER_CANCELLED
+              returnsLocationId: "019a7a90-1c3e-7d2a-9b41-6e5f4a3b2c10"
+              refundDestination: ORIGINAL_METHOD
       responses:
         "200":
           description: OK
@@ -67072,8 +67076,8 @@ paths:
                 $ref: "#/components/schemas/Delivery"
               example:
                 id: "019a7af0-47f8-7b3e-8076-bcb6e7053594"
-                deliveryNo: null
-                status: SCHEDULED
+                deliveryNo: DLN-2026-DDW-000216
+                status: CANCELLED
                 order:
                   id: "019a7b07-f6f4-7d65-829e-df301289580d"
                   docType: SALES_ORDER
@@ -67108,18 +67112,24 @@ paths:
                     quantity: "1.000"
                     uom: PACK
                     weightKg: "14.650"
-                driver: null
-                vehicle: null
+                driver:
+                  id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                  displayName: "Kwesi Appiah"
+                vehicle:
+                  id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+                  code: VAN-GT4521
+                  name: "Delivery van GT-4521-24"
+                  kind: VEHICLE
                 codDuePesewas: 0
                 codCollectedPesewas: null
                 attemptCount: 0
-                dispatchedAt: null
+                dispatchedAt: "2026-11-13T11:00:00Z"
                 deliveredAt: null
                 proof: null
                 deliveryNoteDocumentId: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
+                version: 4
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -99443,6 +99453,32 @@ components:
       required:
         - data
         - asOf
+    DeliveryCancel:
+      type: object
+      description: "Cancelling a dispatched delivery before it leaves the farm (A-364 (a)): why, and where its goods go back to."
+      properties:
+        reasonCode:
+          type: string
+          description: "A `CANCELLATION` reason (`listReasonCodes?domain=CANCELLATION`)."
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Required when the reason asks for a note."
+        returnsLocationId:
+          type: string
+          format: uuid
+          description: "A live `RETURNS_HOLD` of the delivery's branch: the goods are not sellable until inspected."
+        refundDestination:
+          type: string
+          enum:
+            - ORIGINAL_METHOD
+            - STORE_CREDIT
+          description: "Where what the customer paid goes once the credit note is issued; `ORIGINAL_METHOD` by default. Store credit only for a customer account."
+      required:
+        - reasonCode
+        - returnsLocationId
+      additionalProperties: false
     DriverCashHolder:
       type: object
       description: "A driver holding cash on delivery at the shift's branch that is not yet handed in (CR-063). No amount: the cashier counts blind, and `handInDriverCash` answers what was expected."

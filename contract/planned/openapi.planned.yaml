@@ -3812,110 +3812,7 @@ paths:
   "/deliveries/{id}/assign": {}
   "/deliveries/{id}/reschedule": {}
   "/deliveries/{id}/return-to-stock": {}
-  "/deliveries/{id}/cancel":
-    post:
-      operationId: cancelDelivery
-      tags:
-        - del
-      summary: "Cancel a delivery before dispatch"
-      description: "Permission: `del.delivery.assign`."
-      x-permission: del.delivery.assign
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReasonCodeRequest"
-            example:
-              reasonCode: CUSTOMER_CANCELLED
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Delivery"
-              example:
-                id: "019a7af0-47f8-7b3e-8076-bcb6e7053594"
-                deliveryNo: null
-                status: SCHEDULED
-                order:
-                  id: "019a7b07-f6f4-7d65-829e-df301289580d"
-                  docType: SALES_ORDER
-                  number: SO-2026-DDW-004216
-                slot:
-                  id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-                  date: "2026-11-14"
-                  startsAt: "10:00"
-                  endsAt: "12:00"
-                  available: true
-                  remaining: 4
-                deliveryZone:
-                  id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                  code: ACC-EAST
-                  name: "Accra East: Madina, Adenta, East Legon"
-                recipientName: "Ama Serwaa Ofori"
-                recipientPhone: "+233244512876"
-                address:
-                  recipientName: "Ama Serwaa Ofori"
-                  recipientPhone: "+233244512876"
-                  line1: "House 14, Ashaley Botwe Road, near the Methodist church"
-                  area: Madina
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GM-091-4471
-                  directions: "Blue gate opposite Sika Pharmacy"
-                latitude: "5.687214"
-                longitude: "-0.166402"
-                contents:
-                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
-                    name: "Full chicken, 15 kg pack"
-                    quantity: "1.000"
-                    uom: PACK
-                    weightKg: "14.650"
-                driver: null
-                vehicle: null
-                codDuePesewas: 0
-                codCollectedPesewas: null
-                attemptCount: 0
-                dispatchedAt: null
-                deliveredAt: null
-                proof: null
-                deliveryNoteDocumentId: null
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/deliveries/{id}/cancel": {}
   "/routes": {}
   "/routes/{id}": {}
   "/routes/{id}/stops": {}
@@ -30001,6 +29898,32 @@ components:
       required:
         - data
         - asOf
+    DeliveryCancel:
+      type: object
+      description: "Cancelling a dispatched delivery before it leaves the farm (A-364 (a)): why, and where its goods go back to."
+      properties:
+        reasonCode:
+          type: string
+          description: "A `CANCELLATION` reason (`listReasonCodes?domain=CANCELLATION`)."
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Required when the reason asks for a note."
+        returnsLocationId:
+          type: string
+          format: uuid
+          description: "A live `RETURNS_HOLD` of the delivery's branch: the goods are not sellable until inspected."
+        refundDestination:
+          type: string
+          enum:
+            - ORIGINAL_METHOD
+            - STORE_CREDIT
+          description: "Where what the customer paid goes once the credit note is issued; `ORIGINAL_METHOD` by default. Store credit only for a customer account."
+      required:
+        - reasonCode
+        - returnsLocationId
+      additionalProperties: false
     DriverCashHolder:
       type: object
       description: "A driver holding cash on delivery at the shift's branch that is not yet handed in (CR-063). No amount: the cashier counts blind, and `handInDriverCash` answers what was expected."

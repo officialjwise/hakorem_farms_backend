@@ -8,7 +8,7 @@ import { zodPipe } from '../../../platform/http/validation';
 import type { DeliveryView } from '../../del';
 import type { ApprovalPendingView } from '../application/order-reversals';
 import { VanReturns } from '../application/van-returns';
-import { DeliveryWriteOffBody, IdParam, ReturnToStockBody } from './schemas';
+import { DeliveryCancelBody, DeliveryWriteOffBody, IdParam, ReturnToStockBody } from './schemas';
 
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
 
@@ -41,6 +41,20 @@ export class VanReturnsController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<DeliveryView | ApprovalPendingView> {
     const response = await this.vanReturns.writeOff(actor, id, { reasonCode: body.reasonCode, note: body.note ?? null, refundDestination: body.refundDestination ?? 'ORIGINAL_METHOD' }, key);
+    res.status(response.status);
+    return response.body;
+  }
+
+  @Post(':id/cancel')
+  @Operation({ operationId: 'cancelDelivery', ...WRITE, permission: 'del.delivery.assign' })
+  async cancelDelivery(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(DeliveryCancelBody)) body: z.infer<typeof DeliveryCancelBody>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<DeliveryView> {
+    const response = await this.vanReturns.cancel(actor, id, { reasonCode: body.reasonCode, note: body.note ?? null, returnsLocationId: body.returnsLocationId, refundDestination: body.refundDestination ?? 'ORIGINAL_METHOD' }, key);
     res.status(response.status);
     return response.body;
   }

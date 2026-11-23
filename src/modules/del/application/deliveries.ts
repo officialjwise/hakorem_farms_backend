@@ -16,7 +16,8 @@ import type { DriverCash } from '../../pay';
 import { codVariance, judgeProof, takesProof, type DeliveryStatus, type ProofFile, type VarianceReason } from '../domain/deliveries';
 import { nextAttemptNo, pageProbe } from '../domain/numbering';
 import { judgeFailure, judgeOnTheWay, takesFailure } from '../domain/routes';
-import type { CodCollected, DeliveryCompleted, DeliveryFailed, DeliveryOnTheWay, DeliveryReturned, DeliveryWrittenOff } from '../events';
+import { judgeCancellation } from '../domain/scheduling';
+import type { CodCollected, DeliveryCancelled, DeliveryCompleted, DeliveryFailed, DeliveryOnTheWay, DeliveryReturned, DeliveryWrittenOff } from '../events';
 import { remaining } from '../domain/slots';
 import { DeliveryInvalidError } from './errors';
 import type { SlotRecord, SlotStore } from './slot-store';
@@ -34,6 +35,7 @@ const DRIVES = PROOF;
 export const DELIVERY_COMPLETED = 'del.DeliveryCompleted';
 export const DELIVERY_RETURNED = 'del.DeliveryReturned';
 export const DELIVERY_WRITTEN_OFF = 'del.DeliveryWrittenOff';
+export const DELIVERY_CANCELLED = 'del.DeliveryCancelled';
 /** The driver variance report's permission (B11 continued 2): its goods line reads under it too. */
 const VARIANCE_READ = 'del.cash_reconciliation.read';
 /** The write-off reasons that are the driver's variance: goods they cannot account for (migration 0321, A-360). */
@@ -630,6 +632,38 @@ export class Deliveries {
     await this.events.publish<DeliveryReturned>(tx, { type: DELIVERY_RETURNED, subjectType: 'Delivery', subjectId: id, branchId: d.branchId, payload: returned, occurredAt: at });
     const after = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
     await this.audit.record(tx, { module: 'del', action: 'RETURN_TO_STOCK', entityType: 'Delivery', entityId: id, branchId: d.branchId, before: { ...before }, after: { ...after, returnsLocationId } });
+    return after;
+  }
+
+  /**
+   * SCHEDULED or ASSIGNED to CANCELLED, posted, with its reason (FR-ORD-014, A-364 (a)), in ORD's serializable
+   * transaction for `cancelDelivery`: only a delivery whose goods still wait on the van on no planned or started run
+   * (`judgeCancellation`); ORD then moves the goods into the returns hold and credits the document. The slot, if any, is
+   * freed by the database. It authorises nothing: ORD's `cancelDelivery` has.
+   */
+  async cancelledIn(tx: Transaction, actorId: string, id: string, facts: { readonly reasonCode: string; readonly returnsLocationId: string }, at: Date): Promise<DeliveryView> {
+    const d = await this.store.lock(tx, id);
+    if (d === null) throw new NotFoundError('no such delivery');
+    const route = await this.store.routeStatusOf(tx, id);
+    const broken = judgeCancellation({ status: d.status, onLiveRun: route === 'PLANNED' || route === 'IN_PROGRESS' });
+    if (broken.some((b) => b.rule === 'INVALID_STATE_TRANSITION')) throw invalidState(`delivery ${id}`, d.status);
+    if (broken.length > 0) throw new DeliveryInvalidError(broken);
+    const before = (await this.viewsIn(tx, [d]))[0]!;
+    await this.store.markCancelled(tx, id, { reasonCode: facts.reasonCode, at, actorId });
+    const cancelled: DeliveryCancelled = {
+      deliveryId: id,
+      deliveryNo: d.deliveryNo,
+      orderDocumentId: d.orderDocumentId,
+      branchId: d.branchId,
+      driverId: d.driverId,
+      vehicleLocationId: d.vehicleLocationId,
+      returnsLocationId: facts.returnsLocationId,
+      reasonCode: facts.reasonCode,
+      cancelledAt: at.toISOString(),
+    };
+    await this.events.publish<DeliveryCancelled>(tx, { type: DELIVERY_CANCELLED, subjectType: 'Delivery', subjectId: id, branchId: d.branchId, payload: cancelled, occurredAt: at });
+    const after = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
+    await this.audit.record(tx, { module: 'del', action: 'CANCEL', entityType: 'Delivery', entityId: id, branchId: d.branchId, before: { ...before }, after: { ...after, reasonCode: facts.reasonCode, returnsLocationId: facts.returnsLocationId } });
     return after;
   }
 
