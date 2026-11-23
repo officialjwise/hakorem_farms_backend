@@ -171,4 +171,33 @@ export interface ReconciliationStore {
   insertResolution(tx: Transaction, r: { readonly id: string; readonly breakId: string; readonly posting: ResolutionPosting; readonly note: string; readonly branchId: string; readonly createdBy: string }): Promise<void>;
   updateResolution(tx: Transaction, id: string, change: { readonly approvalRequestId?: string; readonly status?: 'APPROVED' | 'REJECTED' }, actorId: string): Promise<void>;
   resolveBreak(tx: Transaction, id: string, note: string, at: Date, actorId: string): Promise<void>;
+
+  /** An unverified offline mobile money tender, as its break's resolution reads it (A-282); null for any other payment. */
+  unverifiedTender(tx: Transaction, paymentId: string, forUpdate: boolean): Promise<UnverifiedTenderRecord | null>;
+  /** The tender's move to the wallet: one row per payment, break and resolution (`pay.unverified_verification`). */
+  insertVerification(tx: Transaction, r: { readonly id: string; readonly paymentId: string; readonly breakId: string; readonly resolutionId: string; readonly branchId: string; readonly amountPesewas: bigint; readonly verifiedOn: string; readonly recordedAt: Date; readonly actorId: string }): Promise<void>;
+  /** Open `UNVERIFIED_PAYMENT` breaks whose tender still waits and whose window ended at or before `at`, not yet raised URGENT. */
+  overdueUnverified(tx: Transaction, at: Date, limit: number): Promise<OverdueUnverifiedRecord[]>;
+  /** Raises one overdue break once (`pay.unverified_overdue`); false when it was already raised. */
+  insertOverdue(tx: Transaction, r: { readonly id: string; readonly breakId: string; readonly paymentId: string; readonly branchId: string; readonly amountPesewas: bigint; readonly urgentFrom: Date; readonly recordedAt: Date; readonly actorId: string }): Promise<boolean>;
+}
+
+export interface UnverifiedTenderRecord {
+  readonly paymentId: string;
+  readonly status: 'PENDING' | 'CLEARED' | 'FAILED' | 'REVERSED';
+  readonly amountPesewas: bigint;
+  readonly bankAccountId: string | null;
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly verified: boolean;
+}
+
+export interface OverdueUnverifiedRecord {
+  readonly breakId: string;
+  readonly paymentId: string;
+  readonly branchId: string;
+  readonly amountPesewas: bigint;
+  readonly urgentFrom: Date;
+  readonly reference: string | null;
+  readonly details: Readonly<Record<string, unknown>>;
 }

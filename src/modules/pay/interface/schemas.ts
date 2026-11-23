@@ -137,5 +137,5 @@ export const BreakPageQuery = z.object({
 
 export const BreakResolveBody = z.strictObject({
   note: Text(500),
-  posting: z.enum(['NONE', 'UNIDENTIFIED_RECEIPT']).optional(),
+  posting: z.enum(['NONE', 'UNIDENTIFIED_RECEIPT', 'VERIFIED']).optional(),
 });

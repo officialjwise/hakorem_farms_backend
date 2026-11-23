@@ -104,3 +104,21 @@ describe('what a reversal does to its payment (FR-PAY-011, FR-PAY-014)', () => {
     expect(judgeReversal(cleared, { domain: 'PAYMENT_REVERSAL', code: 'CHEQUE_DISHONOURED' })).toEqual({ ok: false, error: ['REASON_NOT_FOR_METHOD'] });
   });
 });
+
+describe('an unverified offline mobile money tender the provider never paid (A-282 (d))', () => {
+  const waiting: ReversiblePayment = { methodKind: 'MOBILE_MONEY', status: 'PENDING', reversesPaymentId: null, refundedPesewas: 0n, verification: 'UNVERIFIED' };
+
+  it('bounces it, still waiting and unverified, as never received', () => {
+    expect(judgeReversal(waiting, { domain: 'PAYMENT_REVERSAL', code: 'MOBILE_MONEY_NOT_RECEIVED' })).toEqual({ ok: true, value: { becomes: 'FAILED' } });
+    expect(judgeReversal(waiting, { domain: 'PAYMENT_REVERSAL', code: 'RECORDED_IN_ERROR' })).toEqual({ ok: true, value: { becomes: 'FAILED' } });
+  });
+
+  it('refuses it once verified, never-received on any other payment, and a dishonoured cheque for it', () => {
+    expect(judgeReversal({ ...waiting, verified: true }, { domain: 'PAYMENT_REVERSAL', code: 'MOBILE_MONEY_NOT_RECEIVED' })).toEqual({ ok: false, error: ['NOT_REVERSIBLE', 'REASON_NOT_FOR_METHOD'] });
+    expect(judgeReversal({ ...waiting, verified: true }, { domain: 'PAYMENT_REVERSAL', code: 'RECORDED_IN_ERROR' })).toEqual({ ok: false, error: ['NOT_REVERSIBLE'] });
+    expect(judgeReversal({ methodKind: 'MOBILE_MONEY', status: 'CLEARED', reversesPaymentId: null, refundedPesewas: 0n }, { domain: 'PAYMENT_REVERSAL', code: 'MOBILE_MONEY_NOT_RECEIVED' })).toEqual({ ok: false, error: ['REASON_NOT_FOR_METHOD'] });
+    expect(judgeReversal(waiting, { domain: 'PAYMENT_REVERSAL', code: 'CHEQUE_DISHONOURED' })).toEqual({ ok: false, error: ['REASON_NOT_FOR_METHOD'] });
+    expect(judgeReversal({ ...waiting, methodKind: 'CARD' }, { domain: 'PAYMENT_REVERSAL', code: 'RECORDED_IN_ERROR' })).toEqual({ ok: false, error: ['NOT_REVERSIBLE'] });
+  });
+});
+

@@ -94,6 +94,10 @@ export interface ReversiblePayment {
   readonly status: 'PENDING' | 'CLEARED' | 'FAILED' | 'REVERSED';
   readonly reversesPaymentId: string | null;
   readonly refundedPesewas: bigint;
+  /** `UNVERIFIED` for an offline mobile money tender awaiting verification (A-282); absent or anything else otherwise. */
+  readonly verification?: string;
+  /** Whether that tender was verified and moved to the wallet (`pay.unverified_verification`). */
+  readonly verified?: boolean;
 }
 
 export type ReversalRefusal = 'NOT_REVERSIBLE' | 'PAYMENT_HAS_REFUNDS' | 'REASON_UNKNOWN' | 'REASON_NOT_FOR_METHOD';
@@ -102,15 +106,20 @@ export type ReversalRefusal = 'NOT_REVERSIBLE' | 'PAYMENT_HAS_REFUNDS' | 'REASON
  * A reversal (FR-PAY-011, FR-PAY-014): a cleared payment becomes REVERSED; a cheque still awaiting clearance bounces and
  * becomes FAILED. Either way its journal is mirrored and its allocations reopened. A payment that posted nothing (a
  * pending provider payment or bank transfer) is not reversed, nor one already reversed, a reversing payment, or one with
- * a refund that is not rejected. The reason is a PAYMENT_REVERSAL code; CHEQUE_DISHONOURED only for a cheque.
+ * a refund that is not rejected. The reason is a PAYMENT_REVERSAL code; CHEQUE_DISHONOURED only for a cheque. An
+ * unverified offline mobile money tender still awaiting verification bounces too (MOBILE_MONEY_NOT_RECEIVED, its own).
  */
 export function judgeReversal(payment: ReversiblePayment, reason: { readonly domain: string; readonly code: string } | null): Result<{ readonly becomes: 'REVERSED' | 'FAILED' }, ReversalRefusal[]> {
   const refusals: ReversalRefusal[] = [];
-  const bounce = payment.status === 'PENDING' && payment.methodKind === 'CHEQUE';
+  // An unverified offline mobile money tender still awaiting verification bounces as a cheque does (A-282 (d)): FAILED,
+  // its receipt mirrored out of 1115; once verified it is in the wallet and is no longer bounced.
+  const waitingTender = payment.methodKind === 'MOBILE_MONEY' && payment.verification === 'UNVERIFIED' && payment.verified !== true;
+  const bounce = payment.status === 'PENDING' && (payment.methodKind === 'CHEQUE' || waitingTender);
   if (payment.reversesPaymentId !== null || !(payment.status === 'CLEARED' || bounce)) refusals.push('NOT_REVERSIBLE');
   else if (payment.refundedPesewas > 0n) refusals.push('PAYMENT_HAS_REFUNDS');
   if (reason === null || reason.domain !== 'PAYMENT_REVERSAL') refusals.push('REASON_UNKNOWN');
   else if (reason.code === 'CHEQUE_DISHONOURED' && payment.methodKind !== 'CHEQUE') refusals.push('REASON_NOT_FOR_METHOD');
+  else if (reason.code === 'MOBILE_MONEY_NOT_RECEIVED' && !(waitingTender && payment.status === 'PENDING')) refusals.push('REASON_NOT_FOR_METHOD');
   if (refusals.length > 0) return err(refusals);
   return ok({ becomes: bounce ? 'FAILED' : 'REVERSED' });
 }

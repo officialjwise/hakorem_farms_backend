@@ -17,6 +17,7 @@ import { BankAccounts, FinModule } from '../fin';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { MasterDataRefs, MdmModule } from '../mdm';
 import { Breaks } from './application/breaks';
+import { UnverifiedOverdue } from './application/unverified-overdue';
 import { UnverifiedTenders } from './application/unverified-tenders';
 import { PAYMENT_STORE, type PaymentStore } from './application/payment-store';
 import { PAY_LEDGER_EVENTS, Payments } from './application/payments';
@@ -202,8 +203,13 @@ import { MyStoreCreditController, PaymentsController, ReceivablesController, Ref
         new UnverifiedTenders(payments, breaks, refs, bankAccounts, settings, audit, clock, createUuidV7Generator(clock)),
       inject: [Payments, Breaks, MasterDataRefs, BankAccounts, Settings, AuditTrail, CLOCK],
     },
+    {
+      provide: UnverifiedOverdue,
+      useFactory: (uow: UnitOfWork, store: ReconciliationStore, events: DomainEvents, audit: AuditTrail, clock: Clock) => new UnverifiedOverdue(uow, store, events, audit, clock),
+      inject: [UnitOfWork, RECONCILIATION_STORE, DomainEvents, AuditTrail, CLOCK],
+    },
   ],
-  exports: [Payments, ProviderPayments, Refunds, Receipts, StoreCredit, TillShiftRegistry, UnverifiedTenders, AllocationsAsAt],
+  exports: [Payments, ProviderPayments, Refunds, Receipts, StoreCredit, TillShiftRegistry, UnverifiedTenders, UnverifiedOverdue, AllocationsAsAt],
 })
 export class PayModule implements OnModuleInit {
   constructor(

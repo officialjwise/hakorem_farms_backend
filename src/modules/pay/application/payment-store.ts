@@ -305,6 +305,8 @@ export interface PaymentStore {
 
   /** Raises a break unless the same one is already open; answers whether it was raised. */
   raiseBreak(tx: Transaction, row: NewBreak): Promise<boolean>;
+  /** Whether an unverified offline mobile money tender was verified and moved to the wallet (`pay.unverified_verification`, A-282). */
+  tenderVerified(tx: Transaction, paymentId: string): Promise<boolean>;
   resolveRefundBreaks(tx: Transaction, refundId: string, note: string, at: Date, actorId: string): Promise<void>;
   lastSweepEnd(tx: Transaction, provider: string): Promise<Date | null>;
   insertSweep(tx: Transaction, row: { readonly id: string; readonly provider: string; readonly from: Date; readonly to: Date; readonly transactions: number; readonly cleared: number; readonly breaksRaised: number; readonly actorId: string }): Promise<void>;

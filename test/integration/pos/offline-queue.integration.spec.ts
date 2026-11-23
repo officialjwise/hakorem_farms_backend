@@ -462,16 +462,17 @@ describe('the unverified mobile money tender (OFFLINE_SYNC 5.3 and 9.9, abuse ca
     expect((payment['received_at'] as Date).toISOString()).toBe(s.occurredAt);
     const receipt = await one<{ id: string; outstanding: string }>('SELECT d.id, s.outstanding_pesewas::text AS outstanding FROM bil.billing_document d JOIN bil.document_settlement s ON s.billing_document_id = d.id WHERE d.order_document_id = $1', [s.id]);
     expect(receipt.outstanding).toBe('0');
-    // The ledger: Dr 1110 20,000 against the farm's wallet (never 1120: no provider took it), Dr 1000 10,000 against the
-    // till; Cr 1200 30,000 off the receipt's Dr 1200 30,000 (OFFLINE_SYNC 9.9).
+    // The ledger: Dr 1115 Mobile money awaiting verification 20,000 against the farm's wallet (never 1110 until verified,
+    // never 1120: no provider took it; the owner, 2026-11-18), Dr 1000 10,000 against the till; Cr 1200 30,000 off the
+    // receipt's Dr 1200 30,000 (OFFLINE_SYNC 9.9, A-282).
     const wallet = await one<{ id: string }>("SELECT id FROM fin.bank_account WHERE kind = 'MOBILE_MONEY' AND is_active ORDER BY (branch_id IS NULL), created_at, id LIMIT 1");
     expect(payment).toMatchObject({ bank_account_id: wallet.id });
     const paymentIds = (await rows<{ id: string }>('SELECT id FROM pay.payment WHERE order_document_id = $1', [s.id])).map((r) => r.id);
-    expect([await balance('1110', paymentIds), await balance('1120', paymentIds), await balance('1000', paymentIds), await balance('1200', [...paymentIds, receipt.id])]).toEqual([20_000, 0, 10_000, 0]);
+    expect([await balance('1115', paymentIds), await balance('1110', paymentIds), await balance('1120', paymentIds), await balance('1000', paymentIds), await balance('1200', [...paymentIds, receipt.id])]).toEqual([20_000, 0, 0, 10_000, 0]);
     expect(
       await num(
         `SELECT sum(CASE l.side WHEN 'D' THEN l.amount_pesewas ELSE -l.amount_pesewas END)::text AS n FROM fin.journal_line l JOIN fin.journal_entry e ON e.id = l.journal_entry_id
-           JOIN fin.account a ON a.id = l.account_id JOIN fin.subledger_party sp ON sp.id = l.subledger_party_id WHERE a.code = '1110' AND e.source_document_id = ANY($1::uuid[]) AND sp.ref_id = $2`,
+           JOIN fin.account a ON a.id = l.account_id JOIN fin.subledger_party sp ON sp.id = l.subledger_party_id WHERE a.code = '1115' AND e.source_document_id = ANY($1::uuid[]) AND sp.ref_id = $2`,
         [paymentIds, wallet.id],
       ),
     ).toBe(20_000);

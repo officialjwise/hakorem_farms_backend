@@ -276,14 +276,16 @@ export function judgeLineMatch(line: { readonly direction: Direction; readonly a
   return ok(undefined);
 }
 
-export type ResolutionPosting = 'NONE' | 'UNIDENTIFIED_RECEIPT';
-export type ResolutionRefusal = 'BREAK_NOT_OPEN' | 'NOTE_REQUIRED' | 'POSTING_NOT_FOR_BREAK' | 'LINE_ALREADY_MATCHED';
+export type ResolutionPosting = 'NONE' | 'UNIDENTIFIED_RECEIPT' | 'VERIFIED';
+export type ResolutionRefusal = 'BREAK_NOT_OPEN' | 'NOTE_REQUIRED' | 'POSTING_NOT_FOR_BREAK' | 'LINE_ALREADY_MATCHED' | 'TENDER_NOT_PENDING' | 'VERIFICATION_REQUIRED';
 
 /** A break as its resolution reads it, with the reconciliation line it was raised for, if any. */
 export interface ResolvableBreak {
   readonly status: 'OPEN' | 'RESOLVED';
   readonly kind: string;
   readonly line: { readonly source: 'SETTLEMENT' | 'BANK'; readonly reason: string | null; readonly direction: Direction; readonly matched: boolean } | null;
+  /** An `UNVERIFIED_PAYMENT` break's tender: its status, and whether a verification already moved it to the wallet. */
+  readonly tender?: { readonly status: 'PENDING' | 'CLEARED' | 'FAILED' | 'REVERSED'; readonly verified: boolean } | null;
 }
 
 /**
@@ -291,12 +293,20 @@ export interface ResolvableBreak {
  * approval. Its one posting is the unidentified receipt (FR-PAY-010): money that reached the bank from a payer nobody
  * can name, held in 2290: a settlement line whose reference no payment of ours carries, or money in on a statement
  * line nothing matched. Anything else is resolved with a note after the correction was made through its own operation
- * (an allocation, a refund, a reversal, a match by hand, an approved manual journal).
+ * (an allocation, a refund, a reversal, a match by hand, an approved manual journal). An unverified offline mobile money
+ * tender still waiting is resolved only as VERIFIED, moving it from 1115 to the wallet (A-282).
  */
 export function judgeResolution(b: ResolvableBreak, posting: ResolutionPosting, note: string): Result<void, ResolutionRefusal[]> {
   if (b.status !== 'OPEN') return err(['BREAK_NOT_OPEN']);
   if (note.trim() === '') return err(['NOTE_REQUIRED']);
-  if (posting === 'NONE') return ok(undefined);
+  // An unverified offline mobile money tender waits in 1115 (the owner, 2026-11-18, A-282): it leaves only by its
+  // verification (VERIFIED, to 1110) or by its reversal as never received; until then a bare close is refused.
+  const waiting = b.kind === 'UNVERIFIED_PAYMENT' && b.tender?.status === 'PENDING' && !b.tender.verified;
+  if (posting === 'VERIFIED') {
+    if (b.kind !== 'UNVERIFIED_PAYMENT') return err(['POSTING_NOT_FOR_BREAK']);
+    return waiting ? ok(undefined) : err(['TENDER_NOT_PENDING']);
+  }
+  if (posting === 'NONE') return waiting ? err(['VERIFICATION_REQUIRED']) : ok(undefined);
   const line = b.line;
   const unknownPayer =
     line !== null &&

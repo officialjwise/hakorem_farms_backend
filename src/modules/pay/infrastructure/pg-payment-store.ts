@@ -550,6 +550,11 @@ export class PgPaymentStore implements PaymentStore {
     return rows.map(toRefund);
   }
 
+  async tenderVerified(tx: Transaction, paymentId: string): Promise<boolean> {
+    const { rows } = await tx.query<{ verified: boolean }>('SELECT EXISTS (SELECT 1 FROM pay.unverified_verification WHERE payment_id = $1) AS verified', [paymentId]);
+    return rows[0]!.verified;
+  }
+
   async raiseBreak(tx: Transaction, b: NewBreak): Promise<boolean> {
     const inserted = await tx.query(
       `INSERT INTO pay.reconciliation_break (id, branch_id, kind, payment_id, refund_id, provider, reference, amount_pesewas, details, raised_at, created_by, updated_by,
