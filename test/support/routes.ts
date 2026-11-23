@@ -150,6 +150,7 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   revokeDevice: { reason: 'Tablet stolen from the stall' },
   revokeReceiptLink: { reason: 'Link sent to the wrong number' },
   payInvoiceAtTill: { billingDocumentId: randomUUID(), amountPesewas: 20_000 },
+  handInDriverCash: { driverId: randomUUID(), declaredPesewas: 20_000 },
   holdSale: { id: '019a7afb-a3ba-7cc4-a1fc-d51596034df3', label: 'Back in ten minutes', payload: { lines: [{ productId: randomUUID(), quantity: '1.000' }] } },
   syncOfflineSales: { deviceId: randomUUID(), shiftId: randomUUID(), sales: [] },
   completeCounterSale: { id: '019a7aac-216c-721a-8753-2a7ecd11a35c', shiftId: randomUUID(), lines: [{ productId: randomUUID(), quantity: '1.000', agreedUnitPricePesewas: 2_000 }], tenders: [{ paymentMethodId: randomUUID(), amountPesewas: 2_000 }], occurredAt: '2026-11-13T09:11:00Z' },

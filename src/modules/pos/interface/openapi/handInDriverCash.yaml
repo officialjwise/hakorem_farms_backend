@@ -1,0 +1,90 @@
+operationId: handInDriverCash
+tags:
+  - pos
+summary: "Count a driver's cash on delivery into the till"
+description: "A driver hands in the cash collected on delivery at a till shift (2.31.0, B11 continued 2; CR-057; the owner, 2026-11-23: handed in once at a till shift, never typed in as loose cash; ADR-0077, ADR-0092). Taken by the cashier onto their **own open shift** from an enrolled device of that till (`X-Device-Credential`), judged by the same shift check as `payInvoiceAtTill`. **Every collection the driver still holds at the shift's branch is handed in, exactly once**: what was expected is their sum; `declaredPesewas` is what the cashier counted, which goes into the till as a cleared cash payment naming the driver (`tillPaymentId`, method `COD`; it settles no document, the collections already did) and is **counted at the shift's close** as any cash the shift took. A count short of what was expected is **short** on the driver variance report (`varianceDirection` `SHORT`), never loose cash; over is `OVER`. Posts Dr 1000 the till for what was counted, Cr 1020 the driver for what was expected, the difference to 6900. The cashier is never the driver. Answers the `DriverCashReconciliation`, `POSTED`. **Refusals:** a closing, closed or force-closed shift 422 `SHIFT_NOT_OPEN` with nothing recorded, another cashier's shift 403; 422 `DRIVER_CASH_INVALID` with `NOTHING_HELD` (the driver holds no cash at the branch, or it was already handed in) or `RECEIVER_IS_DRIVER`; 404 for a shift the caller cannot see; 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`. The same key answers the first hand-in. Audited.\n\nPermission: `pos.sale.create`."
+x-permission: pos.sale.create
+x-error-codes:
+  - DRIVER_CASH_INVALID
+  - SHIFT_NOT_OPEN
+  - DEVICE_CREDENTIAL_INVALID
+  - DEVICE_REVOKED
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: "The cashier's own open shift."
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+    deviceCredential: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DriverCashHandInCreate"
+      example:
+        driverId: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+        declaredPesewas: 144000
+        note: "Driver says the chop bar paid GHS 140.00"
+responses:
+  "201":
+    description: Created
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DriverCashReconciliation"
+        example:
+          id: "019a7b0b-3a29-7863-bd9b-8f09e83407e7"
+          status: POSTED
+          driver:
+            id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+            displayName: "Kwesi Appiah"
+          reconciliationDate: "2026-11-13"
+          shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+          tillPaymentId: "019a7b0b-3a40-7d11-8c22-5e6f7a8b9c01"
+          expectedPesewas: 154000
+          declaredPesewas: 144000
+          variancePesewas: 10000
+          varianceDirection: SHORT
+          receivedBy:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          note: "Driver says the chop bar paid GHS 140.00"
+          collections:
+            - deliveryNo: DLN-2026-DDW-000193
+              recipientName: "Asantewaa Chop Bar"
+              amountPesewas: 24000
+              capturedAt: "2026-11-13T11:52:00Z"
+            - deliveryNo: DLN-2026-DDW-000197
+              recipientName: "Osu Fresh Mart"
+              amountPesewas: 130000
+              capturedAt: "2026-11-13T14:05:00Z"
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 1
+          createdAt: "2026-11-13T17:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

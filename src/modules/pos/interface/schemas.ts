@@ -215,3 +215,10 @@ export const TillInvoicePaymentCreate = z.strictObject({
   amountPesewas: Pesewas,
   tenderedPesewas: Pesewas.optional(),
 });
+
+/** `handInDriverCash` (CR-057): a driver's cash on delivery counted into one's own open shift. */
+export const DriverCashHandInCreate = z.strictObject({
+  driverId: z.uuid(),
+  declaredPesewas: Pesewas,
+  note: z.string().trim().min(1).max(500).optional(),
+});

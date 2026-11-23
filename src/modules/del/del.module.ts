@@ -15,6 +15,10 @@ import { DriverCash, PayModule } from '../pay';
 import { DEL_LEDGER_EVENTS, Deliveries } from './application/deliveries';
 import { DELIVERY_STORE, type DeliveryStore } from './application/delivery-store';
 import { PgDeliveryStore } from './infrastructure/pg-delivery-store';
+import { DriverCashReconciliations } from './application/driver-cash';
+import { DRIVER_CASH_STORE, type DriverCashStore } from './application/driver-cash-store';
+import { PgDriverCashStore } from './infrastructure/pg-driver-cash-store';
+import { DriverCashController } from './interface/driver-cash.controller';
 import { DeliveriesController, DriverDeliveriesController } from './interface/deliveries.controller';
 import { SLOT_STORE, type SlotStore } from './application/slot-store';
 import { Slots } from './application/slots';
@@ -25,14 +29,32 @@ import { SlotsController } from './interface/slots.controller';
  * DEL (layer 8): delivery and logistics. B07 continued 2 builds its first pass, as ADR-0026's delivery split decides:
  * `del.delivery_slot` and slot generation, so the storefront checkout's foreign key exists. B11 continued adds
  * deliveries made at dispatch, the driver's own reads and the proof of delivery with the cash collected (`Deliveries`);
- * booking against capacity, cut-offs, routes, failures and the driver's cash reconciliation follow in B11 continued 2.
+ * B11 continued 2 adds the driver's cash handed in at a till shift and the driver variance report
+ * (`DriverCashReconciliations`); booking against capacity, cut-offs, routes and failures follow in B11 continued 3.
  */
 @Module({
   imports: [IamModule, MdmModule, PayModule],
-  controllers: [SlotsController, DeliveriesController, DriverDeliveriesController],
+  controllers: [SlotsController, DeliveriesController, DriverDeliveriesController, DriverCashController],
   providers: [
     { provide: SLOT_STORE, useClass: PgSlotStore },
     { provide: DELIVERY_STORE, useClass: PgDeliveryStore },
+    { provide: DRIVER_CASH_STORE, useClass: PgDriverCashStore },
+    {
+      provide: DriverCashReconciliations,
+      useFactory: (
+        uow: UnitOfWork,
+        store: DriverCashStore,
+        driverCash: DriverCash,
+        documents: DocumentRegistry,
+        events: DomainEvents,
+        audit: AuditTrail,
+        authoriser: Authoriser,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new DriverCashReconciliations(uow, store, driverCash, documents, events, audit, authoriser, principals, cursors, clock),
+      inject: [UnitOfWork, DRIVER_CASH_STORE, DriverCash, DocumentRegistry, DomainEvents, AuditTrail, Authoriser, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
     {
       provide: Deliveries,
       useFactory: (
@@ -61,7 +83,7 @@ import { SlotsController } from './interface/slots.controller';
       inject: [UnitOfWork, SLOT_STORE, MasterDataRefs, Storefront, Authoriser, Idempotency, AuditTrail, Cursors, CLOCK],
     },
   ],
-  exports: [Slots, Deliveries],
+  exports: [Slots, Deliveries, DriverCashReconciliations],
 })
 export class DelModule implements OnModuleInit {
   constructor(@Inject(DomainEvents) private readonly events: DomainEvents) {}

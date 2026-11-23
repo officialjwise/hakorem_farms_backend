@@ -1,0 +1,217 @@
+operationId: listDriverCashReconciliations
+tags:
+  - del
+summary: "List driver cash reconciliations"
+description: "The driver variance report (2.31.0, B11 continued 2, FR-DEL-010, CR-057): every hand-in of a driver's cash at a till shift at the branches the caller reads whole, newest first, by driver, by Africa/Accra date (`from`, `to`, inclusive) or only those short or over (`varianceOnly`). Detection for abuse cases 6 and 43: a short count is short, posted to 6900, never typed in as loose cash.\n\nPermission: `del.cash_reconciliation.read`."
+x-permission: del.cash_reconciliation.read
+parameters:
+  - name: driverId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: varianceOnly
+    in: query
+    required: false
+    schema:
+      type: boolean
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DriverCashReconciliationPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b0b-3a29-7863-bd9b-8f09e83407e7"
+                  status: POSTED
+                  driver:
+                    id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                    displayName: "Kwesi Appiah"
+                  reconciliationDate: "2026-11-13"
+                  shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                  tillPaymentId: "019a7b0b-3a40-7d11-8c22-5e6f7a8b9c01"
+                  expectedPesewas: 154000
+                  declaredPesewas: 144000
+                  variancePesewas: 10000
+                  varianceDirection: SHORT
+                  receivedBy:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  note: "Driver says the chop bar paid GHS 140.00, not GHS 240.00; checking with customer"
+                  collections:
+                    - deliveryNo: DLN-2026-DDW-000193
+                      recipientName: "Asantewaa Chop Bar"
+                      amountPesewas: 24000
+                      capturedAt: "2026-11-13T11:52:00Z"
+                    - deliveryNo: DLN-2026-DDW-000197
+                      recipientName: "Osu Fresh Mart"
+                      amountPesewas: 130000
+                      capturedAt: "2026-11-13T14:05:00Z"
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 1
+                  createdAt: "2026-11-13T17:00:00Z"
+                - id: "019a7b0b-5918-7247-877f-2d4161e5a61f"
+                  status: POSTED
+                  driver:
+                    id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                    displayName: "Kwesi Appiah"
+                  reconciliationDate: "2026-11-12"
+                  shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                  tillPaymentId: "019a7b0b-3a41-7d11-8c22-5e6f7a8b9c02"
+                  expectedPesewas: 88000
+                  declaredPesewas: 88000
+                  variancePesewas: 0
+                  varianceDirection: EXACT
+                  receivedBy:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  note: null
+                  collections: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 1
+                  createdAt: "2026-11-12T17:00:00Z"
+                - id: "019a7b0b-7807-7c2a-9162-cb78db964456"
+                  status: POSTED
+                  driver:
+                    id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                    displayName: "Kwesi Appiah"
+                  reconciliationDate: "2026-11-11"
+                  shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                  tillPaymentId: "019a7b0b-3a42-7d11-8c22-5e6f7a8b9c03"
+                  expectedPesewas: 213400
+                  declaredPesewas: 213400
+                  variancePesewas: 0
+                  varianceDirection: EXACT
+                  receivedBy:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  note: null
+                  collections: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 1
+                  createdAt: "2026-11-11T17:00:00Z"
+                - id: "019a7b0b-96f6-760d-ab46-69b05547e28e"
+                  status: POSTED
+                  driver:
+                    id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                    displayName: "Kwesi Appiah"
+                  reconciliationDate: "2026-11-10"
+                  shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                  tillPaymentId: null
+                  expectedPesewas: 52000
+                  declaredPesewas: 0
+                  variancePesewas: 52000
+                  varianceDirection: SHORT
+                  receivedBy:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  note: "Driver handed in nothing; says the bag was taken from the van at Adenta"
+                  collections:
+                    - deliveryNo: DLN-2026-DDW-000171
+                      recipientName: "Nana Ama Provisions"
+                      amountPesewas: 52000
+                      capturedAt: "2026-11-10T15:20:00Z"
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 1
+                  createdAt: "2026-11-10T17:00:00Z"
+                - id: "019a7b0b-b5e5-7ff1-b529-07e7cef880c5"
+                  status: POSTED
+                  driver:
+                    id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                    displayName: "Kwesi Appiah"
+                  reconciliationDate: "2026-11-09"
+                  shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                  tillPaymentId: "019a7b0b-3a44-7d11-8c22-5e6f7a8b9c05"
+                  expectedPesewas: 46000
+                  declaredPesewas: 46000
+                  variancePesewas: 0
+                  varianceDirection: EXACT
+                  receivedBy:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  note: null
+                  collections: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 1
+                  createdAt: "2026-11-09T17:00:00Z"
+                - id: "019a7b0b-d4d4-79d4-8f0d-a61f48a91efd"
+                  status: POSTED
+                  driver:
+                    id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                    displayName: "Kwesi Appiah"
+                  reconciliationDate: "2026-11-08"
+                  shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                  tillPaymentId: "019a7b0b-3a45-7d11-8c22-5e6f7a8b9c06"
+                  expectedPesewas: 128000
+                  declaredPesewas: 128000
+                  variancePesewas: 0
+                  varianceDirection: EXACT
+                  receivedBy:
+                    id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                    displayName: "Adwoa Darko"
+                  note: null
+                  collections: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 1
+                  createdAt: "2026-11-08T17:00:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

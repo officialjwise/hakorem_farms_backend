@@ -142,6 +142,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'proposeSubstitution', 'proposeShortPick', 'recordCustomerConsent', 'answerMyOrderConsent',
         'dispatchFulfilment', 'listDeliveries', 'getDelivery', 'getMyDelivery', 'recordProofOfDelivery',
         'getOrderFulfilmentView',
+        'getMyCashSummary', 'listDriverCashReconciliations', 'getDriverCashReconciliation', 'handInDriverCash',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

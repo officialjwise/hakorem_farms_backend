@@ -77,6 +77,8 @@ export interface NewPayment {
   readonly lateEntry?: boolean;
   /** Cash collected on delivery and held by this driver until it is handed in at a till shift (B11 continued, A-339). */
   readonly driverId?: string | null;
+  /** A driver's cash on delivery handed in at this till shift: it settles nothing (B11 continued 2, migration 0313). */
+  readonly receivedFromDriverId?: string | null;
 }
 
 /** A reversal asked for (`pay.payment_reversal`), waiting for a different person's approval. */

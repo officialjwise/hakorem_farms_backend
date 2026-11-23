@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.30.0"
+  version: "2.31.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -68451,7 +68451,7 @@ paths:
       tags:
         - del
       summary: "Get the cash I should hand in today"
-      description: "Permission: `del.delivery.read.assigned`. Ownership: the caller's own collections."
+      description: "The cash the caller still holds from their own deliveries (2.31.0, B11 continued 2, CR-057): every collection captured up to the end of `date` (today in Africa/Accra by default) that has not been handed in at a till shift, at any branch, oldest first, and their sum in `expectedPesewas`; `reconciled` is true when nothing is held. Nobody else's cash, whatever else the caller holds. The cash is handed in at a till shift (`handInDriverCash`), never typed in as loose cash.\n\nPermission: `del.delivery.read.assigned`. Ownership: the caller's own collections."
       x-permission: del.delivery.read.assigned
       parameters:
         - name: date
@@ -68506,7 +68506,7 @@ paths:
       tags:
         - del
       summary: "List driver cash reconciliations"
-      description: "The driver variance report: detection for abuse case 6.\n\nPermission: `del.cash_reconciliation.read`."
+      description: "The driver variance report (2.31.0, B11 continued 2, FR-DEL-010, CR-057): every hand-in of a driver's cash at a till shift at the branches the caller reads whole, newest first, by driver, by Africa/Accra date (`from`, `to`, inclusive) or only those short or over (`varianceOnly`). Detection for abuse cases 6 and 43: a short count is short, posted to 6900, never typed in as loose cash.\n\nPermission: `del.cash_reconciliation.read`."
       x-permission: del.cash_reconciliation.read
       parameters:
         - name: driverId
@@ -68560,11 +68560,13 @@ paths:
                   value:
                     data:
                       - id: "019a7b0b-3a29-7863-bd9b-8f09e83407e7"
-                        status: DRAFT
+                        status: POSTED
                         driver:
                           id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
                           displayName: "Kwesi Appiah"
                         reconciliationDate: "2026-11-13"
+                        shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                        tillPaymentId: "019a7b0b-3a40-7d11-8c22-5e6f7a8b9c01"
                         expectedPesewas: 154000
                         declaredPesewas: 144000
                         variancePesewas: 10000
@@ -68592,6 +68594,8 @@ paths:
                           id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
                           displayName: "Kwesi Appiah"
                         reconciliationDate: "2026-11-12"
+                        shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                        tillPaymentId: "019a7b0b-3a41-7d11-8c22-5e6f7a8b9c02"
                         expectedPesewas: 88000
                         declaredPesewas: 88000
                         variancePesewas: 0
@@ -68611,6 +68615,8 @@ paths:
                           id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
                           displayName: "Kwesi Appiah"
                         reconciliationDate: "2026-11-11"
+                        shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                        tillPaymentId: "019a7b0b-3a42-7d11-8c22-5e6f7a8b9c03"
                         expectedPesewas: 213400
                         declaredPesewas: 213400
                         variancePesewas: 0
@@ -68630,15 +68636,21 @@ paths:
                           id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
                           displayName: "Kwesi Appiah"
                         reconciliationDate: "2026-11-10"
-                        expectedPesewas: 0
+                        shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                        tillPaymentId: null
+                        expectedPesewas: 52000
                         declaredPesewas: 0
-                        variancePesewas: 0
-                        varianceDirection: EXACT
+                        variancePesewas: 52000
+                        varianceDirection: SHORT
                         receivedBy:
                           id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
                           displayName: "Adwoa Darko"
-                        note: null
-                        collections: []
+                        note: "Driver handed in nothing; says the bag was taken from the van at Adenta"
+                        collections:
+                          - deliveryNo: DLN-2026-DDW-000171
+                            recipientName: "Nana Ama Provisions"
+                            amountPesewas: 52000
+                            capturedAt: "2026-11-10T15:20:00Z"
                         currency: GHS
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 1
@@ -68649,6 +68661,8 @@ paths:
                           id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
                           displayName: "Kwesi Appiah"
                         reconciliationDate: "2026-11-09"
+                        shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                        tillPaymentId: "019a7b0b-3a44-7d11-8c22-5e6f7a8b9c05"
                         expectedPesewas: 46000
                         declaredPesewas: 46000
                         variancePesewas: 0
@@ -68668,6 +68682,8 @@ paths:
                           id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
                           displayName: "Kwesi Appiah"
                         reconciliationDate: "2026-11-08"
+                        shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                        tillPaymentId: "019a7b0b-3a45-7d11-8c22-5e6f7a8b9c06"
                         expectedPesewas: 128000
                         declaredPesewas: 128000
                         variancePesewas: 0
@@ -68705,10 +68721,11 @@ paths:
           $ref: "#/components/responses/InternalError"
     post:
       operationId: createDriverCashReconciliation
+      deprecated: true
       tags:
         - del
       summary: "Count a driver's cash at the end of the day"
-      description: "The person receiving the cash cannot be the driver.\n\nPermission: `del.cash_reconciliation.create`."
+      description: "**Deprecated, never built** (2.31.0, CR-057; the owner, 2026-11-23: a driver's cash is handed in once at a till shift, never counted outside a till): use `handInDriverCash` (`POST /shifts/{id}/driver-cash-hand-ins`), which counts the cash into the receiving cashier's own open shift and posts at once. Removed at the next major version.\n\nPermission: `del.cash_reconciliation.create`."
       x-permission: del.cash_reconciliation.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -68744,6 +68761,8 @@ paths:
                   id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
                   displayName: "Kwesi Appiah"
                 reconciliationDate: "2026-11-13"
+                shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                tillPaymentId: "019a7b0b-3a40-7d11-8c22-5e6f7a8b9c01"
                 expectedPesewas: 154000
                 declaredPesewas: 144000
                 variancePesewas: 10000
@@ -68785,7 +68804,7 @@ paths:
       tags:
         - del
       summary: "Get a driver cash reconciliation"
-      description: "Permission: `del.cash_reconciliation.read`."
+      description: "One hand-in of a driver's cash at a till shift (2.31.0, B11 continued 2) at its branch: another branch's is refused 403, an unknown id 404.\n\nPermission: `del.cash_reconciliation.read`."
       x-permission: del.cash_reconciliation.read
       parameters:
         - name: id
@@ -68809,11 +68828,13 @@ paths:
                 $ref: "#/components/schemas/DriverCashReconciliation"
               example:
                 id: "019a7b0b-3a29-7863-bd9b-8f09e83407e7"
-                status: DRAFT
+                status: POSTED
                 driver:
                   id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
                   displayName: "Kwesi Appiah"
                 reconciliationDate: "2026-11-13"
+                shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                tillPaymentId: "019a7b0b-3a40-7d11-8c22-5e6f7a8b9c01"
                 expectedPesewas: 154000
                 declaredPesewas: 144000
                 variancePesewas: 10000
@@ -68850,10 +68871,11 @@ paths:
   "/driver-cash-reconciliations/{id}/post":
     post:
       operationId: postDriverCashReconciliation
+      deprecated: true
       tags:
         - del
       summary: "Post the remittance and any variance to the ledger"
-      description: "Permission: `del.cash_reconciliation.create`."
+      description: "**Deprecated, never built** (2.31.0, CR-057): a hand-in at a till shift (`handInDriverCash`) is posted when it is counted, so there is nothing left to post. Removed at the next major version.\n\nPermission: `del.cash_reconciliation.create`."
       x-permission: del.cash_reconciliation.create
       parameters:
         - name: id
@@ -68884,6 +68906,8 @@ paths:
                   id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
                   displayName: "Kwesi Appiah"
                 reconciliationDate: "2026-11-13"
+                shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                tillPaymentId: "019a7b0b-3a40-7d11-8c22-5e6f7a8b9c01"
                 expectedPesewas: 154000
                 declaredPesewas: 144000
                 variancePesewas: 10000
@@ -81280,6 +81304,98 @@ paths:
                 changeDuePesewas: 29999
                 outstandingPesewas: 22559
                 currency: GHS
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/shifts/{id}/driver-cash-hand-ins":
+    post:
+      operationId: handInDriverCash
+      tags:
+        - pos
+      summary: "Count a driver's cash on delivery into the till"
+      description: "A driver hands in the cash collected on delivery at a till shift (2.31.0, B11 continued 2; CR-057; the owner, 2026-11-23: handed in once at a till shift, never typed in as loose cash; ADR-0077, ADR-0092). Taken by the cashier onto their **own open shift** from an enrolled device of that till (`X-Device-Credential`), judged by the same shift check as `payInvoiceAtTill`. **Every collection the driver still holds at the shift's branch is handed in, exactly once**: what was expected is their sum; `declaredPesewas` is what the cashier counted, which goes into the till as a cleared cash payment naming the driver (`tillPaymentId`, method `COD`; it settles no document, the collections already did) and is **counted at the shift's close** as any cash the shift took. A count short of what was expected is **short** on the driver variance report (`varianceDirection` `SHORT`), never loose cash; over is `OVER`. Posts Dr 1000 the till for what was counted, Cr 1020 the driver for what was expected, the difference to 6900. The cashier is never the driver. Answers the `DriverCashReconciliation`, `POSTED`. **Refusals:** a closing, closed or force-closed shift 422 `SHIFT_NOT_OPEN` with nothing recorded, another cashier's shift 403; 422 `DRIVER_CASH_INVALID` with `NOTHING_HELD` (the driver holds no cash at the branch, or it was already handed in) or `RECEIVER_IS_DRIVER`; 404 for a shift the caller cannot see; 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`. The same key answers the first hand-in. Audited.\n\nPermission: `pos.sale.create`."
+      x-permission: pos.sale.create
+      x-error-codes:
+        - DRIVER_CASH_INVALID
+        - SHIFT_NOT_OPEN
+        - DEVICE_CREDENTIAL_INVALID
+        - DEVICE_REVOKED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "The cashier's own open shift."
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+          deviceCredential: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DriverCashHandInCreate"
+            example:
+              driverId: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+              declaredPesewas: 144000
+              note: "Driver says the chop bar paid GHS 140.00"
+      responses:
+        "201":
+          description: Created
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverCashReconciliation"
+              example:
+                id: "019a7b0b-3a29-7863-bd9b-8f09e83407e7"
+                status: POSTED
+                driver:
+                  id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                  displayName: "Kwesi Appiah"
+                reconciliationDate: "2026-11-13"
+                shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+                tillPaymentId: "019a7b0b-3a40-7d11-8c22-5e6f7a8b9c01"
+                expectedPesewas: 154000
+                declaredPesewas: 144000
+                variancePesewas: 10000
+                varianceDirection: SHORT
+                receivedBy:
+                  id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                  displayName: "Adwoa Darko"
+                note: "Driver says the chop bar paid GHS 140.00"
+                collections:
+                  - deliveryNo: DLN-2026-DDW-000193
+                    recipientName: "Asantewaa Chop Bar"
+                    amountPesewas: 24000
+                    capturedAt: "2026-11-13T11:52:00Z"
+                  - deliveryNo: DLN-2026-DDW-000197
+                    recipientName: "Osu Fresh Mart"
+                    amountPesewas: 130000
+                    capturedAt: "2026-11-13T14:05:00Z"
+                currency: GHS
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                version: 1
+                createdAt: "2026-11-13T17:00:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -103647,6 +103763,16 @@ components:
         reconciliationDate:
           type: string
           format: date
+        shiftId:
+          type: string
+          format: uuid
+          description: "The till shift the cash was counted into, whose cashier is `receivedBy` (2.31.0, CR-057)."
+        tillPaymentId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "The cash payment onto that shift for what was counted (method `COD`, settling nothing); null when nothing was handed in (2.31.0)."
         expectedPesewas:
           $ref: "#/components/schemas/Pesewas"
         declaredPesewas:
@@ -103686,6 +103812,8 @@ components:
         - status
         - driver
         - reconciliationDate
+        - shiftId
+        - tillPaymentId
         - expectedPesewas
         - declaredPesewas
         - variancePesewas
@@ -103697,6 +103825,25 @@ components:
         - branchId
         - version
         - createdAt
+    DriverCashHandInCreate:
+      type: object
+      description: "A driver's cash on delivery counted into one's own open till shift (2.31.0, CR-057): every collection the driver holds at the branch is handed in."
+      properties:
+        driverId:
+          type: string
+          format: uuid
+        declaredPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What the cashier counted; zero when the driver hands in nothing."
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+        - driverId
+        - declaredPesewas
+      additionalProperties: false
     DriverCashReconciliationCreate:
       type: object
       properties:
@@ -107405,6 +107552,7 @@ components:
         - bil.document.read
         - bil.document.reprint
         - bil.proforma.create
+        - del.cash_reconciliation.read
         - del.delivery.assign
         - del.delivery.read
         - del.delivery.read.assigned
@@ -107677,6 +107825,7 @@ components:
         - bil.document.read
         - bil.document.reprint
         - bil.proforma.create
+        - del.cash_reconciliation.read
         - del.delivery.assign
         - del.delivery.read
         - del.delivery.read.assigned

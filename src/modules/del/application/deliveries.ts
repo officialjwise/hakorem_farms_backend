@@ -27,7 +27,7 @@ const DRIVES = PROOF;
 export const DELIVERY_COMPLETED = 'del.DeliveryCompleted';
 export const COD_COLLECTED = 'del.CodCollected';
 /** DEL's ◆ events (ADR-0003), declared for the ledger's boot assertion. */
-export const DEL_LEDGER_EVENTS = [COD_COLLECTED] as const;
+export const DEL_LEDGER_EVENTS = [COD_COLLECTED, 'del.DriverCashRemitted'] as const;
 /**
  * The ownership rule of a driver's delivery has no override (FR-DEL-004): no permission of this name is seeded, so the
  * Authoriser's owner check refuses every principal but the delivery's driver.
