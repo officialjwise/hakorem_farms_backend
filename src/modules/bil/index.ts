@@ -9,3 +9,4 @@ export { Billing, type BillingDocumentView, type CreditPreview, type IssueLineRe
 export type { OpenItemRecord, ReceivableAsAtRecord } from './application/billing-store';
 export { AllocationExceedsOutstandingError } from './application/errors';
 export type { BillingLinePayload, BillingDocumentPayload, CreditNoteIssued, DebitNoteIssued, InvoiceIssued, ProformaIssued } from './events';
+export { buyerVerdict, isGhanaTin, maskTin, type BuyerDetails, type BuyerRule, type BuyerVerdict } from './domain/buyer';

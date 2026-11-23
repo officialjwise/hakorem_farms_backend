@@ -63,12 +63,18 @@ const Quantity = z.string().regex(/^(0|[1-9][0-9]{0,10})\.[0-9]{3}$/);
 const Kilograms = z.string().regex(/^(0|[1-9][0-9]{0,6})\.[0-9]{3}$/);
 /** The contract's `PhoneNumber` (E.164). */
 const PhoneNumber = z.string().regex(/^\+[1-9][0-9]{7,14}$/);
+/**
+ * A business buyer named on the receipt without a customer account (A-285 (c)): bounded here, its form judged by BIL's
+ * `buyerVerdict`, so the till hears which field is wrong (online 422; offline the sale is recorded and flagged).
+ */
+const Buyer = z.strictObject({ name: z.string().max(400), tin: z.string().max(40) });
 
 export const CounterSale = z.strictObject({
   id: z.uuid(),
   shiftId: z.uuid(),
   customerId: z.uuid().optional(),
   customerPhone: PhoneNumber.optional(),
+  buyer: Buyer.optional(),
   lines: z
     .array(
       z.strictObject({
@@ -134,6 +140,7 @@ const OfflineSale = z.strictObject({
   provisionalRef: z.string().min(1).max(40),
   occurredAt: z.iso.datetime(),
   customerPhone: PhoneNumber.optional(),
+  buyer: Buyer.optional(),
   lines: z
     .array(
       z.strictObject({

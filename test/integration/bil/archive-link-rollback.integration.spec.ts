@@ -48,6 +48,8 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0298_bil_customer_tin_format',
+      '0297_pos_receipt_link_revocation_guard',
       '0296_iam_grant_ord_fulfilment_permissions',
       '0295_iam_seed_ord_fulfilment_permissions',
       '0294_ord_fulfilment',

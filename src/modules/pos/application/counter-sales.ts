@@ -5,7 +5,7 @@ import { ForbiddenError, NotFoundError, ValidationFailedError } from '../../../p
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import { registerMessages, translate } from '../../../platform/i18n/messages';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
-import type { Billing, BillingDocumentView } from '../../bil';
+import { buyerVerdict, type Billing, type BillingDocumentView, type BuyerDetails } from '../../bil';
 import type { Authoriser } from '../../iam';
 import { defaultLineUom, type MasterDataRefs, type PricingService } from '../../mdm';
 import type { Settings } from '../../../platform/settings/settings';
@@ -54,6 +54,8 @@ export interface CounterSaleRequest {
   readonly shiftId: string;
   readonly customerId?: string | undefined;
   readonly customerPhone?: string | undefined;
+  /** A business buyer named on the receipt without a customer account (the owner's addition (2) to A-200, A-285 (c)). */
+  readonly buyer?: { readonly name: string; readonly tin: string } | undefined;
   readonly lines: readonly CounterSaleLineRequest[];
   readonly tenders: readonly CounterTenderRequest[];
   readonly occurredAt: Date;
@@ -134,6 +136,14 @@ export class CounterSales {
       }
       const change = changeDue(kinds);
       if (!change.ok) broken.push({ field: '/tenders', rule: change.error });
+      // A business buyer is named for the receipt only, never with a customer, and never creates one (A-285 (c)).
+      let buyer: BuyerDetails | null = null;
+      if (body.buyer !== undefined) {
+        if (body.customerId !== undefined) broken.push({ field: '/buyer', rule: 'BUYER_WITH_CUSTOMER' });
+        const verdict = buyerVerdict(body.buyer);
+        if (verdict.ok) buyer = verdict.value;
+        else for (const r of verdict.rules) broken.push({ field: `/buyer/${r.field}`, rule: r.rule });
+      }
       if (broken.length > 0) throw new CounterSaleInvalidError(broken);
       // No screen accepts "paid" on the cashier's word (FR-POS-006, abuse case 4): a mobile money or card tender is only
       // a payment the provider already cleared, named by its id, which PAY checks under the payment's lock.
@@ -160,6 +170,7 @@ export class CounterSales {
         branchId: register.branchId,
         customerId: body.customerId ?? null,
         contactPhone: body.customerPhone ?? null,
+        ...(buyer === null ? {} : { buyer }),
         fulfilmentMode: 'COUNTER',
         // Counter prices are shown with their tax in (A-274); the offline pack reads it from the price list (CR-031).
         taxInclusive: true,
