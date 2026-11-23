@@ -80,6 +80,17 @@ interface BadDebtPosting {
   readonly amountPesewas: number;
 }
 
+/** The fields of DEL's `del.CodCollected` FIN reads (migration 0305): the cash a driver took on delivery. */
+interface CodCollectedPosting {
+  readonly proofId: string;
+  readonly deliveryId: string;
+  readonly driverId: string;
+  readonly driverName: string;
+  readonly customerId: string | null;
+  readonly branchId: string;
+  readonly collectedPesewas: number;
+}
+
 /** POS's till events (migrations 0228 and 0281): one translator for all, each amount against the till's register. */
 export const TILL_POSTING_EVENTS = ['pos.ShiftOpened', 'pos.CashDropped', 'pos.CashPaidIn', 'pos.CashPaidOut', 'pos.ShiftClosed', 'pos.ShiftLateEntryPosted'] as const;
 
@@ -149,6 +160,7 @@ export class LedgerPostings {
       ['pay.ProviderSettled', (tx, event) => this.providerSettled(tx, event.payload as unknown as ProviderSettledPosting)],
       ['pay.UnidentifiedReceiptHeld', (tx, event) => this.unidentifiedReceipt(tx, event.payload as unknown as UnidentifiedReceiptPosting)],
       ...TILL_POSTING_EVENTS.map((code) => [code, async (_tx: Transaction, event: EventEnvelope) => this.till(event.payload as unknown as TillPosting)] as const),
+      ['del.CodCollected', (tx, event) => this.codCollected(tx, event.payload as unknown as CodCollectedPosting)],
       ['whl.BadDebtWrittenOff', (tx, event) => this.badDebt(tx, event.payload as unknown as BadDebtPosting)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
@@ -241,6 +253,18 @@ export class LedgerPostings {
       amounts: [{ key: 'amount', amount: Money.fromJsonInteger(payload.amountPesewas), subledgers: [customerParty(payload.customerId, customer?.name ?? null)] }],
       sourceDocumentId: payload.writeOffId,
       eventSubjectId: payload.writeOffId,
+      branchId: payload.branchId,
+    };
+  }
+
+  /** `del.CodCollected` (ADR-0003): Dr 1020 against the driver who holds the cash, Cr 1200 against the customer (A-339). */
+  private async codCollected(tx: Transaction, payload: CodCollectedPosting): Promise<Translated> {
+    const customer = payload.customerId === null ? undefined : (await this.refs.customersIn(tx, [payload.customerId])).get(payload.customerId);
+    const driver: SubledgerRef = { kind: 'DRIVER', refId: payload.driverId, displayName: payload.driverName };
+    return {
+      amounts: [{ key: 'collected', amount: Money.fromJsonInteger(payload.collectedPesewas), subledgers: [driver, customerParty(payload.customerId, customer?.name ?? null)] }],
+      sourceDocumentId: payload.deliveryId,
+      eventSubjectId: payload.proofId,
       branchId: payload.branchId,
     };
   }
