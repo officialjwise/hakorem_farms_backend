@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.25.0"
+  version: "2.26.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -80965,6 +80965,144 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/pos/sales/{id}/revoke-receipt-link":
+    post:
+      operationId: revokeReceiptLink
+      tags:
+        - pos
+      summary: "Revoke a counter sale's receipt link"
+      description: "A supervisor of the sale's branch revokes the receipt link a till made for a counter sale, with a reason (2.26.0, ADR-0074 Amendments, ADR-0083, A-284 (f), A-285): a link sent to the wrong number, shown to the wrong customer or reprinted for another. Revoked once and audited with the reason; from `revokedAt` `getPublicReceipt` answers the link 404 `NOT_FOUND`, exactly as a guessed token. A revoked link never reads again; the customer's fresh link is a server-made one sent by SMS (B11). The token itself is never read, shown or audited. Refusals: 422 `RECEIPT_LINK_INVALID` with `RECEIPT_LINK_ALREADY_REVOKED`; 404 for a sale that holds no link (an online counter sale, a sale whose token was refused, one that never synced) and for an id that names no sale, with one answer; 403 for anyone who does not hold the permission at the sale's branch, the cashier who sold it among them. The database holds who may (`ck_receipt_link_revocation_supervisor`).\n\nPermission: `pos.shift.close.approve`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      x-permission: pos.shift.close.approve
+      x-requires-step-up: true
+      x-error-codes:
+        - RECEIPT_LINK_INVALID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "The counter sale's id (its order)."
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReasonRequest"
+            example:
+              reason: "Link sent to the wrong number"
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReceiptLinkRevocation"
+              example:
+                saleId: "019a7c1e-2b40-7c11-8a3e-5d0b6f1e2a77"
+                reason: "Link sent to the wrong number"
+                revokedAt: "2026-11-13T15:42:00Z"
+                revokedBy:
+                  id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+                  displayName: "Kwabena Owusu"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/shifts/{id}/invoice-payments":
+    post:
+      operationId: payInvoiceAtTill
+      tags:
+        - pos
+      summary: "Take a customer's cash for an invoice at the till"
+      description: "A customer pays an issued invoice in cash at the till (2.26.0, the owner on A-212 (a): cash enters only through a till shift; ADR-0077, A-285 (g)). Taken by the cashier onto their **own open shift** from an enrolled device of that till (`X-Device-Credential`), recorded as a cleared cash payment into the till, allocated to the invoice (Dr 1000 the till, Cr 1200 the customer), and **counted at the shift's close** as any cash the shift took: it raises the shift's expected cash by exactly the amount. Part payment is allowed; never beyond what is outstanding; what was handed over beyond the amount is change. Cash only: mobile money and card for an invoice go through the provider. **Cash outside an open shift is refused:** a closing, closed or force-closed shift answers 422 `SHIFT_NOT_OPEN` with nothing recorded, another cashier's shift 403, and PAY's `recordPayment` still refuses cash (`TENDER_NOT_AVAILABLE`) with or without a shift. Refusals: 422 `TILL_INVOICE_PAYMENT_INVALID` with `AMOUNT_NOT_POSITIVE`, `NOT_AN_INVOICE`, `INVOICE_NOT_ISSUED`, `INVOICE_OTHER_BRANCH`, `INVOICE_SETTLED`, `AMOUNT_EXCEEDS_OUTSTANDING` or `TENDERED_BELOW_AMOUNT`; 404 for a shift or document the caller cannot see; 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`. Audited.\n\nPermission: `pos.sale.create`."
+      x-permission: pos.sale.create
+      x-error-codes:
+        - TILL_INVOICE_PAYMENT_INVALID
+        - SHIFT_NOT_OPEN
+        - DEVICE_CREDENTIAL_INVALID
+        - DEVICE_REVOKED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "The cashier's own open shift."
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+          deviceCredential: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TillInvoicePaymentCreate"
+            example:
+              billingDocumentId: "019a7b52-6c10-7e3a-9d41-2f8b0c6a1e55"
+              amountPesewas: 20001
+              tenderedPesewas: 50000
+      responses:
+        "201":
+          description: Created
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TillInvoicePayment"
+              example:
+                paymentId: "019a7c2f-0a91-7b44-8e2d-6f3a1c9b0d12"
+                shiftId: "019a7c0a-5e12-7f80-a1b3-4c2d9e8f7a61"
+                billingDocument:
+                  id: "019a7b52-6c10-7e3a-9d41-2f8b0c6a1e55"
+                  documentNo: INV-2026-DDW-000014
+                amountPesewas: 20001
+                tenderedPesewas: 50000
+                changeDuePesewas: 29999
+                outstandingPesewas: 22559
+                currency: GHS
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
   "/orders/{id}/credit-check":
     get:
       operationId: getOrderCreditCheck
@@ -98840,6 +98978,21 @@ components:
         - network
         - approvedById
       additionalProperties: false
+    CounterSaleBuyer:
+      type: object
+      description: "A business buyer named at the counter (2.26.0, A-285 (c)). The TIN is Restricted (DC-25): printed on the receipt, never logged, audited only masked."
+      properties:
+        name:
+          type: string
+          maxLength: 400
+          description: "As printed: trimmed, 1 to 160 characters, no control characters."
+        tin:
+          type: string
+          maxLength: 40
+          description: "A Ghana TIN: a GRA TIN (one of P, C, G, Q or V and ten digits, for example `C0000000042`) or an individual's Ghana Card PIN (`GHA-`, nine digits, `-`, a check digit). Trimmed and upper-cased as printed."
+      required:
+        - name
+        - tin
     CounterSale:
       type: object
       properties:
@@ -98857,6 +99010,10 @@ components:
           allOf:
             - $ref: "#/components/schemas/PhoneNumber"
           description: "For an SMS or WhatsApp receipt."
+        buyer:
+          allOf:
+            - $ref: "#/components/schemas/CounterSaleBuyer"
+          description: "A business buyer named on the receipt without a customer account (2.26.0, A-285 (c)), so they can reclaim the input tax: printed as the receipt's customer name and TIN. Never with `customerId` (422 `COUNTER_SALE_INVALID` `BUYER_WITH_CUSTOMER`); naming a buyer creates no customer and the sale stays a walk-in's. A name or TIN of a form that may not be printed is refused before anything is posted: 422 `COUNTER_SALE_INVALID` with `BUYER_NAME_INVALID` at `/buyer/name` or `BUYER_TIN_INVALID` at `/buyer/tin`. Optional; left out, nothing changes."
         lines:
           type: array
           items:
@@ -98913,6 +99070,10 @@ components:
           format: date-time
         customerPhone:
           $ref: "#/components/schemas/PhoneNumber"
+        buyer:
+          allOf:
+            - $ref: "#/components/schemas/CounterSaleBuyer"
+          description: "A business buyer named on the receipt without a customer account (2.26.0, A-285 (c), (e)), covered by `payloadHash`. Printed on the synced receipt when both the name and the TIN are of a form that may be printed. **A synced sale is always recorded:** otherwise the sale is recorded and its receipt issued without them, and the result names the exception `BUYER_DETAILS_REFUSED` (REVIEW, on the daily exception report's source once per sale; the TIN is never echoed whole). Creates no customer. Optional."
         lines:
           type: array
           items:
@@ -100377,6 +100538,87 @@ components:
         - amountPesewas
         - tenderedPesewas
         - unverified
+    TillInvoicePaymentCreate:
+      type: object
+      description: "Cash for one issued invoice, taken at the till on the cashier's own open shift (2.26.0, A-212 (a), A-285 (g))."
+      properties:
+        billingDocumentId:
+          type: string
+          format: uuid
+          description: "An issued invoice of the till's branch with something outstanding."
+        amountPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What is paid off the invoice: above zero and never beyond what is outstanding."
+        tenderedPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What the customer handed over, when more than the amount; the rest is change. Left out, exactly the amount."
+      required:
+        - billingDocumentId
+        - amountPesewas
+    TillInvoicePayment:
+      type: object
+      description: "An invoice paid in cash at the till (2.26.0, A-285 (g)): a cleared cash payment on the shift, allocated to the invoice, counted at the shift's close."
+      properties:
+        paymentId:
+          type: string
+          format: uuid
+        shiftId:
+          type: string
+          format: uuid
+        billingDocument:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            documentNo:
+              type: string
+          required:
+            - id
+            - documentNo
+        amountPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        tenderedPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        changeDuePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        outstandingPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "What the invoice still has outstanding after this payment."
+        currency:
+          $ref: "#/components/schemas/Currency"
+      required:
+        - paymentId
+        - shiftId
+        - billingDocument
+        - amountPesewas
+        - tenderedPesewas
+        - changeDuePesewas
+        - outstandingPesewas
+        - currency
+    ReceiptLinkRevocation:
+      type: object
+      description: "A sale's receipt link revoked by a supervisor of its branch (2.26.0, A-284 (f), A-285). The link reads nothing from `revokedAt`."
+      properties:
+        saleId:
+          type: string
+          format: uuid
+          description: "The counter sale (its order) whose link was revoked."
+        reason:
+          type: string
+        revokedAt:
+          type: string
+          format: date-time
+        revokedBy:
+          $ref: "#/components/schemas/PrincipalRef"
+      required:
+        - saleId
+        - reason
+        - revokedAt
+        - revokedBy
     PublicQuote:
       type: object
       properties:
