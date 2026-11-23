@@ -47,6 +47,8 @@ const TAKES_NO_IDENTIFIER = [
   'listSettlementReports', 'listReconciliationBreaks', 'listShopCategories', 'getShopProfile', 'createCart', 'listMyOrders', 'getMyStoreCredit',
   // B09b continued 3: one's own till PIN takes no identifier.
   'setTillPin',
+  // B10 continued 4: a customer's own quotes take no identifier (another customer's open nothing: quo/quote-links).
+  'listMyQuotes',
 ];
 
 /** Public by design, each proved in its own block below or in its module's tests (named here). */

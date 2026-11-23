@@ -100,6 +100,8 @@ responses:
           createdAt: "2026-11-13T09:10:00Z"
           version: 1
           acceptanceLinkToken: null
+          acceptanceLinkId: null
+          links: []
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

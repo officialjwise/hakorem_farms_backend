@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.20.0"
+  version: "2.21.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -5223,6 +5223,7 @@ paths:
   "/quotes/{id}/decline": {}
   "/quotes/{id}/cancel": {}
   "/quotes/{id}/convert": {}
+  "/quote-links/{id}/revoke": {}
   "/quotes/pipeline":
     get:
       operationId: getQuotePipeline
@@ -5358,161 +5359,7 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-  "/me/quotes":
-    get:
-      operationId: listMyQuotes
-      tags:
-        - quo
-      summary: "List my quotes"
-      parameters:
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - customerSession: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/PublicQuotePage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - quoteNo: QUO-2026-DDW-000088
-                        versionNo: 2
-                        status: ISSUED
-                        validUntil: "2026-11-20T18:00:00Z"
-                        customerName: "Emmanuel Tetteh"
-                        lines:
-                          - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
-                            quantity: "18.000"
-                            uom: HEAD
-                            priceBasis: PER_HEAD
-                            unitPricePesewas: 95000
-                            lineNetPesewas: 1710000
-                        deliveryFeePesewas: 6000
-                        netPesewas: 1716000
-                        taxPesewas: 1200
-                        grossPesewas: 1717200
-                        currency: GHS
-                        terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                        deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
-                        documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
-                      - quoteNo: QUO-2026-DDW-000079
-                        versionNo: 2
-                        status: ACCEPTED
-                        validUntil: "2026-11-20T18:00:00Z"
-                        customerName: "Emmanuel Tetteh"
-                        lines:
-                          - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
-                            quantity: "18.000"
-                            uom: HEAD
-                            priceBasis: PER_HEAD
-                            unitPricePesewas: 95000
-                            lineNetPesewas: 1710000
-                        deliveryFeePesewas: 6000
-                        netPesewas: 1716000
-                        taxPesewas: 1200
-                        grossPesewas: 1717200
-                        currency: GHS
-                        terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                        deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
-                        documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
-                      - quoteNo: QUO-2026-DDW-000070
-                        versionNo: 2
-                        status: EXPIRED
-                        validUntil: "2026-11-20T18:00:00Z"
-                        customerName: "Emmanuel Tetteh"
-                        lines:
-                          - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
-                            quantity: "18.000"
-                            uom: HEAD
-                            priceBasis: PER_HEAD
-                            unitPricePesewas: 95000
-                            lineNetPesewas: 1710000
-                        deliveryFeePesewas: 6000
-                        netPesewas: 1716000
-                        taxPesewas: 1200
-                        grossPesewas: 1717200
-                        currency: GHS
-                        terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                        deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
-                        documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
-                      - quoteNo: QUO-2026-DDW-000061
-                        versionNo: 2
-                        status: DECLINED
-                        validUntil: "2026-11-20T18:00:00Z"
-                        customerName: "Emmanuel Tetteh"
-                        lines:
-                          - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
-                            quantity: "18.000"
-                            uom: HEAD
-                            priceBasis: PER_HEAD
-                            unitPricePesewas: 95000
-                            lineNetPesewas: 1710000
-                        deliveryFeePesewas: 6000
-                        netPesewas: 1716000
-                        taxPesewas: 1200
-                        grossPesewas: 1717200
-                        currency: GHS
-                        terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                        deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
-                        documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
-                      - quoteNo: QUO-2026-DDW-000052
-                        versionNo: 2
-                        status: ACCEPTED
-                        validUntil: "2026-11-20T18:00:00Z"
-                        customerName: "Emmanuel Tetteh"
-                        lines:
-                          - description: "Goats, 22 to 28 kg, West African Dwarf, for funeral"
-                            quantity: "18.000"
-                            uom: HEAD
-                            priceBasis: PER_HEAD
-                            unitPricePesewas: 95000
-                            lineNetPesewas: 1710000
-                        deliveryFeePesewas: 6000
-                        netPesewas: 1716000
-                        taxPesewas: 1200
-                        grossPesewas: 1717200
-                        currency: GHS
-                        terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
-                        deliveryEstimate: "Delivered to Kasoa on 11 December, morning"
-                        documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/me/quotes": {}
   "/business-accounts": {}
   "/business-accounts/{customerId}": {}
   "/business-accounts/{customerId}/hold": {}
@@ -35952,6 +35799,17 @@ components:
           format: date-time
         customerName:
           type: string
+        acceptedName:
+          type:
+            - string
+            - "null"
+          description: "2.21.0 (CR-047 point 2): the name the buyer accepted in, when `status` is `ACCEPTED`; otherwise null."
+        decidedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+          description: "2.21.0 (CR-047 point 2): when the quote was accepted or declined; otherwise null. A replaced version's link answers 422 `QUOTE_LINK_CLOSED` `REPLACED` with nothing of the quote (ADR-0087), so no `supersededAt` is shown."
         lines:
           type: array
           items:
@@ -35985,6 +35843,8 @@ components:
         - status
         - validUntil
         - customerName
+        - acceptedName
+        - decidedAt
         - lines
         - deliveryFeePesewas
         - netPesewas
@@ -36385,7 +36245,18 @@ components:
           type:
             - string
             - "null"
-          description: "The acceptance link's token (CR-047, ADR-0074): `quo_` and 256 random bits, answered only by the `issueQuoteVersion` call that made it and null everywhere else; the server keeps only its SHA-256. The link is `/shop/quotes/{token}`. Each call answers a fresh token for the same version; every token of a version opens it until the version is replaced or its validity ends."
+          description: "The acceptance link's token (CR-047, ADR-0074): `quo_` and 256 random bits, answered only by the `issueQuoteVersion` call that made it and null everywhere else; the server keeps only its SHA-256. The link is `/shop/quotes/{token}`. Each call answers a fresh token for the same version; every token of a version opens it until the version is replaced, accepted, declined, withdrawn or its validity ends, or that one link is revoked (`revokeQuoteLink`)."
+        acceptanceLinkId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "2.21.0: the id of the link whose token this answer carries, to revoke it by (`revokeQuoteLink`); null wherever `acceptanceLinkToken` is null."
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuoteLink"
+          description: "2.21.0 (the owner, 2026-11-18): every acceptance link made for this version, oldest first, each with its state. Several may be live at once; each is revoked on its own. Never a token: only its hash is kept."
       required:
         - id
         - versionNo
@@ -36413,6 +36284,56 @@ components:
         - createdAt
         - version
         - acceptanceLinkToken
+        - acceptanceLinkId
+        - links
+    QuoteLink:
+      type: object
+      description: "One acceptance link of a quote version (2.21.0, the owner, 2026-11-18): several may be live at once. The token was shown once, in the answer that made it, and is never readable again (ADR-0074, ADR-0087)."
+      properties:
+        id:
+          type: string
+          format: uuid
+        state:
+          type: string
+          enum:
+            - OPEN
+            - ACCEPTED
+            - DECLINED
+            - EXPIRED
+            - REPLACED
+            - WITHDRAWN
+            - REVOKED
+          description: "What the buyer meets through this link now: `OPEN` (it opens the live version), `ACCEPTED` or `DECLINED` (it shows the decision), `EXPIRED`, `REPLACED` or `WITHDRAWN` (it answers 422 `QUOTE_LINK_CLOSED`), or `REVOKED` (it opens nothing, 404, as a link that never existed)."
+        createdAt:
+          type: string
+          format: date-time
+        createdBy:
+          $ref: "#/components/schemas/PrincipalRef"
+        expiresAt:
+          type: string
+          format: date-time
+        revokedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        revokedBy:
+          anyOf:
+            - $ref: "#/components/schemas/PrincipalRef"
+            - type: "null"
+        revokeReason:
+          type:
+            - string
+            - "null"
+      required:
+        - id
+        - state
+        - createdAt
+        - createdBy
+        - expiresAt
+        - revokedAt
+        - revokedBy
+        - revokeReason
     Quote:
       type: object
       properties:
@@ -40584,6 +40505,7 @@ components:
         - RECONCILIATION_BREAK
         - SYNC_REJECTED
         - LATE_POSTING
+        - QUOTE_ACCEPTED_BY_STAFF
       description: "One kind per detection in the threat model. Every abuse case lands here as at least one kind."
     ExceptionItem:
       type: object

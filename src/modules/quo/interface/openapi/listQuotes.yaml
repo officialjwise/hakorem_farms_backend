@@ -135,6 +135,8 @@ responses:
                     createdAt: "2026-11-13T15:00:00Z"
                     version: 1
                     acceptanceLinkToken: null
+                    acceptanceLinkId: null
+                    links: []
                   versionCount: 2
                   acceptedVersionId: null
                   convertedOrder: null
@@ -187,6 +189,8 @@ responses:
                     createdAt: "2026-11-13T15:00:00Z"
                     version: 1
                     acceptanceLinkToken: null
+                    acceptanceLinkId: null
+                    links: []
                   versionCount: 1
                   acceptedVersionId: "019a7b00-3b34-7488-89c0-5151a649ca2f"
                   convertedOrder:
@@ -242,6 +246,8 @@ responses:
                     createdAt: "2026-11-13T15:00:00Z"
                     version: 1
                     acceptanceLinkToken: null
+                    acceptanceLinkId: null
+                    links: []
                   versionCount: 1
                   acceptedVersionId: "019a7b00-7912-784e-ad87-8dc099ab069e"
                   convertedOrder: null
@@ -294,6 +300,8 @@ responses:
                     createdAt: "2026-11-13T15:00:00Z"
                     version: 1
                     acceptanceLinkToken: null
+                    acceptanceLinkId: null
+                    links: []
                   versionCount: 1
                   acceptedVersionId: null
                   convertedOrder: null
@@ -346,6 +354,8 @@ responses:
                     createdAt: "2026-11-13T15:00:00Z"
                     version: 1
                     acceptanceLinkToken: null
+                    acceptanceLinkId: null
+                    links: []
                   versionCount: 1
                   acceptedVersionId: null
                   convertedOrder: null
@@ -398,6 +408,8 @@ responses:
                     createdAt: "2026-11-13T15:00:00Z"
                     version: 1
                     acceptanceLinkToken: null
+                    acceptanceLinkId: null
+                    links: []
                   versionCount: 1
                   acceptedVersionId: null
                   convertedOrder: null

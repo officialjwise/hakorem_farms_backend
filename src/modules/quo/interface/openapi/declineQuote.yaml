@@ -92,6 +92,8 @@ responses:
             createdAt: "2026-11-13T15:00:00Z"
             version: 1
             acceptanceLinkToken: null
+            acceptanceLinkId: null
+            links: []
           versionCount: 1
           acceptedVersionId: null
           convertedOrder: null

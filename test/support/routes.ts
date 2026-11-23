@@ -183,6 +183,8 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   resumeStandingOrder: { reason: 'Reopened' },
   endStandingOrder: { reason: 'Contract over' },
   writeOffBadDebt: { billingDocumentId: randomUUID(), amountPesewas: 41_000, reason: 'Church treasurer relocated; two years overdue' },
+  // B10 continued 4: one link of a quote version revoked with its reason.
+  revokeQuoteLink: { reason: 'Sent to the wrong WhatsApp number' },
   draftSupplierClaimCreditNote: { originalInvoiceId: randomUUID(), supplierInvoiceNo: 'APF-CN-0701', invoiceDate: '2026-11-17' },
   settleSupplierClaim: { supplierInvoiceId: randomUUID() },
   createSupplierPayment: { supplierId: randomUUID(), method: 'MOBILE_MONEY', allocations: [{ supplierInvoiceId: randomUUID(), amountPesewas: 110000 }] },

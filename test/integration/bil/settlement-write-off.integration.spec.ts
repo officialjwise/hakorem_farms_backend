@@ -54,13 +54,13 @@ const summary = async (documentId: string) =>
     [documentId],
   )).rows[0]!;
 
-async function creditNote(invoiceId: string, amount: number): Promise<{ status: number; id: string | null }> {
+async function creditNote(invoiceId: string, amount: number): Promise<{ status: number; id: string | null; code: string | null }> {
   const original = await consoleGet(api.server, as('accountant'), `/v1/billing-documents/${invoiceId}`);
   const asked = await post('accountant', `/billing-documents/${invoiceId}/credit-notes`, { reasonCode: 'QUALITY_COMPLAINT', note: 'Short weight', lines: [{ lineId: original.body.lines[0].id, amountPesewas: amount }] });
   expect(asked.status, JSON.stringify(asked.body)).toBe(202);
   await stepUp(api.server, as('owner') as TotpSession, clock);
   const approved = await post('owner', `/iam/approvals/${asked.body.approvalRequestId as string}/approve`, { reason: 'Checked' });
-  return { status: approved.status, id: approved.status === 200 ? (asked.body.subject.id as string) : null };
+  return { status: approved.status, id: approved.status === 200 ? (asked.body.subject.id as string) : null, code: (approved.body?.error?.code as string | undefined) ?? null };
 }
 
 /** Every kind of step each replaced function takes, on a fresh invoice of 10,000: the summary of the invoice and its credit note after each. */
@@ -146,8 +146,8 @@ describe('with something written off (ADR-0090)', () => {
     expect(await inUow((billing, tx) => billing.writeOffIn(tx, owed.id, 4_000n))).toBe(6_000n);
     expect(await summary(owed.id)).toMatchObject({ outstanding: '6000', written_off: '4000', payment_status: 'UNPAID', refundable: '0' });
     // A credit note of one pesewa more than what is left would reach the 4,000 written off: refused by the database at
-    // its approval. BIL's approval handler does not translate that refusal (BL-093), so it is not answered as 422 yet.
-    expect((await creditNote(owed.id, 6_001)).status).not.toBe(200);
+    // its approval, and answered as the direct path answers it: 422 CREDIT_NOTE_EXCEEDS_ORIGINAL, never 500 (BL-093).
+    expect(await creditNote(owed.id, 6_001)).toEqual({ status: 422, id: null, code: 'CREDIT_NOTE_EXCEEDS_ORIGINAL' });
     expect(await summary(owed.id)).toMatchObject({ credited: '0', outstanding: '6000' });
     expect((await creditNote(owed.id, 2_000)).status).toBe(200);
     expect(await summary(owed.id)).toMatchObject({ credited: '2000', outstanding: '4000', written_off: '4000', payment_status: 'PART_PAID' });

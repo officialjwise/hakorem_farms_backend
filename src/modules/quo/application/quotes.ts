@@ -7,7 +7,7 @@ import { issueLinkToken, linkTokenHash, sameLinkTokenHash } from '../../../platf
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { DocumentRefRecord, DocumentRegistry } from '../../../platform/documents/document-registry';
 import type { NumberSeries } from '../../../platform/documents/number-series';
-import { InvalidStateTransitionError, NotFoundError, VersionConflictError } from '../../../platform/errors/api-error';
+import { ForbiddenError, InvalidStateTransitionError, NotFoundError, UnauthenticatedError, VersionConflictError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
@@ -39,10 +39,10 @@ import {
   type PriceBasis,
   type QuoteStatus,
 } from '../domain/quote';
-import type { QuoteConverted, QuoteDecided, QuoteIssued } from '../events';
+import type { QuoteConverted, QuoteDecided, QuoteIssued, QuoteLinkDecidedInStaffBrowser } from '../events';
 import { QuoteAlreadyConvertedError, QuoteAlreadyDecidedError, QuoteAuthorCannotApproveError, QuoteInvalidError, QuoteLinkClosedError, type QuoteRule } from './errors';
 import { STOREFRONT_PRINCIPAL } from './public-actor';
-import type { AcceptanceRecord, LineRecord, QuoteFilter, QuoteRecord, QuoteStore, VersionRecord } from './quote-store';
+import type { AcceptanceRecord, LineRecord, LinkDecisionRecord, LinkRecord, QuoteFilter, QuoteRecord, QuoteStore, VersionRecord } from './quote-store';
 
 const READ = 'quo.quote.read';
 const CREATE = 'quo.quote.create';
@@ -55,6 +55,22 @@ export const QUOTE_ACCEPTED = 'quo.QuoteAccepted';
 export const QUOTE_DECLINED = 'quo.QuoteDeclined';
 export const QUOTE_EXPIRED = 'quo.QuoteExpired';
 export const QUOTE_CONVERTED = 'quo.QuoteConverted';
+/** For the exception report's source (B12, `QUOTE_ACCEPTED_BY_STAFF`, abuse case 40): never blocks the decision. */
+export const QUOTE_LINK_DECIDED_IN_STAFF_BROWSER = 'quo.QuoteLinkDecidedInStaffBrowser';
+
+/**
+ * Who holds the staff session a browser presented with a call through the quote link, if any and if it is live
+ * (abuse case 40). The interface reads the staff realm's access cookie; IAM authenticates it. It never blocks.
+ */
+export interface StaffSessionLookup {
+  staffOf(accessToken: string): Promise<{ readonly principalId: string; readonly sessionId: string } | null>;
+}
+
+/** What the browser presented with a call through the quote link, beside the token. */
+export interface LinkBrowser {
+  /** The staff realm's access cookie, when the browser sent one. */
+  readonly staffAccessToken?: string | undefined;
+}
 /** The setting holding the margin floor in basis points of cost (FR-QUO-005, seed 10 percent). */
 export const MARGIN_FLOOR_SETTING = 'quo.margin_floor_basis_points';
 const TOKEN_PREFIX = 'quo_';
@@ -169,6 +185,22 @@ export interface QuoteVersionView {
   readonly version: number;
   /** The acceptance link's token, answered once by the call that issued it and null everywhere else (CR-047). */
   readonly acceptanceLinkToken: string | null;
+  /** The id of the link whose token this answer carries, to revoke it by; null wherever the token is (B10 continued 4). */
+  readonly acceptanceLinkId: string | null;
+  /** Every link made for the version, oldest first, never a token (the owner, 2026-11-18, item 2). */
+  readonly links: readonly QuoteLinkView[];
+}
+
+/** The contract's `QuoteLink`: one acceptance link of a version, by its id; its token is never kept, so never shown. */
+export interface QuoteLinkView {
+  readonly id: string;
+  readonly state: LinkState | 'REVOKED';
+  readonly createdAt: string;
+  readonly createdBy: Ref;
+  readonly expiresAt: string;
+  readonly revokedAt: string | null;
+  readonly revokedBy: Ref | null;
+  readonly revokeReason: string | null;
 }
 
 /** The contract's `Quote`. */
@@ -206,9 +238,13 @@ export interface ApprovalPendingView {
 export interface PublicQuoteView {
   readonly quoteNo: string;
   readonly versionNo: number;
-  readonly status: 'ISSUED' | 'ACCEPTED' | 'DECLINED';
+  readonly status: 'ISSUED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
   readonly validUntil: string;
   readonly customerName: string;
+  /** CR-047 point 2: the name the buyer accepted in, or null. */
+  readonly acceptedName: string | null;
+  /** CR-047 point 2: when the quote was accepted or declined, or null. */
+  readonly decidedAt: string | null;
   readonly lines: readonly { readonly description: string; readonly quantity: string; readonly uom: string; readonly priceBasis: PriceBasis; readonly unitPricePesewas: number; readonly lineNetPesewas: number }[];
   readonly deliveryFeePesewas: number;
   readonly netPesewas: number;
@@ -288,6 +324,7 @@ export class Quotes {
     private readonly settings: Settings,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly staffSessions: StaffSessionLookup,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -523,17 +560,46 @@ export class Quotes {
     }, locks);
     // The token leaves the system once, in this answer, and never in the stored answer a replay reads (ADR-0074).
     if (response.status !== 200) return response;
-    const token = await this.uow.run({ isolation: 'read committed' }, async (tx) => this.linkTokenIn(tx, versionId, actor!.principalId));
-    return { status: 200, body: { ...(response.body as QuoteVersionView), acceptanceLinkToken: token } };
+    const link = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const made = await this.linkIn(tx, versionId, actor!.principalId);
+      return { ...made, view: (await this.versionViewsIn(tx, [(await this.store.version(tx, versionId))!]))[0]! };
+    });
+    return { status: 200, body: { ...link.view, acceptanceLinkToken: link.token, acceptanceLinkId: link.id } };
   }
 
   /** A fresh acceptance link for an issued version (B11's sender asks for one just before it sends, ADR-0074). */
   async linkTokenIn(tx: Transaction, versionId: string, actorId: string): Promise<string> {
+    return (await this.linkIn(tx, versionId, actorId)).token;
+  }
+
+  /** A fresh link of an issued version: its id, and its token, which is kept only as its hash (ADR-0074, ADR-0087). */
+  private async linkIn(tx: Transaction, versionId: string, actorId: string): Promise<{ id: string; token: string }> {
     const version = await this.store.version(tx, versionId);
     if (version === null || version.status !== 'ISSUED') throw stateError(version?.status ?? 'UNKNOWN');
     const issued = issueLinkToken(TOKEN_PREFIX);
-    await this.store.insertLinkToken(tx, { id: this.nextId(), quoteVersionId: versionId, tokenHash: issued.hash, expiresAt: version.validUntil }, actorId, this.clock.now());
-    return issued.token;
+    const id = this.nextId();
+    await this.store.insertLinkToken(tx, { id, quoteVersionId: versionId, tokenHash: issued.hash, expiresAt: version.validUntil }, actorId, this.clock.now());
+    return { id, token: issued.token };
+  }
+
+  /**
+   * revokeQuoteLink (the owner, 2026-11-18, item 2 (a)): one link of a version stops opening anything, at once and for
+   * good, and the version's other links keep working. Revoked once (`uq_quote_link_revocation_link`); audited.
+   */
+  async revokeLink(actor: Actor | undefined, linkId: string, reason: string, key: string): Promise<StoredResponse<QuoteVersionView>> {
+    const quoteId = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, ISSUE);
+      const link = await this.store.link(tx, linkId);
+      if (link === null) throw new NotFoundError('no such quote link');
+      return (await this.store.version(tx, link.quoteVersionId))!.quoteId;
+    });
+    return this.write(actor, ISSUE, 'revokeQuoteLink', quoteId, { linkId, reason }, key, async (tx, quote, at) => {
+      const link = (await this.store.link(tx, linkId))!;
+      if (link.revokedAt !== null) throw stateError('REVOKED');
+      await this.store.insertLinkRevocation(tx, { id: this.nextId(), linkTokenId: linkId, reason }, actor!.principalId, at);
+      await this.audit.record(tx, { module: 'quo', action: 'REVOKE_LINK', entityType: 'QuoteLink', entityId: linkId, branchId: quote.branchId, before: { revoked: false }, after: { revoked: true, reason, versionId: link.quoteVersionId } });
+      return { status: 200, body: (await this.versionViewsIn(tx, [(await this.store.version(tx, link.quoteVersionId))!]))[0]! };
+    });
   }
 
   /** recordQuoteAcceptance (FR-QUO-010): an acceptance in person or by phone, with its note, as a link acceptance. */
@@ -660,19 +726,47 @@ export class Quotes {
   }
 
   /** acceptQuoteByLink (FR-QUO-008): once, by the live version's token, recording the name, time and address. */
-  acceptByLink(token: string, request: { readonly acceptedName: string }, key: string): Promise<StoredResponse<QuoteDecisionView>> {
-    return this.linkWrite(token, 'acceptQuoteByLink', { acceptedName: request.acceptedName }, key, async (tx, quote, version, at) => {
-      const context = currentRequestContext();
-      await this.acceptIn(tx, quote, version, { method: 'SIGNED_LINK', acceptedName: request.acceptedName, note: null, ip: context?.ip ?? null, userAgent: context?.userAgent?.slice(0, 500) ?? null }, STOREFRONT_PRINCIPAL, at);
+  acceptByLink(token: string, request: { readonly acceptedName: string }, key: string, browser: LinkBrowser = {}): Promise<StoredResponse<QuoteDecisionView>> {
+    return this.linkWrite(token, 'acceptQuoteByLink', { acceptedName: request.acceptedName }, key, browser, async (tx, quote, version, at, device) => {
+      await this.acceptIn(tx, quote, version, { method: 'SIGNED_LINK', acceptedName: request.acceptedName, note: null, ip: device.ip, userAgent: device.userAgent }, STOREFRONT_PRINCIPAL, at);
       return { quoteNo: quote.quoteNo, versionNo: version.versionNo, status: 'ACCEPTED', message: 'Thank you. We will call you to arrange the deposit and delivery.' };
     });
   }
 
   /** declineQuoteByLink (FR-QUO-009): the buyer declines by the live version's token, with a reason or none. */
-  declineByLink(token: string, request: { readonly reason?: string | undefined }, key: string): Promise<StoredResponse<QuoteDecisionView>> {
-    return this.linkWrite(token, 'declineQuoteByLink', { reason: request.reason ?? null }, key, async (tx, quote, version, at) => {
+  declineByLink(token: string, request: { readonly reason?: string | undefined }, key: string, browser: LinkBrowser = {}): Promise<StoredResponse<QuoteDecisionView>> {
+    return this.linkWrite(token, 'declineQuoteByLink', { reason: request.reason ?? null }, key, browser, async (tx, quote, version, at) => {
       await this.declineIn(tx, quote, version, request.reason ?? 'Declined by the customer through the quote link', 'SIGNED_LINK', STOREFRONT_PRINCIPAL, at);
       return { quoteNo: quote.quoteNo, versionNo: version.versionNo, status: 'DECLINED', message: 'Thank you for letting us know.' };
+    });
+  }
+
+  /**
+   * listMyQuotes (FR-QUO-013): a signed-in customer's own quotes that were issued to them, at every branch, newest first,
+   * in the buyer's shape; nobody else's, and never a draft, a cost or a margin. A withdrawn quote is not listed.
+   */
+  mine(actor: Actor | undefined, cursor: string | undefined, limit: number): Promise<Page<PublicQuoteView>> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      if (actor === undefined) throw new UnauthenticatedError('sign in to see your quotes');
+      if (actor.realm !== 'CUSTOMER') throw new ForbiddenError('quotes are read here by the customer they were sent to');
+      const customer = await this.refs.customerOfPrincipalIn(tx, actor.principalId);
+      if (customer === null) throw new NotFoundError('no customer account is linked to this sign-in');
+      const binding = { operationId: 'listMyQuotes', principalId: actor.principalId, filters: {} };
+      const beforeId = cursor === undefined ? null : (this.cursors.decode(cursor, binding)['id'] ?? null);
+      const found = await this.store.quoteIdsOfCustomer(tx, customer.id, beforeId, pageProbe(limit));
+      const page = found.slice(0, limit);
+      const quotes = await this.store.quotes(tx, page);
+      const versions = await this.store.versionsOf(tx, page);
+      const at = this.clock.now();
+      const data: PublicQuoteView[] = [];
+      for (const id of page) {
+        const quote = quotes.find((q) => q.id === id)!;
+        const version = shownVersion(quote, versions.filter((v) => v.quoteId === id));
+        data.push(await this.publicViewIn(tx, quote, version, publicStatus(quote, version, at)));
+      }
+      const hasMore = found.length > limit;
+      const last = page.at(-1);
+      return { data, page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { id: last }) : null, limit, hasMore } };
     });
   }
 
@@ -892,14 +986,15 @@ export class Quotes {
     if (state !== 'OPEN') throw new QuoteLinkClosedError(state);
   }
 
-  private async byLinkIn(tx: Transaction, token: string): Promise<{ quote: QuoteRecord; version: VersionRecord; state: LinkState; expiresAt: Date }> {
+  private async byLinkIn(tx: Transaction, token: string): Promise<{ quote: QuoteRecord; version: VersionRecord; state: LinkState; expiresAt: Date; linkId: string }> {
     const hash = linkTokenHash(TOKEN_PREFIX, token);
     const found = hash === null ? null : await this.store.linkToken(tx, hash);
-    if (hash === null || found === null || !sameLinkTokenHash(found.tokenHash, hash)) throw new NotFoundError('no such quote link');
+    // A revoked link opens nothing, as a link that never existed (A-324): it was revoked because it reached someone else.
+    if (hash === null || found === null || !sameLinkTokenHash(found.tokenHash, hash) || found.revoked) throw new NotFoundError('no such quote link');
     const version = (await this.store.version(tx, found.quoteVersionId))!;
     const [quote] = await this.store.quotes(tx, [version.quoteId]);
     const state = linkState({ versionStatus: version.status, quoteStatus: quote!.status, isCurrent: version.status !== 'SUPERSEDED', validUntil: version.validUntil, tokenExpiresAt: found.expiresAt, now: this.clock.now() });
-    return { quote: quote!, version, state, expiresAt: found.expiresAt };
+    return { quote: quote!, version, state, expiresAt: found.expiresAt, linkId: found.id };
   }
 
   private async linkWrite(
@@ -907,23 +1002,76 @@ export class Quotes {
     operationId: string,
     body: object,
     key: string,
-    work: (tx: Transaction, quote: QuoteRecord, version: VersionRecord, at: Date) => Promise<QuoteDecisionView>,
+    browser: LinkBrowser,
+    work: (tx: Transaction, quote: QuoteRecord, version: VersionRecord, at: Date, device: { readonly ip: string | null; readonly userAgent: string | null }) => Promise<QuoteDecisionView>,
   ): Promise<StoredResponse<QuoteDecisionView>> {
     const hash = linkTokenHash(TOKEN_PREFIX, token);
     // The idempotency key is scoped to the token's hash, never to the token, so a stored answer holds no token.
     const scope = hash === null ? 'invalid' : hash.toString('hex');
+    // Abuse case 40: whose staff session, if any, the browser also held. Looked up before the decision's transaction;
+    // it never blocks the decision, it is recorded beside it and raised for review.
+    const staff = browser.staffAccessToken === undefined ? null : await this.staffSessions.staffOf(browser.staffAccessToken);
+    const context = currentRequestContext();
+    const device = { ip: context?.ip ?? null, userAgent: context?.userAgent?.slice(0, 500) ?? null };
     return this.uow.run({ isolation: 'serializable' }, async (tx) => {
       const scopedKey = createHash('sha256').update(`${scope}:${key}`, 'utf8').digest('hex');
       const claim = await this.idempotency.claim(tx, { operationId, principalId: STOREFRONT_PRINCIPAL, key: scopedKey, request: { ...body, link: scope } });
       if (claim.kind === 'REPLAY') return claim.response as StoredResponse<QuoteDecisionView>;
-      const { quote, version, expiresAt } = await this.byLinkIn(tx, token);
+      const { quote, version, expiresAt, linkId } = await this.byLinkIn(tx, token);
       const locked = (await this.store.lockQuote(tx, quote.id))!;
       const at = this.clock.now();
       this.openOrRefuse(locked, version, expiresAt, at);
-      const response = { status: 200, body: await work(tx, locked, version, at) };
+      const decided = await work(tx, locked, version, at, device);
+      await this.recordLinkDecisionIn(tx, locked, version, linkId, decided.status, device, staff, at);
+      const response = { status: 200, body: decided };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
     });
+  }
+
+  /**
+   * The device and session behind a decision made through a link, once per version across all its links
+   * (`uq_quote_link_decision_version`), and, when the browser also held a staff session, the flag for the exception
+   * report naming that staff member (abuse case 40). The flag never blocks: the buyer's decision stands.
+   */
+  private async recordLinkDecisionIn(
+    tx: Transaction,
+    quote: QuoteRecord,
+    version: VersionRecord,
+    linkId: string,
+    decision: 'ACCEPTED' | 'DECLINED',
+    device: { readonly ip: string | null; readonly userAgent: string | null },
+    staff: { readonly principalId: string; readonly sessionId: string } | null,
+    at: Date,
+  ): Promise<void> {
+    const record: LinkDecisionRecord = {
+      id: this.nextId(),
+      linkTokenId: linkId,
+      quoteVersionId: version.id,
+      decision,
+      ip: device.ip,
+      userAgent: device.userAgent,
+      staffPrincipalId: staff?.principalId ?? null,
+      staffSessionId: staff?.sessionId ?? null,
+      decidedAt: at,
+    };
+    await this.store.insertLinkDecision(tx, record, STOREFRONT_PRINCIPAL, at);
+    if (staff === null) return;
+    const flagged: QuoteLinkDecidedInStaffBrowser = {
+      quoteId: quote.id,
+      quoteNo: quote.quoteNo,
+      versionId: version.id,
+      versionNo: version.versionNo,
+      branchId: quote.branchId,
+      salespersonId: quote.salespersonId,
+      linkId,
+      decision,
+      staffPrincipalId: staff.principalId,
+      grossPesewas: json(version.grossPesewas),
+      abuseCase: 40,
+      at: at.toISOString(),
+    };
+    await this.events.publish(tx, { type: QUOTE_LINK_DECIDED_IN_STAFF_BROWSER, subjectType: 'Quote', subjectId: quote.id, branchId: quote.branchId, payload: flagged, occurredAt: at });
   }
 
   /** One serializable write on a quote: authorised at its branch, replayed by its key, the quote locked. */
@@ -1208,10 +1356,13 @@ export class Quotes {
     const ids = versions.map((v) => v.id);
     const lines = await this.store.linesOf(tx, ids);
     const acceptances = await this.store.acceptancesOf(tx, ids);
+    const links = await this.store.linksOf(tx, ids);
+    const quotes = await this.store.quotes(tx, [...new Set(versions.map((v) => v.quoteId))]);
     const people = await this.principals.refs(
       tx,
-      versions.flatMap((v) => [v.createdBy, ...(v.issuedBy === null ? [] : [v.issuedBy])]),
+      [...versions.flatMap((v) => [v.createdBy, ...(v.issuedBy === null ? [] : [v.issuedBy])]), ...links.flatMap((l) => [l.createdBy, ...(l.revokedBy === null ? [] : [l.revokedBy])])],
     );
+    const at = this.clock.now();
     const products = await this.refs.productsIn(
       tx,
       lines.flatMap((l) => (l.productId === null ? [] : [l.productId])),
@@ -1284,6 +1435,8 @@ export class Quotes {
         createdAt: v.createdAt.toISOString(),
         version: v.version,
         acceptanceLinkToken: null,
+        acceptanceLinkId: null,
+        links: links.filter((l) => l.quoteVersionId === v.id).map((l) => linkView(l, v, quotes.find((q) => q.id === v.quoteId)!, at, name)),
       };
     });
   }
@@ -1291,12 +1444,18 @@ export class Quotes {
   private async publicViewIn(tx: Transaction, quote: QuoteRecord, version: VersionRecord, status: PublicQuoteView['status']): Promise<PublicQuoteView> {
     const lines = await this.store.linesOf(tx, [version.id]);
     const customer = quote.customerId === null ? undefined : (await this.refs.customersIn(tx, [quote.customerId])).get(quote.customerId);
+    const [acceptance] = status === 'ACCEPTED' ? await this.store.acceptancesOf(tx, [version.id]) : [];
+    const [declined] = status === 'DECLINED' ? await this.store.linkDecisionsOf(tx, [version.id]) : [];
     return {
       quoteNo: quote.quoteNo,
       versionNo: version.versionNo,
       status,
       validUntil: version.validUntil.toISOString(),
       customerName: customer?.name ?? quote.contactName,
+      acceptedName: acceptance?.acceptedName ?? null,
+      // A decline through the link is dated by the link's decision; one staff recorded (declineQuote) has no time the
+      // buyer gave, so it is null (A-325).
+      decidedAt: (acceptance?.acceptedAt ?? declined?.decidedAt ?? null)?.toISOString() ?? null,
       lines: lines.map((l) => ({ description: l.description, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, unitPricePesewas: json(l.unitPricePesewas), lineNetPesewas: json(l.lineNetPesewas) })),
       deliveryFeePesewas: json(version.deliveryFeePesewas),
       netPesewas: json(version.netPesewas),
@@ -1308,6 +1467,35 @@ export class Quotes {
       documentUrl: null,
     };
   }
+}
+
+/** A link as staff see it: its state as the buyer would meet it, or REVOKED; never its token. */
+function linkView(l: LinkRecord, version: VersionRecord, quote: QuoteRecord, now: Date, name: (id: string) => Ref): QuoteLinkView {
+  const state = l.revokedAt !== null ? 'REVOKED' : linkState({ versionStatus: version.status, quoteStatus: quote.status, isCurrent: version.status !== 'SUPERSEDED', validUntil: version.validUntil, tokenExpiresAt: l.expiresAt, now });
+  return {
+    id: l.id,
+    state,
+    createdAt: l.createdAt.toISOString(),
+    createdBy: name(l.createdBy),
+    expiresAt: l.expiresAt.toISOString(),
+    revokedAt: l.revokedAt?.toISOString() ?? null,
+    revokedBy: l.revokedBy === null ? null : name(l.revokedBy),
+    revokeReason: l.revokeReason,
+  };
+}
+
+/** The version a buyer's list shows: the accepted one, else the live one, else the last issued (declined, expired). */
+function shownVersion(quote: QuoteRecord, versions: readonly VersionRecord[]): VersionRecord {
+  const issued = versions.filter((v) => v.issuedAt !== null).sort((a, b) => (a.versionNo < b.versionNo ? 1 : -1));
+  return issued.find((v) => v.id === quote.acceptedVersionId) ?? issued.find((v) => v.status === 'ISSUED') ?? issued[0]!;
+}
+
+/** A quote's state in the buyer's words: converted is still accepted; an issued one past its validity has expired. */
+function publicStatus(quote: QuoteRecord, version: VersionRecord, now: Date): PublicQuoteView['status'] {
+  if (quote.status === 'ACCEPTED' || quote.status === 'CONVERTED') return 'ACCEPTED';
+  if (quote.status === 'DECLINED') return 'DECLINED';
+  if (quote.status === 'EXPIRED' || now > version.validUntil) return 'EXPIRED';
+  return 'ISSUED';
 }
 
 /** A stored line as the input it was priced from, to price again (a revision, an issue). */
