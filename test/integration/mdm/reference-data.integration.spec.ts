@@ -134,9 +134,10 @@ describe('reason codes are a fixed list (FR-MDM-011)', () => {
     // B09e continued 2's six GOODS_RECEIPT_REJECTION reasons and the STOCK_ADJUSTMENT BREAKAGE and RODENT_DAMAGE (0220);
     // B9b's CASH_MOVEMENT SAFE_DROP for a drop to the safe (0225); B09b continued 3c's PAYMENT_REVERSAL
     // MOBILE_MONEY_NOT_RECEIVED for an unverified tender the provider never paid (0283, A-282 (d)); B11 continued's REFUND
-    // WEIGHED_BELOW_PAID and its two COD_VARIANCE reasons (0302).
-    expect(seen).toHaveLength(68);
-    expect(seen).toEqual(expect.arrayContaining(['ORDER_CANCELLED', 'SALE_VOIDED', 'ORDER_RETURNED', 'CRACKED', 'WRONG_ITEM_DELIVERED', 'BREAKAGE', 'SAFE_DROP', 'MOBILE_MONEY_NOT_RECEIVED']));
+    // WEIGHED_BELOW_PAID and its two COD_VARIANCE reasons (0302); B09b continued 4c's PRICE_OVERRIDE OFFLINE_PACK_PRICE,
+    // the server's own reason for a synced difference the till gave none for (0306, A-286 (d)).
+    expect(seen).toHaveLength(69);
+    expect(seen).toEqual(expect.arrayContaining(['ORDER_CANCELLED', 'SALE_VOIDED', 'ORDER_RETURNED', 'CRACKED', 'WRONG_ITEM_DELIVERED', 'BREAKAGE', 'SAFE_DROP', 'MOBILE_MONEY_NOT_RECEIVED', 'OFFLINE_PACK_PRICE']));
     expect([...seen].sort()).toEqual(seen);
     const mortality = await get(cashier, '/reason-codes?domain=MORTALITY');
     expect(mortality.body.data).toContainEqual({ code: 'DISEASE_SUSPECTED', domain: 'MORTALITY', description: 'Died, disease suspected', requiresNote: true, lossAccountGroup: 'MORTALITY' });
