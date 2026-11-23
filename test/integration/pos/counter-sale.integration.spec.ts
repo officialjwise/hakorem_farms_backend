@@ -258,6 +258,13 @@ describe('the per-shift override limit (FR-POS-004, abuse case 3)', () => {
     }
   });
 
+  it('refuses the server’s reason OFFLINE_PACK_PRICE on a sale made online, within every limit, recording nothing (BL-107, A-286 (f))', async () => {
+    const before = await footprint();
+    const refused = await sell('adwoa', { shiftId: id('shift:adwoa'), lines: [yams(1, 1_999, 'OFFLINE_PACK_PRICE')], tenders: [cash(1_999)] });
+    expect([refused.status, refused.body.error?.details?.[0]], JSON.stringify(refused.body)).toEqual([422, expect.objectContaining({ field: '/lines/0/varianceReasonCode', code: 'VARIANCE_REASON_INVALID' })]);
+    expect(await footprint()).toEqual(before);
+  });
+
   it('takes 200 then 300 below list (the shift at its 500), posts each to 4210, and refuses one pesewa more until approved', async () => {
     const first = await sell('adwoa', { shiftId: id('shift:adwoa'), lines: [yams(1, 1_800, 'REGULAR_CUSTOMER')], tenders: [cash(1_800)] });
     expect(first.status, JSON.stringify(first.body)).toBe(201);
