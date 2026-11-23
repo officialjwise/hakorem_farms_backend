@@ -29900,6 +29900,159 @@ components:
         - couponCode
         - lineId
         - amountPesewas
+    OrderFulfilmentView:
+      type: object
+      description: "An order as the store reads it (2.29.0, the owner, 2026-11-23, A-335, A-344): its lines, quantities and delivery details, and **never** a payment, a credit position, a price or a total. Its own schema, built by allow-list, so no money field can reach it unnamed."
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNo:
+          type:
+            - string
+            - "null"
+        branchId:
+          type: string
+          format: uuid
+        channel:
+          $ref: "#/components/schemas/Channel"
+        status:
+          type: string
+          enum:
+            - PLACED
+            - CONFIRMED
+            - PICKING
+            - AWAITING_CUSTOMER
+            - PACKED
+            - READY_FOR_COLLECTION
+            - DISPATCHED
+            - DELIVERED
+            - DELIVERY_FAILED
+            - RETURNED
+            - COMPLETED
+            - CANCELLED
+            - VOIDED
+        fulfilmentMode:
+          type: string
+          enum:
+            - COUNTER
+            - COLLECTION
+            - DELIVERY
+        customer:
+          anyOf:
+            - $ref: "#/components/schemas/CustomerRef"
+            - type: "null"
+        contactName:
+          type:
+            - string
+            - "null"
+        contactPhone:
+          anyOf:
+            - $ref: "#/components/schemas/PhoneNumber"
+            - type: "null"
+        deliveryAddress:
+          anyOf:
+            - $ref: "#/components/schemas/AddressSnapshot"
+            - type: "null"
+        delivery:
+          anyOf:
+            - $ref: "#/components/schemas/DeliverySummary"
+            - type: "null"
+        notes:
+          type:
+            - string
+            - "null"
+        placedAt:
+          type: string
+          format: date-time
+        fulfilments:
+          type: array
+          description: "The order's pick lists (`FULFILMENT`, `PCK-...`), oldest first, cancelled ones too."
+          items:
+            $ref: "#/components/schemas/DocumentRef"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderFulfilmentViewLine"
+      required:
+        - id
+        - orderNo
+        - branchId
+        - channel
+        - status
+        - fulfilmentMode
+        - customer
+        - contactName
+        - contactPhone
+        - deliveryAddress
+        - delivery
+        - notes
+        - placedAt
+        - fulfilments
+        - lines
+    OrderFulfilmentViewLine:
+      type: object
+      description: "A line as the store reads it (2.29.0): what to pick and what was picked, in the line's own unit, never a price."
+      properties:
+        id:
+          type: string
+          format: uuid
+        lineNo:
+          type: integer
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        stockUnit:
+          anyOf:
+            - $ref: "#/components/schemas/StockUnitRef"
+            - type: "null"
+        qtyOrdered:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+        estimatedWeightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+        tolerancePercent:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+        qtyFulfilled:
+          $ref: "#/components/schemas/Quantity"
+        fulfilledWeightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+        weightSource:
+          anyOf:
+            - $ref: "#/components/schemas/WeightSource"
+            - type: "null"
+        qtyBackordered:
+          $ref: "#/components/schemas/Quantity"
+        lineStatus:
+          type: string
+          enum:
+            - OPEN
+            - FULFILLED
+            - PARTIAL
+            - BACKORDERED
+            - SUBSTITUTED
+            - CANCELLED
+            - RETURNED
+      required:
+        - id
+        - lineNo
+        - product
+        - stockUnit
+        - qtyOrdered
+        - uom
+        - estimatedWeightKg
+        - tolerancePercent
+        - qtyFulfilled
+        - fulfilledWeightKg
+        - weightSource
+        - qtyBackordered
+        - lineStatus
     SalesOrder:
       type: object
       properties:

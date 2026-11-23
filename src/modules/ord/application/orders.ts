@@ -43,6 +43,8 @@ import type { NewOrderLine, OrderHeaderRecord, OrderLineRecord, OrderRecord, Ord
 const READ = 'ord.order.read';
 const CREATE = 'ord.order.create';
 const CONFIRM = 'ord.order.confirm';
+/** The store's narrower read of an order (the owner, 2026-11-23, A-335): lines, quantities and delivery, no money. */
+const STORE_READ = 'ord.order.read.fulfilment';
 const PROFORMA = 'bil.proforma.create';
 export const ORDER_PLACED = 'ord.OrderPlaced';
 export const ORDER_CONFIRMED = 'ord.OrderConfirmed';
@@ -194,6 +196,80 @@ export interface SalesOrderView {
   readonly pendingConsent: OrderFulfilmentExtras['pendingConsent'];
 }
 
+/** A line as the store reads it (`OrderFulfilmentViewLine`): what to pick and what was picked, never a price. */
+export interface OrderFulfilmentViewLine {
+  readonly id: string;
+  readonly lineNo: number;
+  readonly product: OrderLineView['product'];
+  readonly stockUnit: OrderLineView['stockUnit'];
+  readonly qtyOrdered: string;
+  readonly uom: string;
+  readonly estimatedWeightKg: string | null;
+  readonly tolerancePercent: string | null;
+  readonly qtyFulfilled: string;
+  readonly fulfilledWeightKg: string | null;
+  readonly weightSource: OrderLineView['weightSource'];
+  readonly qtyBackordered: string;
+  readonly lineStatus: OrderLineView['lineStatus'];
+}
+
+/**
+ * The contract's `OrderFulfilmentView` (the owner, 2026-11-23, A-335): an order as the Storekeeper reads it at their own
+ * branch: its lines, quantities and delivery details, and never a payment, credit, price or total. Built by allow-list.
+ */
+export interface OrderFulfilmentView {
+  readonly id: string;
+  readonly orderNo: string | null;
+  readonly branchId: string;
+  readonly channel: SalesOrderView['channel'];
+  readonly status: OrderStatus;
+  readonly fulfilmentMode: SalesOrderView['fulfilmentMode'];
+  readonly customer: { readonly id: string; readonly publicId: string; readonly name: string } | null;
+  readonly contactName: string | null;
+  readonly contactPhone: string | null;
+  readonly deliveryAddress: unknown;
+  readonly delivery: SalesOrderView['delivery'];
+  readonly notes: string | null;
+  readonly placedAt: string;
+  readonly fulfilments: SalesOrderView['fulfilments'];
+  readonly lines: readonly OrderFulfilmentViewLine[];
+}
+
+/** The store's fields of an order, by allow-list: a field added to `SalesOrderView` never reaches the store unnamed. */
+export function fulfilmentViewOf(o: SalesOrderView): OrderFulfilmentView {
+  return {
+    id: o.id,
+    orderNo: o.orderNo,
+    branchId: o.branchId,
+    channel: o.channel,
+    status: o.status,
+    fulfilmentMode: o.fulfilmentMode,
+    customer: o.customer === null ? null : { id: o.customer.id, publicId: o.customer.publicId, name: o.customer.name },
+    contactName: o.contactName,
+    contactPhone: o.contactPhone,
+    deliveryAddress: o.deliveryAddress,
+    delivery: o.delivery === null ? null : { id: o.delivery.id, deliveryNo: o.delivery.deliveryNo, status: o.delivery.status, slotDate: o.delivery.slotDate, slotStartsAt: o.delivery.slotStartsAt, slotEndsAt: o.delivery.slotEndsAt },
+    notes: o.notes,
+    placedAt: o.placedAt,
+    fulfilments: o.fulfilments.map((f) => ({ id: f.id, docType: f.docType, number: f.number })),
+    lines: o.lines.map((l) => ({
+      id: l.id,
+      lineNo: l.lineNo,
+      product: { id: l.product.id, sku: l.product.sku, name: l.product.name },
+      stockUnit: l.stockUnit === null ? null : { id: l.stockUnit.id, identifier: l.stockUnit.identifier, tracking: l.stockUnit.tracking },
+      qtyOrdered: l.qtyOrdered,
+      uom: l.uom,
+      estimatedWeightKg: l.estimatedWeightKg,
+      tolerancePercent: l.tolerancePercent,
+      qtyFulfilled: l.qtyFulfilled,
+      fulfilledWeightKg: l.fulfilledWeightKg,
+      weightSource: l.weightSource,
+      qtyBackordered: l.qtyBackordered,
+      lineStatus: l.lineStatus,
+    })),
+  };
+}
+
 /** The contract's `OrderStatusChange`. */
 export interface OrderStatusChangeView {
   readonly fromStatus: OrderStatus | null;
@@ -256,6 +332,22 @@ export class Orders {
       if (order === undefined) throw new NotFoundError('no such order');
       await this.authoriser.authorise(tx, actor, READ, { branchId: order.branchId });
       return (await this.viewsIn(tx, [order]))[0]!;
+    });
+  }
+
+  /**
+   * getOrderFulfilmentView (the owner, 2026-11-23, A-335): the order as the store reads it, under its own permission
+   * `ord.order.read.fulfilment`, authorised here (ADR-0035), never `ord.order.read` with fields dropped. Only at a
+   * branch the caller holds it for whole: an order elsewhere answers 404 as an unknown one does, so the store cannot
+   * learn another branch's orders exist (A-344).
+   */
+  getForFulfilment(actor: Actor | undefined, id: string): Promise<OrderFulfilmentView> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, STORE_READ);
+      const [order] = await this.store.orders(tx, [id]);
+      if (order === undefined || !(await this.wholeBranches(tx, actor!, STORE_READ)).includes(order.branchId)) throw new NotFoundError('no such order');
+      await this.authoriser.authorise(tx, actor, STORE_READ, { branchId: order.branchId });
+      return fulfilmentViewOf((await this.viewsIn(tx, [order]))[0]!);
     });
   }
 

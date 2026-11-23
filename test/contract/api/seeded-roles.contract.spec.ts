@@ -66,6 +66,11 @@ describe('the seeded role matrix in the contract (CR-023, ADR-0071)', () => {
     expect(holders('ord.fulfilment.dispatch')).not.toContain('STOREKEEPER');
   });
 
+  it("shows B10 continued 6's grant (0310, the owner 2026-11-23, A-335, A-344): the Storekeeper reads an order as the store does, never the full order", () => {
+    expect(holders('ord.order.read.fulfilment')).toEqual(['OWNER', 'MANAGER', 'STOREKEEPER']);
+    expect(holders('ord.order.read')).not.toContain('STOREKEEPER');
+  });
+
   it('changes when a later migration changes a seeded grant, so the committed contract no longer matches and CI fails', async () => {
     const scratch = migrationsWith(
       '9999_iam_revoke_scratch_grant.sql',
