@@ -6,14 +6,14 @@ import type { Actor } from '../../../platform/context/request-context';
 import { databaseErrorOf, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import { ApiError, NotFoundError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
-import { PaymentProviderError, type ProviderTransaction } from '../../../platform/payments/payment-provider';
+import { PaymentProviderError, type ProviderDispute, type ProviderTransaction, type ProviderWebhookEvent } from '../../../platform/payments/payment-provider';
 import type { ResilientPaymentProvider } from '../../../platform/payments/resilient-provider';
 import type { Settings } from '../../../platform/settings/settings';
 import { judgeWebhookEvent } from '../domain/webhook';
 import type { WebhookRejected } from '../events';
 import type { Breaks } from './breaks';
 import type { PaymentStore, WebhookOutcome, WebhookRow } from './payment-store';
-import { answerOf, PROVIDER, type ProviderPayments } from './provider-payments';
+import { answerOf, CARD_MONEY_ABUSE_CASE, PROVIDER, type ProviderPayments } from './provider-payments';
 
 export const WEBHOOK_REJECTED = 'pay.WebhookRejected';
 /** The principal a provider's webhook acts as (migration 0164): it holds no grant. */
@@ -80,12 +80,13 @@ export class PaymentWebhooks {
       receivedAt,
       actorId: WEBHOOK_ACTOR.principalId,
     };
-    const body = parseJson(webhook.rawBody);
-    const event = body === undefined ? null : this.provider.readWebhook(body);
+    // The signature over the raw bytes first (B09c): nothing an unsigned body says is parsed, read or kept.
     if (!this.provider.webhookSignatureValid(webhook.rawBody, webhook.signature)) {
-      await this.record({ ...base, eventId: null, eventType: null, signatureValid: false, withinTimeWindow: null, payload: event?.evidence ?? {}, reference: null, paymentId: null, outcome: 'REJECTED_SIGNATURE' });
+      await this.record({ ...base, eventId: null, eventType: null, signatureValid: false, withinTimeWindow: null, payload: {}, reference: null, paymentId: null, outcome: 'REJECTED_SIGNATURE' });
       throw new WebhookUnauthenticatedError('webhook signature refused');
     }
+    const body = parseJson(webhook.rawBody);
+    const event = body === undefined ? null : this.provider.readWebhook(body);
     if (event === null) {
       await this.record({ ...base, eventId: null, eventType: null, signatureValid: true, withinTimeWindow: null, payload: {}, reference: null, paymentId: null, outcome: 'REJECTED_MALFORMED' });
       return { received: true };
@@ -102,6 +103,10 @@ export class PaymentWebhooks {
     if (judged !== 'PROCEED') {
       // A stale or ignored event is logged without taking the event's key: it never reaches processing.
       await this.record({ ...signed, withinTimeWindow: within, paymentId: null, outcome: judged });
+      return { received: true };
+    }
+    if (event.disputeId !== undefined) {
+      await this.receiveDispute({ ...signed, withinTimeWindow: true }, event, event.disputeId);
       return { received: true };
     }
     const charge = await this.uow.run({ isolation: 'read committed' }, (tx) => this.store.chargeByReference(tx, PROVIDER, event.reference));
@@ -140,6 +145,49 @@ export class PaymentWebhooks {
       return decision?.kind === 'AMOUNT_DIFFERS' ? 'REJECTED_AMOUNT' : 'ACCEPTED';
     });
     return { received: true };
+  }
+
+  /**
+   * A chargeback opened at the provider (B09c, abuse case 45), after the same signature, window and once-only checks
+   * as a payment: the dispute is looked up server to server and must name the same payment and amount, else the event
+   * is REJECTED_AMOUNT and raises nothing. A dispute on a payment of ours is raised once as an URGENT break, with
+   * nothing posted: a person answers it at the provider, and a refund, if any, goes through the refund flow. A lookup
+   * that cannot be made still raises it, marked unconfirmed, since a flag for a person moves no money.
+   */
+  private async receiveDispute(signed: Omit<WebhookRow, 'id' | 'paymentId' | 'outcome'>, event: ProviderWebhookEvent, disputeId: string): Promise<void> {
+    const charge = await this.uow.run({ isolation: 'read committed' }, (tx) => this.store.chargeByReference(tx, PROVIDER, event.reference));
+    let found: ProviderDispute | null = null;
+    try {
+      found = await this.provider.lookupDispute(disputeId);
+    } catch (error) {
+      if (!(error instanceof PaymentProviderError)) throw error;
+      this.logger.warn({ kind: error.kind }, 'dispute lookup failed; raised unconfirmed');
+    }
+    if (charge === null) {
+      await this.recordOnce({ ...signed, paymentId: null, outcome: 'IGNORED_UNKNOWN_REFERENCE' });
+      return;
+    }
+    await this.recordOnce({ ...signed, paymentId: charge.paymentId, outcome: 'ACCEPTED' }, async (tx) => {
+      if (found !== null && (found.reference !== event.reference || found.amountPesewas !== event.amountPesewas)) return 'REJECTED_AMOUNT';
+      const [payment] = await this.store.payments(tx, [charge.paymentId]);
+      const raised = await this.breaks.raiseIn(
+        tx,
+        WEBHOOK_ACTOR.principalId,
+        {
+          kind: 'PROVIDER_DISPUTE_OPENED',
+          branchId: payment!.branchId,
+          paymentId: charge.paymentId,
+          refundId: null,
+          provider: PROVIDER,
+          reference: event.reference,
+          amountPesewas: (found ?? event).amountPesewas,
+          details: { disputeId, status: found?.status ?? null, currency: found?.currency ?? null, confirmedByLookup: found !== null },
+        },
+        { severity: 'URGENT', abuseCases: [CARD_MONEY_ABUSE_CASE] },
+      );
+      if (raised) await this.audit.record(tx, { module: 'pay', action: 'DISPUTE', entityType: 'Payment', entityId: charge.paymentId, branchId: payment!.branchId, before: null, after: { disputeId, confirmedByLookup: found !== null } });
+      return found === null ? 'DEFERRED_LOOKUP' : 'ACCEPTED';
+    });
   }
 
   /**

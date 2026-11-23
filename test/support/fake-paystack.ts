@@ -17,6 +17,13 @@ import type { AddressInfo } from 'node:net';
  * - `POST /refund` ignores an `Idempotency-Key` header: the same key twice makes two refunds; `GET /refund?transaction=`
  *   takes the transaction's numeric id and lists its refunds with their `merchant_note`;
  * - a refund beyond what is left of the transaction is 400, and so is a refund of a transaction never paid.
+ * And as test mode answered on 2026-11-23 for a card (B09c, A-287 (h)):
+ * - `POST /transaction/initialize` answers the hosted page on `checkout.paystack.com`; the transaction verifies as
+ *   `abandoned` at once, before anyone has opened the page, and `channel` is `card`;
+ * - a second initialise with a reference already used is 400 `Duplicate Transaction Reference`, as for a charge;
+ * - a chargeback is read with `GET /dispute/:id`, its transaction nested under `transaction`.
+ * The card's own details (its bin, last four, expiry and authorisation code) appear only in the webhook body, as
+ * Paystack sends them; they are made up at random on each run, never a real or published test card.
  */
 export interface FakeTransaction {
   id: number;
@@ -26,6 +33,16 @@ export interface FakeTransaction {
   status: 'ongoing' | 'pending' | 'success' | 'failed' | 'abandoned';
   createdAt: Date;
   paidAt: Date | null;
+  channel: 'mobile_money' | 'card';
+}
+
+export interface FakeDispute {
+  id: number;
+  transaction: FakeTransaction;
+  refundAmount: number;
+  currency: string;
+  status: 'awaiting-merchant-feedback' | 'pending' | 'resolved';
+  createdAt: Date;
 }
 
 export interface FakeRefund {
@@ -58,6 +75,22 @@ export interface FakePaystack {
   refundDelayMs: number;
   /** When false, every call answers 503. */
   available: boolean;
+  /** Every `POST /transaction/initialize` body received (a card page opened, B09c). */
+  readonly initialised: Array<Record<string, unknown>>;
+  /**
+   * What the next page openings do: answer at once, or open the page and answer only after `delayMs` (after the adapter
+   * has given up), or answer 500 without opening it (`down`); `pageUrl` replaces the address Paystack answers.
+   */
+  pageBehaviour: { delayMs: number; down?: boolean; pageUrl?: string; beforeAnswer?: (t: FakeTransaction) => Promise<void> };
+  readonly disputes: Map<number, FakeDispute>;
+  /** The customer pays on the hosted page with a card: Paystack records it as paid, for `amount` if given. */
+  payCard(reference: string, options?: { amount?: number; currency?: string; paidAt?: Date }): FakeTransaction;
+  /** The customer's card is declined on the hosted page: Paystack records the attempt failed; the page takes another. */
+  declineCard(reference: string): FakeTransaction;
+  /** The cardholder's bank opens a chargeback on a paid transaction. */
+  openDispute(t: FakeTransaction, refundAmount?: number): FakeDispute;
+  /** A `charge.dispute.create` webhook body and its signature, as Paystack would send them. */
+  disputeWebhook(d: FakeDispute, overrides?: { refundAmount?: number; createdAt?: string }): { body: string; signature: string };
   /** The customer approves the charge on their phone: Paystack records it as paid, for `amount` if given. */
   approve(reference: string, options?: { amount?: number; paidAt?: Date }): FakeTransaction;
   /** A transaction Paystack holds that this system never initiated. */
@@ -80,7 +113,18 @@ async function readBody(req: IncomingMessage): Promise<Record<string, unknown>> 
 }
 
 function asJson(t: FakeTransaction) {
-  return { id: t.id, reference: t.reference, amount: t.amount, currency: t.currency, status: t.status, created_at: t.createdAt.toISOString(), paid_at: t.paidAt?.toISOString() ?? null, channel: 'mobile_money' };
+  return { id: t.id, reference: t.reference, amount: t.amount, currency: t.currency, status: t.status, created_at: t.createdAt.toISOString(), paid_at: t.paidAt?.toISOString() ?? null, channel: t.channel };
+}
+
+const digits = (n: number) => Array.from(randomBytes(n), (b) => String(b % 10)).join('');
+
+/** A card's details as Paystack puts them in a webhook, made up for one run: never a real or a published test card. */
+export function madeUpCard(): { bin: string; last4: string; expMonth: string; expYear: string; authorizationCode: string } {
+  return { bin: `9${digits(5)}`, last4: digits(4), expMonth: '09', expYear: String(2030 + (randomBytes(1)[0]! % 5)), authorizationCode: `AUTH_${randomBytes(6).toString('hex')}` };
+}
+
+function disputeJson(d: FakeDispute, refundAmount = d.refundAmount, createdAt = d.createdAt.toISOString()) {
+  return { id: d.id, refund_amount: refundAmount, currency: d.currency, status: d.status, category: 'chargeback', createdAt, transaction: asJson(d.transaction) };
 }
 
 export async function startFakePaystack(now: () => Date): Promise<FakePaystack> {
@@ -88,6 +132,9 @@ export async function startFakePaystack(now: () => Date): Promise<FakePaystack> 
   const transactions = new Map<string, FakeTransaction>();
   const refunds = new Map<number, FakeRefund>();
   const calls: FakePaystack['calls'] = [];
+  const initialised: Array<Record<string, unknown>> = [];
+  const disputes = new Map<number, FakeDispute>();
+  const cards = new Map<string, ReturnType<typeof madeUpCard>>();
   let nextId = 4_099_260_000;
   const fake: FakePaystack = {
     url: '',
@@ -99,6 +146,33 @@ export async function startFakePaystack(now: () => Date): Promise<FakePaystack> 
     refundBehaviour: 'pending',
     refundDelayMs: 1_500,
     available: true,
+    initialised,
+    pageBehaviour: { delayMs: 0 },
+    disputes,
+    payCard(reference, options = {}) {
+      const t = transactions.get(reference)!;
+      t.status = 'success';
+      t.amount = options.amount ?? t.amount;
+      t.currency = options.currency ?? t.currency;
+      t.paidAt = options.paidAt ?? now();
+      cards.set(reference, madeUpCard());
+      return t;
+    },
+    declineCard(reference) {
+      const t = transactions.get(reference)!;
+      t.status = 'failed';
+      return t;
+    },
+    openDispute(t, refundAmount) {
+      const d: FakeDispute = { id: (nextId += 1), transaction: t, refundAmount: refundAmount ?? t.amount, currency: t.currency, status: 'awaiting-merchant-feedback', createdAt: now() };
+      disputes.set(d.id, d);
+      return d;
+    },
+    disputeWebhook(d, overrides = {}) {
+      const card = cards.get(d.transaction.reference) ?? madeUpCard();
+      const body = JSON.stringify({ event: 'charge.dispute.create', data: { ...disputeJson(d, overrides.refundAmount, overrides.createdAt), bin: card.bin, last4: card.last4, customer: { email: 'cardholder@farm.example', phone: '+233244512876' } } });
+      return { body, signature: createHmac('sha512', secretKey).update(body).digest('hex') };
+    },
     approve(reference, options = {}) {
       const t = transactions.get(reference)!;
       t.status = 'success';
@@ -107,13 +181,18 @@ export async function startFakePaystack(now: () => Date): Promise<FakePaystack> 
       return t;
     },
     addForeign(reference, amount, at) {
-      const t: FakeTransaction = { id: (nextId += 1), reference, amount, currency: 'GHS', status: 'success', createdAt: at, paidAt: at };
+      const t: FakeTransaction = { id: (nextId += 1), reference, amount, currency: 'GHS', status: 'success', createdAt: at, paidAt: at, channel: 'mobile_money' };
       transactions.set(reference, t);
       return t;
     },
     webhook(t, overrides = {}) {
       const data = { ...asJson(t), amount: overrides.amount ?? t.amount, paid_at: overrides.paidAt === undefined ? (t.paidAt?.toISOString() ?? null) : overrides.paidAt };
-      const body = JSON.stringify({ event: overrides.event ?? 'charge.success', data: { ...data, customer: { email: 'payments@farm.example', phone: '+233244512876' }, authorization: { mobile_money_number: '0244512876' } } });
+      const card = cards.get(t.reference);
+      const authorization =
+        t.channel === 'card' && card !== undefined
+          ? { authorization_code: card.authorizationCode, bin: card.bin, last4: card.last4, exp_month: card.expMonth, exp_year: card.expYear, channel: 'card', card_type: 'visa', bank: 'TEST BANK', country_code: 'GH', brand: 'visa', reusable: true, signature: `SIG_${card.authorizationCode}`, account_name: 'AMA SERWAA OFORI' }
+          : { mobile_money_number: '0244512876' };
+      const body = JSON.stringify({ event: overrides.event ?? 'charge.success', data: { ...data, customer: { email: 'payments@farm.example', phone: '+233244512876' }, authorization } });
       return { body, signature: createHmac('sha512', secretKey).update(body).digest('hex') };
     },
     close: () => new Promise((resolve) => server.close(() => resolve())),
@@ -134,7 +213,7 @@ export async function startFakePaystack(now: () => Date): Promise<FakePaystack> 
         }
         // Paystack reads +233 numbers as their local form: the sandbox answered an E.164 test number as 0551234987.
         const phone = String((body['mobile_money'] as { phone?: unknown } | undefined)?.phone ?? '').replace(/^\+233/, '0');
-        const t: FakeTransaction = { id: (nextId += 1), reference, amount: Number(body['amount']), currency: String(body['currency']), status: 'ongoing', createdAt: now(), paidAt: null };
+        const t: FakeTransaction = { id: (nextId += 1), reference, amount: Number(body['amount']), currency: String(body['currency']), status: 'ongoing', createdAt: now(), paidAt: null, channel: 'mobile_money' };
         transactions.set(reference, t);
         if (phone === PAYSTACK_MTN_TEST_PHONE) {
           t.status = 'success';
@@ -144,6 +223,27 @@ export async function startFakePaystack(now: () => Date): Promise<FakePaystack> 
         if (fake.chargeBehaviour.delayMs > 0) await new Promise((resolve) => setTimeout(resolve, fake.chargeBehaviour.delayMs));
         if (t.status === 'success' && phone === PAYSTACK_MTN_TEST_PHONE) return send(res, 200, { status: true, message: 'Charge attempted', data: { ...asJson(t), domain: 'test', gateway_response: 'Approved' } });
         return send(res, 200, { status: true, message: 'Charge attempted', data: { reference, status: 'pay_offline', display_text: 'Please complete authorization process on your mobile phone' } });
+      }
+      if (req.method === 'POST' && url.pathname === '/transaction/initialize') {
+        initialised.push(body);
+        const reference = String(body['reference']);
+        if (/\.example$/i.test(String(body['email']))) return send(res, 400, { status: false, message: 'Invalid Email Address Passed' });
+        if (fake.pageBehaviour.down === true) return send(res, 500, { status: false, message: 'Internal error' });
+        if (transactions.has(reference)) {
+          return send(res, 400, { status: false, message: 'Duplicate Transaction Reference', meta: { nextStep: 'Try and create the Transaction or Charge with a new reference' }, type: 'validation_error', code: 'duplicate_reference' });
+        }
+        // The sandbox verifies an initialised page nobody has paid as `abandoned`, at once.
+        const t: FakeTransaction = { id: (nextId += 1), reference, amount: Number(body['amount']), currency: String(body['currency']), status: 'abandoned', createdAt: now(), paidAt: null, channel: 'card' };
+        transactions.set(reference, t);
+        const accessCode = randomBytes(8).toString('hex').slice(0, 15);
+        await fake.pageBehaviour.beforeAnswer?.(t);
+        if (fake.pageBehaviour.delayMs > 0) await new Promise((resolve) => setTimeout(resolve, fake.pageBehaviour.delayMs));
+        return send(res, 200, { status: true, message: 'Authorization URL created', data: { authorization_url: fake.pageBehaviour.pageUrl ?? `https://checkout.paystack.com/${accessCode}`, access_code: accessCode, reference } });
+      }
+      if (req.method === 'GET' && url.pathname.startsWith('/dispute/')) {
+        const dispute = disputes.get(Number(url.pathname.slice('/dispute/'.length)));
+        if (dispute === undefined) return send(res, 404, { status: false, message: 'Dispute not found', code: 'not_found' });
+        return send(res, 200, { status: true, message: 'Dispute retrieved', data: disputeJson(dispute) });
       }
       if (req.method === 'GET' && url.pathname.startsWith('/transaction/verify/')) {
         const t = transactions.get(decodeURIComponent(url.pathname.slice('/transaction/verify/'.length)));

@@ -290,11 +290,10 @@ describe('placeOrder for cash on delivery: confirmed at once, the delivery and i
 });
 
 describe('placeOrder refuses what this phase does not take, and changes nothing', () => {
-  it('refuses a method that does not match the terms, a card, a mobile money charge without its phone or network, and a coupon', async () => {
+  it('refuses a method that does not match the terms, a mobile money charge without its phone or network, and a coupon (a card is taken since B09c: card-payments)', async () => {
     const { guest, checkoutId } = await atCheckout([['EGG-0003', '1']]);
     const cases: Array<[object, string]> = [
       [{ paymentMethod: 'COD' }, 'PAYMENT_METHOD_MISMATCH'],
-      [{ paymentMethod: 'CARD' }, 'CARD_NOT_AVAILABLE'],
       [{ paymentMethod: 'MOBILE_MONEY', network: 'MTN' }, 'PAYER_PHONE_REQUIRED'],
       [{ paymentMethod: 'MOBILE_MONEY', payerPhone: PAYSTACK_MTN_TEST_PHONE }, 'NETWORK_REQUIRED'],
     ];

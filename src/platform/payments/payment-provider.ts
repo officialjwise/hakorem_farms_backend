@@ -47,6 +47,17 @@ export interface ProviderWebhookEvent {
   readonly occurredAt: Date | null;
   /** The fields stored as evidence (`pay.webhook_event.payload`): never card or personal detail. */
   readonly evidence: Readonly<Record<string, unknown>>;
+  /** A chargeback's id at the provider, for `charge.dispute.create` only (B09c), confirmed by `lookupDispute`. */
+  readonly disputeId?: string;
+}
+
+/** A chargeback as the provider holds it (B09c, abuse case 45): the payment it disputes and the amount at stake. */
+export interface ProviderDispute {
+  readonly disputeId: string;
+  readonly reference: string;
+  readonly amountPesewas: bigint;
+  readonly currency: string;
+  readonly status: string;
 }
 
 /** One page of the provider's own transaction list, for the sweep (the owner, 2026-11-16). */
@@ -66,6 +77,8 @@ export interface PaymentProvider {
   listTransactions(window: { readonly from: Date; readonly to: Date; readonly page: number; readonly perPage: number }): Promise<ProviderTransactionPage>;
   refund(request: { readonly reference: string; readonly amountPesewas: bigint; readonly idempotencyKey: string }): Promise<{ readonly refundId: string; readonly status: string }>;
   refundStatus(refundId: string): Promise<ProviderRefund>;
+  /** The server-to-server lookup of a chargeback a webhook named: its payload is never trusted (B09c). */
+  lookupDispute(disputeId: string): Promise<ProviderDispute>;
   /** Signature over the raw body, compared in constant time. */
   webhookSignatureValid(rawBody: Buffer, signatureHeader: string | undefined): boolean;
   /** The body of a validly signed webhook read into the fields PAY acts on, or null if it has none of them. */
@@ -215,7 +228,16 @@ export class PaystackPaymentProvider implements PaymentProvider {
     return { refundId: String(data.id ?? refundId), status: REFUND_STATUS[data.status ?? ''] ?? 'PENDING' };
   }
 
+  async lookupDispute(disputeId: string): Promise<ProviderDispute> {
+    const data = await this.call<PaystackDispute>('GET', `/dispute/${encodeURIComponent(disputeId)}`);
+    const dispute = disputeOf(data);
+    if (dispute === null || dispute.disputeId !== disputeId) throw new PaymentProviderError('Paystack answered a dispute without its transaction or amount', false);
+    return dispute;
+  }
+
   readWebhook(body: unknown): ProviderWebhookEvent | null {
+    const dispute = readDisputeWebhook(body);
+    if (dispute !== undefined) return dispute;
     const event = body as { event?: unknown; data?: PaystackTransaction & { created_at?: string; channel?: string } } | null;
     const data = event?.data;
     if (typeof event?.event !== 'string' || typeof data?.reference !== 'string' || !isInteger(data.amount)) return null;
@@ -305,6 +327,42 @@ export class PaystackPaymentProvider implements PaymentProvider {
     }
     return { data: envelope.data, meta: envelope.meta };
   }
+}
+
+interface PaystackDispute {
+  id?: number | string;
+  refund_amount?: number | string | null;
+  currency?: string;
+  status?: string;
+  created_at?: string;
+  createdAt?: string;
+  transaction?: { id?: number; reference?: string; amount?: number | string; currency?: string } | null;
+}
+
+/** A dispute as Paystack answers it, read into the fields PAY acts on: never the card's bin, last four or the customer. */
+function disputeOf(data: PaystackDispute | undefined): ProviderDispute | null {
+  const reference = data?.transaction?.reference;
+  const amount = isInteger(data?.refund_amount) ? data.refund_amount : data?.transaction?.amount;
+  if (data === undefined || !isInteger(data.id) || typeof reference !== 'string' || !isInteger(amount)) return null;
+  return { disputeId: String(data.id), reference, amountPesewas: BigInt(String(amount)), currency: data.currency ?? data.transaction?.currency ?? '', status: data.status ?? '' };
+}
+
+/** `charge.dispute.create` read into a webhook event (B09c), or undefined for any other event; null when unreadable. */
+function readDisputeWebhook(body: unknown): ProviderWebhookEvent | null | undefined {
+  const event = body as { event?: unknown; data?: PaystackDispute } | null;
+  if (event?.event !== 'charge.dispute.create') return undefined;
+  const dispute = disputeOf(event.data);
+  if (dispute === null) return null;
+  const time = event.data?.createdAt ?? event.data?.created_at ?? null;
+  return {
+    eventId: `${event.event}:${dispute.disputeId}`,
+    eventType: event.event,
+    reference: dispute.reference,
+    amountPesewas: dispute.amountPesewas,
+    occurredAt: time === null ? null : new Date(time),
+    disputeId: dispute.disputeId,
+    evidence: { event: event.event, data: { id: dispute.disputeId, reference: dispute.reference, amount: Number(dispute.amountPesewas), currency: dispute.currency || null, status: dispute.status || null } },
+  };
 }
 
 function isInteger(value: unknown): value is number | string {

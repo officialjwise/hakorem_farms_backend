@@ -117,6 +117,10 @@ export class ResilientPaymentProvider implements PaymentProvider {
     return this.guarded((p) => p.refund(request));
   }
 
+  lookupDispute(disputeId: string) {
+    return this.guarded((p) => p.lookupDispute(disputeId));
+  }
+
   refundStatus(refundId: string) {
     return this.guarded((p) => p.refundStatus(refundId));
   }

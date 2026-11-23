@@ -165,7 +165,7 @@ import { MyStoreCreditController, PaymentsController, ReceivablesController, Ref
         config: AppConfig,
         clock: Clock,
         logger: Logger,
-      ) => new ProviderPayments(store, payments, refs, documents, events, audit, breaks, uow, authoriser, idempotency, provider, config.PAYSTACK_PAYER_EMAIL ?? null, clock, logger),
+      ) => new ProviderPayments(store, payments, refs, documents, events, audit, breaks, uow, authoriser, idempotency, provider, config.PAYSTACK_PAYER_EMAIL ?? null, clock, logger, config.PAYSTACK_CARD_CALLBACK_URL ?? null),
       inject: [PAYMENT_STORE, Payments, MasterDataRefs, DocumentRegistry, DomainEvents, AuditTrail, Breaks, UnitOfWork, Authoriser, Idempotency, PAYMENT_PROVIDER, APP_CONFIG, CLOCK, LOGGER],
     },
     {

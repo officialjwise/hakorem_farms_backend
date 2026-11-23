@@ -22,4 +22,9 @@ describe('the checks a signed webhook passes before the provider is asked (FR-PA
   it('ignores an event type it does not act on, whatever its time', () => {
     expect(judgeWebhookEvent({ ...fresh, eventType: 'transfer.success' })).toBe('IGNORED_EVENT_TYPE');
   });
+
+  it('acts on a chargeback opened at the provider within the window, as on a payment (B09c, abuse case 45)', () => {
+    expect(judgeWebhookEvent({ ...fresh, eventType: 'charge.dispute.create' })).toBe('PROCEED');
+    expect(judgeWebhookEvent({ ...fresh, eventType: 'charge.dispute.create', eventAt: null })).toBe('REJECTED_STALE');
+  });
 });

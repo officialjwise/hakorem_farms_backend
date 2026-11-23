@@ -1,5 +1,8 @@
+/** A chargeback opened at the provider (B09c, abuse case 45): raised for a person, nothing posted. */
+export const DISPUTE_OPENED_EVENT = 'charge.dispute.create';
+
 /** The provider events PAY acts on; any other signed event is logged and ignored. */
-export const HANDLED_EVENT_TYPES: ReadonlySet<string> = new Set(['charge.success']);
+export const HANDLED_EVENT_TYPES: ReadonlySet<string> = new Set(['charge.success', DISPUTE_OPENED_EVENT]);
 
 export type WebhookJudgement = 'PROCEED' | 'REJECTED_STALE' | 'IGNORED_EVENT_TYPE';
 

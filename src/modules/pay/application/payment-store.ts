@@ -118,6 +118,8 @@ export interface ChargeRecord {
   readonly releasedAt: Date | null;
   readonly createdAt: Date;
   readonly branchId: string;
+  /** A card charge's hosted page, once opened (B09c); null for mobile money and a page not opened yet. */
+  readonly pageUrl: string | null;
 }
 
 export interface ChargeChange {
@@ -127,6 +129,8 @@ export interface ChargeChange {
   readonly verifiedAt?: Date;
   readonly lastCheckedAt?: Date;
   readonly releasedAt?: Date;
+  /** Written once, on a card charge still open (`trg_provider_transaction_page`). */
+  readonly pageUrl?: string;
 }
 
 export type WebhookOutcome =
@@ -197,7 +201,18 @@ export interface RefundChange {
   readonly failureReason?: string;
 }
 
-export type BreakKind = 'UNMATCHED_PAYMENT' | 'UNVERIFIED_PAYMENT' | 'PROVIDER_AMOUNT_DIFFERS' | 'PROVIDER_REFERENCE_UNKNOWN' | 'PROVIDER_PAYMENT_MISSING' | 'REFUND_FAILED' | 'SETTLEMENT_AMOUNT_DIFFERS' | 'SETTLEMENT_NOT_FOUND' | 'BANK_LINE_UNMATCHED';
+export type BreakKind =
+  | 'UNMATCHED_PAYMENT'
+  | 'UNVERIFIED_PAYMENT'
+  | 'PROVIDER_AMOUNT_DIFFERS'
+  | 'PROVIDER_REFERENCE_UNKNOWN'
+  | 'PROVIDER_PAYMENT_MISSING'
+  | 'REFUND_FAILED'
+  | 'SETTLEMENT_AMOUNT_DIFFERS'
+  | 'SETTLEMENT_NOT_FOUND'
+  | 'BANK_LINE_UNMATCHED'
+  | 'PROVIDER_PAID_AFTER_FAILURE'
+  | 'PROVIDER_DISPUTE_OPENED';
 
 export interface NewBreak {
   readonly id: string;
@@ -287,7 +302,7 @@ export interface PaymentStore {
   storeCreditEntries(tx: Transaction, customerId: string, limit: number): Promise<StoreCreditEntryRecord[]>;
 
   /** `createdAt` is the application clock's instant the charge was sent: its grace period runs from it (ADR-0067). */
-  insertCharge(tx: Transaction, charge: Omit<ChargeRecord, 'confirmedPesewas' | 'status' | 'releasedAt'> & { readonly actorId: string }): Promise<void>;
+  insertCharge(tx: Transaction, charge: Omit<ChargeRecord, 'confirmedPesewas' | 'status' | 'releasedAt' | 'pageUrl'> & { readonly actorId: string }): Promise<void>;
   chargeOfPayment(tx: Transaction, paymentId: string, forUpdate?: boolean): Promise<ChargeRecord | null>;
   chargeByReference(tx: Transaction, provider: string, reference: string, forUpdate?: boolean): Promise<ChargeRecord | null>;
   updateCharge(tx: Transaction, id: string, change: ChargeChange, actorId: string): Promise<void>;

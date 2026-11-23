@@ -132,6 +132,13 @@ describe('typed configuration', () => {
     expect(problemsFor({ ...configured, PAYSTACK_PAYER_EMAIL: 'payments@farm.examples.com.gh' })).toEqual([]);
   });
 
+  it('takes the card page’s return address only as an https address with no query or user (B09c, A-287 (b))', () => {
+    expect(problemsFor({ ...VALID, PAYSTACK_CARD_CALLBACK_URL: 'https://hakoremfarms.com/checkout/card-return' })).toEqual([]);
+    for (const url of ['http://hakoremfarms.com/checkout/card-return', 'https://hakoremfarms.com/checkout?next=https://evil.example', 'https://user@hakoremfarms.com/x', 'not a url']) {
+      expect(problemsFor({ ...VALID, PAYSTACK_CARD_CALLBACK_URL: url }), url).not.toEqual([]);
+    }
+  });
+
   it('needs the malware scanner for a deployed worker, so no upload waits for a scan that never comes', () => {
     const worker = {
       ...VALID,
