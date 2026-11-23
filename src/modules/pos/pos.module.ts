@@ -14,6 +14,7 @@ import { APP_CONFIG, receiptLinkTemplate, type AppConfig } from '../../platform/
 import { AudModule, BusinessProfiles } from '../aud';
 import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { InvModule, StockQueries, StockUnits } from '../inv';
+import { LivModule, Weighing } from '../liv';
 import { MasterDataRefs, MdmModule, PricingService, TaxService } from '../mdm';
 import { BilModule, Billing } from '../bil';
 import { FinModule, Ledger } from '../fin';
@@ -49,7 +50,7 @@ import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
  * continued 2 adds the offline pack (`OfflinePacks`), reading INV's stock standing at the till.
  */
 @Module({
-  imports: [IamModule, AudModule, MdmModule, FinModule, InvModule, BilModule, PayModule, OrdModule],
+  imports: [IamModule, AudModule, MdmModule, FinModule, InvModule, LivModule, BilModule, PayModule, OrdModule],
   controllers: [PosController, ReceiptsController, TillInvoicesController],
   providers: [
     { provide: TILL_STORE, useClass: PgTillStore },
@@ -124,8 +125,9 @@ import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
         audit: AuditTrail,
         clock: Clock,
         config: AppConfig,
-      ) => new OfflinePacks(uow, store, devices, pricing, tax, refs, stock, units, authoriser, settings, audit, clock, receiptLinkTemplate(config)),
-      inject: [UnitOfWork, TILL_STORE, Devices, PricingService, TaxService, MasterDataRefs, StockQueries, StockUnits, Authoriser, Settings, AuditTrail, CLOCK, APP_CONFIG],
+        weighing: Weighing,
+      ) => new OfflinePacks(uow, store, devices, pricing, tax, refs, stock, units, authoriser, settings, audit, clock, weighing, receiptLinkTemplate(config)),
+      inject: [UnitOfWork, TILL_STORE, Devices, PricingService, TaxService, MasterDataRefs, StockQueries, StockUnits, Authoriser, Settings, AuditTrail, CLOCK, APP_CONFIG, Weighing],
     },
     {
       provide: OfflineSync,
@@ -147,8 +149,10 @@ import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
         unverified: UnverifiedTenders,
         pins: TillPins,
         receipts: ReceiptLinks,
-      ) => new OfflineSync(uow, store, devices, posting, orders, refs, pricing, authoriser, ledger, settings, events, audit, clock, payments, unverified, pins, receipts),
-      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, MasterDataRefs, PricingService, Authoriser, Ledger, Settings, DomainEvents, AuditTrail, CLOCK, Payments, UnverifiedTenders, TillPins, ReceiptLinks],
+        units: StockUnits,
+        weighing: Weighing,
+      ) => new OfflineSync(uow, store, devices, posting, orders, refs, pricing, authoriser, ledger, settings, events, audit, clock, payments, unverified, pins, receipts, units, weighing),
+      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, MasterDataRefs, PricingService, Authoriser, Ledger, Settings, DomainEvents, AuditTrail, CLOCK, Payments, UnverifiedTenders, TillPins, ReceiptLinks, StockUnits, Weighing],
     },
     { provide: RECEIPT_LINK_STORE, useClass: PgReceiptLinkStore },
     {

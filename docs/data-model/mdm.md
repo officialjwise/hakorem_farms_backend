@@ -619,7 +619,7 @@ The fixed list of reasons. Changed only by migration, as the threat model requir
 | `requires_note` | `boolean` | NOT NULL DEFAULT `false` | Free-text explanation mandatory |
 | `loss_account_group` | `text` | NULL, CHECK in (`MORTALITY`, `SHRINKAGE`, `WASTAGE`) | Ledger determinant for write-offs |
 
-Created in B04d continued 3 (migration 0024) with 48 codes across the twelve domains. `hk_app` holds `SELECT` only. B09e continued 2 (migration 0220) adds the `GOODS_RECEIPT_REJECTION` domain's six and the `STOCK_ADJUSTMENT` reasons `BREAKAGE` (no note) and `RODENT_DAMAGE` (a note), both in the `WASTAGE` loss group (CR-035, A-269).
+Created in B04d continued 3 (migration 0024) with 48 codes across the twelve domains. `hk_app` holds `SELECT` only. B09e continued 2 (migration 0220) adds the `GOODS_RECEIPT_REJECTION` domain's six and the `STOCK_ADJUSTMENT` reasons `BREAKAGE` (no note) and `RODENT_DAMAGE` (a note), both in the `WASTAGE` loss group (CR-035, A-269). B09b continued 4c (migration 0306, A-286 (d)) adds the `PRICE_OVERRIDE` reason `OFFLINE_PACK_PRICE` (no note): the server's own reason for a synced line charged at the offline pack's price that the server now prices otherwise; the offline pack does not offer it.
 
 ### `mdm.import_job` · DOCUMENT
 

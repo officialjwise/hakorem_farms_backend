@@ -14,6 +14,9 @@ import { buyerVerdict, maskTin } from '../../bil';
 import { defaultLineUom, type MasterDataRefs, type PaymentMethodFacts, type PricingService } from '../../mdm';
 import { SaleInvalidError, type OfflineSaleFinding, type Orders, type SalePosting, type SaleTenderRequest } from '../../ord';
 import type { Payments, UnverifiedTenders } from '../../pay';
+import type { StockUnits } from '../../inv';
+import type { Weighing } from '../../liv';
+import { OFFLINE_PACK_PRICE, reasonAtSync } from '../domain/animal-price';
 import { CLOCK_TOLERANCE_SECONDS, CLOCK_TOLERANCE_SETTING, isUuidV7 } from '../domain/client-time';
 import {
   counterGaps,
@@ -211,6 +214,8 @@ export class OfflineSync {
     private readonly unverified: UnverifiedTenders,
     private readonly pins: TillPins,
     private readonly receipts: ReceiptLinks,
+    private readonly units: Pick<StockUnits, 'factsIn'>,
+    private readonly weighing: Pick<Weighing, 'latestIn'>,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -430,7 +435,10 @@ export class OfflineSync {
         weightSource: l.weightSource ?? null,
         gradeId: l.gradeId ?? null,
         agreedUnitPricePesewas: BigInt(l.agreedUnitPricePesewas),
-        varianceReasonCode: l.varianceReasonCode ?? null,
+        // A price the till charged as its pack gave it, which the server now prices otherwise, is a difference the till
+        // gave no reason for: it is recorded under the server's own reason, never refused (A-286 (d)). ORD keeps a reason
+        // only on a line whose price differs from the server's.
+        varianceReasonCode: reasonAtSync(l.varianceReasonCode),
       };
     });
     const limit = await this.authoriser.limitIn(tx, cashier, 'PRICE_OVERRIDE_PER_SHIFT', register.branchId);
@@ -496,13 +504,14 @@ export class OfflineSync {
     for (const finding of posted.findings) if (finding.kind !== 'PRICE_OVERRIDE') flags.push(flagOf(finding, grossPesewas));
     // Every offline override reaches the exception report's source; one beyond the cashier's own limit stands only with a
     // supervisor's PIN verified here and within that supervisor's own line limit (the owner on 2026-11-18, A-278 (h)).
+    const pricedFrom = await this.pricedFromIn(tx, sale.lines, occurredAt);
     for (const line of posted.sale.lines) {
       if (line.variancePesewas === 0) continue;
       const finding = posted.findings.find((f): f is Extract<OfflineSaleFinding, { kind: 'PRICE_OVERRIDE' }> => f.kind === 'PRICE_OVERRIDE' && f.lineNo === line.lineNo);
       const sent = sale.lines.find((_, i) => lineNoOf(i) === line.lineNo)?.overrideApproval;
       const approval = sent === undefined ? null : await this.pins.approvalIn(tx, { approverId: sent.approvedById, pinVersion: sent.approvedByPinVersion, cashierId: shift.cashierId, actorId: null, branchId: register.branchId, at: occurredAt });
       const supervisorLimit = sent === undefined ? 0n : await this.authoriser.limitIn(tx, staffActor(sent.approvedById), 'PRICE_OVERRIDE_PER_LINE', register.branchId);
-      flags.push(overrideFlag(line, finding ?? null, sent ?? null, approval, offlineOverrideVerdict({ beyondCashier: finding?.reason ?? null, approval, variancePesewas: BigInt(line.variancePesewas), supervisorLineLimitPesewas: supervisorLimit })));
+      flags.push(overrideFlag(line, finding ?? null, sent ?? null, approval, offlineOverrideVerdict({ beyondCashier: finding?.reason ?? null, approval, variancePesewas: BigInt(line.variancePesewas), supervisorLineLimitPesewas: supervisorLimit }), pricedFrom.get(line.lineNo) ?? null));
     }
     // The unverified tenders, after the cash ORD applied first, each allocated to what the receipt still owes (OFFLINE_SYNC 9.9).
     const receiptGross = Money.fromJsonInteger(grossPesewas);
@@ -623,6 +632,30 @@ export class OfflineSync {
   }
 
   /** Whether someone other than the caller holds a permission at the branch: their grants are read by id, nothing is refused. */
+  /**
+   * For each line naming a stock unit, what the server priced it from at sync, as ORD's `SalePosting` does: the weight and
+   * grade the till sent with the line (an animal re-weighed at the sale), else the unit's own latest; with the weight's
+   * source (the till's, or the latest weighing's when it is the weight held). Only to explain the difference raised.
+   */
+  private async pricedFromIn(tx: Transaction, lines: readonly OfflineSaleLineInput[], at: Date): Promise<ReadonlyMap<number, PricedFrom>> {
+    const unitIds = lines.flatMap((l) => (l.stockUnitId === undefined ? [] : [l.stockUnitId]));
+    if (unitIds.length === 0) return new Map();
+    const [facts, weighings] = await Promise.all([this.units.factsIn(tx, unitIds, at), this.weighing.latestIn(tx, unitIds)]);
+    const priced = new Map<number, PricedFrom>();
+    lines.forEach((l, i) => {
+      const unit = l.stockUnitId === undefined ? undefined : facts.get(l.stockUnitId);
+      if (unit === undefined) return;
+      const gradeId = l.gradeId ?? unit.gradeId;
+      if (l.weightKg !== undefined) {
+        priced.set(lineNoOf(i), { weightKg: l.weightKg, gradeId, weightSource: l.weightSource ?? null });
+        return;
+      }
+      const weighing = weighings.get(unit.id);
+      priced.set(lineNoOf(i), { weightKg: unit.lastWeightKg, gradeId, weightSource: weighing !== undefined && weighing.weightKg === unit.lastWeightKg ? weighing.weightSource : null });
+    });
+    return priced;
+  }
+
   private async holdsAt(tx: Transaction, principalId: string, permission: string, branchId: string): Promise<boolean> {
     const someone: Actor = { principalId, kind: 'USER', displayName: '', realm: 'STAFF', sessionId: null, steppedUpAt: null };
     return (await this.authoriser.scopes(tx, someone, permission)).some((g) => g.branchId === branchId);
@@ -997,6 +1030,7 @@ function overrideFlag(
   sent: { readonly approvedById: string; readonly approvedByPinVersion: number } | null,
   approval: PinApprovalVerdict | null,
   verdict: OfflineOverrideVerdict,
+  pricedFrom: PricedFrom | null,
 ): Flag {
   const why =
     verdict.basis === 'WITHIN_CASHIER_LIMIT'
@@ -1007,7 +1041,10 @@ function overrideFlag(
   return {
     kind: 'PRICE_OVERRIDE',
     severity: verdict.severity,
-    summary: `Line ${line.lineNo}: a price ${line.variancePesewas} pesewas from list was given offline, ${why}`,
+    summary:
+      line.varianceReasonCode === OFFLINE_PACK_PRICE
+        ? `Line ${line.lineNo}: charged at the offline pack's price, ${line.variancePesewas} pesewas from the server's price at sync${pricedFrom?.weightKg === null || pricedFrom === null ? '' : ` from a weight of ${pricedFrom.weightKg} kg`}, ${why}`
+        : `Line ${line.lineNo}: a price ${line.variancePesewas} pesewas from list was given offline, ${why}`,
     amountPesewas: line.variancePesewas,
     fact: {
       lineNo: line.lineNo,
@@ -1018,6 +1055,8 @@ function overrideFlag(
       varianceReasonCode: line.varianceReasonCode,
       beyondCashier: finding?.reason ?? null,
       ...(finding === null ? {} : { band: finding.band }),
+      // What the server priced an animal from: the weight the till took at the sale, else the latest the server holds.
+      ...(pricedFrom === null ? {} : { pricedFrom }),
       basis: verdict.basis,
       reason: verdict.reason,
       approvedById: sent?.approvedById ?? null,
@@ -1027,6 +1066,13 @@ function overrideFlag(
     // The till is told of an override beyond the cashier's own limit; one within it reaches the source only.
     toTill: verdict.basis !== 'WITHIN_CASHIER_LIMIT',
   };
+}
+
+/** The grade and weight the server priced an animal's line from at sync, and that weight's source (CR-052, A-286 (e)). */
+interface PricedFrom {
+  readonly weightKg: string | null;
+  readonly gradeId: string | null;
+  readonly weightSource: 'SCALE' | 'MANUAL' | 'ESTIMATE' | null;
 }
 
 /** A principal read by id for their grants and limits, as the caller's would be; it is not the caller. */

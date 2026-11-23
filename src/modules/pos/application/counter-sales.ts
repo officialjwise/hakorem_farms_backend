@@ -5,7 +5,7 @@ import { ForbiddenError, NotFoundError, ValidationFailedError } from '../../../p
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import { registerMessages, translate } from '../../../platform/i18n/messages';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
-import { buyerVerdict, type Billing, type BillingDocumentView, type BuyerDetails } from '../../bil';
+import { buyerVerdict, maskTin, type Billing, type BillingDocumentView, type BuyerDetails } from '../../bil';
 import type { Authoriser } from '../../iam';
 import { defaultLineUom, type MasterDataRefs, type PricingService } from '../../mdm';
 import type { Settings } from '../../../platform/settings/settings';
@@ -216,7 +216,10 @@ export class CounterSales {
       }
       const order = await this.orders.viewOf(tx, sale.id);
       const [receipt] = await this.billing.viewsIn(tx, [sale.billingDocument!.id]);
-      const response: StoredResponse<CounterSaleResultView> = { status: 201, body: { order, receipt: receipt!, changeDuePesewas: (change.ok ? change.value : Money.zero()).toJsonInteger(), currency: 'GHS', escPosBase64: null } };
+      // The TIN is printed in full only on the document and its archive (the owner on A-285 (f), 2026-11-23): the answer,
+      // and so its stored idempotency copy and every replay, shows its last four characters, as the audit row does.
+      const shown = { ...receipt!, customerTin: maskTin(receipt!.customerTin) };
+      const response: StoredResponse<CounterSaleResultView> = { status: 201, body: { order, receipt: shown, changeDuePesewas: (change.ok ? change.value : Money.zero()).toJsonInteger(), currency: 'GHS', escPosBase64: null } };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
     });

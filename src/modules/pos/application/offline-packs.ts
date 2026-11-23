@@ -1,12 +1,14 @@
 import { Money, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
-import type { UnitOfWork } from '../../../platform/database/unit-of-work';
+import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import { NotFoundError } from '../../../platform/errors/api-error';
 import type { Settings } from '../../../platform/settings/settings';
 import type { Authoriser } from '../../iam';
 import type { StockQueries, StockUnits } from '../../inv';
+import type { Weighing } from '../../liv';
 import type { MasterDataRefs, PricingService, SellingUnitView, TaxCellView, TaxService } from '../../mdm';
+import { animalPrice, OFFLINE_PACK_PRICE, type AnimalPrice } from '../domain/animal-price';
 import { packValidUntil } from '../domain/client-time';
 import { REASONS_BY_KIND } from '../domain/till';
 import type { Devices } from './devices';
@@ -53,14 +55,19 @@ export interface OfflineProductView {
   readonly sellingUnits: readonly OfflineSellingUnitView[];
 }
 
-/** The contract's `OfflineStockUnit`: never a cost. */
-export interface OfflineStockUnitView {
+/**
+ * The contract's `OfflineStockUnit`: never a cost. An animal carries its own price, resolved by the engine from its own
+ * grade and latest weight (CR-052, A-286), with the weight's date and source; a lot sells at its product's band.
+ */
+export interface OfflineStockUnitView extends AnimalPrice {
   readonly id: string;
   readonly identifier: string;
   readonly productId: string;
   readonly locationId: string;
   readonly gradeId: string | null;
   readonly lastWeightKg: string | null;
+  readonly lastWeighedAt: string | null;
+  readonly lastWeightSource: 'SCALE' | 'MANUAL' | 'ESTIMATE' | null;
   readonly sellable: boolean;
 }
 
@@ -118,6 +125,7 @@ export class OfflinePacks {
     private readonly settings: Settings,
     private readonly audit: AuditTrail,
     private readonly clock: Clock,
+    private readonly weighing: Pick<Weighing, 'latestIn'>,
     private readonly linkTemplate: string | null = null,
   ) {}
 
@@ -139,11 +147,14 @@ export class OfflinePacks {
       const standing = await this.stock.unitsStandingAtIn(tx, branchId, register.locationId);
       const facts = await this.units.factsIn(tx, standing.map((u) => u.stockUnitId), now);
       const methods = await this.refs.livePaymentMethodsOfChannelIn(tx, 'POS');
-      const reasons = (await this.refs.reasonCodesOfDomainsIn(tx, [OVERRIDE_DOMAIN, CASH_DOMAIN])).filter((r) => r.domain !== CASH_DOMAIN || CASH_REASONS.has(r.code));
+      // The server's own reason for a difference found at sync (A-286 (d)) is never offered to a cashier.
+      const reasons = (await this.refs.reasonCodesOfDomainsIn(tx, [OVERRIDE_DOMAIN, CASH_DOMAIN])).filter((r) => (r.domain !== CASH_DOMAIN || CASH_REASONS.has(r.code)) && r.code !== OFFLINE_PACK_PRICE);
       const [perLine, perShift] = await Promise.all([this.authoriser.limitIn(tx, actor!, 'PRICE_OVERRIDE_PER_LINE', branchId), this.authoriser.limitIn(tx, actor!, 'PRICE_OVERRIDE_PER_SHIFT', branchId)]);
       // Cash only offline by default: the methods allowed offline, and mobile money too only when the branch allows a
       // supervisor-approved unverified tender (OFFLINE_SYNC 5.2: both must be on for mobile money).
       const offlineMethods = methods.filter((m) => (m.allowedOffline && m.kind !== 'MOBILE_MONEY') || (m.kind === 'MOBILE_MONEY' && unverifiedMobileMoney));
+
+      const prices = await this.animalPricesIn(tx, branchId, now, selling.products, standing, facts);
 
       const baseUoms = [...(await this.refs.productsIn(tx, selling.products.map((p) => p.product.id))).values()].map((p) => p.baseUom);
       const uoms = await this.refs.unitsIn(tx, [...selling.products.flatMap((p) => [p.saleUom, ...p.units.map((u) => u.uom)]), ...baseUoms]);
@@ -174,7 +185,21 @@ export class OfflinePacks {
         }),
         stockUnits: standing.map((u) => {
           const fact = facts.get(u.stockUnitId);
-          return { id: u.stockUnitId, identifier: u.identifier, productId: u.productId, locationId: u.locationId, gradeId: fact?.gradeId ?? null, lastWeightKg: fact?.lastWeightKg ?? null, sellable: u.sellable };
+          const price = prices.get(u.stockUnitId)!;
+          return {
+            id: u.stockUnitId,
+            identifier: u.identifier,
+            productId: u.productId,
+            locationId: u.locationId,
+            gradeId: fact?.gradeId ?? null,
+            lastWeightKg: fact?.lastWeightKg ?? null,
+            lastWeighedAt: fact?.lastWeighedAt?.toISOString() ?? null,
+            lastWeightSource: price.weightSource,
+            sellable: u.sellable,
+            priceListEntryId: price.priceListEntryId,
+            priceBand: price.priceBand,
+            unpricedReason: price.unpricedReason,
+          };
         }),
         paymentMethods: methods.map((m) => ({ id: m.id, code: m.code, name: m.name, kind: m.kind })),
         uoms: uoms.map((u) => ({ code: u.code, name: u.name, singularName: u.singularName, pluralName: u.pluralName, displayDecimals: u.displayDecimals })),
@@ -196,12 +221,71 @@ export class OfflinePacks {
         entityId: register.id,
         branchId,
         before: null,
-        after: { deviceId: device.id, generatedAt: view.generatedAt, validUntil: view.validUntil, priceListVersionIds: [...view.priceListVersionIds], taxSchemeVersionId: view.taxSchemeVersionId, products: view.products.length, stockUnits: view.stockUnits.length },
+        after: { deviceId: device.id, generatedAt: view.generatedAt, validUntil: view.validUntil, priceListVersionIds: [...view.priceListVersionIds], taxSchemeVersionId: view.taxSchemeVersionId, products: view.products.length, stockUnits: view.stockUnits.length, pricedAnimals: view.stockUnits.filter((u) => u.priceBand !== null).length },
       });
       return view;
     });
   }
+
+  /**
+   * Each standing unit's own price (CR-052, A-286): every sellable animal priced by the engine as the counter would for a
+   * buyer with no account, one head in the first unit its product is sold by here, from that animal's own grade and
+   * latest weight, never derived; with its latest weighing's source when that weighing is the weight priced (LIV's
+   * history, FR-LIV-004). A lot carries no price of its own.
+   */
+  private async animalPricesIn(
+    tx: Transaction,
+    branchId: string,
+    at: Date,
+    products: readonly { readonly product: { readonly id: string }; readonly baseUom: string; readonly units: readonly SellingUnitView[] }[],
+    standing: readonly StandingUnit[],
+    facts: UnitFacts,
+  ): Promise<ReadonlyMap<string, AnimalPrice & { readonly weightSource: 'SCALE' | 'MANUAL' | 'ESTIMATE' | null }>> {
+    const sold = new Map(products.map((p) => [p.product.id, p] as const));
+    const animals = standing.filter((u) => facts.get(u.stockUnitId)?.tracking === 'SERIAL');
+    const asked = animals.filter((u) => u.sellable && sold.has(u.productId));
+    const resolved =
+      asked.length === 0
+        ? new Map()
+        : new Map(
+            (
+              await this.pricing.resolveIn(tx, {
+                channel: 'POS',
+                branchId,
+                at,
+                lines: asked.map((u) => {
+                  const fact = facts.get(u.stockUnitId)!;
+                  const product = sold.get(u.productId)!;
+                  const uom = product.units[0]!.uom;
+                  return {
+                    lineRef: u.stockUnitId,
+                    productId: u.productId,
+                    quantity: ONE_HEAD,
+                    ...(uom === product.baseUom ? {} : { uom }),
+                    ...(fact.gradeId === null ? {} : { gradeId: fact.gradeId }),
+                    ...(fact.lastWeightKg === null ? {} : { weightKg: fact.lastWeightKg }),
+                  };
+                }),
+              })
+            ).lines.map((l) => [l.lineRef, l] as const),
+          );
+    const weighings = await this.weighing.latestIn(tx, animals.map((u) => u.stockUnitId));
+    const prices = new Map<string, AnimalPrice & { readonly weightSource: 'SCALE' | 'MANUAL' | 'ESTIMATE' | null }>();
+    for (const u of standing) {
+      const fact = facts.get(u.stockUnitId);
+      const weighing = weighings.get(u.stockUnitId);
+      const weightSource = weighing !== undefined && fact?.lastWeightKg !== null && fact?.lastWeightKg !== undefined && weighing.weightKg === fact.lastWeightKg ? weighing.weightSource : null;
+      prices.set(u.stockUnitId, { ...animalPrice({ tracking: fact?.tracking ?? 'LOT', sellable: u.sellable }, resolved.get(u.stockUnitId)), weightSource });
+    }
+    return prices;
+  }
 }
+
+/** One animal, as a counter line sells it. */
+const ONE_HEAD = '1.000';
+
+type StandingUnit = Awaited<ReturnType<StockQueries['unitsStandingAtIn']>>[number];
+type UnitFacts = Awaited<ReturnType<StockUnits['factsIn']>>;
 
 function bandOf(unit: SellingUnitView): PriceBandView | null {
   return unit.band === null

@@ -2,7 +2,7 @@ operationId: getOfflinePack
 tags:
   - pos
 summary: "Download the offline pack for a shift"
-description: "Everything a till needs to sell for a shift with no network (2.11.0, FR-POS-010, OFFLINE_SYNC 5.1, B09b continued 2): a cache with an age, never trusted at sync. Read by a holder of `pos.sale.create` at the till's branch and location from an enrolled device of that till (`X-Device-Credential`: 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device). It carries the channel `POS` prices of every product a counter may sell (`ACTIVE`, held in stock, priced by a list in force), each in every unit it is sold by at this register at that unit's own price (`sellingUnits`, CR-038), whether each product's prices include tax (`taxInclusive`, CR-031), the price list versions and the tax scheme version in force with its cells, the animals and lots standing at the till's location with whether a sale may take them now (never a cost), the payment methods the counter takes, the `PRICE_OVERRIDE` reasons and the `CASH_MOVEMENT` reasons `recordCashMovement` takes (CR-032 point 6), and the policy: `maxOfflineHours` and `maxQueuedSales` from the settings `pos.offline.max_hours` (8) and `pos.offline.max_queued_sales` (500) for the branch, `offlineTenderMethodIds` the methods allowed offline (cash only by default; mobile money as well only while `pos.offline.allow_unverified_mobile_money` is on for the branch), and the caller's per-line and per-shift price override limits, and `pinMaxWrongTries`, the wrong till PIN tries before a PIN locks (2.17.0, CR-032 point 3). `uoms` names every unit the pack's products are sold or counted in, singular and plural (2.17.0, CR-051). `validUntil` is `generatedAt` plus `maxOfflineHours`. A product priced by grade or weight (a live animal) has no single band (`priceBand` null). Each issue is audited with the device and the versions it gave.\n\nPermission: `pos.sale.create`."
+description: "Everything a till needs to sell for a shift with no network (2.11.0, FR-POS-010, OFFLINE_SYNC 5.1, B09b continued 2): a cache with an age, never trusted at sync. Read by a holder of `pos.sale.create` at the till's branch and location from an enrolled device of that till (`X-Device-Credential`: 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`, 403 for another till's device). It carries the channel `POS` prices of every product a counter may sell (`ACTIVE`, held in stock, priced by a list in force), each in every unit it is sold by at this register at that unit's own price (`sellingUnits`, CR-038), whether each product's prices include tax (`taxInclusive`, CR-031), the price list versions and the tax scheme version in force with its cells, the animals and lots standing at the till's location with whether a sale may take them now (never a cost), the payment methods the counter takes, the `PRICE_OVERRIDE` reasons and the `CASH_MOVEMENT` reasons `recordCashMovement` takes (CR-032 point 6), and the policy: `maxOfflineHours` and `maxQueuedSales` from the settings `pos.offline.max_hours` (8) and `pos.offline.max_queued_sales` (500) for the branch, `offlineTenderMethodIds` the methods allowed offline (cash only by default; mobile money as well only while `pos.offline.allow_unverified_mobile_money` is on for the branch), and the caller's per-line and per-shift price override limits, and `pinMaxWrongTries`, the wrong till PIN tries before a PIN locks (2.17.0, CR-032 point 3). `uoms` names every unit the pack's products are sold or counted in, singular and plural (2.17.0, CR-051). `validUntil` is `generatedAt` plus `maxOfflineHours`. A product priced by grade or weight (a live animal) has no single band (`priceBand` null); instead each sellable animal in `stockUnits` carries its own `priceBand` and `priceListEntryId`, resolved by the pricing engine as the counter would for a buyer with no account from that animal's own grade and latest weight (2.28.0, CR-052), with `lastWeighedAt` and `lastWeightSource`; an animal the engine cannot price, or one that cannot be sold now, has none and `unpricedReason` says why (`MISSING_GRADE_OR_WEIGHT`, `NO_RULE`, `QUOTE_ONLY`, `NOT_SELLABLE`). A lot carries no price of its own: it sells at its product's band. The server prices every synced sale again at its own time (`syncOfflineSales`). Each issue is audited with the device and the versions it gave.\n\nPermission: `pos.sale.create`."
 x-permission: pos.sale.create
 parameters:
   - name: id
@@ -254,28 +254,72 @@ responses:
               locationId: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
               gradeId: null
               lastWeightKg: "26.400"
+              lastWeighedAt: "2026-11-23T06:40:00Z"
+              lastWeightSource: SCALE
               sellable: true
+              priceListEntryId: "019a7afc-6a10-7c21-9e3f-2b8d4c6e1a01"
+              priceBand:
+                listPricePesewas: 65000
+                floorPricePesewas: 40000
+                ceilingPricePesewas: 90000
+                basis: PER_HEAD
+              unpricedReason: null
             - id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
               identifier: G-0157
               productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
               locationId: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
               gradeId: null
               lastWeightKg: "31.800"
+              lastWeighedAt: "2026-11-23T06:42:00Z"
+              lastWeightSource: SCALE
               sellable: true
+              priceListEntryId: "019a7afc-6a10-7c21-9e3f-2b8d4c6e1a02"
+              priceBand:
+                listPricePesewas: 120000
+                floorPricePesewas: 90000
+                ceilingPricePesewas: 150000
+                basis: PER_HEAD
+              unpricedReason: null
             - id: "019a7a8f-9d18-7468-89a0-4f5a9de5c838"
               identifier: G-0163
               productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
               locationId: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
               gradeId: null
               lastWeightKg: "22.150"
+              lastWeighedAt: "2026-11-22T07:05:00Z"
+              lastWeightSource: SCALE
               sellable: false
+              priceListEntryId: null
+              priceBand: null
+              unpricedReason: NOT_SELLABLE
             - id: "019a7a8f-bc07-7e4c-9384-ed921796666f"
               identifier: G-0171
               productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
               locationId: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
               gradeId: null
               lastWeightKg: "24.900"
+              lastWeighedAt: "2026-11-22T07:10:00Z"
+              lastWeightSource: SCALE
               sellable: true
+              priceListEntryId: "019a7afc-6a10-7c21-9e3f-2b8d4c6e1a01"
+              priceBand:
+                listPricePesewas: 65000
+                floorPricePesewas: 40000
+                ceilingPricePesewas: 90000
+                basis: PER_HEAD
+              unpricedReason: null
+            - id: "019a7a8f-d1e4-7f02-8a6b-3c9e5d7f2b10"
+              identifier: G-0190
+              productId: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+              locationId: "019a7a83-a6ab-7171-96a9-1fe68e7298c4"
+              gradeId: null
+              lastWeightKg: null
+              lastWeighedAt: null
+              lastWeightSource: null
+              sellable: true
+              priceListEntryId: null
+              priceBand: null
+              unpricedReason: MISSING_GRADE_OR_WEIGHT
           paymentMethods:
             - id: "019a7a92-a26f-7b9f-90d7-c2c5802e3ba3"
               code: CASH

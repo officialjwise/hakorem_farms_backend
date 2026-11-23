@@ -196,13 +196,15 @@ describe('the offline pack a cashier reads from the till (FR-POS-010, OFFLINE_SY
       [id('shop')],
     );
     expect((read.body.stockUnits as { identifier: string }[]).map((u) => u.identifier)).toEqual(standing.map((s) => s.identifier));
-    for (const unit of read.body.stockUnits as Record<string, unknown>[]) expect(Object.keys(unit).sort()).toEqual(['gradeId', 'id', 'identifier', 'lastWeightKg', 'locationId', 'productId', 'sellable']);
+    for (const unit of read.body.stockUnits as Record<string, unknown>[]) expect(Object.keys(unit).sort()).toEqual(['gradeId', 'id', 'identifier', 'lastWeighedAt', 'lastWeightKg', 'lastWeightSource', 'locationId', 'priceBand', 'priceListEntryId', 'productId', 'sellable', 'unpricedReason']);
     expect(JSON.stringify(read.body)).not.toMatch(/cost|pool|value_?pesewas/i);
     const methods = await rows<{ id: string }>("SELECT id FROM mdm.payment_method WHERE is_enabled AND deleted_at IS NULL AND 'POS' = ANY(channels) ORDER BY code");
     expect((read.body.paymentMethods as { id: string }[]).map((m) => m.id)).toEqual(methods.map((m) => m.id));
     // The price override reasons, and the cash movement reasons the till's movements take (CR-032 point 6, A-273 (c)).
-    const overrides = await rows<{ code: string }>("SELECT code FROM mdm.reason_code WHERE domain = 'PRICE_OVERRIDE' ORDER BY code");
+    // The server's own reason for a difference found at sync is never offered to the cashier (A-286 (d)).
+    const overrides = await rows<{ code: string }>("SELECT code FROM mdm.reason_code WHERE domain = 'PRICE_OVERRIDE' AND code <> 'OFFLINE_PACK_PRICE' ORDER BY code");
     const reasons = read.body.reasonCodes as { code: string; domain: string; description: string }[];
+    expect(reasons.some((r) => r.code === 'OFFLINE_PACK_PRICE')).toBe(false);
     expect(reasons.filter((r) => r.domain === 'PRICE_OVERRIDE').map((r) => r.code)).toEqual(overrides.map((r) => r.code));
     expect(reasons.filter((r) => r.domain === 'CASH_MOVEMENT').map((r) => r.code)).toEqual(['FLOAT_TOP_UP', 'FUEL_PAYOUT', 'OTHER_PAYOUT', 'SAFE_DROP', 'SUPPLIER_PAYOUT']);
     expect(reasons.map((r) => r.domain).filter((d) => d !== 'PRICE_OVERRIDE' && d !== 'CASH_MOVEMENT')).toEqual([]);

@@ -97,6 +97,16 @@ export class Weighing {
     );
   }
 
+  /**
+   * Each unit's latest weighing (FR-LIV-004), by when it was measured, in the caller's transaction: the weight, its
+   * source and its time, for a higher module that shows them beside a price (POS's offline pack, CR-052, A-286). A
+   * unit never weighed is absent. Read only; the caller authorised what it shows.
+   */
+  async latestIn(tx: Transaction, stockUnitIds: readonly string[]): Promise<ReadonlyMap<string, { readonly weightKg: string; readonly weightSource: WeightSource; readonly measuredAt: Date }>> {
+    const latest = await this.store.latestWeights(tx, stockUnitIds);
+    return new Map([...latest].map(([unitId, r]) => [unitId, { weightKg: r.weightKg, weightSource: r.weightSource, measuredAt: r.measuredAt }] as const));
+  }
+
   /** Records a batch of weighings in the caller's transaction, every rule applied; the caller authorised it. */
   async recordIn(tx: Transaction, actor: Actor, records: readonly WeightInput[]): Promise<WeightBatchView> {
     if (records.length === 0 || records.length > MAX_WEIGHINGS) throw new LivestockRecordInvalidError([{ field: '/records', rule: records.length === 0 ? 'NO_RECORDS' : 'TOO_MANY_RECORDS' }]);
