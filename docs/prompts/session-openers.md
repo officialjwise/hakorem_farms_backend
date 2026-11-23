@@ -3704,7 +3704,11 @@ again. The rest, in this order:
    credited for what came back, the cash due fixed again); the driver's offline sync (syncDriverEvents, idempotent by
    client id, CR-057 point 3: a DUPLICATE answers the first outcome). PAY's `Payment.driver` (BL-096). Partial
    fulfilment and backorders (FR-ORD-012) with the delivery fee once, on the first dispatch, never again (UAT scenario
-   2's rule, A-331 (b), steps 2.12 and 2.13, test with exact pesewas); an order on account dispatched with its due date
+   2's rule, A-331 (b), approved by the owner 2026-11-23, steps 2.12 and 2.13, test with exact pesewas): a later dispatch
+   the farm makes to complete a short or part order carries no fee. The owner, 2026-11-23: a delivery the customer asks
+   for as an extra is a separate, explicit fee line, added by staff who hold its permission (a new permission, granted
+   by migration, its wrong-role test), never inferred from a second dispatch; test-first with exact pesewas, on the
+   dispatch's document and its total; an order on account dispatched with its due date
    from the customer's terms (the owner, 2026-11-23: the credit check runs at dispatch, WHL's credit control through a
    port, ORD sitting below WHL, and the invoice is issued from the quantities actually dispatched; remove
    `CREDIT_DISPATCH_NOT_AVAILABLE` LOUD); collectFulfilment (a collection order handed over and paid at the till); the
