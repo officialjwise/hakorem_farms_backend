@@ -92,7 +92,7 @@ The receipt printed offline carries `P-<REGISTER>-<SHIFT SEQ>-<COUNTER>`:
 - `SHIFT SEQ` is `pos.shift.shift_seq`, the shift's number on that register, without padding.
 - `COUNTER` is the device counter, zero-padded to four digits.
 
-Example: `P-T2-311-0042`. The receipt layout states that the official receipt number follows, and prints the sale's UUIDv7 as a QR code. The provisional reference is stored in the billing document beside the official number, and either one finds the sale. It is never used as a document number in the ledger.
+Example: `P-T2-311-0042`. The receipt layout states that the official receipt number follows. It prints no QR code (the owner, 2026-11-17: the TOTP enrolment QR is the only QR in the system); it prints the receipt link instead (section 4.5). The provisional reference is stored in the billing document beside the official number, and either one finds the sale. It is never used as a document number in the ledger.
 
 ### 4.4 The payload hash
 
@@ -105,6 +105,15 @@ The device computes `payloadHash` when the sale completes, and stores it with th
 The server recomputes the hash from the received sale and compares. Equal: the sale is as it was when the receipt was printed. Different: `REJECTED_INTEGRITY` (section 9.8). The hash is also stored in `pos.sale_sync.payload_hash`, so the same id arriving later with different content is detected against the first.
 
 What the hash does and does not prove: it shows that the queued record was not changed after the receipt was printed, by a fault or by a casual edit of the browser's store. It does not authenticate the device, because anyone holding the page's code can recompute it. The controls that catch a determined actor are the ones that do not depend on the device being honest: the server re-prices every sale, the counter reveals removed sales, the customer's printed receipt carries the sale id and total, and the cash count at close is blind.
+
+### 4.5 The receipt link (CR-033, ADR-0083, built in B09b continued 4)
+
+Every sale produces a digital receipt, and a printer is optional (the owner, 2026-11-16).
+- **Made by the till.** When the sale is made, offline if need be, the till draws at least 16 bytes from `crypto.getRandomValues` and writes them as base64url with no padding: the sale's `receiptToken`, 22 to 86 characters. It is never derived from the sale's id, the device, the shift or the time. The till fills the pack's `receiptLinkTemplate` with it, shows and prints the link, and keeps the token with the sale, so a resend carries the same token. The token is part of the canonical sale the payload hash covers.
+- **Until the sale syncs** the server has not been sent the token, and the link reads nothing (404). The till's receipt says the link works once the sale reaches the server.
+- **At sync** the server stores only the token's SHA-256 (`pos.receipt_link`, unique), one link per sale, in the sale's own transaction after its log row. The link reads for twelve months from the sale's time unless it is revoked.
+- **A token already bound to another sale, or shaped like a UUID,** refuses only that sale's link. The sale is recorded as always. Its result names `RECEIPT_TOKEN_REFUSED`, the refusal is kept once (`pos.receipt_token_refusal`), and it is raised URGENT to the daily exception report's source (abuse case 37) with the device, the shift, the cashier and both sales. The sale is marked as needing a fresh server-made link, which B11's receipt SMS sends (A-284 (h): with no phone, the counter reprints the official receipt on request). A replayed sync is a `DUPLICATE` and adds nothing.
+- **The public read** (`getPublicReceipt`) takes the token and nothing else, and is rate-limited per address.
 
 ## 5. The offline session
 

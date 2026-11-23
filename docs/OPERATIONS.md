@@ -172,6 +172,7 @@ All buckets are S3-compatible. Credentials are separate per purpose so that a le
 | `S3_SECRET_ACCESS_KEY` `[secret]` | Its secret | Yes | `<40 characters>` |
 | `S3_BUCKET_PUBLIC_MEDIA` | Product image variants, served from a separate origin. The worker writes the variants of each clean product photograph here (ADR-0045); the bucket allows anonymous reads by key and no listing. Required by the worker in staging and production | Yes | `hakorem-prod-media` |
 | `MEDIA_PUBLIC_BASE_URL` | The public media origin that serves `S3_BUCKET_PUBLIC_MEDIA`; the URLs of variants in API responses start with it. Unset in development and test: the bucket's path-style URL on the object store | Staging and prod (API) | `https://media.hakoremfarms.com` |
+| `RECEIPT_LINK_BASE_URL` | The shop's https address the counter's receipt links open (`<base>/r/<token>`, CR-033, ADR-0083); the offline pack hands the till `receiptLinkTemplate` from it. Unset, the template is null and a till makes no link; sales sync as before | Production (API), optional elsewhere | `https://shop.hakorem.test` |
 | `S3_BUCKET_PRIVATE` | Documents, proofs, supplier and investor files; signed URLs only | Yes | `hakorem-prod-private` |
 | `S3_ANCHOR_ACCESS_KEY_ID` `[secret]`, `S3_ANCHOR_SECRET_ACCESS_KEY` `[secret]` | Credentials that can write to the anchor bucket and cannot delete | Prod (worker) | `<shape as above>` |
 | `S3_BUCKET_ANCHORS` | Audit anchors, with object lock | Prod | `hakorem-prod-anchors` |
