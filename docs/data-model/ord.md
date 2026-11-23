@@ -16,6 +16,43 @@ Owner: ORD module. The single order record for every channel, sale posting, fulf
 **B09a continued 2f (A-232, ADR-0070, migration 0204):** an online order is written by `OnlineOrders.placeIn` from SHP's checkout: channel `ONLINE`, no `customer_id` (guest), `contact_name` and `contact_phone_e164`, `source_document_id` the checkout, `delivery_address_snapshot`, `delivery_zone_id` and `delivery_fee_pesewas` as the checkout took them, `estimated_total_pesewas` and `maximum_total_pesewas` the checkout's, no `salesperson_id`; a catch-weight line writes `estimated_weight_kg` and `tolerance_percent`. `uq_sales_order_online_source` (partial unique on `source_document_id` where `channel = 'ONLINE'`) holds one online order per checkout and is the point read of the order's in-transaction handlers. Confirmed, its lines are held by the reservations handed over from the checkout (`reservation_id` where one reservation holds the line). No permission is added.
 
 **B09a continued 2g (A-234, migration 0206):** ORD publishes its completed sales for RPT (ADR-0011, ADR-0023): `ord.pub_completed_sale` (`order_id`, `branch_id`, `channel`, `completed_at`, `business_date` = `completed_at` in Africa/Accra, `gross_pesewas` = `final_total_pesewas`; `COMPLETED` orders only, so a VOIDED or cancelled order is not a sale) and `ord.pub_completed_sale_line` (`order_id`, `line_id`, `branch_id`, `channel`, `completed_at`, `business_date`, `product_id`, `sold_qty` and `sold_uom`, the weighed kilograms in `KG` for a line priced per kilogram and else `qty_fulfilled` in the line's unit, `gross_pesewas` = `final_line_total_pesewas`), granted to `hk_app`, `hk_worker` and `hk_report`. Neither reads the clock. Index `ix_sales_order_completed` (`branch_id`, `completed_at`) where `COMPLETED`. A change to either view is a contract change for RPT.
+**B11 (A-332 to A-336, ADR-0091, migrations 0293 to 0296):** `ord.fulfilment`, `ord.pick_list_line`, `ord.fulfilment_line` and `ord.order_consent` as below. A pick list (`FULFILMENT`, `PCK-…` from its own series, `ck_fulfilment_number`) is written `PICK_LIST` of a `CONFIRMED` or `PICKING` order of its own branch (`ck_fulfilment_order`) and moves `PICK_LIST`, `PICKING`, `PACKED`, then `DISPATCHED` or `COLLECTED`, or is `CANCELLED` before it is packed (`ck_fulfilment_transition`, HK004). Its lines (`ord.pick_list_line`) never ask more of an order line than it ordered, over pick lists not cancelled, under the order line's row lock (`ck_pick_list_line_cap`). A pick (`ord.fulfilment_line`, its client id the key) is of an open line of its own open pick list and the picks not withdrawn never come to more than the line asks (`ck_fulfilment_line_cap`); it is never changed or removed, only withdrawn while its pick list is open or given its movement at dispatch. A pick moves no stock (ADR-0091): `stock_movement_id` is written at dispatch (B11 continued). While a line is picked, `qty_fulfilled`, `fulfilled_weight_kg`, `weight_source` (its least trusted pack) and `final_line_total_pesewas` (`half_up(price x weighed kg)` once over the line) carry its picks; dispatch fixes them. A substitute line names the line it replaces (`substituted_for_line_id`), which becomes `SUBSTITUTED`. The permissions are migrations 0295 and 0296.
+
+### `ord.pick_list_line` · DOCUMENT
+
+What a pick list asks of one order line (B11).
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `fulfilment_id` | `uuid` | NOT NULL, FK `ord.fulfilment` | |
+| `sales_order_line_id` | `uuid` | NOT NULL, FK `ord.sales_order_line`; one per pick list (`uq_pick_list_line`) | The order line |
+| `line_no` | `integer` | NOT NULL, UNIQUE per pick list | |
+| `qty_to_pick` | `qty` | NOT NULL, CHECK `> 0`; with the other open lines of pick lists not cancelled, never above `qty_ordered` (`ck_pick_list_line_cap`) | In the order line's unit |
+| `status` | `text` | NOT NULL, CHECK in (`OPEN`, `CANCELLED`); only `OPEN` to `CANCELLED` | Cancelled when its order line is substituted or cancelled |
+
+Standard columns: `created_*`, `updated_*`.
+
+### `ord.order_consent` · DOCUMENT
+
+What an order asks its customer, and the answer (B11, FR-ORD-010, FR-ORD-013, CR-054, ADR-0091).
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `sales_order_id`, `sales_order_line_id` | `uuid` | NOT NULL, FK; the line of its own order | |
+| `kind` | `text` | NOT NULL, CHECK in (`HIGHER_TOTAL`, `SUBSTITUTION`, `SHORT_PICK`); each with its own fields (`ck_order_consent_shape`) | |
+| `status` | `text` | NOT NULL, CHECK in (`PENDING`, `ACCEPTED`, `REFUSED`, `WITHDRAWN`); one `PENDING` per order (`uq_order_consent_pending`) | |
+| `proposed_product_id`, `proposed_stock_unit_id`, `proposed_qty`, `proposed_uom` | | NULL; a substitute's product, animal, quantity and unit, or a short pick's quantity in the line's unit | |
+| `price_list_entry_id`, `price_basis`, `resolved_unit_price_pesewas`, `floor_unit_price_pesewas`, `ceiling_unit_price_pesewas`, `proposed_line_total_pesewas` | | NULL; a substitute's pricing record as the engine gave it when proposed | The substitute line is written at it |
+| `weighed_weight_kg`, `weighed_total_pesewas` | `kg`, `pesewas` | NULL; a higher total's weighed figures | |
+| `note` | `text` | NULL | What was put to the customer |
+| `asked_at` | `timestamptz` | NOT NULL | From the application's clock |
+| `answered_by`, `answered_at`, `method`, `answer_note` | | NULL while `PENDING`; `method` in (`PHONE`, `IN_PERSON`, `WHATSAPP`, `SIGNED_LINK`, `CUSTOMER_ACCOUNT`, `SYSTEM`); `SYSTEM` only for `WITHDRAWN`; staff by phone, in person or WhatsApp never `created_by` (`ck_order_consent_answered`) | |
+| `substitute_line_id` | `uuid` | NULL, UNIQUE, FK `ord.sales_order_line`; only on an accepted substitution, written once | |
+
+Standard columns: `DOCUMENT` (`branch_id`, `version`, `created_*`, `updated_*`). Once answered, only `substitute_line_id` is written, once (`ck_order_consent_transition`, HK004).
+
 ---
 
 ### `ord.sales_order` · DOCUMENT
@@ -185,9 +222,10 @@ A pick, pack and dispatch of all or part of an order. Built in B11. Posted statu
 | `picked_at` | `timestamptz` | NULL | |
 | `packed_at` | `timestamptz` | NULL | |
 | `dispatched_at` | `timestamptz` | NULL | |
-| `package_count` | `integer` | NULL | |
+| `package_count` | `integer` | NULL, CHECK `> 0`; set exactly when packed | |
+| `cancel_reason`, `cancelled_by`, `cancelled_at` | | NULL; set exactly when `CANCELLED` (B11) | |
 
-Standard columns: `DOCUMENT` (`status` in `PICK_LIST`, `PICKING`, `PACKED`, `DISPATCHED`, `COLLECTED`, `CANCELLED`).
+Standard columns: `DOCUMENT` (`status` in `PICK_LIST`, `PICKING`, `PACKED`, `DISPATCHED`, `COLLECTED`, `CANCELLED`). As built (B11): `fulfilment_no` NOT NULL (allocated when made); `picker_id` and `picked_at` set from the first pick.
 
 ### `ord.fulfilment_line` · DOCUMENT
 
@@ -203,7 +241,11 @@ What was picked for an order line, with weight.
 | `qty` | `qty` | NOT NULL, CHECK `> 0` | |
 | `weight_kg` | `kg` | NULL | Weight at pick |
 | `weight_source` | `text` | NULL, CHECK in (`SCALE`, `MANUAL`, `ESTIMATE`) | |
-| `stock_movement_id` | `uuid` | NULL, FK `inv.stock_movement` | Shop floor or cold room to vehicle or customer |
+| `stock_movement_id` | `uuid` | NULL, UNIQUE, FK `inv.stock_movement`; written at dispatch, never on a withdrawn pick | Shop floor or cold room to vehicle or customer |
+| `pick_list_line_id` | `uuid` | NOT NULL, FK `ord.pick_list_line` (B11) | What the pick is against |
+| `qty_base` | `qty` | NOT NULL, CHECK `> 0` (B11) | In the product's base unit: a catch-weight pack's weighed kilograms |
+| `withdrawn_at`, `withdrawn_by` | | NULL; both or neither (B11) | A pick taken back (a pack swapped); kept, never counted again |
+| `recorded_at` | `timestamptz` | NOT NULL (B11) | From the application's clock |
 
 ### `ord.order_return` · DOCUMENT
 

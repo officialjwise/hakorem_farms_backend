@@ -100,6 +100,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B10 continued 4 | `B10c4-quote-pipeline.md` | `b10c4-quote-pipeline` | B4 to B12 | Built and split (A-327): several live links per quote version, each revoked on its own, the quote decided once across them and every link closed on replace, accept or expiry; the device and staff session behind each decision through a link, flagged for the exception report (abuse case 40); listMyQuotes the caller's own; the token shown once; BL-093; every write refuses the wrong role |
 | B10 continued 5 | `B10c5-quote-document-pipeline.md` | `b10c5-quote-document-pipeline` | B4 to B12 | The quote archived once on issue and the pipeline reconciling to listQuotes; subject to stock with exact quantities (after ADR-0019); UAT scenario 2's dry run with every difference; every write refuses the wrong role |
 | B11 | `B11-fulfilment-delivery.md` | `b11-fulfilment-delivery` | B4 to B12 | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
+| B11 continued | `B11b-dispatch-delivery.md` | `b11b-dispatch-delivery` | B4 to B12 | Cash on delivery lands against the driver and the outbox guarantees the customer notification (inserted by B11, A-336) |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
 | B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
 | B13 | `B13-hardening-deploy.md` | `b13-hardening-deploy` | B13 — Hardening, smoke suite and deploy | Every non-functional target met and evidenced on the live server |
@@ -3245,7 +3246,7 @@ Stop at the gate and write docs/sessions/B10c5-quote-document-pipeline.md.
 
 ## B11 — Order fulfilment, delivery and notifications
 
-Branch `b11-fulfilment-delivery`. Report `docs/sessions/B11-fulfilment-delivery.md`. Gate: a catch-weight order re-prices at pick, cash on delivery lands against the driver, and the outbox guarantees the customer notification.
+Branch `b11-fulfilment-delivery`. Report `docs/sessions/B11-fulfilment-delivery.md`. **Built, then split at its first sub-domain boundary (A-332 to A-336, ADR-0091, contract 2.25.0): pick lists, picks with weights, the catch-weight re-pricing and the customer's consent beyond tolerance, packing, substitutions, the short pick (CR-054 points 2 and 3), CR-053, cancellation while picking and CR-056's Storekeeper and Manager grants. The rest is B11 continued, below.** Gate: a catch-weight order re-prices at pick, cash on delivery lands against the driver, and the outbox guarantees the customer notification (the first part proved here; the rest by B11 continued).
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -3320,6 +3321,90 @@ UAT scenario 2's rule for a partial dispatch (B10 continued 5, A-331 (b), open w
 once, on the first dispatch of an order, never again on a later one; test it with exact pesewas (steps 2.12 and 2.13),
 and finish scenario 2's dry run from step 2.12, recording every difference.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
+```
+
+## B11 continued — Dispatch, delivery, the driver's cash, returns of part of a crate and notifications
+
+Branch `b11b-dispatch-delivery`. Report `docs/sessions/B11b-dispatch-delivery.md`. Inserted by B11 (A-336, ADR-0026 Amendments). Gate: cash on delivery lands against the driver, with the amount due fixed at dispatch from the invoice on the weighed quantity, and the outbox guarantees the customer notification. Split again at a sub-domain boundary (dispatch and delivery, then returns, then notifications) if the context will not reach the gate.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B11-fulfilment-delivery.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the ORD (fulfilment), DEL and NTF requirement blocks of docs/SRS.md (nothing else
+from the SRS), docs/data-model/ord.md, del.md and ntf.md, the ORD, DEL and NTF cards in
+docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0021, ADR-0026 (the abandoned-cart assignment), ADR-0074 (a link
+sent by message gets its own token from the sending worker, never one stored in the outbox) and the abuse case 6 in
+docs/security/THREAT_MODEL.md, and ADR-0091 (a pick names its stock and moves none; dispatch moves it). Use
+docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B11 continued only, on branch b11b-dispatch-delivery. B11 built pick lists, picks with weights, the
+catch-weight re-pricing at pick and the customer's consent beyond tolerance, packing, substitutions, the short
+pick (CR-054 points 2 and 3), CR-053 and cancellation while picking (contract 2.25.0, A-332 to A-336): build on
+them, never again. The rest: dispatch with the invoice on the weighed quantity (dispatchFulfilment and
+collectFulfilment: consume the order's reservations and issue the picked stock from the pick location in the
+same transaction, never taking a location below zero online, ADR-0091; allocate the deposit; refund an
+overpayment or fix the amount due on delivery; ord.fulfilment.dispatch to the Manager and the Owner), partial
+fulfilment and backorders (FR-ORD-012), cracked eggs written off on the pick (CR-054 point 1, through INV's
+adjustment path and its approval), delivery slot capacity and booking, zone cut-offs and rescheduling (the slot table and generation
+exist from B7, per ADR-0026), routes, drivers, proof of delivery, cash on delivery with the amount due fixed at
+dispatch and the driver reconciliation by someone else, the driver's offline sync, notifications through
+the outbox (SMS, WhatsApp, email, in-app) with opt-out and templates, and, as ADR-0026 proposes,
+abandoned-cart messaging. Run steps 1.11 to 1.16 of docs/UAT.md and the driver case in scenario 5 as a
+dry run and record any difference.
+Notify the maker of a death report sent back by the malware scan (B06r, A-175): liv.MortalityReturned names
+the reporter and the reason; the Farm hand reads no death record, so this message is how they learn of it.
+Build the document sends on NTF (ADR-0062, A-204): sendBillingDocument and sendStatement (202 through the outbox,
+a bil.reprint_log row with the channel for a billing document, the archived bytes or a lasting link, never a new
+document), the remittance advice to the supplier from pur.SupplierRemittanceReady (FR-PUR-013, once per payment), and
+a test that a send reaches only the document's own customer or supplier and that a failed send is retried without
+a second archive row.
+The owner, 2026-11-16 (A-212 (a)): a driver's delivery cash is handed in at a till shift and counted at that shift's close,
+never typed in outside one.
+CR-033 point 3: the receipt SMS is sent once, through the outbox and NTF, when a counter sale that carried customerPhone
+syncs, with the receipt link B9b built, the official number and the sale reference; the sync result or the order says
+whether it was sent, and a replayed sync never sends it twice. A sale whose till token was refused as reused (B9b,
+owner 2026-11-17) gets its SMS with a fresh server-made token, issued by the worker just before the provider call
+(ADR-0074), so the customer still gets a working receipt; test that the refused till token still opens nothing.
+The launch path for online orders (owner, 2026-11-17): guest checkout with a phone number and an SMS tracking link. Send
+the tracking link by SMS through the outbox and NTF when a guest order is placed, carrying its own long random token
+(B09q: no ID is ever a key), and test that a guessed token or the order's id answers 404.
+CR-039 (owner, 2026-11-17, F10f), when the shop opens: the shop sells a product in more than one unit, each at its own
+price (the crate and the single egg). ProductDetail.sellingUnits and CatalogueItem.sellingUnits, saleUom first, each
+priced by its own entry and never derived; CartLineAdd.uom (absent means saleUom), kept on the cart line, priced by it
+at checkout and placement, with stock reserved in the base unit; a crate and a single egg of one product are two cart
+lines. Test-first with exact pesewas.
+Returns of eggs (owner, 2026-11-18, ORD, test-first with exact pesewas): a return is refunded at the price actually
+paid on that sale line, never the current price list. Part of a crate returned as single eggs (five cracked eggs) is
+refunded pro rata at the crate's price per egg, never at the single-egg price, with the running-total rounding of the egg
+cost rule (ADR-0075, half-up, never half-to-even): each return's refund is round(paid x cumulative returned / per crate)
+less round(paid x previously returned / per crate), so the pieces always add up. Tests: a GH₵55.00 crate (5,500 pesewas)
+with five eggs returned refunds exactly 917 (5,500 x 5 / 30 = 916.67, half-up); a crate returned one egg at a time, all 30,
+refunds exactly 5,500 in total, never more; a mutation using the single-egg price, or rounding each egg on its own, turns a
+test red. Lane A's B09b continued 2 adds to createReturn's description that a line is returned in its sold unit; B11
+extends it to a part of a crate returned as single eggs.
+The owner, 2026-11-19 (from the frontend's F11; the numbers checked on the frontend's main at 5242161):
+- CR-056: grant B11's permissions in the seed (the Storekeeper's and the Manager's picking grants are B11's, A-335). A Driver sees and records only their own runs and may upload
+  proof-of-delivery photographs only; a Storekeeper picks and packs; a Manager plans runs and dispatches. Each grant
+  gets a wrong-role refusal test and an other-driver's-run refusal test.
+- CR-057: the driver hands delivery cash in at a till shift. Add the operation: the till records each collection
+  handed in, against the driver's run, and the driver variance report shows anything short. It is never typed in as
+  loose cash. The cash goes only onto the receiving cashier's own open shift, through PAY's TillShiftCheck (ADR-0077),
+  and each collection is handed in exactly once. Test it with exact pesewas, including a short hand-in. POS is lane
+  A's: the parent session gives B11 leave for this one additive POS operation and its tests, keeping lane A's till-cash
+  rules unchanged.
+- CR-053: built in B11.
+- CR-054: built in B11 (points 2 and 3: proposeShortPick and SubstitutionCreate.uom); point 1, cracked eggs on the
+  pick, is this phase's.
+- CR-055: recording a part delivery.
+- The part-crate return rule above stands.
+UAT scenario 2's rule for a partial dispatch (B10 continued 5, A-331 (b), open with the owner): a delivery fee is charged
+once, on the first dispatch of an order, never again on a later one; test it with exact pesewas (steps 2.12 and 2.13),
+and finish scenario 2's dry run from step 2.12, recording every difference.
+Stop at the gate and write docs/sessions/B11b-dispatch-delivery.md.
 ```
 
 ## B12 — Capital, costing, reporting and the public API, and the daily exception report
@@ -3456,7 +3541,7 @@ Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 From 2026-11-17 the remaining phases before B12 run in two lanes at once, each in its own worktree and branch.
 
 - **Lane A:** the rest of B9b (B09b continued to B09b continued 4, and any split of them), then B09c.
-- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11 (and any split of them). B08 continued 2d moves into lane B because
+- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11, then B11 continued (and any split of them). B08 continued 2d moves into lane B because
   B10 reads its report and it needs only PAY's payments (B9a) and WHL, which lane B opens.
 - **B12, then B13, start only when both lanes have merged.** B09r still waits for the owner's real files.
 
