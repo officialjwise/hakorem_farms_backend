@@ -66,6 +66,27 @@ export interface CashMovementRecord {
   readonly occurredAt: Date;
   readonly recordedAt: Date;
   readonly actorId: string;
+  /** Recorded from the till's queue on a shift that had stopped taking entries (ADR-0077 Amendments, 2026-11-18). */
+  readonly lateEntry?: boolean;
+}
+
+/** A late entry on a till shift and its post-close adjustment (`pos.shift_late_entry`, ADR-0077 Amendments). */
+export interface ShiftLateEntryRecord {
+  readonly id: string;
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly sourceKind: 'SALE_CASH' | 'CASH_DROP' | 'PAY_OUT' | 'PAY_IN';
+  readonly paymentId: string | null;
+  readonly orderDocumentId: string | null;
+  readonly cashMovementId: string | null;
+  readonly amountPesewas: bigint;
+  readonly expectedEffect: 'RAISES' | 'LOWERS';
+  readonly adjustmentDirection: 'SHORT' | 'OVER';
+  readonly shiftState: 'CLOSING' | 'CLOSED' | 'FORCE_CLOSED';
+  readonly severity: 'REVIEW' | 'URGENT';
+  readonly occurredAt: Date;
+  readonly recordedAt: Date;
+  readonly actorId: string;
 }
 
 export interface TenderCountRecord {
@@ -224,8 +245,11 @@ export interface TillStore {
   insertCashMovement(tx: Transaction, m: CashMovementRecord): Promise<void>;
   cashMovements(tx: Transaction, ids: readonly string[]): Promise<CashMovementRecord[]>;
   cashMovementsOf(tx: Transaction, shiftId: string, beforeId: string | null, limit: number): Promise<CashMovementRecord[]>;
-  /** Each kind's total over the shift's movements. */
+  /** Each kind's total over the shift's movements, late entries left out: the close counts without them. */
   cashMovementTotals(tx: Transaction, shiftId: string): Promise<ReadonlyMap<CashMovementKind, bigint>>;
+  insertShiftLateEntry(tx: Transaction, e: ShiftLateEntryRecord): Promise<void>;
+  /** What the shift's late entries moved its expected cash by, net (raised less lowered). */
+  lateEntryNet(tx: Transaction, shiftId: string): Promise<bigint>;
   /** The shift's drops taken unwitnessed (A-273 (d)): how many and how much. */
   unwitnessedDrops(tx: Transaction, shiftId: string): Promise<{ readonly count: number; readonly amountPesewas: bigint }>;
   insertTenderCounts(tx: Transaction, counts: readonly TenderCountRecord[], actorId: string, at: Date): Promise<void>;

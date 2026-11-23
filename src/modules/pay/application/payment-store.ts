@@ -73,6 +73,8 @@ export interface NewPayment {
   readonly chequeDueOn?: string | null;
   /** Set only on a reversing payment, written REVERSED. */
   readonly reversesPaymentId?: string | null;
+  /** Cash recorded on a shift that had stopped taking entries, as a late entry (ADR-0077 Amendments, 2026-11-18). */
+  readonly lateEntry?: boolean;
 }
 
 /** A reversal asked for (`pay.payment_reversal`), waiting for a different person's approval. */

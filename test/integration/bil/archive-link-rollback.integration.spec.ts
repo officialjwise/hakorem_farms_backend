@@ -48,6 +48,9 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0281_fin_pos_late_entry_postings',
+      '0280_pos_late_entry',
+      '0279_pay_late_entry',
       '0278_quo_margin_approval_issues_nothing',
       '0277_iam_grant_whl_standing_order_bad_debt_permissions',
       '0276_iam_seed_whl_standing_order_bad_debt_permissions',

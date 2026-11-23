@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { counterGaps, inCounterOrder, latePostingReason, lineNoOf, MAX_SALE_AGE_HOURS, MAX_SYNC_BATCH, newGaps, provisionalRef, saleTooOld, secondsBetween, severityOfLatePosting, tally, tillClockVerdict, tillTakesCash, type ShiftAtSync } from './offline-sync';
+import { counterGaps, inCounterOrder, lateEntrySeverity, lateEntryShiftState, latePostingReason, lineNoOf, MAX_SALE_AGE_HOURS, MAX_SYNC_BATCH, newGaps, provisionalRef, saleTooOld, secondsBetween, severityOfLatePosting, tally, tillClockVerdict, tillTakesCash, type ShiftAtSync } from './offline-sync';
 
 const at = (iso: string) => new Date(iso);
 const OPEN: ShiftAtSync = { status: 'OPEN', forceClosed: false, closedAt: null };
@@ -94,12 +94,28 @@ describe('a sale posted on a later date, or on a shift that has closed, is flagg
   });
 });
 
-describe('cash from the queue goes only onto its own open shift (ADR-0077 offline, A-278 (e))', () => {
-  it('takes the cash on an OPEN shift only', () => {
-    expect(tillTakesCash(OPEN)).toBe(true);
-    expect(tillTakesCash({ status: 'CLOSING', forceClosed: false, closedAt: null })).toBe(false);
-    expect(tillTakesCash({ status: 'CLOSED', forceClosed: false, closedAt: at('2026-11-12T18:00:00.000Z') })).toBe(false);
-    expect(tillTakesCash({ status: 'CLOSED', forceClosed: true, closedAt: at('2026-11-12T18:00:00.000Z') })).toBe(false);
+describe('cash from the queue goes onto its own shift, late if the shift has closed (ADR-0077 Amendments, the owner on 2026-11-18)', () => {
+  it('takes the cash on an OPEN shift, and as a late entry on a closing, closed or force-closed shift, never refusing it', () => {
+    expect(tillTakesCash(OPEN)).toBe('ON_SHIFT');
+    expect(tillTakesCash({ status: 'CLOSING', forceClosed: false, closedAt: null })).toBe('LATE_ENTRY');
+    expect(tillTakesCash({ status: 'CLOSED', forceClosed: false, closedAt: at('2026-11-12T18:00:00.000Z') })).toBe('LATE_ENTRY');
+    expect(tillTakesCash({ status: 'CLOSED', forceClosed: true, closedAt: at('2026-11-12T18:00:00.000Z') })).toBe('LATE_ENTRY');
+  });
+
+  it('is URGENT when the till dates it after the shift closed, REVIEW otherwise, so a supervisor reviews every one', () => {
+    const closed = { status: 'CLOSED' as const, forceClosed: false, closedAt: at('2026-11-12T18:00:00.000Z') };
+    expect(lateEntrySeverity(closed, at('2026-11-12T17:59:59.999Z'))).toBe('REVIEW');
+    expect(lateEntrySeverity(closed, at('2026-11-12T18:00:00.000Z'))).toBe('REVIEW');
+    expect(lateEntrySeverity(closed, at('2026-11-12T18:00:00.001Z'))).toBe('URGENT');
+    expect(lateEntrySeverity({ ...closed, forceClosed: true }, at('2026-11-12T18:35:00.000Z'))).toBe('URGENT');
+    expect(lateEntrySeverity({ status: 'CLOSING', forceClosed: false, closedAt: null }, at('2026-11-12T18:35:00.000Z'))).toBe('REVIEW');
+  });
+
+  it('names the shift\'s state the entry arrived in', () => {
+    expect(lateEntryShiftState({ status: 'CLOSING', forceClosed: false, closedAt: null })).toBe('CLOSING');
+    expect(lateEntryShiftState({ status: 'CLOSED', forceClosed: false, closedAt: at('2026-11-12T18:00:00.000Z') })).toBe('CLOSED');
+    expect(lateEntryShiftState({ status: 'CLOSED', forceClosed: true, closedAt: at('2026-11-12T18:00:00.000Z') })).toBe('FORCE_CLOSED');
+    expect(() => lateEntryShiftState(OPEN)).toThrow(/open/);
   });
 });
 

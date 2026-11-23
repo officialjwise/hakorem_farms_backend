@@ -384,7 +384,7 @@ A counter sale is not a POS aggregate. It is a sales order on channel `POS`, pla
 | Device counters within a shift have no gaps; a gap raises an exception | Domain at sync |
 | Offline tenders are cash only unless the setting allows otherwise | Domain (ADR-0027) |
 
-**Events:** ◆`pos.ShiftOpened`, ◆`pos.CashDropped`, ◆`pos.CashPaidIn` (B9b: float topped up from the safe), ◆`pos.CashPaidOut`, ◆`pos.ShiftClosed` (B9b: names the cashier, the supervisor and the over or short, abuse case 17), `pos.OfflineSaleSynced`, `pos.DeviceCounterGapDetected`, `pos.DeviceEnrolled`.
+**Events:** ◆`pos.ShiftOpened`, ◆`pos.CashDropped`, ◆`pos.CashPaidIn` (B9b: float topped up from the safe), ◆`pos.CashPaidOut`, ◆`pos.ShiftClosed` (B9b: names the cashier, the supervisor and the over or short, abuse case 17), ◆`pos.ShiftLateEntryPosted` (B09b continued 3b: a late entry on a closed or force-closed shift and its post-close adjustment, Dr 6900 Cr 1000 short or Dr 1000 Cr 6900 over, exactly the entry, abuse case 17, ADR-0077 Amendments), `pos.OfflineSaleSynced`, `pos.DeviceCounterGapDetected`, `pos.DeviceEnrolled`.
 
 ### 5.12 WHL, QUO, SHP: selling channels
 

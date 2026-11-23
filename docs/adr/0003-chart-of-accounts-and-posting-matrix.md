@@ -141,6 +141,7 @@ Inventory accounts (`13xx`), sales (`40xx`) and cost of sales (`50xx`) are selec
 | `pos.CashDropped` | 1010 | 1000 |
 | `pos.CashPaidOut` | 6xxx | 1000 |
 | `pos.ShiftClosed` | 6900 if short; 1010 for cash returned | 1000; 6900 if over |
+| `pos.ShiftLateEntryPosted` (B09b continued 3b) | 6900 if short; 1000 if over | 1000 if short; 6900 if over |
 | `cap.CapitalContributed` | 1100 or 1110 | 3000 |
 | `cap.CapitalWithdrawn` | 3000 | 1100 or 1110 |
 | `cap.DistributionDeclared` | 3300 | 2300; 2310 for tax withheld |
@@ -185,3 +186,5 @@ A cash sale posts three linked entries (stock issue, invoice, payment) sharing o
 **Applied in B09a continued 1b (2026-11-16, ADR-0064, A-212).** The rows `pay.PaymentCleared` (a cheque to 1130 at receipt, store credit redeemed to 2210 against the customer), `pay.ChequeCleared` (Dr 1100 against the bank account, Cr 1130), `pay.PaymentReversed` ("Reverse of the original": the mirror of each entry the payment posted, an event type with no amount keys and no rules, refused without its original) and `pay.RefundPaid` to store credit (Cr 2210) are seeded (migration 0173), each with its exact-amount test in `test/integration/pay/receipts-reversals.integration.spec.ts`. `pay.ProviderSettled`, a bank transfer's 1100, 2290 and the refund against a credit note follow in B09a continued 1c (A-213). The decision is unchanged.
 
 **Applied in B09a continued 1d (2026-11-16, ADR-0066, A-216).** The row `pay.RefundPaid` gains the amount key `creditRefund` for a refund against a credit note: Dr 1200 against the customer, Cr the tender (migration 0184), the row's "1200 or 2200"; a cheque's bank payout credits 1100 against its bank account through the `BANK_TRANSFER` tender. Exact-amount tests in `src/modules/fin/domain/event-amounts.spec.ts` and `test/integration/pay/credit-note-refunds.integration.spec.ts`. The decision is unchanged.
+
+**Applied in B09b continued 3b (2026-11-19, ADR-0077 Amendments, A-281).** The row `pos.ShiftLateEntryPosted` is catalogued with two amount keys, `short` (Dr 6900, Cr 1000 against the till's REGISTER party) and `over` (Dr 1000 against the till, Cr 6900), migration 0281, one of the two zero: the post-close adjustment of a late entry on a till shift, exactly the entry's amount, posting once per late entry (`uq_journal_entry_pos_late_entry`). No existing row, account or determination changes. Its exact-amount test is `test/integration/pos/late-cash.integration.spec.ts`. The owner's clearing account for unverified mobile money (replacing A-279 (h)'s Dr 1110) is B09b continued 3c's.

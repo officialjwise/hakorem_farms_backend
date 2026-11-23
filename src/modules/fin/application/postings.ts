@@ -77,8 +77,8 @@ interface BadDebtPosting {
   readonly amountPesewas: number;
 }
 
-/** POS's till events (migration 0228): one translator for all, each amount against the till's register. */
-export const TILL_POSTING_EVENTS = ['pos.ShiftOpened', 'pos.CashDropped', 'pos.CashPaidIn', 'pos.CashPaidOut', 'pos.ShiftClosed'] as const;
+/** POS's till events (migrations 0228 and 0281): one translator for all, each amount against the till's register. */
+export const TILL_POSTING_EVENTS = ['pos.ShiftOpened', 'pos.CashDropped', 'pos.CashPaidIn', 'pos.CashPaidOut', 'pos.ShiftClosed', 'pos.ShiftLateEntryPosted'] as const;
 
 interface TillPosting extends TillPostingFields {
   readonly shiftId: string;

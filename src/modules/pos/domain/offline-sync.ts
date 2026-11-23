@@ -79,13 +79,31 @@ export function severityOfLatePosting(reason: LatePostingReason): Severity {
   return reason === 'AFTER_FORCE_CLOSE' ? 'URGENT' : 'REVIEW';
 }
 
+/** Where a queued sale's cash, or a queued cash movement, goes on its own shift (ADR-0077 Amendments, 2026-11-18). */
+export type TillCashAtSync = 'ON_SHIFT' | 'LATE_ENTRY';
+
 /**
- * The one place that decides whether a queued sale's cash goes into its till (ADR-0077 offline, A-278 (e), LOUD): only
- * on its own shift while that shift is OPEN. A closed, closing or force-closed shift takes no cash: the sale and its
- * receipt are recorded, the receipt stays outstanding and an URGENT exception carries the cash the till claimed.
+ * The one place that decides where cash from the queue goes (ADR-0077 Amendments, the owner on 2026-11-18, replacing
+ * A-278 (e) and A-279 (f)): always onto the shift the till recorded it in, never another cashier's nor another shift;
+ * while that shift is OPEN as any cash is, and once it is closing, closed or force-closed as a late entry: recorded on
+ * that shift by till time, the shift not reopened, its over or short moved by a post-close adjustment
+ * (`lateEntryAdjustment`) and the entry raised for a supervisor's review. Cash from the queue is never recorded nowhere.
  */
-export function tillTakesCash(shift: ShiftAtSync): boolean {
-  return shift.status === 'OPEN';
+export function tillTakesCash(shift: ShiftAtSync): TillCashAtSync {
+  return shift.status === 'OPEN' ? 'ON_SHIFT' : 'LATE_ENTRY';
+}
+
+/** A sale's cash and a pay-in put cash into the drawer, so raise what it should hold; a drop and a pay-out lower it. */
+/** Cash the till dates after its shift closed is the suspicious one (OFFLINE_SYNC 9.4.2): URGENT; any other is REVIEW. */
+export function lateEntrySeverity(shift: ShiftAtSync, tillTime: Date): Severity {
+  return shift.closedAt !== null && tillTime.getTime() > shift.closedAt.getTime() ? 'URGENT' : 'REVIEW';
+}
+
+/** The state of the shift a late entry arrived on, as `pos.shift_late_entry` records it. */
+export function lateEntryShiftState(shift: ShiftAtSync): 'CLOSING' | 'CLOSED' | 'FORCE_CLOSED' {
+  if (shift.status === 'OPEN') throw new Error('an open shift takes cash on the shift, not as a late entry');
+  if (shift.status === 'CLOSING') return 'CLOSING';
+  return shift.forceClosed ? 'FORCE_CLOSED' : 'CLOSED';
 }
 
 /** Whole seconds between two instants, for an exception's facts. */

@@ -86,7 +86,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09b continued 2b | `B09b3b-pos-offline-sync.md` | `b09b3b-pos-offline-sync` | B4 to B12 | Split after its gate (A-278 (a)): 500 queued offline transactions sync exactly once; ADR-0027's five conflict tests; nothing in sync refuses a sale; an offline sale issued at its occurred_at; a crate and a single egg synced at their own prices |
 | B09b continued 2c | `B09b3c-pos-offline-queue.md` | `b09b3c-pos-offline-queue` | B4 to B12 | A shift opened offline is applied once at sync with its till time; a batch's cash movements applied exactly once on their own open shift, never refused for being late; an unverified mobile money tender recorded UNVERIFIED with its break only while the branch allows it |
 | B09b continued 3 | `B09b4-pos-till-pin.md` | `b09b4-pos-till-pin` | B4 to B12 | The till PIN's verifier, attempt limit and supervisor sign-out as the owner set them (CR-032); a drop witnessed only by a supervisor's PIN, with a read of who is signed in at the branch (owner, 2026-11-18); offline overrides flagged, beyond the cashier's limit only with a supervisor's PIN (the owner's decision 3) (built, A-280) |
-| B09b continued 3b | `B09b4b-pos-late-cash-negative-stock.md` | `b09b4b-pos-late-cash-negative-stock` | B4 to B12 | Late cash on a closed or force-closed shift recorded on that shift as a late entry, its over or short reposted; an offline sale below zero valued at the last known cost and trued up, with a count task; the unverified mobile money tender in its own clearing account until verified; each with exact pesewas by SQL |
+| B09b continued 3b | `B09b4b-pos-late-cash-negative-stock.md` | `b09b4b-pos-late-cash-negative-stock` | B4 to B12 | Split (A-281 (a)): late cash on a closed or force-closed shift recorded on that shift as a late entry, its over or short moved by a post-close adjustment, never another shift's, exact pesewas by SQL over the journal lines (built) |
+| B09b continued 3c | `B09b4c-pos-negative-stock-clearing.md` | `b09b4c-pos-negative-stock-clearing` | B4 to B12 | An offline sale below zero valued at the last known cost and trued up when stock arrives, with a count task, online sales unchanged; the unverified mobile money tender in its own clearing account until verified, then moved to 1110 once; each with exact pesewas and quantities by SQL |
 | B09b continued 4 | `B09b5-pos-receipts.md` | `b09b5-pos-receipts` | B4 to B12 | The receipt link by its token alone (CR-033 points 1 and 2); the business buyer's TIN on the VAT invoice; an invoice paid at the till inside the shift; each sellable animal priced in the offline pack from its own latest weight and grade (CR-052) |
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
@@ -2664,7 +2665,7 @@ Stop at the gate and write docs/sessions/B09b4-pos-till-pin.md.
 
 ## B09b continued 3b — Late cash on a closed shift, negative stock offline and the mobile money clearing account
 
-Branch `b09b4b-pos-late-cash-negative-stock`, from `main`. Report `docs/sessions/B09b4b-pos-late-cash-negative-stock.md`. Inserted by the owner's decisions of 2026-11-18 (ADR-0026 Amendments), placed by B09b continued 3, before B09b continued 4. Lane A. Gate: cash from a sale or a cash movement whose shift has closed or been force-closed is recorded on the shift it happened in as a late entry, that shift's expected cash and over or short reposted as a post-close adjustment, never another shift's; an offline sale may take a location below zero, valued at the last known cost and trued up when stock arrives, with a count task; the unverified mobile money tender held in its own clearing account until verified, then moved to 1110; each test-first with exact pesewas and quantities by SQL over the journal lines and the movements.
+Branch `b09b4b-pos-late-cash-negative-stock`, from `main`. Report `docs/sessions/B09b4b-pos-late-cash-negative-stock.md`. Inserted by the owner's decisions of 2026-11-18 (ADR-0026 Amendments), placed by B09b continued 3, before B09b continued 4. Lane A. Gate: cash from a sale or a cash movement whose shift has closed or been force-closed is recorded on the shift it happened in as a late entry, that shift's expected cash and over or short reposted as a post-close adjustment, never another shift's; an offline sale may take a location below zero, valued at the last known cost and trued up when stock arrives, with a count task; the unverified mobile money tender held in its own clearing account until verified, then moved to 1110; each test-first with exact pesewas and quantities by SQL over the journal lines and the movements. **Split by the session (A-281 (a), ADR-0026 Amendments, 2026-11-19):** it built decisions 0 and 1 (gate as built: cash from a sale or a cash movement whose shift has closed or been force-closed is recorded on the shift it happened in as a late entry, its over or short moved by a post-close adjustment, never another shift's, exact pesewas by SQL over the journal lines); decisions 2 and 3 move whole to **B09b continued 3c** below.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
@@ -2705,13 +2706,49 @@ Load hakorem-security-review and write its finding into the pull request body (a
 Stop at the gate and write docs/sessions/B09b4b-pos-late-cash-negative-stock.md.
 ```
 
+## B09b continued 3c — Negative stock offline and the mobile money clearing account
+
+Branch `b09b4c-pos-negative-stock-clearing`, from `main`. Report `docs/sessions/B09b4c-pos-negative-stock-clearing.md`. Inserted by B09b continued 3b's split (A-281 (a), ADR-0026 Amendments), before B09b continued 4. Lane A. Gate: an offline sale may take a location below zero, valued at the last known cost and trued up when stock arrives, with a count task, while online sales keep today's rules; the unverified mobile money tender held in its own clearing account until verified, then moved to 1110 exactly once, and one never verified stays in clearing past `pay.unverified_window_days` and is raised; each test-first with exact pesewas and quantities by SQL over the journal lines, the movements and the cost.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b4b-pos-late-cash-negative-stock.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS), docs/data-model/pos.md,
+inv.md and pay.md, the POS, INV, PAY and FIN cards in docs/MODULE_BOUNDARIES.md, docs/OFFLINE_SYNC.md (sections 8,
+9.3 and 9.9), ADR-0002, ADR-0003, ADR-0018, ADR-0027, A-278 (f), A-279 (h) and (i), A-281 in docs/ASSUMPTIONS.md, and
+the abuse cases 4, 7 and 11 in docs/security/THREAT_MODEL.md. Load hakorem-offline, hakorem-stock, hakorem-ledger,
+hakorem-money, hakorem-migration and hakorem-tests. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it. Lane A (docs/prompts/session-openers.md, "Two lanes").
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09b continued 3c only, on branch b09b4c-pos-negative-stock-clearing, branched from main. The owner's
+decisions 2 and 3 of 2026-11-18, moved here whole by B09b continued 3b's split, each test-first:
+2. Negative stock offline (replaces A-278 (f)). An offline sale may take a location's stock below zero, since the goods
+   were physically sold; value it at the last known cost and true it up when stock arrives; flag it on the exception
+   report's source and raise a count task for that product at that location. Online sales keep today's rules, tested.
+   INV is shared: changes are additive only; if INV's negative-stock rule needs a change to an existing function, ask
+   the parent session first. The true-up on arrival is exact and insert-only (a reversing or adjusting movement, never
+   an update). Exact quantities and values by SQL over the movements, the cost and the journal.
+3. Unverified mobile money (replaces A-279 (h)'s Dr 1110). It is booked to a clearing account until verified with the
+   provider, never straight into the wallet account 1110, the way a cheque waits in 1130, and moves to 1110 only when
+   verified, posting exactly once. 1120 is "Payment provider clearing", which holds provider-cleared receipts awaiting
+   settlement, not an unverified payment, so the parent session's reading is a new clearing account; confirm it with
+   hakorem-ledger and record it as an ADR-0003 amendment. Test the posting, the move to 1110 on verification, and a
+   verification that never comes (it stays in clearing past `pay.unverified_window_days` and is raised), with exact
+   pesewas.
+Load hakorem-security-review and write its finding into the pull request body (abuse cases 4, 7 and 11).
+Stop at the gate and write docs/sessions/B09b4c-pos-negative-stock-clearing.md.
+```
+
 ## B09b continued 4 — The receipt link, the business buyer's TIN and an invoice paid at the till
 
 Branch `b09b5-pos-receipts`. Report `docs/sessions/B09b5-pos-receipts.md`. Gate: the public receipt read by its token alone; a reused token recorded and refused once per sale; the buyer's TIN on the VAT invoice; an invoice paid at the till inside the shift.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
-List docs/sessions/ and read only the most recent report (docs/sessions/B09b4-pos-till-pin.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b4c-pos-negative-stock-clearing.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),

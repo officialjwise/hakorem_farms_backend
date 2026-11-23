@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { CashMovementRecord, CashMovementSyncRecord, DeviceRecord, HeldSaleRecord, LateCountRecord, NewShift, RegisterRecord, SaleSyncRecord, ShiftFilter, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
+import type { CashMovementRecord, CashMovementSyncRecord, DeviceRecord, HeldSaleRecord, LateCountRecord, NewShift, RegisterRecord, SaleSyncRecord, ShiftFilter, ShiftLateEntryRecord, ShiftRecord, TenderCountRecord, TillStore } from '../application/till-store';
 import type { CashMovementKind, OverShortDirection } from '../domain/till';
 
 interface HeldSaleRow {
@@ -89,6 +89,7 @@ interface MovementRow {
   occurred_at: Date;
   recorded_at: Date;
   actor_id: string;
+  late_entry: boolean;
 }
 
 interface DeviceRow {
@@ -134,7 +135,7 @@ const REGISTER_COLUMNS = 'id, branch_id, location_id, code, name, status, versio
 const SHIFT_COLUMNS = `id, shift_no, register_id, cashier_id, shift_seq, opened_at, opening_float_pesewas::text, declared_at, declared_cash_pesewas::text,
   expected_cash_pesewas::text, over_short_pesewas::text, over_short_direction, close_approved_by, closed_at, last_device_counter, force_closed, force_close_reason,
   status, branch_id, version`;
-const MOVEMENT_COLUMNS = 'id, shift_id, kind, amount_pesewas::text, reason_code, note, witness_id, witness_pin_version, unwitnessed, occurred_at, recorded_at, actor_id';
+const MOVEMENT_COLUMNS = 'id, shift_id, kind, amount_pesewas::text, reason_code, note, witness_id, witness_pin_version, unwitnessed, occurred_at, recorded_at, actor_id, late_entry';
 const DEVICE_COLUMNS = 'id, register_id, device_label, enrolled_by, enrolled_at, last_sync_at, revoked_at, revoked_by, revoke_reason, branch_id, version';
 const COUNT_COLUMNS = 'shift_id, payment_method_id, declared_pesewas::text, expected_pesewas::text, variance_pesewas::text, variance_direction';
 
@@ -183,6 +184,7 @@ function movement(r: MovementRow): CashMovementRecord {
     occurredAt: r.occurred_at,
     recordedAt: r.recorded_at,
     actorId: r.actor_id,
+    lateEntry: r.late_entry,
   };
 }
 
@@ -336,9 +338,9 @@ export class PgTillStore implements TillStore {
 
   async insertCashMovement(tx: Transaction, m: CashMovementRecord): Promise<void> {
     await tx.query(
-      `INSERT INTO pos.cash_movement (id, shift_id, kind, amount_pesewas, reason_code, note, witness_id, witness_pin_version, unwitnessed, occurred_at, recorded_at, actor_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
-      [m.id, m.shiftId, m.kind, m.amountPesewas.toString(), m.reasonCode, m.note, m.witnessId, m.witnessPinVersion, m.unwitnessed, m.occurredAt, m.recordedAt, m.actorId],
+      `INSERT INTO pos.cash_movement (id, shift_id, kind, amount_pesewas, reason_code, note, witness_id, witness_pin_version, unwitnessed, occurred_at, recorded_at, actor_id, late_entry)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)`,
+      [m.id, m.shiftId, m.kind, m.amountPesewas.toString(), m.reasonCode, m.note, m.witnessId, m.witnessPinVersion, m.unwitnessed, m.occurredAt, m.recordedAt, m.actorId, m.lateEntry ?? false],
     );
   }
 
@@ -358,10 +360,27 @@ export class PgTillStore implements TillStore {
 
   async cashMovementTotals(tx: Transaction, shiftId: string): Promise<ReadonlyMap<CashMovementKind, bigint>> {
     const { rows } = await tx.query<{ kind: CashMovementKind; total: string }>(
-      'SELECT kind, sum(amount_pesewas)::text AS total FROM pos.cash_movement WHERE shift_id = $1 GROUP BY kind',
+      'SELECT kind, sum(amount_pesewas)::text AS total FROM pos.cash_movement WHERE shift_id = $1 AND NOT late_entry GROUP BY kind',
       [shiftId],
     );
     return new Map(rows.map((r) => [r.kind, BigInt(r.total)]));
+  }
+
+  async insertShiftLateEntry(tx: Transaction, e: ShiftLateEntryRecord): Promise<void> {
+    await tx.query(
+      `INSERT INTO pos.shift_late_entry (id, shift_id, branch_id, source_kind, payment_id, order_document_id, cash_movement_id, amount_pesewas, expected_effect,
+                                         adjustment_direction, shift_state, severity, occurred_at, recorded_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)`,
+      [e.id, e.shiftId, e.branchId, e.sourceKind, e.paymentId, e.orderDocumentId, e.cashMovementId, e.amountPesewas.toString(), e.expectedEffect, e.adjustmentDirection, e.shiftState, e.severity, e.occurredAt, e.recordedAt, e.actorId],
+    );
+  }
+
+  async lateEntryNet(tx: Transaction, shiftId: string): Promise<bigint> {
+    const { rows } = await tx.query<{ net: string }>(
+      "SELECT COALESCE(sum(CASE WHEN expected_effect = 'RAISES' THEN amount_pesewas ELSE -amount_pesewas END), 0)::text AS net FROM pos.shift_late_entry WHERE shift_id = $1",
+      [shiftId],
+    );
+    return BigInt(rows[0]!.net);
   }
 
   async unwitnessedDrops(tx: Transaction, shiftId: string): Promise<{ readonly count: number; readonly amountPesewas: bigint }> {

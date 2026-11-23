@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { changeDue, closeAmounts, expectedCash, judgeCashMovement, isUnwitnessedDrop, judgeCountSignOff, judgeForceClose, judgeLateCount, judgeTillCash, overShort, shiftOverrideRoom, type CashMovementFacts } from './till';
+import { changeDue, closeAmounts, expectedCash, judgeCashMovement, isUnwitnessedDrop, judgeCountSignOff, judgeForceClose, judgeLateCount, judgeLateTillCash, judgeTillCash, lateEntryAdjustment, lateEntryEffect, overShort, shiftOverrideRoom, type CashMovementFacts } from './till';
 
 const p = (n: bigint) => Money.ofPesewas(n);
 const MAX = 9_007_199_254_740_991n;
@@ -170,6 +170,43 @@ describe('the sign-off of a count (FR-POS-018): never the cashier', () => {
 
   it('accepts a different supervisor', () => {
     expect(judgeCountSignOff('cashier', 'supervisor')).toEqual({ ok: true, value: 'supervisor' });
+  });
+});
+
+describe('a late entry of cash from the queue (ADR-0077 Amendments, the owner on 2026-11-18)', () => {
+  const closed = { status: 'CLOSED' as const, registerId: 'T1', branchId: 'DDW', cashierId: 'adwoa' };
+  const cash = { registerId: 'T1', branchId: 'DDW', actorId: 'adwoa', direction: 'IN' as const };
+
+  it('raises the expected cash for a sale\'s cash and a pay-in, lowers it for a drop and a pay-out', () => {
+    expect(lateEntryEffect('SALE_CASH')).toBe('RAISES');
+    expect(lateEntryEffect('PAY_IN')).toBe('RAISES');
+    expect(lateEntryEffect('CASH_DROP')).toBe('LOWERS');
+    expect(lateEntryEffect('PAY_OUT')).toBe('LOWERS');
+  });
+
+  it('moves the over or short by exactly the entry: short when it raises the expected cash, over when it lowers it', () => {
+    expect(lateEntryAdjustment('SALE_CASH', Money.ofPesewas(4_500n))).toEqual({ direction: 'SHORT', amount: Money.ofPesewas(4_500n), amountsPesewas: { short: 4_500, over: 0 } });
+    expect(lateEntryAdjustment('CASH_DROP', Money.ofPesewas(10_001n))).toEqual({ direction: 'OVER', amount: Money.ofPesewas(10_001n), amountsPesewas: { short: 0, over: 10_001 } });
+    expect(lateEntryAdjustment('PAY_IN', Money.ofPesewas(1n)).amountsPesewas).toEqual({ short: 1, over: 0 });
+    expect(lateEntryAdjustment('PAY_OUT', Money.ofPesewas(1n)).amountsPesewas).toEqual({ short: 0, over: 1 });
+    expect(() => lateEntryAdjustment('SALE_CASH', Money.zero())).toThrow(/above zero/);
+  });
+
+  it('takes cash into the shift it happened in once it is closing, closed or force-closed, by its own cashier on its own till', () => {
+    expect(judgeLateTillCash(closed, cash)).toEqual({ ok: true, value: null });
+    expect(judgeLateTillCash({ ...closed, status: 'CLOSING' }, cash)).toEqual({ ok: true, value: null });
+  });
+
+  it('refuses a shift still open, which takes the cash on it as any cash', () => {
+    expect(judgeLateTillCash({ ...closed, status: 'OPEN' }, cash)).toEqual({ ok: false, error: 'SHIFT_STILL_OPEN' });
+  });
+
+  it('never takes cash out late, never for another cashier, not even one who may recover a till, and never another till or branch', () => {
+    expect(judgeLateTillCash(closed, { ...cash, direction: 'OUT' })).toEqual({ ok: false, error: 'LATE_ENTRY_ONLY_IN' });
+    expect(judgeLateTillCash(closed, { ...cash, actorId: 'kwabena' })).toEqual({ ok: false, error: 'SHIFT_NOT_OWN' });
+    expect(judgeLateTillCash(closed, { ...cash, registerId: 'T2' })).toEqual({ ok: false, error: 'SHIFT_OTHER_REGISTER' });
+    expect(judgeLateTillCash(closed, { ...cash, registerId: null })).toEqual({ ok: false, error: 'SHIFT_OTHER_REGISTER' });
+    expect(judgeLateTillCash(closed, { ...cash, branchId: 'KMS' })).toEqual({ ok: false, error: 'SHIFT_OTHER_BRANCH' });
   });
 });
 

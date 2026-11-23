@@ -293,8 +293,8 @@ describe("ADR-0027's conflicts: the sale and its money are recorded, the stock c
   });
 });
 
-describe('ADR-0077 offline: cash from the queue goes only onto its own open shift; a closed or force-closed shift is recorded and flagged (OFFLINE_SYNC 9.4.2, A-278 (e))', () => {
-  it('records sales queued on a shift force-closed meanwhile, takes none of their cash, leaves each receipt outstanding, and flags the one made after the close URGENT', async () => {
+describe('ADR-0077 offline as amended by the owner on 2026-11-18: cash from the queue goes onto its own shift, as a late entry once that shift is closed or force-closed (OFFLINE_SYNC 9.4.2)', () => {
+  it('records sales queued on a shift force-closed meanwhile with their cash on that shift as late entries, each receipt settled, the one made after the close URGENT', async () => {
     const before = sale('F1', 1, later(5), [{ productId: id('EGG-0003'), quantity: '2.000', uom: 'EGG', agreedUnitPricePesewas: 220 }], [cash(440)]);
     clock.advanceBy(30 * MINUTE);
     await step('manager');
@@ -302,35 +302,35 @@ describe('ADR-0077 offline: cash from the queue goes only onto its own open shif
     expect(forced.status, JSON.stringify(forced.body)).toBe(200);
     const after = sale('F1', 2, later(5), [{ productId: id('EGG-0003'), quantity: '1.000', uom: 'EGG', agreedUnitPricePesewas: 220 }], [cash(220)]);
     clock.advanceBy(30 * MINUTE);
-    const tillCashBefore = await num(`SELECT sum(amount_pesewas)::text AS n FROM pay.payment WHERE shift_document_id = $1`, [shifts.get('F1')!.id]);
     const synced = await sync('esi', 'F1', [before, after]);
     expect(synced.status, JSON.stringify(synced.body)).toBe(200);
     const [r1, r2] = synced.body.results as { outcome: string; grossPesewas: number; exceptions: { kind: string }[] }[];
-    expect([r1!.outcome, r1!.grossPesewas, r1!.exceptions.map((e) => e.kind).sort()]).toEqual(['APPLIED_WITH_EXCEPTION', 440, ['OFFLINE_CASH_NOT_TAKEN', 'OFFLINE_LATE_POSTING']]);
-    expect([r2!.outcome, r2!.grossPesewas, r2!.exceptions.map((e) => e.kind).sort()]).toEqual(['APPLIED_WITH_EXCEPTION', 220, ['OFFLINE_CASH_NOT_TAKEN', 'OFFLINE_LATE_POSTING']]);
-    // No cash went onto the force-closed shift, nor any other; each receipt is outstanding by its whole gross.
-    expect(await num(`SELECT sum(amount_pesewas)::text AS n FROM pay.payment WHERE shift_document_id = $1`, [shifts.get('F1')!.id])).toBe(tillCashBefore);
+    expect([r1!.outcome, r1!.grossPesewas, r1!.exceptions.map((e) => e.kind).sort()]).toEqual(['APPLIED_WITH_EXCEPTION', 440, ['OFFLINE_LATE_CASH', 'OFFLINE_LATE_POSTING']]);
+    expect([r2!.outcome, r2!.grossPesewas, r2!.exceptions.map((e) => e.kind).sort()]).toEqual(['APPLIED_WITH_EXCEPTION', 220, ['OFFLINE_LATE_CASH', 'OFFLINE_LATE_POSTING']]);
+    // The cash went onto the force-closed shift it happened in, marked late, and nowhere else; each receipt is settled.
     for (const [s, gross] of [
       [before, 440],
       [after, 220],
     ] as const) {
-      expect(await num('SELECT count(*)::text AS n FROM pay.payment WHERE order_document_id = $1', [s.id])).toBe(0);
+      expect(await rows('SELECT shift_document_id AS shift, late_entry, amount_pesewas::text AS amount FROM pay.payment WHERE order_document_id = $1', [s.id])).toEqual([{ shift: shifts.get('F1')!.id, late_entry: true, amount: String(gross) }]);
       const documents = await documentsOf(s.id);
-      expect(await balance('1200', documents)).toBe(gross);
-      expect(await balance('1000', documents)).toBe(0);
+      expect(await balance('1200', documents)).toBe(0);
+      expect(await balance('1000', documents)).toBe(gross);
       expect(await num('SELECT final_total_pesewas::text AS n FROM ord.sales_order WHERE id = $1 AND shift_document_id = $2', [s.id, shifts.get('F1')!.id])).toBe(gross);
     }
+    // Not counted yet: the two adjustments show the shift short by the cash until the drawer is counted with it in.
+    expect(await balance('6900', [shifts.get('F1')!.id])).toBe(660);
     expect(await rows('SELECT device_counter, posted_late_reason FROM pos.sale_sync WHERE shift_id = $1 ORDER BY device_counter', [shifts.get('F1')!.id])).toEqual([
       { device_counter: 1, posted_late_reason: 'SHIFT_CLOSED' },
       { device_counter: 2, posted_late_reason: 'AFTER_FORCE_CLOSE' },
     ]);
     const severities = async (s: TillSale) => (await outbox('pos.OfflineSaleFlagged', s.id)).map((r) => [r.payload['exceptionKind'], r.payload['severity'], r.payload['amountPesewas']]).sort();
     expect(await severities(before)).toEqual([
-      ['OFFLINE_CASH_NOT_TAKEN', 'URGENT', 440],
+      ['OFFLINE_LATE_CASH', 'REVIEW', 440],
       ['OFFLINE_LATE_POSTING', 'REVIEW', 440],
     ]);
     expect(await severities(after)).toEqual([
-      ['OFFLINE_CASH_NOT_TAKEN', 'URGENT', 220],
+      ['OFFLINE_LATE_CASH', 'URGENT', 220],
       ['OFFLINE_LATE_POSTING', 'URGENT', 220],
     ]);
   });

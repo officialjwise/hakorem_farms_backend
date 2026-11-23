@@ -30,18 +30,20 @@ import {
   severityOfLatePosting,
   tillClockVerdict,
   tillTakesCash,
+  lateEntrySeverity,
+  lateEntryShiftState,
   type LatePostingReason,
   type Severity,
 } from '../domain/offline-sync';
 import { cashMovementTimeAtSync, inMovementOrder, priorMovementAnswer, unverifiedTenderVerdict, type MovementContent } from '../domain/offline-queue';
-import { expectedCash, isUnwitnessedDrop, judgeCashMovement, shiftOverrideRoom, type CashMovementKind } from '../domain/till';
+import { expectedCash, isUnwitnessedDrop, judgeCashMovement, lateEntryAdjustment, lateEntryEffect, shiftOverrideRoom, type CashMovementKind, type LateEntryKind } from '../domain/till';
 import type { TillPins } from './till-pins';
 import { offlineOverrideVerdict, witnessPinRule, type OfflineOverrideVerdict, type PinApprovalVerdict } from '../domain/till-pin';
-import type { CashMoved, DeviceCounterGap, OfflineCashMovementFlagged, OfflineSaleFlagged, OfflineSaleRejected } from '../events';
+import type { CashMoved, DeviceCounterGap, OfflineCashMovementFlagged, OfflineSaleFlagged, OfflineSaleRejected, ShiftLateEntryPosted } from '../events';
 import type { Devices } from './devices';
 import { SyncBatchTooLargeError } from './errors';
 import { OFFLINE_UNVERIFIED_MOBILE_MONEY } from './offline-packs';
-import { MOVEMENT_EVENTS } from './shifts';
+import { MOVEMENT_EVENTS, SHIFT_LATE_ENTRY_POSTED } from './shifts';
 import type { RegisterRecord, SaleSyncRecord, ShiftRecord, TillStore } from './till-store';
 
 export const OFFLINE_SALE_FLAGGED = 'pos.OfflineSaleFlagged';
@@ -358,17 +360,20 @@ export class OfflineSync {
     const methods = await this.refs.paymentMethodsIn(tx, sale.tenders.map((t) => t.paymentMethodId));
     if (sale.tenders.some((t) => !methods.has(t.paymentMethodId))) return reject('METHOD_UNKNOWN', 'A tender names a payment method the server does not know. The sale was not recorded.');
     const unverifiedAllowed = await this.settings.boolean(OFFLINE_UNVERIFIED_MOBILE_MONEY.key, OFFLINE_UNVERIFIED_MOBILE_MONEY.fallback, register.branchId);
-    const takesCash = tillTakesCash(shift);
+    // ADR-0077 Amendments (the owner on 2026-11-18): the cash goes onto this shift, while open as any cash, once it has
+    // stopped taking entries as a late entry recorded after the sale posts, never onto another shift and never nowhere.
+    const onShift = tillTakesCash(shift) === 'ON_SHIFT';
     const tenders: SaleTenderRequest[] = [];
+    const lateCash: OfflineTenderInput[] = [];
     const unverified: { readonly tender: OfflineTenderInput; readonly severity: 'REVIEW' | 'URGENT'; readonly approverIsSupervisor: boolean; readonly approval: PinApprovalVerdict | null; readonly offeredOffline: boolean }[] = [];
     for (const tender of sale.tenders) {
       const method = methods.get(tender.paymentMethodId)!;
-      if (takesCash && takenAtSync(method)) {
+      if (onShift && takenAtSync(method)) {
         tenders.push({ methodCode: method.code, amountPesewas: BigInt(tender.amountPesewas), register: { id: register.id, code: register.code } });
         continue;
       }
       if (takenAtSync(method)) {
-        flags.push({ kind: 'OFFLINE_CASH_NOT_TAKEN', severity: 'URGENT', summary: `Cash of ${tender.amountPesewas} pesewas was not put on the shift, because the shift is ${shift.forceClosed ? 'force-closed' : shift.status.toLowerCase()}; the receipt stays outstanding`, amountPesewas: tender.amountPesewas, fact: { method: method.code, shiftStatus: shift.status, forceClosed: shift.forceClosed }, abuseCases: [ABUSE_SHORT], toTill: true });
+        lateCash.push(tender);
         continue;
       }
       // Mobile money taken unverified, approved on the device, is recorded only while the branch allows it (OFFLINE_SYNC 9.9).
@@ -382,7 +387,7 @@ export class OfflineSync {
       const approverIsSupervisor = approval === 'VERIFIED';
       const offeredOffline = method.kind === 'MOBILE_MONEY' && method.isLive && method.channels.includes('POS');
       const walletKnown = method.kind === 'MOBILE_MONEY' && (await this.unverified.walletIn(tx, register.branchId)) !== null;
-      const verdict = unverifiedTenderVerdict({ methodKind: method.kind, branchAllows: unverifiedAllowed, carriesDetails: details !== undefined, offeredOffline, shiftTakesMoney: takesCash, approverIsSupervisor, walletKnown });
+      const verdict = unverifiedTenderVerdict({ methodKind: method.kind, branchAllows: unverifiedAllowed, carriesDetails: details !== undefined, offeredOffline, shiftTakesMoney: onShift, approverIsSupervisor, walletKnown });
       if (verdict.take) {
         unverified.push({ tender, severity: verdict.severity, approverIsSupervisor, approval, offeredOffline });
         continue;
@@ -477,6 +482,37 @@ export class OfflineSync {
     // The unverified tenders, after the cash ORD applied first, each allocated to what the receipt still owes (OFFLINE_SYNC 9.9).
     const receiptGross = Money.fromJsonInteger(grossPesewas);
     let owed = receiptGross.minus(lesser(receiptGross, Money.sum(tenders.map((t) => Money.ofPesewas(t.amountPesewas)))));
+    // Cash on a shift that has stopped taking entries: recorded on that shift as a late entry, by the cashier at the
+    // till's time, allocated to what the receipt still owes; its post-close adjustment posts with it (ADR-0077 Amendments).
+    for (const tender of lateCash) {
+      const method = methods.get(tender.paymentMethodId)!;
+      const amount = Money.fromJsonInteger(tender.amountPesewas);
+      const applied = lesser(amount, owed);
+      owed = owed.minus(applied);
+      const payment = await this.payments.recordIn(tx, cashier, {
+        branchId: register.branchId,
+        channel: 'POS',
+        methodCode: method.code,
+        amountPesewas: amount.pesewas,
+        customerId: null,
+        orderDocumentId: sale.id,
+        shiftDocumentId: shift.id,
+        register: { id: register.id, code: register.code },
+        receivedAt: occurredAt,
+        allocations: applied.isZero() ? [] : [{ billingDocumentId: posted.sale.billingDocument!.id, amountPesewas: applied.pesewas }],
+        lateEntry: true,
+      });
+      const entry = await this.lateEntryIn(tx, { shift, register, deviceId, kind: 'SALE_CASH', amount, paymentId: payment.id, orderId: sale.id, movementId: null, occurredAt, now, actorId: actor.principalId });
+      flags.push({
+        kind: 'OFFLINE_LATE_CASH',
+        severity: entry.severity,
+        summary: `Cash of ${tender.amountPesewas} pesewas was recorded on the shift as a late entry, because the shift is ${shift.forceClosed ? 'force-closed' : shift.status.toLowerCase()}; its over or short moved by ${tender.amountPesewas} pesewas ${entry.direction.toLowerCase()} for a supervisor to review`,
+        amountPesewas: tender.amountPesewas,
+        fact: { method: method.code, paymentId: payment.id, lateEntryId: entry.id, shiftState: entry.shiftState, adjustment: entry.direction, closedAt: shift.closedAt?.toISOString() ?? null, tillTime: sale.occurredAt },
+        abuseCases: [ABUSE_SHORT],
+        toTill: true,
+      });
+    }
     for (const u of unverified) {
       const amount = Money.fromJsonInteger(u.tender.amountPesewas);
       const applied = lesser(amount, owed);
@@ -623,8 +659,9 @@ export class OfflineSync {
       return refuse('ID_REUSED_WITH_OTHER_CONTENT', { recordedShiftId: online.shiftId, recordedKind: online.kind, recordedAmountPesewas: Number(online.amountPesewas) });
     }
     if (!isUuidV7(m.id)) return refuse('ID_NOT_UUID_V7', {});
-    // ADR-0077 offline: onto its own shift only while that shift is OPEN, decided where a sale's cash is decided.
-    if (!tillTakesCash(shift)) return refuse('SHIFT_NOT_OPEN', { shiftStatus: shift.status, forceClosed: shift.forceClosed, closedAt: shift.closedAt?.toISOString() ?? null });
+    // ADR-0077 Amendments: onto its own shift, decided where a sale's cash is decided; once that shift has stopped taking
+    // entries, as a late entry on it (the owner on 2026-11-18), never onto another shift and never recorded nowhere.
+    const late = tillTakesCash(shift) === 'LATE_ENTRY';
 
     const reason = m.reasonCode === undefined ? undefined : (await this.refs.reasonCodesIn(tx, [m.reasonCode])).get(m.reasonCode);
     const witnessId = m.witnessId ?? null;
@@ -657,7 +694,7 @@ export class OfflineSync {
     const timed = cashMovementTimeAtSync(tillTime, now, shift.openedAt, tolerance);
     const unwitnessed = isUnwitnessedDrop({ kind: m.kind, witnessId, supervisorSignedIn: false });
     // Attributed to the shift's cashier, who made it on the till; the session that synced it is the audit's actor.
-    await this.store.insertCashMovement(tx, { id: m.id, shiftId: shift.id, kind: m.kind, amountPesewas: amount, reasonCode: m.reasonCode!, note: m.note ?? null, witnessId, witnessPinVersion: witnessId === null ? null : (m.witnessPinVersion ?? null), unwitnessed, occurredAt: timed.occurredAt, recordedAt: now, actorId: shift.cashierId });
+    await this.store.insertCashMovement(tx, { id: m.id, shiftId: shift.id, kind: m.kind, amountPesewas: amount, reasonCode: m.reasonCode!, note: m.note ?? null, witnessId, witnessPinVersion: witnessId === null ? null : (m.witnessPinVersion ?? null), unwitnessed, occurredAt: timed.occurredAt, recordedAt: now, actorId: shift.cashierId, ...(late ? { lateEntry: true } : {}) });
     const event = MOVEMENT_EVENTS[m.kind];
     const posting: CashMoved = {
       shiftId: shift.id,
@@ -676,6 +713,19 @@ export class OfflineSync {
     };
     await this.events.publish(tx, { type: event.type, subjectType: 'CashMovement', subjectId: m.id, branchId: register.branchId, payload: posting, occurredAt: timed.occurredAt });
     await this.store.insertCashMovementSync(tx, { ...base, id: this.nextId(), outcome: 'APPLIED', reason: null, cashMovementId: m.id, answersId: null, clockVerdict: timed.verdict });
+    if (late) {
+      const entry = await this.lateEntryIn(tx, { shift, register, deviceId, kind: m.kind, amount: Money.ofPesewas(amount), paymentId: null, orderId: null, movementId: m.id, occurredAt: timed.occurredAt, now, actorId: actor.principalId });
+      await raise(
+        {
+          exceptionKind: 'OFFLINE_LATE_CASH',
+          severity: entry.severity,
+          summary: `A ${m.kind.toLowerCase().replace('_', ' ')} of ${amountJson} pesewas was recorded on the shift as a late entry, because the shift is ${shift.forceClosed ? 'force-closed' : shift.status.toLowerCase()}; its over or short moved by ${amountJson} pesewas ${entry.direction.toLowerCase()} for a supervisor to review`,
+          fact: { lateEntryId: entry.id, shiftState: entry.shiftState, adjustment: entry.direction, closedAt: shift.closedAt?.toISOString() ?? null, tillTime: m.occurredAt.toISOString() },
+          abuseCases: [ABUSE_SHORT],
+        },
+        timed.occurredAt,
+      );
+    }
     if (timed.verdict !== null) {
       await raise(
         {
@@ -695,13 +745,74 @@ export class OfflineSync {
     return { clientId: m.id, outcome: 'APPLIED', reason: null };
   }
 
+  /**
+   * A late entry on a shift that has stopped taking entries and its post-close adjustment (ADR-0077 Amendments, the owner
+   * on 2026-11-18): the row in `pos.shift_late_entry` and ◆ `pos.ShiftLateEntryPosted`, moving the shift's over or short
+   * by exactly the entry (short when it raises the expected cash, over when it lowers it). The shift is not reopened.
+   */
+  private async lateEntryIn(
+    tx: Transaction,
+    e: { readonly shift: ShiftRecord; readonly register: RegisterRecord; readonly deviceId: string; readonly kind: LateEntryKind; readonly amount: Money; readonly paymentId: string | null; readonly orderId: string | null; readonly movementId: string | null; readonly occurredAt: Date; readonly now: Date; readonly actorId: string },
+  ): Promise<{ readonly id: string; readonly severity: Severity; readonly direction: 'SHORT' | 'OVER'; readonly shiftState: 'CLOSING' | 'CLOSED' | 'FORCE_CLOSED' }> {
+    const id = this.nextId();
+    const adjustment = lateEntryAdjustment(e.kind, e.amount);
+    const severity = lateEntrySeverity(e.shift, e.occurredAt);
+    const shiftState = lateEntryShiftState(e.shift);
+    await this.store.insertShiftLateEntry(tx, {
+      id,
+      shiftId: e.shift.id,
+      branchId: e.register.branchId,
+      sourceKind: e.kind,
+      paymentId: e.paymentId,
+      orderDocumentId: e.orderId,
+      cashMovementId: e.movementId,
+      amountPesewas: e.amount.pesewas,
+      expectedEffect: lateEntryEffect(e.kind),
+      adjustmentDirection: adjustment.direction,
+      shiftState,
+      severity,
+      occurredAt: e.occurredAt,
+      recordedAt: e.now,
+      actorId: e.actorId,
+    });
+    const payload: ShiftLateEntryPosted = {
+      shiftId: e.shift.id,
+      subjectId: id,
+      branchId: e.register.branchId,
+      register: { id: e.register.id, code: e.register.code },
+      cashierId: e.shift.cashierId,
+      reasonCode: null,
+      lateEntryId: id,
+      sourceKind: e.kind,
+      paymentId: e.paymentId,
+      orderId: e.orderId,
+      movementId: e.movementId,
+      deviceId: e.deviceId,
+      amountPesewas: e.amount.toJsonInteger(),
+      expectedEffect: lateEntryEffect(e.kind),
+      adjustmentDirection: adjustment.direction,
+      shiftState,
+      severity,
+      occurredAt: e.occurredAt.toISOString(),
+      recordedAt: e.now.toISOString(),
+      abuseCases: [ABUSE_SHORT],
+      amountsPesewas: adjustment.amountsPesewas,
+    };
+    // Dated when the server recomputed it: the adjustment is made now, on the shift the cash belongs to.
+    await this.events.publish(tx, { type: SHIFT_LATE_ENTRY_POSTED, subjectType: 'Shift', subjectId: e.shift.id, branchId: e.register.branchId, payload, occurredAt: e.now });
+    await this.audit.record(tx, { module: 'pos', action: 'LATE_ENTRY', entityType: 'Shift', entityId: e.shift.id, branchId: e.register.branchId, before: null, after: { ...payload } });
+    return { id, severity, direction: adjustment.direction, shiftState };
+  }
+
   /** What the till holds by its records now (FR-POS-019), for a movement's limit: the float, its cash less refunds, its movements. */
   private async tillHolds(tx: Transaction, shiftId: string): Promise<Money> {
     const totals = await this.payments.shiftTotalsIn(tx, shiftId);
     const movements = await this.store.cashMovementTotals(tx, shiftId);
     const cash = totals.filter((t) => t.methodKind === 'CASH').reduce((sum, t) => sum.plus(Money.ofPesewas(t.amountPesewas)).minus(Money.ofPesewas(t.refundedPesewas)), Money.zero());
     const of = (kind: CashMovementKind) => Money.ofPesewas(movements.get(kind) ?? 0n);
-    const expected = expectedCash({ float: of('FLOAT_IN'), cashTaken: cash, payIns: of('PAY_IN'), drops: of('CASH_DROP'), payOuts: of('PAY_OUT') });
+    // The records the close left out are the shift's late entries; they still count for what the drawer held (ADR-0077 Amendments).
+    const net = await this.store.lateEntryNet(tx, shiftId);
+    const expected = expectedCash({ float: of('FLOAT_IN'), cashTaken: net > 0n ? cash.plus(Money.ofPesewas(net)) : cash, payIns: of('PAY_IN'), drops: net < 0n ? of('CASH_DROP').plus(Money.ofPesewas(-net)) : of('CASH_DROP'), payOuts: of('PAY_OUT') });
     if (!expected.ok) throw new Error(`shift ${shiftId}: its records take out more cash than came in`);
     return expected.value;
   }

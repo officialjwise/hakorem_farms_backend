@@ -2,7 +2,7 @@ import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { Authoriser } from '../../iam';
 import type { TillCashAnswer, TillCashRequest, TillShiftCheck } from '../../pay';
-import { judgeTillCash } from '../domain/till';
+import { judgeLateTillCash, judgeTillCash } from '../domain/till';
 import type { TillStore } from './till-store';
 
 /** Who may record cash on another cashier's shift: the manager recovering a till (OFFLINE_SYNC 6.5, A-273 (f)). */
@@ -24,6 +24,15 @@ export class TillCash implements TillShiftCheck {
     const shift = await this.store.lockShift(tx, request.shiftDocumentId);
     if (shift === null) return null;
     const register = (await this.store.registers(tx, [shift.registerId]))[0]!;
+    // A late entry from the till's queue: onto the shift it happened in once that shift has closed, by its own cashier
+    // only (ADR-0077 Amendments, the owner on 2026-11-18). Anything else is judged as any cash is: only while OPEN.
+    if (request.lateEntry === true) {
+      const late = judgeLateTillCash(
+        { status: shift.status, registerId: shift.registerId, branchId: shift.branchId, cashierId: shift.cashierId },
+        { registerId: request.registerId, branchId: request.branchId, actorId: request.actorId, direction: request.direction },
+      );
+      return late.ok ? { ok: true, register: { id: register.id, code: register.code, locationId: register.locationId } } : { ok: false, refusal: late.error };
+    }
     const recovers = request.actorId !== shift.cashierId && (await this.holdsAt(tx, request.actorId, RECOVER_ANY_SHIFT, shift.branchId));
     const judged = judgeTillCash(
       { status: shift.status, registerId: shift.registerId, branchId: shift.branchId, cashierId: shift.cashierId },
