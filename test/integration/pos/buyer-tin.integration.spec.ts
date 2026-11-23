@@ -44,13 +44,14 @@ const crate = { productId: '', quantity: '1.000', uom: 'CRATE', agreedUnitPriceP
 function sellOnline(body: Record<string, unknown>) {
   const saleId = nextId();
   clock.advanceBy(MINUTE);
-  return {
-    saleId,
-    answer: consolePost(api.server, as('kwame'), '/v1/pos/sales', saleId)
-      .set('X-Device-Credential', credential)
-      .send({ id: saleId, shiftId: shift.id, occurredAt: clock.now().toISOString(), lines: [{ ...crate, productId: id('EGG-0003') }], tenders: [{ paymentMethodId: id('CASH'), amountPesewas: 6_000 }], ...body }),
-  };
+  const sent = { id: saleId, shiftId: shift.id, occurredAt: clock.now().toISOString(), lines: [{ ...crate, productId: id('EGG-0003') }], tenders: [{ paymentMethodId: id('CASH'), amountPesewas: 6_000 }], ...body };
+  const send = () => consolePost(api.server, as('kwame'), '/v1/pos/sales', saleId).set('X-Device-Credential', credential).send(sent);
+  return { saleId, answer: send(), replay: send };
 }
+
+/** The counter sale's stored idempotency answer, as the database holds it. */
+const storedAnswer = (saleId: string) =>
+  one<{ body: Record<string, unknown> & { receipt: Record<string, unknown> } }>("SELECT response_body AS body FROM platform.idempotency_key WHERE scope LIKE '%:completeCounterSale' AND key = $1", [saleId]);
 
 function queued(buyer: { name: string; tin: string } | undefined): TillSale {
   counter += 1;
@@ -91,7 +92,8 @@ async function writtenOutsideTheDocument(text: string): Promise<string[]> {
     `SELECT 'platform.audit_event' AS place FROM platform.audit_event WHERE position(convert_to($1, 'UTF8') IN coalesce("after", ''::bytea) || coalesce("before", ''::bytea) || convert_to(coalesce(metadata::text, ''), 'UTF8')) > 0
      UNION ALL SELECT 'platform.outbox_message' FROM platform.outbox_message WHERE payload::text LIKE '%' || $1 || '%'
      UNION ALL SELECT 'ord.sales_order' FROM ord.sales_order o WHERE row_to_json(o)::text LIKE '%' || $1 || '%'
-     UNION ALL SELECT 'pos.sale_sync' FROM pos.sale_sync s WHERE row_to_json(s)::text LIKE '%' || $1 || '%'`,
+     UNION ALL SELECT 'pos.sale_sync' FROM pos.sale_sync s WHERE row_to_json(s)::text LIKE '%' || $1 || '%'
+     UNION ALL SELECT 'platform.idempotency_key' FROM platform.idempotency_key k WHERE coalesce(k.response_body::text, '') LIKE '%' || $1 || '%'`,
     [text],
   );
   return found.map((r) => r.place);
@@ -143,7 +145,9 @@ describe('a business buyer named at the counter, online (A-285 (c))', () => {
     const { saleId, answer } = sellOnline({ buyer: { name: `  ${BUYER} `, tin: COMPANY_TIN.toLowerCase() } });
     const sold = await answer;
     expect(sold.status, JSON.stringify(sold.body)).toBe(201);
-    expect(sold.body.receipt).toMatchObject({ kind: 'RECEIPT', customerName: BUYER, customerTin: COMPANY_TIN, grossPesewas: 6_000 });
+    // The owner on A-285 (f), 2026-11-23: in full only on the document; the answer shows its last four characters.
+    expect(sold.body.receipt).toMatchObject({ kind: 'RECEIPT', customerName: BUYER, customerTin: '*******0042', grossPesewas: 6_000 });
+    expect(JSON.stringify(sold.body)).not.toContain(COMPANY_TIN);
     expect(sold.body.order.customerId ?? null).toBeNull();
     const receipt = await receiptOf(saleId);
     expect(receipt).toMatchObject({ customer_id: null, customer_name: BUYER, customer_tin: COMPANY_TIN, gross: 6_000 });
@@ -174,10 +178,28 @@ describe('a business buyer named at the counter, online (A-285 (c))', () => {
     expect(audit.after).toMatchObject({ customerName: BUYER, customerTin: '*******0042' });
   });
 
+  it('stores the answer with the TIN masked, and a replay answers that masked form (the owner on A-285 (f))', async () => {
+    const { saleId, answer, replay } = sellOnline({ buyer: { name: BUYER, tin: COMPANY_TIN } });
+    const sold = await answer;
+    expect(sold.status, JSON.stringify(sold.body)).toBe(201);
+    const stored = await storedAnswer(saleId);
+    expect(stored.body.receipt).toMatchObject({ customerName: BUYER, customerTin: '*******0042' });
+    expect(JSON.stringify(stored.body)).not.toContain(COMPANY_TIN);
+    const again = await replay();
+    expect(again.status).toBe(201);
+    expect(again.body).toEqual(sold.body);
+    expect(again.body.receipt.customerTin).toBe('*******0042');
+    // The document keeps it in full.
+    expect(await receiptOf(saleId)).toMatchObject({ customer_tin: COMPANY_TIN });
+    expect(await writtenOutsideTheDocument(COMPANY_TIN)).toEqual([]);
+  });
+
   it('takes an individual by their Ghana Card PIN', async () => {
     const { saleId, answer } = sellOnline({ buyer: { name: 'Ama Owusu', tin: CARD_PIN } });
     expect((await answer).status).toBe(201);
     expect(await receiptOf(saleId)).toMatchObject({ customer_id: null, customer_name: 'Ama Owusu', customer_tin: CARD_PIN });
+    expect((await storedAnswer(saleId)).body.receipt).toMatchObject({ customerTin: `${'*'.repeat(CARD_PIN.length - 4)}${CARD_PIN.slice(-4)}` });
+    expect(await writtenOutsideTheDocument(CARD_PIN)).toEqual([]);
   });
 
   it('refuses a TIN or name of a form that may not be printed, and a buyer beside a customer, before anything is posted', async () => {
@@ -228,6 +250,9 @@ describe('a business buyer named on a queued sale (A-285 (e), ADR-0027: a synced
     const sale = queued({ name: BUYER, tin: CARD_PIN });
     const [result] = await sync([sale]);
     expect(result!.outcome, JSON.stringify(result)).toBe('APPLIED');
+    // The sync's answer, its log and its outbox carry the TIN nowhere (the owner on A-285 (f)); the document in full.
+    expect(JSON.stringify(result)).not.toContain(CARD_PIN.slice(0, -4));
+    expect(await writtenOutsideTheDocument(CARD_PIN)).toEqual([]);
     const receipt = await receiptOf(sale.id);
     expect(receipt).toMatchObject({ customer_id: null, customer_name: BUYER, customer_tin: CARD_PIN, gross: 6_000 });
     expect(await customers()).toBe(before);
