@@ -205,3 +205,16 @@ Only `del.delivery_slot` exists, as above, plus `ck_delivery_slot_capacity` (1 t
   `ix_delivery_written_off` (`branch_id`, `written_off_at`, `id`) for the driver variance report's goods line.
 - `RETURNED` is reached by ORD's `returnDeliveryToStock` (the goods moved from the vehicle into the returns hold); the
   deferred `ck_route_closed` takes `DELIVERED`, `RETURNED` or `WRITTEN_OFF` as off the van.
+
+## As built (B11 continued 5, migration 0326; FR-DEL-001, FR-DEL-003, A-362)
+
+- `del.delivery.slot_id` is booked by `rescheduleDelivery` (dispatch still writes it NULL). `trg_delivery_slot_booking`
+  (AFTER INSERT OR UPDATE OF `slot_id`, `status`): a delivery naming a slot holds one unit of it while it is not
+  `CANCELLED`, `RETURNED` or `WRITTEN_OFF`; a move frees one in the old slot and takes one in the new in the same
+  statement, so `ck_delivery_slot_booked` (`booked <= capacity`) refuses an overbooking whoever writes (23514).
+  `ck_delivery_slot` (HK010): the slot is a live one of the delivery's zone and branch, and the slot changes only while the
+  delivery is `SCHEDULED`, `ASSIGNED` or `FAILED`.
+- `del.delivery_slot.booked` changes only through a delivery's booking (`trg_delivery_slot_booked`,
+  `ck_delivery_slot_booked_by_delivery`, HK004); a capacity change never touches it.
+- `driver_id` and `vehicle_location_id` change by `assignDelivery` (a delivery `ASSIGNED` or `FAILED` on no live run;
+  `ck_delivery_route` still keeps them on a live run).

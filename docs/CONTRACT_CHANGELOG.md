@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.34.0, LOUD for `Delivery.slot`, `DeliverySummary.slot*` and `RouteStopDelivery.slot*` (now filled once a slot is booked; they were always null):** no field removed or retyped. `assignDelivery` and `rescheduleDelivery` move into code with their planned paths; `DeliveryReschedule.reason` is bounded 1 to 500 (the operation was never served before).
 - **2.33.0, LOUD for `Delivery.status` (gains `WRITTEN_OFF`):** no field removed or retyped. `returnDeliveryToStock` moves into code (its planned path; `ReturnToStock.refundDestination` new and optional); `writeOffDelivery` and `listDriverGoodsVariances` are new. A screen with an exhaustive switch on a delivery's status must take `WRITTEN_OFF` (a posted status: the goods left the van written off with a reason). See its entry.
 - **2.32.0, LOUD for the planned `RouteStopDelivery` (its slot times may be null) and `Route` (six fields added, always sent):** no field removed or retyped on an implemented operation. A driver's run moves into code (`createRoute`, `getRoute`, `listRoutes`, `reorderRouteStops`, `startRoute`, `getMyRoute`, 404 with no run that day), with `markOnTheWay` and `recordFailedDelivery`; `completeRoute` and `listDrivers` are new; the error code `ROUTE_INVALID` is new; `recordProofOfDelivery` on a stop of a run not started is refused `ROUTE_NOT_STARTED`. See its entry.
 - **2.31.0, LOUD for the planned `createDriverCashReconciliation` and `postDriverCashReconciliation` (deprecated, never built):** no field removed or retyped. A driver's cash is handed in at a till shift: `handInDriverCash` is new (POS, `POST /shifts/{id}/driver-cash-hand-ins`, on the cashier's own open shift); `getMyCashSummary`, `listDriverCashReconciliations` and `getDriverCashReconciliation` move into code; `DriverCashReconciliation` gains `shiftId` and `tillPaymentId` (always sent) and is always `POSTED`. See its entry.
@@ -45,6 +46,16 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.34.0 (2026-11-23, B11 continued 5)
+
+Minor, LOUD on three slot fields (a delivery's driver, vehicle and slot after dispatch, FR-DEL-001 to FR-DEL-004, FR-DEL-011, A-362; migration 0326).
+
+- **Into code with their planned paths:** `assignDelivery` (`POST /deliveries/{id}/assign`, `del.delivery.assign`): another driver or vehicle for a delivery `ASSIGNED` or `FAILED` on no live run, the goods moved van to van; `rescheduleDelivery` (`POST /deliveries/{id}/reschedule`, `del.delivery.assign`): a slot of the delivery's zone booked under its row lock, the old one freed; for a `FAILED` delivery the reattempt (back to `ASSIGNED`, the order `DISPATCHED`).
+- **LOUD:** `Delivery.slot` (a `SlotOption`), `DeliverySummary.slotDate`, `slotStartsAt`, `slotEndsAt` and `RouteStopDelivery.slotStartsAt`, `slotEndsAt` are filled once a slot is booked (null until then, as before).
+- `DeliveryReschedule.reason` gains `minLength: 1`, `maxLength: 500` and a description; the operation was planned and never served.
+- **New refusals** (`DELIVERY_INVALID`): `ON_A_RUN`, `UNCHANGED`, `SLOT_UNKNOWN`, `SLOT_OTHER_ZONE`, `SLOT_STARTED`, `PAST_CUT_OFF`, `SLOT_FULL`, `NOT_ON_RUN_DAY`, `SAME_SLOT`, `ZONE_NOT_DELIVERING`, and `WRITE_OFF_PENDING` on both; a van that no longer holds the goods answers INV's `INSUFFICIENT_STOCK`.
+- No new permission (`del.delivery.assign` is the Manager's and the Owner's since 2.27.0). No existing field removed, retyped or made required on a request.
 
 ## 2.33.0 (2026-11-23, B11 continued 4)
 
