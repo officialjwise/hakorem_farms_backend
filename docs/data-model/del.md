@@ -218,3 +218,20 @@ Only `del.delivery_slot` exists, as above, plus `ck_delivery_slot_capacity` (1 t
   `ck_delivery_slot_booked_by_delivery`, HK004); a capacity change never touches it.
 - `driver_id` and `vehicle_location_id` change by `assignDelivery` (a delivery `ASSIGNED` or `FAILED` on no live run;
   `ck_delivery_route` still keeps them on a live run).
+
+## As built (B11 continued 6, migrations 0327 and 0328; FR-ORD-014, FR-DEL-008, FR-DEL-009, CR-055, ADR-0093, A-364)
+
+- `del.delivery` gains `cancel_reason_code` (FK `mdm.reason_code`, a `CANCELLATION` reason, judged by the application)
+  and `cancelled_at`, set exactly when `CANCELLED` (`ck_delivery_cancelled`); the guard's `SCHEDULED`/`ASSIGNED` to
+  `CANCELLED` edge is taken by ORD's `cancelDelivery` (a delivery still on the van on no live run), and frozen after.
+- `del.proof_of_delivery` gains `returned_reason_code` (FK `mdm.reason_code`, a `DELIVERY_FAILURE` reason, checked by
+  the guard), `returned_note` (1 to 500) and `returned_credit_pesewas` (`platform.pesewas`, default 0: the credit for
+  what came back, as BIL priced it at the door): `ck_proof_returned` (a credit or a note only with a reason).
+  `ck_proof_variance` (HK010) now holds the cash against the cash due at the door, `greatest(cod_due_pesewas -
+  returned_credit_pesewas, 0)`; `cod_due_pesewas` itself never changes (ADR-0092).
+- `del.proof_line` (LEDGER, new): `proof_id` (FK), `order_line_id` (no FK: DEL does not know orders),
+  `dispatched_qty` (> 0), `delivered_qty` (`ck_proof_line_qty`: 0 to dispatched), `recorded_at`, `actor_id`; primary key
+  (`proof_id`, `order_line_id`); insert and select only, update, delete and truncate refused. The deferred
+  `ck_proof_line_returned` (HK010, on both tables): a proof has a returned reason exactly when one of its lines was kept
+  short.
+
