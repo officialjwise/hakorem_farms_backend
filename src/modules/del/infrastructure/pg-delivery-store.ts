@@ -282,6 +282,27 @@ export class PgDeliveryStore implements DeliveryStore {
       : { id: row.id, deliveryId: row.delivery_id, attemptNo: row.attempt_no, outcome: row.outcome, failureReasonCode: row.failure_reason_code, nextAction: row.next_action, latitude: row.latitude, longitude: row.longitude, occurredAt: row.occurred_at, actorId: row.created_by };
   }
 
+  async reassign(tx: Transaction, id: string, d: { readonly driverId: string; readonly vehicleLocationId: string; readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query(`UPDATE del.delivery SET driver_id = $2, vehicle_location_id = $3, updated_at = $4, updated_by = $5, version = version + 1 WHERE id = $1`, [id, d.driverId, d.vehicleLocationId, d.at, d.actorId]);
+  }
+
+  async book(tx: Transaction, id: string, d: { readonly slotId: string; readonly reattempt: boolean; readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query(
+      `UPDATE del.delivery SET slot_id = $2, status = CASE WHEN $3 THEN 'ASSIGNED' ELSE status END, updated_at = $4, updated_by = $5, version = version + 1 WHERE id = $1`,
+      [id, d.slotId, d.reattempt, d.at, d.actorId],
+    );
+  }
+
+  async routeOf(tx: Transaction, deliveryId: string): Promise<{ readonly id: string; readonly status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED'; readonly routeDate: string } | null> {
+    const row = (
+      await tx.query<{ id: string; status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED'; route_date: string }>(
+        `SELECT r.id, r.status, to_char(r.route_date, 'YYYY-MM-DD') AS route_date FROM del.route_stop s JOIN del.route r ON r.id = s.route_id WHERE s.delivery_id = $1`,
+        [deliveryId],
+      )
+    ).rows[0];
+    return row === undefined ? null : { id: row.id, status: row.status, routeDate: row.route_date };
+  }
+
   async routeStatusOf(tx: Transaction, deliveryId: string): Promise<'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | null> {
     const row = (await tx.query<{ status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' }>(`SELECT r.status FROM del.route_stop s JOIN del.route r ON r.id = s.route_id WHERE s.delivery_id = $1`, [deliveryId])).rows[0];
     return row?.status ?? null;

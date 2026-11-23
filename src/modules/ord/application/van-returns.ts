@@ -7,7 +7,7 @@ import type { EventEnvelope } from '../../../platform/events/domain-events';
 import { translate } from '../../../platform/i18n/messages';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Billing } from '../../bil';
-import { DeliveryInvalidError, type Deliveries, type DeliveryView, type VanDelivery } from '../../del';
+import { DeliveryInvalidError, type Deliveries, type DeliveryReassigned, type DeliveryRescheduled, type DeliveryView, type VanDelivery } from '../../del';
 import type { Authoriser } from '../../iam';
 import type { Stock, StockAdjustments } from '../../inv';
 import type { MasterDataRefs } from '../../mdm';
@@ -196,6 +196,65 @@ export class VanReturns {
       if (record === null || record.refundId !== null) return;
       await this.refundIn(tx, record, this.clock.now());
     }
+  }
+
+  /**
+   * `del.DeliveryReassigned`, in DEL's transaction (FR-DEL-004, A-362): when the vehicle changed, each dispatched pick
+   * moves from the one van to the other (`TRANSFER_INTERNAL`, still the farm's; INV's trigger refuses a van below zero),
+   * so the goods follow the delivery. Refused while a write-off of the same goods waits for its approval: that adjustment
+   * names the first van.
+   */
+  async reassignedIn(tx: Transaction, event: EventEnvelope): Promise<void> {
+    const moved = event.payload as unknown as DeliveryReassigned;
+    await this.assertNoPendingWriteOff(tx, moved.deliveryId);
+    if (moved.fromVehicleLocationId === moved.toVehicleLocationId || moved.fromVehicleLocationId === null) return;
+    const header = await this.orderStore.lock(tx, moved.orderDocumentId);
+    if (header === null) return;
+    const at = new Date(moved.reassignedAt);
+    const picks = await this.picksOf(tx, header.id);
+    for (const { pick, productId } of picks) {
+      await this.stock.postIn(tx, event.actorId, {
+        movementType: OFF_THE_VEHICLE,
+        productId,
+        stockUnitId: pick.stockUnitId,
+        branchId: moved.branchId,
+        fromLocationId: moved.fromVehicleLocationId,
+        toLocationId: moved.toVehicleLocationId,
+        qty: Quantity.parse(pick.qtyBase),
+        weight: pick.weightKg === null ? null : { kg: Weight.parseKg(pick.weightKg), source: pick.weightSource! },
+        sourceDocumentId: moved.deliveryId,
+        sourceLineRef: pick.id,
+        occurredAt: at,
+      });
+    }
+    await this.audit.record(tx, {
+      module: 'ord',
+      action: 'VAN_TO_VAN',
+      entityType: 'SalesOrder',
+      entityId: header.id,
+      branchId: header.branchId,
+      before: { vehicleLocationId: moved.fromVehicleLocationId },
+      after: { vehicleLocationId: moved.toVehicleLocationId, deliveryId: moved.deliveryId, picks: picks.map((p) => p.pick.id) },
+    });
+  }
+
+  /**
+   * `del.DeliveryRescheduled`, in DEL's transaction (FR-DEL-011, A-362): a reattempt moves the order DELIVERY_FAILED back
+   * to DISPATCHED (the goods never left the van). Refused while a write-off of the same goods waits for its approval.
+   */
+  async rescheduledIn(tx: Transaction, event: EventEnvelope): Promise<void> {
+    const moved = event.payload as unknown as DeliveryRescheduled;
+    if (!moved.reattempt) return;
+    await this.assertNoPendingWriteOff(tx, moved.deliveryId);
+    const header = await this.orderStore.lock(tx, moved.orderDocumentId);
+    if (header === null) return;
+    if (header.status !== 'DELIVERY_FAILED') throw invalidState(`order ${header.id}`, header.status);
+    await this.moveIn(tx, header, 'DISPATCHED', `Reattempt of ${moved.deliveryNo} on ${moved.slotDate} ${moved.slotStartsAt}: ${moved.reason}`, new Date(moved.rescheduledAt), event.actorId);
+    await this.audit.record(tx, { module: 'ord', action: 'REATTEMPT', entityType: 'SalesOrder', entityId: header.id, branchId: header.branchId, before: { status: 'DELIVERY_FAILED' }, after: { status: 'DISPATCHED', deliveryId: moved.deliveryId, slotId: moved.toSlotId } });
+  }
+
+  private async assertNoPendingWriteOff(tx: Transaction, deliveryId: string): Promise<void> {
+    if ((await this.store.liveOfDelivery(tx, deliveryId))?.status === 'PENDING_APPROVAL') throw new DeliveryInvalidError([{ field: '', rule: 'WRITE_OFF_PENDING' }]);
   }
 
   /** The command's frame: the permission, the key, the delivery and its order under their locks, at the delivery's branch. */

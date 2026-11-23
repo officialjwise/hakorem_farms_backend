@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.33.0"
+  version: "2.34.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -66697,8 +66697,11 @@ paths:
       tags:
         - del
       summary: "Assign a driver and vehicle"
-      description: "Permission: `del.delivery.assign`."
+      description: "Reassignment (2.34.0; FR-DEL-004): another driver who drives for the delivery's branch (holds `del.proof.create` there), or another live `VEHICLE` location of it, or both, for a delivery waiting on the van (`ASSIGNED`) or back from a failed attempt (`FAILED`). A delivery made at dispatch already has its driver and van, so this is how it changes hands. The previous driver can no longer open it; the new one sees it among their own. **When the vehicle changes the goods follow:** each dispatched item moves from the one van to the other in the same transaction (still the farm's stock); a van that no longer holds them 422 `INSUFFICIENT_STOCK`, nothing written. Audited with the before and after. **Refusals:** a delivery on its way or finished 422 `INVALID_STATE_TRANSITION`; one that is a stop of a planned or started run keeps its driver and van, 422 `DELIVERY_INVALID` `ON_A_RUN`; the same driver and vehicle `UNCHANGED`; a person who does not drive for the branch `NOT_A_DRIVER`; a location that is not a live vehicle of the branch `NOT_A_VEHICLE`; a failed delivery whose write-off waits for approval `WRITE_OFF_PENDING`; another branch's delivery 403.\n\nPermission: `del.delivery.assign`."
       x-permission: del.delivery.assign
+      x-error-codes:
+        - DELIVERY_INVALID
+        - INSUFFICIENT_STOCK
       parameters:
         - name: id
           in: path
@@ -66732,8 +66735,8 @@ paths:
                 $ref: "#/components/schemas/Delivery"
               example:
                 id: "019a7af0-47f8-7b3e-8076-bcb6e7053594"
-                deliveryNo: null
-                status: SCHEDULED
+                deliveryNo: DLN-2026-DDW-000216
+                status: ASSIGNED
                 order:
                   id: "019a7b07-f6f4-7d65-829e-df301289580d"
                   docType: SALES_ORDER
@@ -66768,12 +66771,18 @@ paths:
                     quantity: "1.000"
                     uom: PACK
                     weightKg: "14.650"
-                driver: null
-                vehicle: null
+                driver:
+                  id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                  displayName: "Kwesi Appiah"
+                vehicle:
+                  id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+                  code: VAN-GT4521
+                  name: "Delivery van GT-4521-24"
+                  kind: VEHICLE
                 codDuePesewas: 0
                 codCollectedPesewas: null
                 attemptCount: 0
-                dispatchedAt: null
+                dispatchedAt: "2026-11-13T11:00:00Z"
                 deliveredAt: null
                 proof: null
                 deliveryNoteDocumentId: null
@@ -66802,8 +66811,10 @@ paths:
       tags:
         - del
       summary: "Move a delivery to another slot"
-      description: "Permission: `del.delivery.assign`."
+      description: "Booking and reattempt (2.34.0; FR-DEL-001 to FR-DEL-003, FR-DEL-011): a slot of the delivery's own zone for a delivery waiting on the van (`ASSIGNED`) or back from a failed attempt (`FAILED`), with the reason (1 to 500 characters). The slot is read under its row lock: never more bookings than its capacity, whoever books at the same time. The old slot is freed and the new one taken in the same transaction; the database keeps the slots' counts. Today's slots are offered only up to the zone's cut-off (Africa/Accra); after it the earliest is tomorrow's. **A reattempt:** a `FAILED` delivery goes back to `ASSIGNED` and its order from `DELIVERY_FAILED` to `DISPATCHED`; the goods never left the van. The same slot is taken again for a reattempt without a second booking. A delivery that is a stop of a run keeps its stop and van, so its slot falls on the run's day. The customer is told through the outbox (`del.DeliveryRescheduled`). Audited. **Refusals:** a delivery on its way or finished 422 `INVALID_STATE_TRANSITION`; 422 `DELIVERY_INVALID` with `SLOT_UNKNOWN`, `SLOT_OTHER_ZONE`, `SLOT_STARTED`, `PAST_CUT_OFF`, `SLOT_FULL`, `NOT_ON_RUN_DAY`, `SAME_SLOT` (the same slot for a delivery waiting on the van), `ZONE_NOT_DELIVERING` or `WRITE_OFF_PENDING`; another branch's delivery 403.\n\nPermission: `del.delivery.assign`."
       x-permission: del.delivery.assign
+      x-error-codes:
+        - DELIVERY_INVALID
       parameters:
         - name: id
           in: path
@@ -66837,8 +66848,8 @@ paths:
                 $ref: "#/components/schemas/Delivery"
               example:
                 id: "019a7af0-47f8-7b3e-8076-bcb6e7053594"
-                deliveryNo: null
-                status: SCHEDULED
+                deliveryNo: DLN-2026-DDW-000216
+                status: ASSIGNED
                 order:
                   id: "019a7b07-f6f4-7d65-829e-df301289580d"
                   docType: SALES_ORDER
@@ -66873,12 +66884,18 @@ paths:
                     quantity: "1.000"
                     uom: PACK
                     weightKg: "14.650"
-                driver: null
-                vehicle: null
+                driver:
+                  id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                  displayName: "Kwesi Appiah"
+                vehicle:
+                  id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+                  code: VAN-GT4521
+                  name: "Delivery van GT-4521-24"
+                  kind: VEHICLE
                 codDuePesewas: 0
                 codCollectedPesewas: null
                 attemptCount: 0
-                dispatchedAt: null
+                dispatchedAt: "2026-11-13T11:00:00Z"
                 deliveredAt: null
                 proof: null
                 deliveryNoteDocumentId: null
@@ -103894,7 +103911,10 @@ components:
           type: string
           format: uuid
         reason:
+          description: "Why the delivery moves, kept on its audit and the order's history (2.34.0: 1 to 500 characters once trimmed)."
           type: string
+          minLength: 1
+          maxLength: 500
       required:
         - slotId
         - reason
@@ -103948,12 +103968,12 @@ components:
         codDuePesewas:
           $ref: "#/components/schemas/Pesewas"
         slotStartsAt:
-          description: "The booked slot's start; null until slot booking (2.32.0)."
+          description: "The booked slot's start; null while none is booked (filled from 2.34.0)."
           oneOf:
             - $ref: "#/components/schemas/LocalTime"
             - type: "null"
         slotEndsAt:
-          description: "The booked slot's end; null until slot booking (2.32.0)."
+          description: "The booked slot's end; null while none is booked (filled from 2.34.0)."
           oneOf:
             - $ref: "#/components/schemas/LocalTime"
             - type: "null"

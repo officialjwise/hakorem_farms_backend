@@ -167,7 +167,7 @@ import {
   RfqUpdate as QuoRfqUpdate,
 } from '../../../src/modules/quo/interface/schemas';
 import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
-import { DeliveryFailure, OnTheWay, ProofOfDeliveryCreate, RouteCreate, RouteStopsReplace, SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
+import { DeliveryAssign, DeliveryFailure, DeliveryReschedule, OnTheWay, ProofOfDeliveryCreate, RouteCreate, RouteStopsReplace, SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
 import {
   ConsentRecordBody,
@@ -560,6 +560,8 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     markOnTheWay: OnTheWay,
     recordFailedDelivery: DeliveryFailure,
     returnDeliveryToStock: ReturnToStockBody,
+    assignDelivery: DeliveryAssign,
+    rescheduleDelivery: DeliveryReschedule,
     writeOffDelivery: DeliveryWriteOffBody,
     cancelFulfilment: FulfilmentReasonBody,
     proposeSubstitution: SubstitutionCreateBody,

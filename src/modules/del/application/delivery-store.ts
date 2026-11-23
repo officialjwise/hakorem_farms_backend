@@ -133,6 +133,12 @@ export interface DeliveryStore {
   markWrittenOff(tx: Transaction, id: string, d: WriteOffFacts & { readonly at: Date; readonly actorId: string }): Promise<void>;
   /** Deliveries written off with one of these reasons at the branches given, newest first, before `beforeId`, at most `limit`. */
   writtenOff(tx: Transaction, f: WrittenOffFilter, beforeId: string | null, limit: number): Promise<WrittenOffRecord[]>;
+  /** Another driver or vehicle (or both) for a delivery waiting on the van or failed, on no live run (FR-DEL-004). */
+  reassign(tx: Transaction, id: string, d: { readonly driverId: string; readonly vehicleLocationId: string; readonly at: Date; readonly actorId: string }): Promise<void>;
+  /** The delivery's slot; a reattempt moves a FAILED delivery back to ASSIGNED. The database moves the slots' counts. */
+  book(tx: Transaction, id: string, d: { readonly slotId: string; readonly reattempt: boolean; readonly at: Date; readonly actorId: string }): Promise<void>;
+  /** The run the delivery is a stop of, with its Africa/Accra date; null when it is on none. */
+  routeOf(tx: Transaction, deliveryId: string): Promise<{ readonly id: string; readonly status: 'PLANNED' | 'IN_PROGRESS' | 'COMPLETED'; readonly routeDate: string } | null>;
   /** The status of the route the delivery sits on; null when it is on none. */
   routeStatusOf(tx: Transaction, deliveryId: string): Promise<'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | null>;
 }

@@ -24,7 +24,7 @@ const READ_MINE = 'del.delivery.read.assigned';
 const DRIVES = 'del.proof.create';
 export const ROUTE_COMPLETED = 'del.RouteCompleted';
 
-/** The contract's `RouteStopDelivery`; the slot is null until slot booking (B11 continued 4). */
+/** The contract's `RouteStopDelivery`; the slot's times are null until a slot is booked (B11 continued 5). */
 export interface RouteStopDeliveryView {
   readonly id: string;
   readonly deliveryNo: string | null;
@@ -32,8 +32,8 @@ export interface RouteStopDeliveryView {
   readonly area: string;
   readonly status: string;
   readonly codDuePesewas: number;
-  readonly slotStartsAt: null;
-  readonly slotEndsAt: null;
+  readonly slotStartsAt: string | null;
+  readonly slotEndsAt: string | null;
 }
 
 /** The contract's `Route`, with what is still on the van, the cash collected and still held, and the hand-ins that took it. */
@@ -274,6 +274,7 @@ export class Routes {
   private async viewsIn(tx: Transaction, routes: readonly RouteRecord[]): Promise<RouteView[]> {
     if (routes.length === 0) return [];
     const deliveries = new Map((await this.deliveryStore.deliveries(tx, routes.flatMap((r) => r.stops))).map((d) => [d.id, d] as const));
+    const slots = await this.deliveries.slotsIn(tx, [...deliveries.values()].flatMap((d) => (d.slotId === null ? [] : [d.slotId])));
     const vehicles = await this.refs.locationsIn(tx, [...new Set(routes.map((r) => r.vehicleLocationId))]);
     const drivers = await this.principals.refs(tx, [...new Set(routes.map((r) => r.driverId))]);
     const cash = await this.store.cashOf(
@@ -290,7 +291,7 @@ export class Routes {
         routeDate: r.routeDate,
         vehicle: { id: r.vehicleLocationId, code: vehicle?.code ?? '', name: vehicle?.name ?? '', kind: vehicle?.kind ?? 'VEHICLE' },
         status: r.status,
-        stops: stops.map((d, i) => ({ stopNo: stopNo(i), delivery: stopOf(d) })),
+        stops: stops.map((d, i) => ({ stopNo: stopNo(i), delivery: stopOf(d, slots) })),
         stopsOnVan: stops.filter((d) => !leftTheVan(d.status)).length,
         codDueTotalPesewas: Money.sum(stops.map((d) => Money.ofPesewas(d.codDuePesewas))).toJsonInteger(),
         codCollectedPesewas: json(money.collectedPesewas),
@@ -306,7 +307,8 @@ export class Routes {
   }
 }
 
-function stopOf(d: DeliveryRecord): RouteStopDeliveryView {
+function stopOf(d: DeliveryRecord, slots: ReadonlyMap<string, { readonly startsAt: string; readonly endsAt: string }>): RouteStopDeliveryView {
+  const slot = d.slotId === null ? undefined : slots.get(d.slotId);
   const area = d.addressSnapshot['area'];
   return {
     id: d.id,
@@ -315,7 +317,7 @@ function stopOf(d: DeliveryRecord): RouteStopDeliveryView {
     area: typeof area === 'string' ? area : '',
     status: d.status,
     codDuePesewas: json(d.codDuePesewas),
-    slotStartsAt: null,
-    slotEndsAt: null,
+    slotStartsAt: slot?.startsAt ?? null,
+    slotEndsAt: slot?.endsAt ?? null,
   };
 }

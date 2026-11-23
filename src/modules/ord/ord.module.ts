@@ -11,7 +11,7 @@ import { CLOCK } from '../../platform/platform.module';
 import { BilModule, Billing } from '../bil';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { InvModule, Reservations, Stock, StockAdjustments, StockExceptions, StockMovements, StockQueries, StockUnits } from '../inv';
-import { Deliveries, DelModule, DELIVERY_COMPLETED, DELIVERY_FAILED } from '../del';
+import { Deliveries, DelModule, DELIVERY_COMPLETED, DELIVERY_FAILED, DELIVERY_REASSIGNED, DELIVERY_RESCHEDULED } from '../del';
 import { MasterDataRefs, MdmModule, PricingService, Storefront } from '../mdm';
 import { PayModule, Payments, ProviderPayments, Receipts, Refunds } from '../pay';
 import { Dispatches } from './application/dispatches';
@@ -386,6 +386,9 @@ export class OrdModule implements OnModuleInit {
     this.events.subscribeInTransaction(DELIVERY_FAILED, (tx, event) => this.dispatches.failedIn(tx, event));
     // A van write-off's stock approval, and a van return's credit note approval, carry its goods and money on (A-360).
     this.events.subscribeInTransaction('iam.ApprovalDecided', (tx, event) => this.vanReturns.decidedIn(tx, event));
+    // A reassigned delivery's goods follow it van to van; a reattempt sends the order out again (A-362).
+    this.events.subscribeInTransaction(DELIVERY_REASSIGNED, (tx, event) => this.vanReturns.reassignedIn(tx, event));
+    this.events.subscribeInTransaction(DELIVERY_RESCHEDULED, (tx, event) => this.vanReturns.rescheduledIn(tx, event));
     this.approvals.registerHandler(SALE_VOID_KIND, this.reversals.approvalHandler);
     this.approvals.registerHandler(RETURN_KIND, this.returns.approvalHandler);
     this.approvals.registerHandler(PRICE_OVERRIDE_KIND, this.overrides.approvalHandler);
