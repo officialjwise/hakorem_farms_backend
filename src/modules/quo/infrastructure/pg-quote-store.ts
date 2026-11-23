@@ -3,6 +3,9 @@ import type {
   AcceptanceRecord,
   LinkDecisionRecord,
   LinkRecord,
+  LineStockRecord,
+  PipelineCell,
+  PipelineFilter,
   LineRecord,
   QuoteFilter,
   QuoteRecord,
@@ -353,5 +356,54 @@ export class PgQuoteStore implements QuoteStore {
         [customerId, beforeId, limit],
       )
     ).rows.map((r) => (r as { id: string }).id);
+  }
+  async insertLineStock(tx: Transaction, r: LineStockRecord, actorId: string, at: Date): Promise<void> {
+    await tx.query(
+      `INSERT INTO quo.quote_line_stock (id, quote_line_id, quote_version_id, available_qty, held_qty, recorded_at, actor_id) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [r.id, r.quoteLineId, r.quoteVersionId, r.availableQty, r.heldQty, at, actorId],
+    );
+  }
+
+  async lineStockOf(tx: Transaction, versionIds: readonly string[]): Promise<LineStockRecord[]> {
+    if (versionIds.length === 0) return [];
+    return (
+      await tx.query(
+        `SELECT id, quote_line_id AS "quoteLineId", quote_version_id AS "quoteVersionId", available_qty::text AS "availableQty", held_qty::text AS "heldQty"
+           FROM quo.quote_line_stock WHERE quote_version_id = ANY($1::uuid[])`,
+        [versionIds],
+      )
+    ).rows as LineStockRecord[];
+  }
+
+  async setArchivedDocument(tx: Transaction, versionId: string, archivedDocumentId: string, actorId: string, at: Date): Promise<boolean> {
+    const r = await tx.query(
+      `UPDATE quo.quote_version SET archived_document_id = $2, version = version + 1, updated_at = $3, updated_by = $4 WHERE id = $1 AND archived_document_id IS NULL`,
+      [versionId, archivedDocumentId, at, actorId],
+    );
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async versionByNo(tx: Transaction, quoteId: string, versionNo: number): Promise<VersionRecord | null> {
+    const r = await tx.query(`SELECT ${VERSION} FROM quo.quote_version WHERE quote_id = $1 AND version_no = $2`, [quoteId, versionNo]);
+    return (r.rows[0] as VersionRecord | undefined) ?? null;
+  }
+
+  async pipelineCells(tx: Transaction, f: PipelineFilter): Promise<PipelineCell[]> {
+    const group = f.groupBy === 'SALESPERSON' ? 'q.salesperson_id::text' : 'q.product_line';
+    const rows = (
+      await tx.query<{ groupKey: string | null; status: PipelineCell['status']; count: string; grossPesewas: string }>(
+        `SELECT ${group} AS "groupKey", q.status, count(*)::text AS count, sum(v.gross_pesewas)::text AS "grossPesewas"
+           FROM quo.quote q
+           CROSS JOIN LATERAL (
+             SELECT s.gross_pesewas FROM quo.quote_version s
+              WHERE s.quote_id = q.id AND s.issued_at IS NOT NULL
+              ORDER BY (s.id = q.accepted_version_id) DESC NULLS LAST, s.version_no DESC LIMIT 1) v
+          WHERE q.branch_id = ANY($1::uuid[]) AND q.created_at >= $2 AND q.created_at < $3
+            AND q.status IN ('ISSUED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CONVERTED')
+          GROUP BY 1, 2`,
+        [f.branchIds, f.from, f.to],
+      )
+    ).rows;
+    return rows.map((r) => ({ groupKey: r.groupKey, status: r.status, count: Number(r.count), grossPesewas: BigInt(r.grossPesewas) }));
   }
 }

@@ -222,10 +222,12 @@ export class FileStore {
    * A signed GET link valid for `ttlSeconds` from now, and its row in the access log with the actor and address of
    * the request, in the caller's transaction. Signing is local: no call leaves the process.
    */
-  async signedLink(tx: Transaction, file: StoredFileRecord, purpose: string, ttlSeconds: number): Promise<SignedLink> {
+  async signedLink(tx: Transaction, file: StoredFileRecord, purpose: string, ttlSeconds: number, onBehalfOf?: string): Promise<SignedLink> {
     const { storage } = this.configured();
     const context = currentRequestContext();
-    const actorId = context?.actor?.principalId;
+    // A public caller (a buyer by a link's token) has no actor on the request; the module that authorised them names
+    // the principal the access is logged under (the Storefront's).
+    const actorId = onBehalfOf ?? context?.actor?.principalId;
     if (actorId === undefined) {
       throw new Error(`signed link for ${file.id}: no actor in the request context`);
     }

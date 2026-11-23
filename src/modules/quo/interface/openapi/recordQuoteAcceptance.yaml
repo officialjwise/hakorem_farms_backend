@@ -80,6 +80,7 @@ responses:
             estimatedCostPesewas: null
             marginPercent: null
             belowMarginFloor: false
+            subjectToStock: false
             approvalRequestId: null
             changeNote: null
             issuedAt: "2026-11-13T15:00:00Z"

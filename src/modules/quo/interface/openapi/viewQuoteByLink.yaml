@@ -40,6 +40,7 @@ responses:
               priceBasis: PER_HEAD
               unitPricePesewas: 95000
               lineNetPesewas: 1710000
+              subjectToStock: false
           deliveryFeePesewas: 6000
           netPesewas: 1716000
           taxPesewas: 1200
@@ -48,6 +49,7 @@ responses:
           terms: "Price valid for seven days. 50 percent deposit to reserve the animals."
           deliveryEstimate: "Delivered to Prampram on 11 December, morning"
           documentUrl: "https://files.hakoremfarms.com/private/quote-88-v2.pdf?X-Amz-Expires=300"
+          subjectToStock: false
   "400":
     $ref: "#/components/responses/BadRequest"
   "404":

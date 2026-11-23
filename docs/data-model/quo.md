@@ -78,7 +78,7 @@ One revision. Immutable once issued; a change is a new version. Posted statuses:
 | `change_note` | `text` | NULL | What changed from the previous version |
 | `issued_at` | `timestamptz` | NULL | |
 | `issued_by` | `uuid` | NULL, FK `iam.principal` | |
-| `archived_document_id` | `uuid` | NULL, FK `doc.archived_document` | The PDF sent |
+| `archived_document_id` | `uuid` | NULL, FK `doc.archived_document` | The PDF sent: revision `version_no` of the quote's archived document, set once by `quo.quote-archive-link` (B10 continued 5, A-330) |
 | `created_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
 | `created_by` | `uuid` | NOT NULL, FK `iam.principal` | |
 
@@ -86,6 +86,21 @@ One revision. Immutable once issued; a change is a new version. Posted statuses:
 
 
 **As changed in B10 continued 3b (migration 0278, A-323, the owner, 2026-11-19):** `status` gains `APPROVED`: a version below the margin floor that a second person approved, holding no stock, having sent nothing and having no link. `quo.quote_version_guard` moves `PENDING_APPROVAL` only to `DRAFT` or `APPROVED`, `APPROVED` only to `ISSUED`, exactly as approved; `ck_quote_version_approved_state` (an APPROVED version names its approval and an approver who is not its author); `uq_quote_version_open` counts APPROVED as open.
+### `quo.quote_line_stock` · LEDGER
+
+What a product line of a version found on hand and held when it was issued (B10 continued 5, migration 0288, A-328, the owner's item 3 of 2026-11-18, ADR-0019). Data category: CONFIDENTIAL (DC-22); the buyer sees only whether a line is subject to stock.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `quote_line_id` | `uuid` | NOT NULL, FK `quo.quote_line`, UNIQUE (`uq_quote_line_stock_line`) | once per line |
+| `quote_version_id` | `uuid` | NOT NULL, FK `quo.quote_version`; the line's own, recorded before it is `ISSUED` (`quo.quote_line_stock_check`, HK004) | |
+| `available_qty` | `qty` | NOT NULL | on hand to promise at the branch in the base unit; a balance below zero counts as nothing (ADR-0081) |
+| `held_qty` | `qty` | NOT NULL, `<= available_qty` (`ck_quote_line_stock_held`), `<=` the line's `base_qty` (the check trigger) | what the version reserved; 0.000 for an animal the line does not name |
+| `recorded_at`, `actor_id` | | NOT NULL | the issue's time and issuer |
+
+A line is **subject to stock** when `available_qty` is below its `base_qty`; a version when any line is (derived, never stored twice).
+
 ### `quo.quote_line` · DOCUMENT
 
 Frozen with its version.

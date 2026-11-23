@@ -1,6 +1,6 @@
 import { Quantity } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { canMoveQuote, canMoveVersion, judgeMargin, linkState, lineCost, lineNet, marginPercent, planReservation, unitCost, versionFigures } from './quote';
+import { canMoveQuote, canMoveVersion, judgeMargin, linkState, lineCost, lineNet, marginPercent, planHold, unitCost, versionFigures } from './quote';
 
 const q = (text: string) => Quantity.parse(text);
 
@@ -100,12 +100,24 @@ describe('the status machines (FR-QUO-006, FR-QUO-009)', () => {
   });
 });
 
-describe('the stock a quote line is promised from, oldest first (FR-QUO-012, CR-045)', () => {
-  it('takes 90 eggs from the first lot of 60 and 30 of the next', () => {
-    expect(planReservation(q('90.000'), [q('60.000'), q('100.000')])).toEqual({ kind: 'PLAN', pieces: [{ index: 0, qty: q('60.000') }, { index: 1, qty: q('30.000') }] });
+describe('the stock a quote line holds: only what is on hand, never more (FR-QUO-012, CR-045, the owner 2026-11-18, ADR-0019)', () => {
+  it('fully on hand: 90 eggs take 60 of the first lot and 30 of the next, nothing short', () => {
+    expect(planHold(q('90.000'), [q('60.000'), q('100.000')])).toEqual({
+      pieces: [{ index: 0, qty: q('60.000') }, { index: 1, qty: q('30.000') }],
+      available: q('160.000'),
+      held: q('90.000'),
+      short: q('0.000'),
+    });
   });
-  it('is short by what no lot covers, and takes nothing', () => {
-    expect(planReservation(q('900.001'), [q('900.000')])).toEqual({ kind: 'SHORT', short: q('0.001') });
+  it('partly on hand: 900.001 eggs hold the 900.000 there and are short 0.001', () => {
+    expect(planHold(q('900.001'), [q('900.000')])).toEqual({ pieces: [{ index: 0, qty: q('900.000') }], available: q('900.000'), held: q('900.000'), short: q('0.001') });
+  });
+  it('not on hand: 20 goats with none there hold nothing and are short 20', () => {
+    expect(planHold(q('20.000'), [])).toEqual({ pieces: [], available: q('0.000'), held: q('0.000'), short: q('20.000') });
+  });
+  it('a balance below zero (an offline sale ahead of receipt, ADR-0081) is nothing on hand, never less', () => {
+    expect(planHold(q('12.000'), [q('-5.000'), q('7.000'), q('0.000')])).toEqual({ pieces: [{ index: 1, qty: q('7.000') }], available: q('7.000'), held: q('7.000'), short: q('5.000') });
+    expect(planHold(q('3.000'), [q('-4.000')])).toEqual({ pieces: [], available: q('0.000'), held: q('0.000'), short: q('3.000') });
   });
 });
 

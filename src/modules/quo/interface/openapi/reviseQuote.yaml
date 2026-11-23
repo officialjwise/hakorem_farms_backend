@@ -63,6 +63,7 @@ responses:
           estimatedCostPesewas: 1188000
           marginPercent: "30.77"
           belowMarginFloor: false
+          subjectToStock: false
           approvalRequestId: null
           changeNote: "Reduced to eighteen goats and added delivery"
           issuedAt: null
@@ -91,6 +92,9 @@ responses:
               lineNetPesewas: 1710000
               estimatedUnitCostPesewas: 66000
               baseQuantity: "18.000"
+              availableQuantity: null
+              heldQuantity: null
+              subjectToStock: false
           acceptance: null
           documentId: null
           currency: GHS

@@ -197,6 +197,39 @@ export interface QuoteStore {
   insertLinkRevocation(tx: Transaction, revocation: { readonly id: string; readonly linkTokenId: string; readonly reason: string }, actorId: string, at: Date): Promise<void>;
   insertLinkDecision(tx: Transaction, decision: LinkDecisionRecord, actorId: string, at: Date): Promise<void>;
   linkDecisionsOf(tx: Transaction, versionIds: readonly string[]): Promise<LinkDecisionRecord[]>;
+  /** What a product line found on hand and held at issue (quo.quote_line_stock, migration 0288), once per line. */
+  insertLineStock(tx: Transaction, row: LineStockRecord, actorId: string, at: Date): Promise<void>;
+  lineStockOf(tx: Transaction, versionIds: readonly string[]): Promise<LineStockRecord[]>;
+  /** The version's archived rendering, set once (ck_quote_version_frozen allows it once on an issued version). */
+  setArchivedDocument(tx: Transaction, versionId: string, archivedDocumentId: string, actorId: string, at: Date): Promise<boolean>;
+  /** The version of a quote archived as this revision (the version number), for DOC's archive event. */
+  versionByNo(tx: Transaction, quoteId: string, versionNo: number): Promise<VersionRecord | null>;
+  /** The pipeline's cells: issued quotes created in the period at these branches, by group and status (FR-QUO-013). */
+  pipelineCells(tx: Transaction, filter: PipelineFilter): Promise<PipelineCell[]>;
+}
+
+/** quo.quote_line_stock: both quantities in the product's base unit (A-328). */
+export interface LineStockRecord {
+  readonly id: string;
+  readonly quoteLineId: string;
+  readonly quoteVersionId: string;
+  readonly availableQty: string;
+  readonly heldQty: string;
+}
+
+export interface PipelineFilter {
+  readonly branchIds: readonly string[];
+  readonly from: Date;
+  readonly to: Date;
+  readonly groupBy: 'SALESPERSON' | 'PRODUCT_LINE';
+}
+
+/** One group and status: how many quotes and the gross of the version each shows (the accepted one, else the last issued). */
+export interface PipelineCell {
+  readonly groupKey: string | null;
+  readonly status: 'ISSUED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'CONVERTED';
+  readonly count: number;
+  readonly grossPesewas: bigint;
 }
 
 /** An acceptance link of a version (quo.quote_link_token with its revocation, if any). */

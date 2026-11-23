@@ -48,6 +48,10 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0291_doc_quote_template',
+      '0290_iam_grant_quo_report_permission',
+      '0289_iam_seed_quo_report_permission',
+      '0288_quo_quote_line_stock',
       '0287_fin_negative_stock_postings',
       '0286_inv_negative_stock_offline',
       '0285_fin_unverified_mobile_money_clearing',

@@ -301,7 +301,7 @@ describe('the acceptance link is a random token, stored only as its hash, openin
     const live = await publicGet(`/shop/quotes/${id('v2Token')}`);
     expect(live.status, JSON.stringify(live.body)).toBe(200);
     expect([live.body.versionNo, live.body.status, live.body.grossPesewas, live.body.lines[0].lineNetPesewas]).toEqual([2, 'ISSUED', 264_000, 264_000]);
-    expect(Object.keys(live.body.lines[0]).sort()).toEqual(['description', 'lineNetPesewas', 'priceBasis', 'quantity', 'unitPricePesewas', 'uom']);
+    expect(Object.keys(live.body.lines[0]).sort()).toEqual(['description', 'lineNetPesewas', 'priceBasis', 'quantity', 'subjectToStock', 'unitPricePesewas', 'uom']);
     const replaced = await publicGet(`/shop/quotes/${id('v1Token')}`);
     expect([replaced.status, replaced.body.error?.code, replaced.body.error?.details?.[0]?.code, replaced.body.lines]).toEqual([422, 'QUOTE_LINK_CLOSED', 'REPLACED', undefined]);
     const acceptOld = await publicPost(`/shop/quotes/${id('v1Token')}/accept`, { acceptedName: 'Kofi Mensah' });
@@ -416,7 +416,7 @@ describe('an accepted quote converts to exactly one order that keeps every link 
 });
 
 describe('a named animal is held for the quote (FR-QUO-012)', () => {
-  it('reserves G-0142 named on a quote until it is withdrawn, and a second quote naming it cannot be issued meanwhile', async () => {
+  it('reserves G-0142 named on a quote until it is withdrawn; a second quote naming it meanwhile is issued subject to stock, holding nothing (the owner, 2026-11-18)', async () => {
     const made = await draft('sales', [{ productId: id('goat'), stockUnitId: id('G-0142'), description: 'Goat G-0142', quantity: '1.000', priceBasis: 'PER_HEAD', unitPricePesewas: 90_000 }]);
     expect(made.status, JSON.stringify(made.body)).toBe(201);
     const issued = await issue('sales', made.body.currentVersion.id);
@@ -424,12 +424,13 @@ describe('a named animal is held for the quote (FR-QUO-012)', () => {
     expect(issued.status, JSON.stringify(issued.body)).toBe(200);
     expect(await heldBy(made.body.id)).toEqual({ qty: '1.000', n: 1 });
     const rival = await draft('sales', [{ productId: id('goat'), stockUnitId: id('G-0142'), description: 'Goat G-0142 again', quantity: '1.000', priceBasis: 'PER_HEAD', unitPricePesewas: 95_000 }]);
-    const refused = await issue('sales', rival.body.currentVersion.id);
-    expect([refused.status, refused.body.error?.code, refused.body.error?.details?.[0]?.code]).toEqual([422, 'QUOTE_INVALID', 'STOCK_SHORT']);
+    // LOUD on 2.12.0 (2.23.0, A-328): this was 422 STOCK_SHORT. The animal stays held by the first quote.
+    const rivalIssued = await issue('sales', rival.body.currentVersion.id);
+    expect([rivalIssued.status, rivalIssued.body.subjectToStock, rivalIssued.body.lines[0].availableQuantity, rivalIssued.body.lines[0].heldQuantity]).toEqual([200, true, '0.000', '0.000']);
+    expect([await heldBy(made.body.id), await heldBy(rival.body.id)]).toEqual([{ qty: '1.000', n: 1 }, { qty: '0.000', n: 0 }]);
     const cancelled = await post('sales', `/quotes/${made.body.id}/cancel`, { reason: 'Buyer chose another animal' });
     expect([cancelled.status, cancelled.body.status]).toEqual([200, 'CANCELLED']);
     expect(await heldBy(made.body.id)).toEqual({ qty: '0.000', n: 0 });
-    expect((await issue('sales', rival.body.currentVersion.id)).status).toBe(200);
   });
 });
 

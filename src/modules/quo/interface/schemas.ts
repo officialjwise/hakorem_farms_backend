@@ -102,6 +102,7 @@ export const QuotePageQuery = z.object({
 });
 
 export const PageQuery = z.object({ cursor: Cursor, limit: Limit });
+export const QuotePipelineQuery = z.object({ from: BusinessDate, to: BusinessDate, groupBy: z.enum(['SALESPERSON', 'PRODUCT_LINE']), cursor: Cursor, limit: Limit });
 export const QuoteVersionCreate = z.strictObject({ changeNote: Text(500), copyFromVersionId: z.uuid().optional() });
 export const QuoteVersionUpdate = z.strictObject({
   version: z.number().int().min(1),

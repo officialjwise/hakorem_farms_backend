@@ -49,6 +49,8 @@ const TAKES_NO_IDENTIFIER = [
   'setTillPin',
   // B10 continued 4: a customer's own quotes take no identifier (another customer's open nothing: quo/quote-links).
   'listMyQuotes',
+  // B10 continued 5: the pipeline takes a period, no identifier (another branch's quotes are in no row: quo/quote-document-pipeline).
+  'getQuotePipeline',
 ];
 
 /** Public by design, each proved in its own block below or in its module's tests (named here). */

@@ -12,6 +12,7 @@ import { RateLimiter } from '../../platform/http/rate-limiter';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
 import { Settings } from '../../platform/settings/settings';
+import { DocModule, Documents } from '../doc';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { InvModule, Reservations, StockQueries, StockUnits } from '../inv';
 import { MasterDataRefs, MdmModule, PartiesAdmin, PricingService, TaxService } from '../mdm';
@@ -30,7 +31,7 @@ import { MyQuotesController, QuotesController, RfqsController } from './interfac
  * QUOTE_BELOW_MARGIN approval, whose handler it registers). No module imports QUO.
  */
 @Module({
-  imports: [IamModule, MdmModule, InvModule, OrdModule],
+  imports: [IamModule, MdmModule, DocModule, InvModule, OrdModule],
   controllers: [RfqsController, QuotesController, MyQuotesController, QuoteLinksController],
   providers: [
     { provide: QUOTE_STORE, useClass: PgQuoteStore },
@@ -58,8 +59,9 @@ import { MyQuotesController, QuotesController, RfqsController } from './interfac
         cursors: Cursors,
         clock: Clock,
         modules: ModuleRef,
-      ) => new Quotes(uow, store, refs, pricing, tax, units, stock, reservations, orders, approvals, authoriser, principals, idempotency, audit, events, registry, numbers, settings, cursors, clock, new IamStaffSessions(modules)),
-      inject: [UnitOfWork, QUOTE_STORE, MasterDataRefs, PricingService, TaxService, StockUnits, StockQueries, Reservations, Orders, Approvals, Authoriser, PRINCIPAL_NAMES, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, Settings, Cursors, CLOCK, ModuleRef],
+        documents: Documents,
+      ) => new Quotes(uow, store, refs, pricing, tax, units, stock, reservations, orders, approvals, authoriser, principals, idempotency, audit, events, registry, numbers, settings, cursors, clock, new IamStaffSessions(modules), documents),
+      inject: [UnitOfWork, QUOTE_STORE, MasterDataRefs, PricingService, TaxService, StockUnits, StockQueries, Reservations, Orders, Approvals, Authoriser, PRINCIPAL_NAMES, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, Settings, Cursors, CLOCK, ModuleRef, Documents],
     },
     {
       provide: Rfqs,
@@ -92,9 +94,11 @@ export class QuoModule implements OnModuleInit {
   constructor(
     @Inject(Approvals) private readonly approvals: Approvals,
     @Inject(Quotes) private readonly quotes: Quotes,
+    @Inject(DomainEvents) private readonly events: DomainEvents,
   ) {}
 
   onModuleInit(): void {
     this.approvals.registerHandler(QUOTE_BELOW_MARGIN_KIND, this.quotes.approvalHandler);
+    this.events.registerConsumer(this.quotes.archiveLinks);
   }
 }
