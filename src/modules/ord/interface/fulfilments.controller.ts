@@ -6,11 +6,13 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
+import { Dispatches } from '../application/dispatches';
 import { Fulfilments, type FulfilmentView } from '../application/fulfilments';
 import { OnlineOrders, type CustomerOrderView } from '../application/online-orders';
 import type { Page, SalesOrderView } from '../application/orders';
 import {
   ConsentRecordBody,
+  DispatchRecordBody,
   FulfilmentCreateBody,
   FulfilmentPageQuery,
   FulfilmentReasonBody,
@@ -34,7 +36,10 @@ async function reply<T>(res: Response, pending: Promise<StoredResponse<T>>): Pro
 /** Pick lists, picks and packing (FR-ORD-008 to FR-ORD-011, CR-053, CR-054). Parses and delegates; `Fulfilments` authorises. */
 @Controller('fulfilments')
 export class FulfilmentsController {
-  constructor(@Inject(Fulfilments) private readonly fulfilments: Fulfilments) {}
+  constructor(
+    @Inject(Fulfilments) private readonly fulfilments: Fulfilments,
+    @Inject(Dispatches) private readonly dispatches: Dispatches,
+  ) {}
 
   @Get()
   @Operation({ operationId: 'listFulfilments', ...READ, permission: 'ord.fulfilment.read' })
@@ -75,6 +80,18 @@ export class FulfilmentsController {
     @IdempotencyKeyHeader() key: string,
   ): Promise<FulfilmentView> {
     return this.fulfilments.pack(actor, id, body, key).then((r) => r.body);
+  }
+
+  @Post(':id/dispatch')
+  @HttpCode(200)
+  @Operation({ operationId: 'dispatchFulfilment', ...WRITE, permission: 'ord.fulfilment.dispatch' })
+  dispatchFulfilment(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(DispatchRecordBody)) body: z.infer<typeof DispatchRecordBody>,
+    @IdempotencyKeyHeader() key: string,
+  ): Promise<FulfilmentView> {
+    return this.dispatches.dispatch(actor, id, body, key).then((r) => r.body);
   }
 
   @Post(':id/cancel')

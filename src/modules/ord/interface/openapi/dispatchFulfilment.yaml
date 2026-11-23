@@ -1,0 +1,113 @@
+operationId: dispatchFulfilment
+tags:
+  - ord
+summary: "Dispatch: load the vehicle and issue the invoice"
+description: "Dispatches a packed delivery order onto a vehicle with its driver (B11 continued, FR-ORD-011, FR-BIL-005, ADR-0021, ADR-0091), in one serializable transaction: every packed pick list of the order goes (the order must be `PACKED`, else 422 `INVALID_STATE_TRANSITION`); the billing document is issued on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT` for a guest), a catch-weight line in kilograms at its price, with the order's delivery fee as its own line, charged once; the order's deposits are allocated to it oldest first, what they hold beyond it is asked back to the original method (`WEIGHED_BELOW_PAID`, a refund waiting for its approval), and what they do not cover becomes the cash due on delivery; the order's reservations end and each pick moves from its pick location onto the vehicle (never below zero online: 422 `INSUFFICIENT_STOCK`, nor stock promised to another order); the delivery is made (`DLN-...`, assigned to the driver and vehicle) and the order moves to `DISPATCHED`. `ord.OrderDispatched` is written to the outbox in the same transaction for the customer's message with the weights and the final total. Refusals: 422 `FULFILMENT_INVALID` with `NOT_A_DELIVERY` (a collection order is handed over with `collectFulfilment`, B11 continued 2), `CREDIT_DISPATCH_NOT_AVAILABLE` (an order on account, B11 continued 2), `DELIVERY_ADDRESS_REQUIRED`, `DRIVER_REQUIRED` or `VEHICLE_REQUIRED`; 422 `DELIVERY_INVALID` with `NOT_A_DRIVER` (not a driver at the branch) or `NOT_A_VEHICLE` (not a live vehicle of the branch).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.dispatch`."
+x-permission: ord.fulfilment.dispatch
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DispatchRecord"
+      example:
+        driverId: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+        vehicleLocationId: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Fulfilment"
+        example:
+          id: "019a7af3-aa1c-701f-8557-0ac8366183a6"
+          fulfilmentNo: PCK-2026-DDW-000414
+          order:
+            id: "019a7af0-2909-715a-b693-1e7f6d54975d"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004216
+          status: DISPATCHED
+          pickLocation:
+            id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+            code: COLD-1
+            name: "Cold room"
+            kind: COLD_ROOM
+          picker:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          pickList:
+            - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-0001
+                name: "Full chicken, 15 kg pack"
+              qtyToPick: "1.000"
+              uom: PACK
+              estimatedWeightKg: "15.000"
+              suggestedStockUnits:
+                - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                  identifier: MEAT-CHK-261106-02
+                  tracking: LOT
+              status: OPEN
+              pickedQty: "0.000"
+              pickedWeightKg: null
+              minimumWeightKg: "13.500"
+              maximumWeightKg: "16.500"
+              toleranceState: null
+          lines:
+            - id: "019a7af3-c90b-7a02-9f3b-a8ffb01221dd"
+              orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-0001
+                name: "Full chicken, 15 kg pack"
+              stockUnit:
+                id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                identifier: MEAT-CHK-261106-02
+                tracking: LOT
+              packBarcode: "226110602014650"
+              qty: "1.000"
+              weightKg: "14.650"
+              weightSource: SCALE
+              linePricePesewas: 29300
+          weighedTotalPesewas: 44300
+          withinTolerance: true
+          pickedAt: "2026-11-13T10:03:00Z"
+          packedAt: "2026-11-13T10:20:00Z"
+          dispatchedAt: "2026-11-13T11:00:00Z"
+          packageCount: 2
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

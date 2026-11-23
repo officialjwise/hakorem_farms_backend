@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.27.0, LOUD for `SalesOrder.delivery`, `uploadFile` and the `COD_VARIANCE` reason domain:** no field removed or retyped. `dispatchFulfilment` and four delivery operations move into code; `SalesOrder.delivery` is now filled once dispatched; a Driver may upload a proof photograph or a signature (`platform.file.upload.proof`); `listReasonCodes?domain` gains `COD_VARIANCE`. `DeliveryContentsLine.orderLineId` and `ProofOfDelivery.codVarianceReasonCode` and `codVarianceNote` are new and always sent.
 - **2.26.0:** additive. No existing field, parameter or status changed. `revokeReceiptLink` and `payInvoiceAtTill` are new; `CounterSale.buyer` and `OfflineSale.buyer` are new and optional (a business buyer's name and TIN on the receipt, never a customer); an offline sale may name `BUYER_DETAILS_REFUSED`.
 - **2.25.0, LOUD for `cancelOrder` on a picking order and for `PendingConsent.kind`:** no field removed or retyped. Nine planned picking operations move into code and `proposeShortPick` is new; `SalesOrder` gains `fulfilments` and `pendingConsent` (always sent); `PickListLine` gains its picked figures and tolerance. **Behaviour:** `cancelOrder` now cancels a `PICKING` or `AWAITING_CUSTOMER` order where it answered 422 `INVALID_STATE_TRANSITION`; `PendingConsent.kind` and `ConsentRecord.kind` gain `SHORT_PICK`. See its entry.
 - **2.24.0:** additive. No existing field, parameter or status changed. `getPublicReceipt` is new (public, by the till's token alone); `OfflineSale.receiptToken` and `OfflinePack.receiptLinkTemplate` are new and optional; a sync result may name the new exception `RECEIPT_TOKEN_REFUSED`. See its entry.
@@ -38,6 +39,18 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.27.0 (2026-11-23, B11 continued)
+
+Minor, LOUD on three behaviours (FR-ORD-011, FR-BIL-005, FR-DEL-003, FR-DEL-004, FR-DEL-008, FR-DEL-009, ADR-0021, ADR-0091, ADR-0092, CR-055 point 1, CR-056 items 1 and 3). A-337 to A-341, migrations 0299 to 0305.
+
+- **Into code with their planned shapes, described in full:** `dispatchFulfilment` (`ord.fulfilment.dispatch`), `listDeliveries` and `getDelivery` (`del.delivery.read`), `getMyDelivery` (`del.delivery.read.assigned`, the caller's own only) and `recordProofOfDelivery` (`del.proof.create`, the caller's own only). `DispatchRecord.driverId` and `vehicleLocationId` stay optional in the schema; leaving either out is 422 `FULFILMENT_INVALID` (`DRIVER_REQUIRED`, `VEHICLE_REQUIRED`).
+- **New error code:** `DELIVERY_INVALID` (422; its details in `docs/API.md` 10.3).
+- **Request (optional):** `listDeliveries?orderId`; `ProofOfDeliveryCreate.codVarianceReasonCode` and `codVarianceNote` (required when less than due is collected, refused otherwise). `listReasonCodes?domain` gains `COD_VARIANCE`.
+- **Response (always sent):** `DeliveryContentsLine.orderLineId` (CR-055 point 1); `ProofOfDelivery.codVarianceReasonCode` and `codVarianceNote`.
+- **LOUD:** `SalesOrder.delivery` (`DeliverySummary`) is filled once the order is dispatched (it was always null); `uploadFile` takes `PROOF_OF_DELIVERY` and `SIGNATURE` from a holder of `platform.file.upload.proof` alone (the Driver); `listReasonCodes` lists the `COD_VARIANCE` reasons and the REFUND reason `WEIGHED_BELOW_PAID`.
+- The seeded role matrix (`x-seeded-roles`) gains the Driver's, the Manager's and the Owner's delivery grants (migration 0301).
+- No existing field removed, retyped or made required on a request.
 
 ## 2.26.0 (2026-11-23, B09b continued 4b)
 

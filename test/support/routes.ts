@@ -284,6 +284,9 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   createFulfilment: { pickLocationId: randomUUID() },
   recordPicks: { picks: [] },
   packFulfilment: { packageCount: 1 },
+  // B11 continued: dispatch and the driver's proof.
+  dispatchFulfilment: { driverId: randomUUID(), vehicleLocationId: randomUUID() },
+  recordProofOfDelivery: { id: randomUUID(), recipientName: 'Ama Serwaa Ofori', photoFileId: randomUUID(), codCollectedPesewas: 0, capturedAt: '2026-11-23T10:00:00Z' },
   cancelFulfilment: { reason: 'Picked from the wrong shelf' },
   proposeSubstitution: { lineId: randomUUID(), productId: randomUUID(), quantity: '1.000', note: 'Out of big eggs' },
   proposeShortPick: { lineId: randomUUID(), quantity: '1.000', note: 'One crate cracked' },

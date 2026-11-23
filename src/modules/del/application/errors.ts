@@ -6,6 +6,7 @@ registerMessages({
   'del.slot_request_invalid': 'These delivery slots cannot be made like this.',
   'del.capacity_below_booked': 'A slot cannot hold fewer deliveries than are already booked into it.',
   'del.reference_not_found': 'Something this request refers to does not exist.',
+  'del.delivery_invalid': 'This delivery cannot be recorded like this.',
 });
 
 function details(rules: readonly { readonly field: string; readonly rule: string }[], messageKey: string): ErrorDetail[] {
@@ -36,5 +37,14 @@ export class DelReferenceNotFoundError extends BusinessRuleError {
   readonly messageKey = 'del.reference_not_found';
   constructor(fields: readonly string[]) {
     super(`unknown ${fields.join(', ')}`, details(fields.map((field) => ({ field, rule: 'UNKNOWN' })), 'del.reference_not_found'));
+  }
+}
+
+/** 422 DELIVERY_INVALID: a delivery, its proof or its cash breaks a rule; `details[].code` names it (FR-DEL-003 to FR-DEL-009). */
+export class DeliveryInvalidError extends BusinessRuleError {
+  readonly code = 'DELIVERY_INVALID';
+  readonly messageKey = 'del.delivery_invalid';
+  constructor(rules: readonly { readonly field: string; readonly rule: string }[]) {
+    super(`delivery breaks ${rules.map((r) => r.rule).join(', ')}`, details(rules, 'del.delivery_invalid'));
   }
 }

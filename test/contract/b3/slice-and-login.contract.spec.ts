@@ -166,7 +166,7 @@ import {
   RfqUpdate as QuoRfqUpdate,
 } from '../../../src/modules/quo/interface/schemas';
 import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
-import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
+import { ProofOfDeliveryCreate, SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
 import {
   ConsentRecordBody,
@@ -175,6 +175,7 @@ import {
   MyConsentBody,
   OrderConfirmBody,
   OrderCreateBody,
+  DispatchRecordBody,
   PackRecordBody,
   PickRecordBody,
   ReasonCodeBody,
@@ -548,6 +549,8 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     createFulfilment: FulfilmentCreateBody,
     recordPicks: PickRecordBody,
     packFulfilment: PackRecordBody,
+    dispatchFulfilment: DispatchRecordBody,
+    recordProofOfDelivery: ProofOfDeliveryCreate,
     cancelFulfilment: FulfilmentReasonBody,
     proposeSubstitution: SubstitutionCreateBody,
     proposeShortPick: ShortPickCreateBody,

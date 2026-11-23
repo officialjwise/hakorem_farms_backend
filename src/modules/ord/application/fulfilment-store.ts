@@ -48,6 +48,8 @@ export interface PickRecord {
   readonly qtyBase: string;
   readonly weightKg: string | null;
   readonly weightSource: PickWeightSource | null;
+  /** Its movement at dispatch: onto the vehicle for a delivery (B11 continued); null before. */
+  readonly stockMovementId?: string | null;
   readonly withdrawnAt: Date | null;
   readonly recordedAt: Date;
   readonly createdBy: string;
@@ -151,4 +153,18 @@ export interface FulfilmentStore {
   consentsOf(tx: Transaction, orderIds: readonly string[]): Promise<OrderConsentRecord[]>;
   answerConsent(tx: Transaction, id: string, a: { readonly status: 'ACCEPTED' | 'REFUSED' | 'WITHDRAWN'; readonly answeredBy: string; readonly at: Date; readonly method: ConsentMethod; readonly note: string | null }): Promise<void>;
   setSubstituteLine(tx: Transaction, consentId: string, lineId: string, at: Date, actorId: string): Promise<void>;
+  /** PACKED to DISPATCHED, at the time given. */
+  dispatch(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void>;
+  /** A pick's movement at dispatch, set once (the guard holds it). */
+  setPickMovement(tx: Transaction, pickId: string, movementId: string, at: Date, actorId: string): Promise<void>;
+  /** A delivered pick's sale issue from the vehicle (`ord.fulfilment_issue`, insert-only). */
+  insertIssue(tx: Transaction, i: { readonly pickId: string; readonly movementId: string; readonly at: Date; readonly actorId: string }): Promise<void>;
+  /** The sale issues of these picks, by pick. */
+  issuesOf(tx: Transaction, pickIds: readonly string[]): Promise<Map<string, string>>;
+  /** An open line fixed at dispatch: sent whole, or short with the customer's agreement. */
+  fixLine(tx: Transaction, lineId: string, status: 'FULFILLED' | 'PARTIAL'): Promise<void>;
+  /** The line's first sale issue, once (what a completed line names). */
+  setLineMovement(tx: Transaction, lineId: string, movementId: string): Promise<void>;
+  /** The order's billing document on the weighed quantity and its final total, issued at dispatch. */
+  invoiceOrder(tx: Transaction, orderId: string, i: { readonly billingDocumentId: string; readonly finalTotalPesewas: bigint; readonly at: Date; readonly actorId: string }): Promise<void>;
 }

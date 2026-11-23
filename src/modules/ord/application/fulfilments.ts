@@ -33,6 +33,8 @@ export const FULFILMENT_PACKED = 'ord.FulfilmentPacked';
 /** A substitute or a smaller quantity the customer refused leaves nothing of the order to send: it ends as out of stock. */
 const OUT_OF_STOCK_REASON = 'OUT_OF_STOCK';
 /** Where a pick list may be picked from: a physical, live location of the order's branch (never in transit or a van). */
+/** A line still to be sent, or fixed at dispatch (FULFILLED, or PARTIAL by agreement): what a pick list totals. */
+const SENT_OR_OPEN: ReadonlySet<string> = new Set(['OPEN', 'FULFILLED', 'PARTIAL']);
 const NOT_PICKED_FROM: ReadonlySet<string> = new Set(['IN_TRANSIT', 'SITE', 'VEHICLE', 'RETURNS_HOLD']);
 
 export interface FulfilmentCreateRequest {
@@ -993,6 +995,11 @@ export class Fulfilments {
     return f;
   }
 
+  /** A pick list as the contract shows it, in the caller's transaction (dispatch's answer). */
+  viewIn(tx: Transaction, id: string): Promise<FulfilmentView> {
+    return this.viewOf(tx, id);
+  }
+
   private async viewOf(tx: Transaction, id: string): Promise<FulfilmentView> {
     return (await this.viewsIn(tx, await this.store.fulfilments(tx, [id])))[0]!;
   }
@@ -1040,7 +1047,7 @@ export class Fulfilments {
         return { id: line.productId, sku: p?.sku ?? '', name: p?.name ?? '' };
       };
       const active = activeOf(f.picks);
-      const listed = f.pickList.filter((p) => p.status === 'OPEN' && lineOf(p.salesOrderLineId).lineStatus === 'OPEN');
+      const listed = f.pickList.filter((p) => p.status === 'OPEN' && SENT_OR_OPEN.has(lineOf(p.salesOrderLineId).lineStatus));
       const totals = listed.map((p) => {
         const line = lineOf(p.salesOrderLineId);
         const of = active.filter((x) => x.pickListLineId === p.id);

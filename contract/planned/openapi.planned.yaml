@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.26.0"
+  version: "2.27.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -2578,121 +2578,7 @@ paths:
   "/fulfilments/{id}": {}
   "/fulfilments/{id}/picks": {}
   "/fulfilments/{id}/pack": {}
-  "/fulfilments/{id}/dispatch":
-    post:
-      operationId: dispatchFulfilment
-      tags:
-        - ord
-      summary: "Dispatch: load the vehicle and issue the invoice"
-      description: "Issues the invoice against weighed quantity, allocates any deposit, requests the refund of an overpayment or sets the amount due on delivery, moves stock onto the vehicle and notifies the customer, in one transaction.\n\nPermission: `ord.fulfilment.dispatch`."
-      x-permission: ord.fulfilment.dispatch
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DispatchRecord"
-            example:
-              driverId: "019a7a87-46ad-7a19-bf51-aa66d1302344"
-              vehicleLocationId: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Fulfilment"
-              example:
-                id: "019a7af3-aa1c-701f-8557-0ac8366183a6"
-                fulfilmentNo: PCK-2026-DDW-000414
-                order:
-                  id: "019a7af0-2909-715a-b693-1e7f6d54975d"
-                  docType: SALES_ORDER
-                  number: SO-2026-DDW-004216
-                status: DISPATCHED
-                pickLocation:
-                  id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
-                  code: COLD-1
-                  name: "Cold room"
-                  kind: COLD_ROOM
-                picker:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-                pickList:
-                  - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-0001
-                      name: "Full chicken, 15 kg pack"
-                    qtyToPick: "1.000"
-                    uom: PACK
-                    estimatedWeightKg: "15.000"
-                    suggestedStockUnits:
-                      - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
-                        identifier: MEAT-CHK-261106-02
-                        tracking: LOT
-                    status: OPEN
-                    pickedQty: "0.000"
-                    pickedWeightKg: null
-                    minimumWeightKg: "13.500"
-                    maximumWeightKg: "16.500"
-                    toleranceState: null
-                lines:
-                  - id: "019a7af3-c90b-7a02-9f3b-a8ffb01221dd"
-                    orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-0001
-                      name: "Full chicken, 15 kg pack"
-                    stockUnit:
-                      id: "019a7a91-104c-7b12-804a-b9f4523132d2"
-                      identifier: MEAT-CHK-261106-02
-                      tracking: LOT
-                    packBarcode: "226110602014650"
-                    qty: "1.000"
-                    weightKg: "14.650"
-                    weightSource: SCALE
-                    linePricePesewas: 29300
-                weighedTotalPesewas: 44300
-                withinTolerance: true
-                pickedAt: "2026-11-13T10:03:00Z"
-                packedAt: "2026-11-13T10:20:00Z"
-                dispatchedAt: "2026-11-13T11:00:00Z"
-                packageCount: 2
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/fulfilments/{id}/dispatch": {}
   "/fulfilments/{id}/collect":
     post:
       operationId: collectFulfilment
@@ -3921,512 +3807,8 @@ paths:
   "/delivery-slots": {}
   "/delivery-slots/generate": {}
   "/delivery-slots/{id}": {}
-  "/deliveries":
-    get:
-      operationId: listDeliveries
-      tags:
-        - del
-      summary: "List deliveries"
-      description: "Permission: `del.delivery.read`."
-      x-permission: del.delivery.read
-      parameters:
-        - name: date
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-        - name: status
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: driverId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: zoneId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DeliveryPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7af0-47f8-7b3e-8076-bcb6e7053594"
-                        deliveryNo: null
-                        status: SCHEDULED
-                        order:
-                          id: "019a7b07-f6f4-7d65-829e-df301289580d"
-                          docType: SALES_ORDER
-                          number: SO-2026-DDW-004216
-                        slot:
-                          id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-                          date: "2026-11-14"
-                          startsAt: "10:00"
-                          endsAt: "12:00"
-                          available: true
-                          remaining: 4
-                        deliveryZone:
-                          id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                          code: ACC-EAST
-                          name: "Accra East: Madina, Adenta, East Legon"
-                        recipientName: "Ama Serwaa Ofori"
-                        recipientPhone: "+233244512876"
-                        address:
-                          recipientName: "Ama Serwaa Ofori"
-                          recipientPhone: "+233244512876"
-                          line1: "House 14, Ashaley Botwe Road, near the Methodist church"
-                          area: Madina
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GM-091-4471
-                          directions: "Blue gate opposite Sika Pharmacy"
-                        latitude: "5.687214"
-                        longitude: "-0.166402"
-                        contents:
-                          - name: "Full chicken, 15 kg pack"
-                            quantity: "1.000"
-                            uom: PACK
-                            weightKg: "14.650"
-                        driver: null
-                        vehicle: null
-                        codDuePesewas: 0
-                        codCollectedPesewas: null
-                        attemptCount: 0
-                        dispatchedAt: null
-                        deliveredAt: null
-                        proof: null
-                        deliveryNoteDocumentId: null
-                        currency: GHS
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 3
-                      - id: "019a7b08-15e3-7749-9c81-7d678c3af645"
-                        deliveryNo: DLN-2026-DDW-000191
-                        status: OUT_FOR_DELIVERY
-                        order:
-                          id: "019a7b08-34d2-712c-a665-1b9f05eb947c"
-                          docType: SALES_ORDER
-                          number: SO-2026-DDW-004213
-                        slot:
-                          id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-                          date: "2026-11-14"
-                          startsAt: "10:00"
-                          endsAt: "12:00"
-                          available: true
-                          remaining: 4
-                        deliveryZone:
-                          id: "019a7a93-d7c5-7e81-b3ba-f0f0411869ce"
-                          code: ACC-CENTRAL
-                          name: "Accra Central, Osu, Airport"
-                        recipientName: "Royal Palm Hotel, kitchen"
-                        recipientPhone: "+233302765410"
-                        address:
-                          recipientName: "Royal Palm Hotel, kitchen"
-                          recipientPhone: "+233302765410"
-                          line1: "7 Liberation Road"
-                          area: "Airport Residential"
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GA-145-2208
-                          directions: "Deliveries through the back gate, ask for the head chef"
-                        latitude: "5.605311"
-                        longitude: "-0.171590"
-                        contents:
-                          - name: "Beef, 15 kg pack"
-                            quantity: "3.000"
-                            uom: PACK
-                            weightKg: "45.600"
-                        driver:
-                          id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
-                          displayName: "Kwesi Appiah"
-                        vehicle:
-                          id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
-                          code: VAN-GT4521
-                          name: "Delivery van GT-4521-24"
-                          kind: VEHICLE
-                        codDuePesewas: 0
-                        codCollectedPesewas: null
-                        attemptCount: 0
-                        dispatchedAt: "2026-11-13T11:00:00Z"
-                        deliveredAt: null
-                        proof: null
-                        deliveryNoteDocumentId: null
-                        currency: GHS
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 3
-                      - id: "019a7b08-53c1-7b10-b048-b9d67f9c32b4"
-                        deliveryNo: DLN-2026-DDW-000192
-                        status: DELIVERED
-                        order:
-                          id: "019a7b08-72b0-74f3-8a2c-580df94dd0eb"
-                          docType: SALES_ORDER
-                          number: SO-2026-DDW-004210
-                        slot:
-                          id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-                          date: "2026-11-14"
-                          startsAt: "10:00"
-                          endsAt: "12:00"
-                          available: true
-                          remaining: 4
-                        deliveryZone:
-                          id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                          code: ACC-EAST
-                          name: "Accra East: Madina, Adenta, East Legon"
-                        recipientName: "Kofi Agyeman"
-                        recipientPhone: "+233201447302"
-                        address:
-                          recipientName: "Kofi Agyeman"
-                          recipientPhone: "+233201447302"
-                          line1: "22 Lagos Avenue"
-                          area: "East Legon"
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GA-492-1180
-                          directions: null
-                        latitude: "5.636082"
-                        longitude: "-0.153811"
-                        contents:
-                          - name: "Goat meat, 15 kg pack"
-                            quantity: "1.000"
-                            uom: PACK
-                            weightKg: "14.950"
-                        driver:
-                          id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
-                          displayName: "Kwesi Appiah"
-                        vehicle:
-                          id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
-                          code: VAN-GT4521
-                          name: "Delivery van GT-4521-24"
-                          kind: VEHICLE
-                        codDuePesewas: 0
-                        codCollectedPesewas: 0
-                        attemptCount: 1
-                        dispatchedAt: "2026-11-13T11:00:00Z"
-                        deliveredAt: "2026-11-13T11:48:00Z"
-                        proof:
-                          id: "019a7b08-919f-7ed7-940f-f64572fe6f23"
-                          recipientName: "Kofi Agyeman"
-                          signatureFileId: "019a7b08-b08e-78ba-adf3-947cecaf0d5a"
-                          photoFileId: "019a7b08-cf7d-729e-b7d6-32b46660ab92"
-                          latitude: "5.636090"
-                          longitude: "-0.153820"
-                          positionAccuracyM: 12
-                          codCollectedPesewas: 0
-                          capturedAt: "2026-11-13T11:48:00Z"
-                        deliveryNoteDocumentId: "019a7ae0-d078-7982-8eba-a0fa0e8519d7"
-                        currency: GHS
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 3
-                      - id: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
-                        deliveryNo: DLN-2026-DDW-000193
-                        status: OUT_FOR_DELIVERY
-                        order:
-                          id: "019a7b09-0d5b-7665-9b9d-6f2359c2e801"
-                          docType: SALES_ORDER
-                          number: SO-2026-DDW-004207
-                        slot:
-                          id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-                          date: "2026-11-14"
-                          startsAt: "10:00"
-                          endsAt: "12:00"
-                          available: true
-                          remaining: 4
-                        deliveryZone:
-                          id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                          code: ACC-EAST
-                          name: "Accra East: Madina, Adenta, East Legon"
-                        recipientName: "Asantewaa Chop Bar"
-                        recipientPhone: "+233557018924"
-                        address:
-                          recipientName: "Asantewaa Chop Bar"
-                          recipientPhone: "+233557018924"
-                          line1: "Adenta Barrier, beside Total filling station"
-                          area: Adenta
-                          city: Accra
-                          region: "Greater Accra"
-                          digitalAddress: GD-021-7731
-                          directions: "Yellow kiosk behind the station"
-                        latitude: "5.705933"
-                        longitude: "-0.159074"
-                        contents:
-                          - name: "Eggs, big, crate of 30"
-                            quantity: "4.000"
-                            uom: CRATE
-                            weightKg: null
-                        driver:
-                          id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
-                          displayName: "Kwesi Appiah"
-                        vehicle:
-                          id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
-                          code: VAN-GT4521
-                          name: "Delivery van GT-4521-24"
-                          kind: VEHICLE
-                        codDuePesewas: 24000
-                        codCollectedPesewas: null
-                        attemptCount: 0
-                        dispatchedAt: "2026-11-13T11:00:00Z"
-                        deliveredAt: null
-                        proof: null
-                        deliveryNoteDocumentId: null
-                        currency: GHS
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 3
-                      - id: "019a7b09-2c4a-7048-a580-0d5ad3738638"
-                        deliveryNo: DLN-2026-DDW-000194
-                        status: FAILED
-                        order:
-                          id: "019a7b09-4b39-7a2c-bf64-ab924d242470"
-                          docType: SALES_ORDER
-                          number: SO-2026-DDW-004204
-                        slot:
-                          id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-                          date: "2026-11-14"
-                          startsAt: "10:00"
-                          endsAt: "12:00"
-                          available: true
-                          remaining: 4
-                        deliveryZone:
-                          id: "019a7a93-7af8-70d7-860f-1649d4058f27"
-                          code: TEMA
-                          name: "Tema and Community 25"
-                        recipientName: "Grace Nyarko"
-                        recipientPhone: "+233249903118"
-                        address:
-                          recipientName: "Grace Nyarko"
-                          recipientPhone: "+233249903118"
-                          line1: "Block C, Flat 4, Community 11"
-                          area: "Tema Community 11"
-                          city: Tema
-                          region: "Greater Accra"
-                          digitalAddress: GT-118-0942
-                          directions: null
-                        latitude: "5.669810"
-                        longitude: "-0.016735"
-                        contents:
-                          - name: "Tomatoes, crate"
-                            quantity: "2.000"
-                            uom: CRATE
-                            weightKg: null
-                        driver:
-                          id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
-                          displayName: "Kwesi Appiah"
-                        vehicle:
-                          id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
-                          code: VAN-GT4521
-                          name: "Delivery van GT-4521-24"
-                          kind: VEHICLE
-                        codDuePesewas: 130000
-                        codCollectedPesewas: 0
-                        attemptCount: 1
-                        dispatchedAt: "2026-11-13T11:00:00Z"
-                        deliveredAt: null
-                        proof: null
-                        deliveryNoteDocumentId: null
-                        currency: GHS
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 3
-                      - id: "019a7b09-6a28-740f-8947-49c9c6d5c2a7"
-                        deliveryNo: DLN-2026-DDW-000195
-                        status: DELIVERED
-                        order:
-                          id: "019a7b09-8917-7df3-932b-e801408660df"
-                          docType: SALES_ORDER
-                          number: SO-2026-DDW-004201
-                        slot:
-                          id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-                          date: "2026-11-14"
-                          startsAt: "10:00"
-                          endsAt: "12:00"
-                          available: true
-                          remaining: 4
-                        deliveryZone:
-                          id: "019a7a93-b8d6-749e-a9d6-52b8c767cb96"
-                          code: KASOA
-                          name: "Kasoa and Weija"
-                        recipientName: "Emmanuel Tetteh"
-                        recipientPhone: "+233268114590"
-                        address:
-                          recipientName: "Emmanuel Tetteh"
-                          recipientPhone: "+233268114590"
-                          line1: "Funeral grounds, Kasoa Old Town park"
-                          area: Kasoa
-                          city: Kasoa
-                          region: Central
-                          digitalAddress: CX-004-5528
-                          directions: "Call on arrival"
-                        latitude: "5.534776"
-                        longitude: "-0.420183"
-                        contents:
-                          - name: Goat
-                            quantity: "2.000"
-                            uom: HEAD
-                            weightKg: null
-                        driver:
-                          id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
-                          displayName: "Kwesi Appiah"
-                        vehicle:
-                          id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
-                          code: VAN-GT4521
-                          name: "Delivery van GT-4521-24"
-                          kind: VEHICLE
-                        codDuePesewas: 0
-                        codCollectedPesewas: 0
-                        attemptCount: 1
-                        dispatchedAt: "2026-11-13T11:00:00Z"
-                        deliveredAt: "2026-11-13T11:48:00Z"
-                        proof:
-                          id: "019a7b09-a806-77d6-ad0e-8638ba37ff16"
-                          recipientName: "Emmanuel Tetteh"
-                          signatureFileId: "019a7b09-c6f5-71b9-b6f2-247033e89d4e"
-                          photoFileId: "019a7b09-e5e4-7b9d-80d5-c2a7ad993b85"
-                          latitude: "5.636090"
-                          longitude: "-0.153820"
-                          positionAccuracyM: 12
-                          codCollectedPesewas: 0
-                          capturedAt: "2026-11-13T11:48:00Z"
-                        deliveryNoteDocumentId: "019a7ae0-d078-7982-8eba-a0fa0e8519d7"
-                        currency: GHS
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 3
-                    page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                      limit: 25
-                      hasMore: true
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/deliveries/{id}":
-    get:
-      operationId: getDelivery
-      tags:
-        - del
-      summary: "Get a delivery"
-      description: "Permission: `del.delivery.read`."
-      x-permission: del.delivery.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Delivery"
-              example:
-                id: "019a7af0-47f8-7b3e-8076-bcb6e7053594"
-                deliveryNo: null
-                status: SCHEDULED
-                order:
-                  id: "019a7b07-f6f4-7d65-829e-df301289580d"
-                  docType: SALES_ORDER
-                  number: SO-2026-DDW-004216
-                slot:
-                  id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-                  date: "2026-11-14"
-                  startsAt: "10:00"
-                  endsAt: "12:00"
-                  available: true
-                  remaining: 4
-                deliveryZone:
-                  id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                  code: ACC-EAST
-                  name: "Accra East: Madina, Adenta, East Legon"
-                recipientName: "Ama Serwaa Ofori"
-                recipientPhone: "+233244512876"
-                address:
-                  recipientName: "Ama Serwaa Ofori"
-                  recipientPhone: "+233244512876"
-                  line1: "House 14, Ashaley Botwe Road, near the Methodist church"
-                  area: Madina
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GM-091-4471
-                  directions: "Blue gate opposite Sika Pharmacy"
-                latitude: "5.687214"
-                longitude: "-0.166402"
-                contents:
-                  - name: "Full chicken, 15 kg pack"
-                    quantity: "1.000"
-                    uom: PACK
-                    weightKg: "14.650"
-                driver: null
-                vehicle: null
-                codDuePesewas: 0
-                codCollectedPesewas: null
-                attemptCount: 0
-                dispatchedAt: null
-                deliveredAt: null
-                proof: null
-                deliveryNoteDocumentId: null
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/deliveries": {}
+  "/deliveries/{id}": {}
   "/deliveries/{id}/assign":
     post:
       operationId: assignDelivery
@@ -4499,7 +3881,8 @@ paths:
                 latitude: "5.687214"
                 longitude: "-0.166402"
                 contents:
-                  - name: "Full chicken, 15 kg pack"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Full chicken, 15 kg pack"
                     quantity: "1.000"
                     uom: PACK
                     weightKg: "14.650"
@@ -4603,7 +3986,8 @@ paths:
                 latitude: "5.687214"
                 longitude: "-0.166402"
                 contents:
-                  - name: "Full chicken, 15 kg pack"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Full chicken, 15 kg pack"
                     quantity: "1.000"
                     uom: PACK
                     weightKg: "14.650"
@@ -4708,7 +4092,8 @@ paths:
                 latitude: "5.669810"
                 longitude: "-0.016735"
                 contents:
-                  - name: "Tomatoes, crate"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Tomatoes, crate"
                     quantity: "2.000"
                     uom: CRATE
                     weightKg: null
@@ -4817,7 +4202,8 @@ paths:
                 latitude: "5.687214"
                 longitude: "-0.166402"
                 contents:
-                  - name: "Full chicken, 15 kg pack"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Full chicken, 15 kg pack"
                     quantity: "1.000"
                     uom: PACK
                     weightKg: "14.650"
@@ -5673,101 +5059,7 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-  "/driver/deliveries/{id}":
-    get:
-      operationId: getMyDelivery
-      tags:
-        - del
-      summary: "Get one of my deliveries"
-      description: "Permission: `del.delivery.read.assigned`. Ownership: deliveries assigned to the caller."
-      x-permission: del.delivery.read.assigned
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Delivery"
-              example:
-                id: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
-                deliveryNo: DLN-2026-DDW-000193
-                status: OUT_FOR_DELIVERY
-                order:
-                  id: "019a7b09-0d5b-7665-9b9d-6f2359c2e801"
-                  docType: SALES_ORDER
-                  number: SO-2026-DDW-004207
-                slot:
-                  id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-                  date: "2026-11-14"
-                  startsAt: "10:00"
-                  endsAt: "12:00"
-                  available: true
-                  remaining: 4
-                deliveryZone:
-                  id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                  code: ACC-EAST
-                  name: "Accra East: Madina, Adenta, East Legon"
-                recipientName: "Asantewaa Chop Bar"
-                recipientPhone: "+233557018924"
-                address:
-                  recipientName: "Asantewaa Chop Bar"
-                  recipientPhone: "+233557018924"
-                  line1: "Adenta Barrier, beside Total filling station"
-                  area: Adenta
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GD-021-7731
-                  directions: "Yellow kiosk behind the station"
-                latitude: "5.705933"
-                longitude: "-0.159074"
-                contents:
-                  - name: "Eggs, big, crate of 30"
-                    quantity: "4.000"
-                    uom: CRATE
-                    weightKg: null
-                driver:
-                  id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
-                  displayName: "Kwesi Appiah"
-                vehicle:
-                  id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
-                  code: VAN-GT4521
-                  name: "Delivery van GT-4521-24"
-                  kind: VEHICLE
-                codDuePesewas: 24000
-                codCollectedPesewas: null
-                attemptCount: 0
-                dispatchedAt: "2026-11-13T11:00:00Z"
-                deliveredAt: null
-                proof: null
-                deliveryNoteDocumentId: null
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/driver/deliveries/{id}": {}
   "/driver/deliveries/{id}/on-the-way":
     post:
       operationId: markOnTheWay
@@ -5840,7 +5132,8 @@ paths:
                 latitude: "5.705933"
                 longitude: "-0.159074"
                 contents:
-                  - name: "Eggs, big, crate of 30"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Eggs, big, crate of 30"
                     quantity: "4.000"
                     uom: CRATE
                     weightKg: null
@@ -5878,123 +5171,7 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-  "/driver/deliveries/{id}/proof":
-    post:
-      operationId: recordProofOfDelivery
-      tags:
-        - del
-      summary: "Record proof of delivery and cash collected"
-      description: "Completes the delivery and the order, records any cash on delivery as a payment held by the driver, and notifies the customer. Collected cash differing from the amount due is on the driver variance report.\n\nPermission: `del.proof.create`. Ownership: deliveries assigned to the caller.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
-      x-permission: del.proof.create
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ProofOfDeliveryCreate"
-            example:
-              id: "019a7b0a-be6d-70d5-b60d-162c01708f09"
-              recipientName: "Asantewaa Boateng"
-              signatureFileId: "019a7b0a-dd5c-7ab9-8ff1-b4637b212d41"
-              photoFileId: "019a7b0a-fc4b-749c-99d4-529af4d2cb78"
-              latitude: "5.705940"
-              longitude: "-0.159080"
-              positionAccuracyM: 9
-              codCollectedPesewas: 24000
-              capturedAt: "2026-11-13T11:52:00Z"
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Delivery"
-              example:
-                id: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
-                deliveryNo: DLN-2026-DDW-000193
-                status: DELIVERED
-                order:
-                  id: "019a7b09-0d5b-7665-9b9d-6f2359c2e801"
-                  docType: SALES_ORDER
-                  number: SO-2026-DDW-004207
-                slot:
-                  id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-                  date: "2026-11-14"
-                  startsAt: "10:00"
-                  endsAt: "12:00"
-                  available: true
-                  remaining: 4
-                deliveryZone:
-                  id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                  code: ACC-EAST
-                  name: "Accra East: Madina, Adenta, East Legon"
-                recipientName: "Asantewaa Chop Bar"
-                recipientPhone: "+233557018924"
-                address:
-                  recipientName: "Asantewaa Chop Bar"
-                  recipientPhone: "+233557018924"
-                  line1: "Adenta Barrier, beside Total filling station"
-                  area: Adenta
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GD-021-7731
-                  directions: "Yellow kiosk behind the station"
-                latitude: "5.705933"
-                longitude: "-0.159074"
-                contents:
-                  - name: "Eggs, big, crate of 30"
-                    quantity: "4.000"
-                    uom: CRATE
-                    weightKg: null
-                driver:
-                  id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
-                  displayName: "Kwesi Appiah"
-                vehicle:
-                  id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
-                  code: VAN-GT4521
-                  name: "Delivery van GT-4521-24"
-                  kind: VEHICLE
-                codDuePesewas: 24000
-                codCollectedPesewas: 24000
-                attemptCount: 0
-                dispatchedAt: "2026-11-13T11:00:00Z"
-                deliveredAt: "2026-11-13T11:52:00Z"
-                proof: null
-                deliveryNoteDocumentId: null
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/driver/deliveries/{id}/proof": {}
   "/driver/deliveries/{id}/fail":
     post:
       operationId: recordFailedDelivery
@@ -6071,7 +5248,8 @@ paths:
                 latitude: "5.669810"
                 longitude: "-0.016735"
                 contents:
-                  - name: "Tomatoes, crate"
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Tomatoes, crate"
                     quantity: "2.000"
                     uom: CRATE
                     weightKg: null
@@ -36612,6 +35790,10 @@ components:
     DeliveryContentsLine:
       type: object
       properties:
+        orderLineId:
+          type: string
+          format: uuid
+          description: "The order line this is of (CR-055 point 1)."
         name:
           type: string
         quantity:
@@ -36623,6 +35805,7 @@ components:
             - $ref: "#/components/schemas/Kilograms"
             - type: "null"
       required:
+        - orderLineId
         - name
         - quantity
         - uom
@@ -36662,6 +35845,15 @@ components:
         capturedAt:
           type: string
           format: date-time
+        codVarianceReasonCode:
+          type:
+            - string
+            - "null"
+          description: "Why less than the amount due was collected: a `COD_VARIANCE` reason (B11 continued); null when the amount due was collected."
+        codVarianceNote:
+          type:
+            - string
+            - "null"
       required:
         - id
         - recipientName
@@ -36671,6 +35863,8 @@ components:
         - longitude
         - positionAccuracyM
         - codCollectedPesewas
+        - codVarianceReasonCode
+        - codVarianceNote
         - capturedAt
     Delivery:
       type: object
@@ -37008,7 +36202,15 @@ components:
         codCollectedPesewas:
           allOf:
             - $ref: "#/components/schemas/Pesewas"
-          description: "Cash actually received. Recorded against the driver."
+          description: "Cash actually received, recorded against the driver. Never above the amount due (422 `DELIVERY_INVALID` `ABOVE_DUE`)."
+        codVarianceReasonCode:
+          type: string
+          description: "Required when less than the amount due was collected, and refused otherwise: a `COD_VARIANCE` reason (`CUSTOMER_PAID_SHORT`, `CUSTOMER_PAYS_LATER`, B11 continued)."
+        codVarianceNote:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Required when the reason asks for a note."
         capturedAt:
           type: string
           format: date-time

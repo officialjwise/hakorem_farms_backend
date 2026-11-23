@@ -28,6 +28,7 @@ import { Receivables } from './application/receivables';
 import { ALLOCATIONS_AS_AT_STORE, AllocationsAsAt, type AllocationsAsAtStore } from './application/allocations-as-at';
 import { PgAllocationsAsAtStore } from './infrastructure/pg-allocations-as-at-store';
 import { StoreCredit } from './application/store-credit';
+import { DriverCash } from './application/driver-cash';
 import { REFUND_KIND, Refunds } from './application/refunds';
 import { PaymentWebhooks } from './application/webhooks';
 import { BreakQueue, RECONCILIATION_BREAK_KIND } from './application/break-queue';
@@ -174,6 +175,12 @@ import { MyStoreCreditController, PaymentsController, ReceivablesController, Ref
       inject: [PAYMENT_STORE, ProviderPayments, PAYMENT_PROVIDER, Breaks, DomainEvents, AuditTrail, Settings, UnitOfWork, CLOCK, LOGGER],
     },
     {
+      provide: DriverCash,
+      useFactory: (store: PaymentStore, payments: Payments, billing: Billing, refs: MasterDataRefs, documents: DocumentRegistry, audit: AuditTrail, clock: Clock) =>
+        new DriverCash(store, payments, billing, refs, documents, audit, clock),
+      inject: [PAYMENT_STORE, Payments, Billing, MasterDataRefs, DocumentRegistry, AuditTrail, CLOCK],
+    },
+    {
       provide: Refunds,
       useFactory: (
         store: PaymentStore,
@@ -209,7 +216,7 @@ import { MyStoreCreditController, PaymentsController, ReceivablesController, Ref
       inject: [UnitOfWork, RECONCILIATION_STORE, DomainEvents, AuditTrail, CLOCK],
     },
   ],
-  exports: [Payments, ProviderPayments, Refunds, Receipts, StoreCredit, TillShiftRegistry, UnverifiedTenders, UnverifiedOverdue, AllocationsAsAt],
+  exports: [Payments, DriverCash, ProviderPayments, Refunds, Receipts, StoreCredit, TillShiftRegistry, UnverifiedTenders, UnverifiedOverdue, AllocationsAsAt],
 })
 export class PayModule implements OnModuleInit {
   constructor(

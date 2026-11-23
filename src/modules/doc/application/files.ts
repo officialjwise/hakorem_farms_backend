@@ -53,6 +53,9 @@ const UPLOAD = 'platform.file.upload';
 /** Uploads an EVIDENCE file and nothing else: the Farm hand's death photograph (owner, 2026-11-15; B06r, ADR-0053). */
 const UPLOAD_EVIDENCE = 'platform.file.upload.evidence';
 const EVIDENCE: FilePurpose = 'EVIDENCE';
+/** The Driver's: a proof-of-delivery photograph or a signature and nothing else (CR-056 item 1, migration 0300). */
+const UPLOAD_PROOF = 'platform.file.upload.proof';
+const PROOF_PURPOSES: ReadonlySet<FilePurpose> = new Set<FilePurpose>(['PROOF_OF_DELIVERY', 'SIGNATURE']);
 const READ = 'platform.file.read';
 const READ_ANY = 'platform.file.read.any';
 const OWNER_MODULE = 'doc';
@@ -126,12 +129,14 @@ export class Files {
 
   /**
    * Deny by default: any use needs `platform.file.upload`; an EVIDENCE file is also allowed to a holder of
-   * `platform.file.upload.evidence` alone. A holder of that alone asking for any other use is refused on
-   * `platform.file.upload`, which they do not hold, and the refusal is audited as any other.
+   * `platform.file.upload.evidence` alone, and a PROOF_OF_DELIVERY photograph or a SIGNATURE to a holder of
+   * `platform.file.upload.proof` alone (the Driver, B11 continued). A holder of either alone asking for any other use is
+   * refused on `platform.file.upload`, which they do not hold, and the refusal is audited as any other.
    */
   private async authoriseUpload(tx: Transaction, actor: Actor | undefined, purpose: FilePurpose): Promise<void> {
-    const evidenceOnly = purpose === EVIDENCE && actor !== undefined && !(await this.authoriser.holds(tx, actor, UPLOAD));
-    await this.authoriser.authorise(tx, actor, evidenceOnly ? UPLOAD_EVIDENCE : UPLOAD);
+    const narrow = purpose === EVIDENCE ? UPLOAD_EVIDENCE : PROOF_PURPOSES.has(purpose) ? UPLOAD_PROOF : null;
+    const narrowOnly = narrow !== null && actor !== undefined && !(await this.authoriser.holds(tx, actor, UPLOAD));
+    await this.authoriser.authorise(tx, actor, narrowOnly ? narrow : UPLOAD);
   }
 
   getFile(actor: Actor | undefined, id: string): Promise<StoredFileView> {

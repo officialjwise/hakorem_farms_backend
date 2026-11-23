@@ -48,6 +48,13 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0305_fin_cod_collected_postings',
+      '0304_ord_fulfilment_issue',
+      '0303_del_deliveries',
+      '0302_mdm_dispatch_and_cod_reasons',
+      '0301_iam_grant_dispatch_delivery_permissions',
+      '0300_iam_seed_dispatch_delivery_permissions',
+      '0299_platform_add_delivery_document',
       '0298_bil_customer_tin_format',
       '0297_pos_receipt_link_revocation_guard',
       '0296_iam_grant_ord_fulfilment_permissions',

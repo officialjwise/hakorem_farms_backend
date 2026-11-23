@@ -108,8 +108,8 @@ describe('the contract is generated from code (FR-API-002, ADR-0030, ADR-0031)',
     expect(() => buildContract(readYaml(PLANNED_PATH), duplicate)).toThrow(ContractMergeError);
   });
 
-  it('keeps all 657 operations in the published contract (syncOfflineSales moved into code in 2.13.0; seven WHL operations moved into code and two credit check operations added in 2.14.0; four ageing and dunning operations moved into code in 2.15.0; four till PIN and witness operations added in 2.17.0; eight standing order operations and the write-off moved into code in 2.18.0; listMyQuotes moved into code and revokeQuoteLink added in 2.21.0; getQuotePipeline moved into code in 2.23.0; getPublicReceipt added in 2.24.0; nine picking operations moved into code and proposeShortPick added in 2.25.0; revokeReceiptLink and payInvoiceAtTill added in 2.26.0), 518 of them now implemented in code', async () => {
+  it('keeps all 657 operations in the published contract (syncOfflineSales moved into code in 2.13.0; seven WHL operations moved into code and two credit check operations added in 2.14.0; four ageing and dunning operations moved into code in 2.15.0; four till PIN and witness operations added in 2.17.0; eight standing order operations and the write-off moved into code in 2.18.0; listMyQuotes moved into code and revokeQuoteLink added in 2.21.0; getQuotePipeline moved into code in 2.23.0; getPublicReceipt added in 2.24.0; nine picking operations moved into code and proposeShortPick added in 2.25.0; revokeReceiptLink and payInvoiceAtTill added in 2.26.0; dispatchFulfilment and four delivery operations moved into code in 2.27.0), 523 of them now implemented in code', async () => {
     expect(operationsOf(readYaml(PUBLISHED_PATH))).toHaveLength(657);
-    expect(operationsOf(readYaml(PLANNED_PATH))).toHaveLength(139);
+    expect(operationsOf(readYaml(PLANNED_PATH))).toHaveLength(134);
   });
 });

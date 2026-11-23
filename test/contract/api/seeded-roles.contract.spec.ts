@@ -55,6 +55,17 @@ describe('the seeded role matrix in the contract (CR-023, ADR-0071)', () => {
     expect(farmHand.permissions).not.toContain('liv.mortality.read');
   });
 
+  it("shows B11 continued's grants (0301, CR-056 items 1 and 3, A-337): the Manager and the Owner dispatch and assign; the Driver (and, as the roles they grant, the Owner and the Manager) reads and records only its own deliveries and uploads proof only", () => {
+    expect(holders('ord.fulfilment.dispatch')).toEqual(['OWNER', 'MANAGER']);
+    expect(holders('del.delivery.read')).toEqual(['OWNER', 'MANAGER']);
+    expect(holders('del.delivery.assign')).toEqual(['OWNER', 'MANAGER']);
+    for (const permission of ['del.delivery.read.assigned', 'del.delivery.update.assigned', 'del.proof.create', 'platform.file.upload.proof']) expect(holders(permission), permission).toEqual(['OWNER', 'MANAGER', 'DRIVER']);
+    const driver = published.find((role) => role.code === 'DRIVER')!;
+    expect(driver.permissions).toEqual(['del.delivery.read.assigned', 'del.delivery.update.assigned', 'del.proof.create', 'iam.session.read', 'iam.session.revoke', 'mdm.product.read', 'mdm.reason_code.read', 'platform.file.upload.proof']);
+    expect(holders('platform.file.upload')).not.toContain('DRIVER');
+    expect(holders('ord.fulfilment.dispatch')).not.toContain('STOREKEEPER');
+  });
+
   it('changes when a later migration changes a seeded grant, so the committed contract no longer matches and CI fails', async () => {
     const scratch = migrationsWith(
       '9999_iam_revoke_scratch_grant.sql',

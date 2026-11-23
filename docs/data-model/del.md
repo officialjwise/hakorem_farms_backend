@@ -138,3 +138,22 @@ Standard columns: `DOCUMENT` (`status` in `DRAFT`, `POSTED`). UNIQUE (`driver_id
 ## As built (B07 continued 2, migration 0118; SA-13)
 
 Only `del.delivery_slot` exists, as above, plus `ck_delivery_slot_capacity` (1 to 1,000), `uq_delivery_slot_start` as a partial unique index on live rows, and `ix_delivery_slot_start` on (`slot_date + starts_at`, `id`), the order of every slot list. `booked` stays 0 until B11 books deliveries under a row lock; `ck_delivery_slot_booked` already refuses a capacity below it. The other tables are B11's.
+
+## As built (B11 continued, migrations 0299 and 0303; ADR-0092, A-337 to A-340)
+
+- `del.delivery` as above, with these differences: `delivery_no` is NOT NULL, numbered at creation from the `DELIVERY`
+  series (`DLN-2026-DDW-000001`, 0299); `billing_document_id` (FK `bil.billing_document`, the invoice or receipt the cash
+  on delivery settles) and `customer_id` (FK `mdm.customer`, NULL for a guest) are added; `contents_summary` is a non-empty
+  array of `{orderLineId, name, quantity, uom, weightKg}` (CR-055 point 1); `dispatched_at` is NOT NULL (a delivery is
+  made at dispatch); `currency`, `posted_at` and `posted_by` are the DOCUMENT standard columns. Checks:
+  `ck_delivery_assigned`, `ck_delivery_cod` (collected never above due, recorded exactly when DELIVERED),
+  `ck_delivery_delivered`; the guard `ck_delivery_transition` (HK004: written SCHEDULED or ASSIGNED, the listed edges, the
+  order, invoice, number, branch and cash due never changing, a finished delivery frozen); the deferred
+  `ck_delivery_proof` (HK010: DELIVERED has its proof); `uq_delivery_order` (one live delivery per order). The slot stays
+  NULL until booking (B11 continued 2).
+- `del.delivery_attempt` as above, LEDGER (insert-only for every role), with `recorded_at` and `created_by`.
+- `del.proof_of_delivery` as above, LEDGER, with `cod_variance_reason_code` (FK `mdm.reason_code`, a `COD_VARIANCE` reason)
+  and `cod_variance_note`; `payment_id` unique. Checks: `ck_proof_evidence` (a signature or a photograph),
+  `ck_proof_payment` (a payment exactly when cash was collected), `ck_proof_position`, and the guard `ck_proof_variance`
+  (HK010: never above the delivery's cash due; less only with a `COD_VARIANCE` reason; a reason or note only when less).
+- `del.route`, `del.route_stop` and `del.driver_cash_reconciliation` are B11 continued 2's.
