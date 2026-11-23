@@ -76,6 +76,19 @@ export class PgDriverCashStore implements DriverCashStore {
     return rows.map(toCollection);
   }
 
+  async holders(tx: Transaction, branchId: string): Promise<{ readonly driverId: string; readonly collections: number }[]> {
+    const { rows } = await tx.query<{ driver_id: string; n: string }>(
+      `SELECT d.driver_id, count(*)::text AS n
+         FROM del.delivery d JOIN del.proof_of_delivery p ON p.delivery_id = d.id
+        WHERE d.branch_id = $1 AND d.status = 'DELIVERED' AND p.payment_id IS NOT NULL AND d.driver_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM del.driver_cash_handed_in h WHERE h.proof_id = p.id)
+        GROUP BY d.driver_id
+        ORDER BY d.driver_id`,
+      [branchId],
+    );
+    return rows.map((r) => ({ driverId: r.driver_id, collections: Number(r.n) }));
+  }
+
   async insert(tx: Transaction, r: ReconciliationRecord & { readonly actorId: string; readonly postedAt: Date }): Promise<void> {
     await tx.query(
       `INSERT INTO del.driver_cash_reconciliation (id, driver_id, reconciliation_date, shift_document_id, till_payment_id, expected_pesewas, declared_pesewas, variance_pesewas,

@@ -1,0 +1,73 @@
+operationId: listShiftDriverCashHolders
+tags:
+  - pos
+summary: "List the drivers holding delivery cash at the shift's branch"
+description: "Who the cashier can take a driver's cash on delivery from (2.35.0, B11 continued 6; CR-063): each driver holding at least one collection at the shift's branch that is not yet handed in, and how many, by name. **No amount**: the cashier counts blind, as the close is counted, and `handInDriverCash` then answers what was expected. The caller is never listed (the cashier is never the driver). Judged by the same shift check as `handInDriverCash`: the shift's own cashier, from an enrolled device of its till (`X-Device-Credential`). **Refusals:** another cashier's shift 403; a closing, closed or force-closed shift 422 `SHIFT_NOT_OPEN`; 404 for a shift the caller cannot see; 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`.\n\nPermission: `pos.sale.create`."
+x-permission: pos.sale.create
+x-error-codes:
+  - SHIFT_NOT_OPEN
+  - DEVICE_CREDENTIAL_INVALID
+  - DEVICE_REVOKED
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: "The cashier's own open shift."
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+    deviceCredential: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DriverCashHolderList"
+        examples:
+          default:
+            value:
+              data:
+                - driver:
+                    id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                    displayName: "Kwabena Asare"
+                  collections: 3
+                - driver:
+                    id: "019a7a87-5b1c-7f02-9a1e-3c4d5e6f7a81"
+                    displayName: "Kwesi Appiah"
+                  collections: 1
+                - driver:
+                    id: "019a7a87-6c2d-7013-8b2f-4d5e6f7a8b92"
+                    displayName: "Kofi Mensah"
+                  collections: 2
+                - driver:
+                    id: "019a7a87-7d3e-7124-9c30-5e6f7a8b9ca3"
+                    displayName: "Yaw Ofori"
+                  collections: 4
+                - driver:
+                    id: "019a7a87-8e4f-7235-8d41-6f7a8b9cadb4"
+                    displayName: "Kojo Tetteh"
+                  collections: 1
+          empty:
+            summary: "No driver holds cash at the branch"
+            value:
+              data: []
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

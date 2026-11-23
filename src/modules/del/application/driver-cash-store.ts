@@ -48,6 +48,8 @@ export interface DriverCashStore {
    * branch, or at every branch when `branchId` is null; up to an instant when `upTo` is set.
    */
   held(tx: Transaction, driverId: string, branchId: string | null, upTo: Date | null): Promise<CollectionRecord[]>;
+  /** Each driver holding at least one collection at the branch that was never handed in, with how many (CR-063). */
+  holders(tx: Transaction, branchId: string): Promise<{ readonly driverId: string; readonly collections: number }[]>;
   insert(tx: Transaction, r: ReconciliationRecord & { readonly actorId: string; readonly postedAt: Date }): Promise<void>;
   insertHandedIn(tx: Transaction, reconciliationId: string, collections: readonly CollectionRecord[], actorId: string): Promise<void>;
   reconciliations(tx: Transaction, ids: readonly string[]): Promise<ReconciliationRecord[]>;

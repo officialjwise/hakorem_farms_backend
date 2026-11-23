@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.34.0"
+  version: "2.35.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -81929,6 +81929,81 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/shifts/{id}/driver-cash-holders":
+    get:
+      operationId: listShiftDriverCashHolders
+      tags:
+        - pos
+      summary: "List the drivers holding delivery cash at the shift's branch"
+      description: "Who the cashier can take a driver's cash on delivery from (2.35.0, B11 continued 6; CR-063): each driver holding at least one collection at the shift's branch that is not yet handed in, and how many, by name. **No amount**: the cashier counts blind, as the close is counted, and `handInDriverCash` then answers what was expected. The caller is never listed (the cashier is never the driver). Judged by the same shift check as `handInDriverCash`: the shift's own cashier, from an enrolled device of its till (`X-Device-Credential`). **Refusals:** another cashier's shift 403; a closing, closed or force-closed shift 422 `SHIFT_NOT_OPEN`; 404 for a shift the caller cannot see; 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`.\n\nPermission: `pos.sale.create`."
+      x-permission: pos.sale.create
+      x-error-codes:
+        - SHIFT_NOT_OPEN
+        - DEVICE_CREDENTIAL_INVALID
+        - DEVICE_REVOKED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "The cashier's own open shift."
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+          deviceCredential: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverCashHolderList"
+              examples:
+                default:
+                  value:
+                    data:
+                      - driver:
+                          id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                          displayName: "Kwabena Asare"
+                        collections: 3
+                      - driver:
+                          id: "019a7a87-5b1c-7f02-9a1e-3c4d5e6f7a81"
+                          displayName: "Kwesi Appiah"
+                        collections: 1
+                      - driver:
+                          id: "019a7a87-6c2d-7013-8b2f-4d5e6f7a8b92"
+                          displayName: "Kofi Mensah"
+                        collections: 2
+                      - driver:
+                          id: "019a7a87-7d3e-7124-9c30-5e6f7a8b9ca3"
+                          displayName: "Yaw Ofori"
+                        collections: 4
+                      - driver:
+                          id: "019a7a87-8e4f-7235-8d41-6f7a8b9cadb4"
+                          displayName: "Kojo Tetteh"
+                        collections: 1
+                empty:
+                  summary: "No driver holds cash at the branch"
+                  value:
+                    data: []
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
   "/orders/{id}/credit-check":
     get:
       operationId: getOrderCreditCheck
@@ -99368,6 +99443,29 @@ components:
       required:
         - data
         - asOf
+    DriverCashHolder:
+      type: object
+      description: "A driver holding cash on delivery at the shift's branch that is not yet handed in (CR-063). No amount: the cashier counts blind, and `handInDriverCash` answers what was expected."
+      properties:
+        driver:
+          $ref: "#/components/schemas/PrincipalRef"
+        collections:
+          type: integer
+          minimum: 1
+          description: "How many collections the driver holds at the branch, not yet handed in."
+      required:
+        - driver
+        - collections
+    DriverCashHolderList:
+      type: object
+      description: "The drivers a cashier can take cash on delivery from at the shift's branch (CR-063), by name; the caller is never listed."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DriverCashHolder"
+      required:
+        - data
     CashMovementPage:
       type: object
       description: "A page of `CashMovement` results."
