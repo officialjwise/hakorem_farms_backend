@@ -23,6 +23,17 @@ export interface DriverCashRequest {
   readonly receivedAt: Date;
 }
 
+/** A driver's cash counted into a till shift by its own cashier (CR-057): the payment onto the shift that receives it. */
+export interface HandInRequest {
+  readonly branchId: string;
+  /** The driver whose cash it is; never the cashier receiving it (the database holds it too). */
+  readonly driverId: string;
+  readonly shiftDocumentId: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly amountPesewas: bigint;
+  readonly receivedAt: Date;
+}
+
 /**
  * DriverCash (FR-DEL-009, ADR-0003's `del.CodCollected`, A-339): the cash a driver collects on delivery, recorded in the
  * caller's serializable transaction as a cleared cash payment held by that driver (`pay.payment.driver_id`, never a
@@ -81,6 +92,50 @@ export class DriverCash {
     await this.billing.settleIn(tx, request.billingDocumentId, request.amountPesewas, 'APPLY');
     const [view] = await this.payments.viewsIn(tx, [id]);
     await this.audit.record(tx, { module: 'pay', action: 'RECORD', entityType: 'Payment', entityId: id, branchId: request.branchId, before: null, after: { ...view!, driverId: request.driverId, amountPesewas: Money.ofPesewas(request.amountPesewas).toJsonInteger() } });
+    return view!;
+  }
+
+  /**
+   * A driver's cash handed in at a till (FR-DEL-010, CR-057, ADR-0092), in the caller's serializable transaction: a
+   * cleared cash payment onto the receiving cashier's own open shift, written through `Payments.writeIn`, the one door
+   * every till cash takes, so POS's `TillShiftCheck` and `trg_payment_a_till_shift` judge the shift under its lock again
+   * and the shift's records and close count it. It names the driver it was received from and settles nothing: the
+   * collections were allocated when the driver took them, so it is never allocated, linked, refunded or reversed
+   * (migration 0313). It publishes nothing: DEL's ◆ `del.DriverCashRemitted` posts the move from 1020 into 1000. It
+   * authorises nothing: POS's hand-in has.
+   */
+  async handInIn(tx: Transaction, actor: Actor, request: HandInRequest): Promise<PaymentView> {
+    if (tx.isolation !== 'serializable') throw new IsolationLevelError(tx.isolation);
+    const method = (await this.refs.paymentMethodsByCodeIn(tx, [COD_METHOD])).get(COD_METHOD);
+    if (method === undefined || method.kind !== 'CASH') throw new PaymentInvalidError([{ field: '/declaredPesewas', rule: 'METHOD_UNKNOWN' }]);
+    if (request.amountPesewas <= 0n) throw new PaymentInvalidError([{ field: '/declaredPesewas', rule: 'AMOUNT_NOT_POSITIVE' }]);
+    const id = this.nextId();
+    await this.payments.writeIn(
+      tx,
+      actor.principalId,
+      {
+        id,
+        paymentMethodId: method.id,
+        methodKind: 'CASH',
+        amountPesewas: request.amountPesewas,
+        customerId: null,
+        orderDocumentId: null,
+        shiftDocumentId: request.shiftDocumentId,
+        register: request.register,
+        receivedFromDriverId: request.driverId,
+        verification: 'NOT_REQUIRED',
+        status: 'CLEARED',
+        receivedAt: request.receivedAt,
+        clearedAt: request.receivedAt,
+        branchId: request.branchId,
+        actorId: actor.principalId,
+        allocations: [],
+        postsAtReceipt: false,
+      },
+      '/shiftId',
+    );
+    const [view] = await this.payments.viewsIn(tx, [id]);
+    await this.audit.record(tx, { module: 'pay', action: 'RECEIVE_FROM_DRIVER', entityType: 'Payment', entityId: id, branchId: request.branchId, before: null, after: { ...view!, receivedFromDriverId: request.driverId } });
     return view!;
   }
 }

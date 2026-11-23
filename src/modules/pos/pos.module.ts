@@ -37,6 +37,9 @@ import { PosController } from './interface/pos.controller';
 import { ReceiptsController } from './interface/receipts.controller';
 import { TillInvoicesController } from './interface/till-invoices.controller';
 import { TillInvoicePayments } from './application/till-invoices';
+import { OwnOpenShift } from './application/own-open-shift';
+import { TillDriverCash } from './application/till-driver-cash';
+import { DelModule, DriverCashReconciliations } from '../del';
 import { ReceiptLinks } from './application/receipt-links';
 import { RECEIPT_LINK_STORE, type ReceiptLinkStore } from './application/receipt-link-store';
 import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
@@ -50,7 +53,7 @@ import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
  * continued 2 adds the offline pack (`OfflinePacks`), reading INV's stock standing at the till.
  */
 @Module({
-  imports: [IamModule, AudModule, MdmModule, FinModule, InvModule, LivModule, BilModule, PayModule, OrdModule],
+  imports: [IamModule, AudModule, MdmModule, FinModule, InvModule, LivModule, BilModule, PayModule, DelModule, OrdModule],
   controllers: [PosController, ReceiptsController, TillInvoicesController],
   providers: [
     { provide: TILL_STORE, useClass: PgTillStore },
@@ -156,10 +159,20 @@ import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
     },
     { provide: RECEIPT_LINK_STORE, useClass: PgReceiptLinkStore },
     {
+      provide: OwnOpenShift,
+      useFactory: (store: TillStore, devices: Devices, authoriser: Authoriser) => new OwnOpenShift(store, devices, authoriser),
+      inject: [TILL_STORE, Devices, Authoriser],
+    },
+    {
       provide: TillInvoicePayments,
-      useFactory: (uow: UnitOfWork, store: TillStore, devices: Devices, billing: Billing, payments: Payments, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, clock: Clock) =>
-        new TillInvoicePayments(uow, store, devices, billing, payments, authoriser, idempotency, audit, clock),
-      inject: [UnitOfWork, TILL_STORE, Devices, Billing, Payments, Authoriser, Idempotency, AuditTrail, CLOCK],
+      useFactory: (uow: UnitOfWork, ownShift: OwnOpenShift, billing: Billing, payments: Payments, idempotency: Idempotency, audit: AuditTrail, clock: Clock) =>
+        new TillInvoicePayments(uow, ownShift, billing, payments, idempotency, audit, clock),
+      inject: [UnitOfWork, OwnOpenShift, Billing, Payments, Idempotency, AuditTrail, CLOCK],
+    },
+    {
+      provide: TillDriverCash,
+      useFactory: (uow: UnitOfWork, ownShift: OwnOpenShift, cash: DriverCashReconciliations, idempotency: Idempotency, audit: AuditTrail) => new TillDriverCash(uow, ownShift, cash, idempotency, audit),
+      inject: [UnitOfWork, OwnOpenShift, DriverCashReconciliations, Idempotency, AuditTrail],
     },
     {
       provide: ReceiptLinks,

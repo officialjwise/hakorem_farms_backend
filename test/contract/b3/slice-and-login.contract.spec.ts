@@ -149,6 +149,7 @@ import {
   ShiftClose as PosShiftClose,
   ShiftOpen as PosShiftOpen,
   TillInvoicePaymentCreate as PosTillInvoicePaymentCreate,
+  DriverCashHandInCreate as PosDriverCashHandInCreate,
 } from '../../../src/modules/pos/interface/schemas';
 import { AccountCreate as WhlAccountCreate, AccountUpdate as WhlAccountUpdate, ReasonBody as WhlReasonBody, StatementCreate as WhlStatementCreate, DunningPolicyReplace as WhlDunningPolicyReplace, StandingOrderCreate as WhlStandingOrderCreate, StandingOrderUpdate as WhlStandingOrderUpdate, BadDebtWriteOff as WhlBadDebtWriteOff } from '../../../src/modules/whl/interface/schemas';
 import {
@@ -477,6 +478,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     revokeDevice: PosReasonBody,
     revokeReceiptLink: PosReasonBody,
     payInvoiceAtTill: PosTillInvoicePaymentCreate,
+    handInDriverCash: PosDriverCashHandInCreate,
     completeCounterSale: PosCounterSale,
     createStatement: WhlStatementCreate,
     createBusinessAccount: WhlAccountCreate,

@@ -1,0 +1,68 @@
+operationId: getDriverCashReconciliation
+tags:
+  - del
+summary: "Get a driver cash reconciliation"
+description: "One hand-in of a driver's cash at a till shift (2.31.0, B11 continued 2) at its branch: another branch's is refused 403, an unknown id 404.\n\nPermission: `del.cash_reconciliation.read`."
+x-permission: del.cash_reconciliation.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DriverCashReconciliation"
+        example:
+          id: "019a7b0b-3a29-7863-bd9b-8f09e83407e7"
+          status: POSTED
+          driver:
+            id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+            displayName: "Kwesi Appiah"
+          reconciliationDate: "2026-11-13"
+          shiftId: "019a7b0a-6f21-7c3d-9e44-1b2c3d4e5f60"
+          tillPaymentId: "019a7b0b-3a40-7d11-8c22-5e6f7a8b9c01"
+          expectedPesewas: 154000
+          declaredPesewas: 144000
+          variancePesewas: 10000
+          varianceDirection: SHORT
+          receivedBy:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          note: "Driver says the chop bar paid GHS 140.00, not GHS 240.00; checking with customer"
+          collections:
+            - deliveryNo: DLN-2026-DDW-000193
+              recipientName: "Asantewaa Chop Bar"
+              amountPesewas: 24000
+              capturedAt: "2026-11-13T11:52:00Z"
+            - deliveryNo: DLN-2026-DDW-000197
+              recipientName: "Osu Fresh Mart"
+              amountPesewas: 130000
+              capturedAt: "2026-11-13T14:05:00Z"
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 1
+          createdAt: "2026-11-13T17:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

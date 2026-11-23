@@ -1,0 +1,53 @@
+operationId: getMyCashSummary
+tags:
+  - del
+summary: "Get the cash I should hand in today"
+description: "The cash the caller still holds from their own deliveries (2.31.0, B11 continued 2, CR-057): every collection captured up to the end of `date` (today in Africa/Accra by default) that has not been handed in at a till shift, at any branch, oldest first, and their sum in `expectedPesewas`; `reconciled` is true when nothing is held. Nobody else's cash, whatever else the caller holds. The cash is handed in at a till shift (`handInDriverCash`), never typed in as loose cash.\n\nPermission: `del.delivery.read.assigned`. Ownership: the caller's own collections."
+x-permission: del.delivery.read.assigned
+parameters:
+  - name: date
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DriverCashSummary"
+        example:
+          driver:
+            id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+            displayName: "Kwesi Appiah"
+          date: "2026-11-13"
+          expectedPesewas: 154000
+          collections:
+            - deliveryNo: DLN-2026-DDW-000193
+              recipientName: "Asantewaa Chop Bar"
+              amountPesewas: 24000
+              capturedAt: "2026-11-13T11:52:00Z"
+            - deliveryNo: DLN-2026-DDW-000197
+              recipientName: "Osu Fresh Mart"
+              amountPesewas: 130000
+              capturedAt: "2026-11-13T14:05:00Z"
+          reconciled: false
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

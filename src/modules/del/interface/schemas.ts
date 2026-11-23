@@ -46,3 +46,16 @@ export const ProofOfDeliveryCreate = z.strictObject({
   codVarianceNote: z.string().trim().min(1).max(500).optional(),
   capturedAt: z.iso.datetime({ offset: true }),
 });
+
+const BooleanQuery = z.enum(['true', 'false']).transform((value) => value === 'true');
+
+export const CashSummaryQuery = z.object({ date: CalendarDate.optional() });
+
+export const DriverCashReconciliationPageQuery = z.object({
+  driverId: z.uuid().optional(),
+  from: CalendarDate.optional(),
+  to: CalendarDate.optional(),
+  varianceOnly: BooleanQuery.optional(),
+  cursor: Cursor,
+  limit: Limit,
+});

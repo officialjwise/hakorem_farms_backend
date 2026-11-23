@@ -156,4 +156,22 @@ Only `del.delivery_slot` exists, as above, plus `ck_delivery_slot_capacity` (1 t
   and `cod_variance_note`; `payment_id` unique. Checks: `ck_proof_evidence` (a signature or a photograph),
   `ck_proof_payment` (a payment exactly when cash was collected), `ck_proof_position`, and the guard `ck_proof_variance`
   (HK010: never above the delivery's cash due; less only with a `COD_VARIANCE` reason; a reason or note only when less).
-- `del.route`, `del.route_stop` and `del.driver_cash_reconciliation` are B11 continued 2's.
+- `del.route` and `del.route_stop` are B11 continued 3's.
+
+## As built (B11 continued 2, migrations 0312 to 0314; CR-057, ADR-0092, A-345)
+
+- `del.driver_cash_reconciliation` as above (a DOCUMENT registered as `DRIVER_CASH_RECONCILIATION`, 0312), with these
+  differences: it is a hand-in at a till shift, written `POSTED` and frozen at once (`trg_driver_cash_frozen`), so
+  `status` is `POSTED` only; `shift_document_id` (FK `platform.business_document`, the till shift counted into, whose
+  cashier is `received_by`) and `till_payment_id` (FK `pay.payment`, unique, the cash payment onto that shift for what was
+  counted; NULL exactly when nothing was) are added; `posted_at` and `posted_by` are NOT NULL; no UNIQUE (`driver_id`,
+  `reconciliation_date`): a driver may hand in more than once a day, each collection still once (A-345 (c)). Checks:
+  `ck_driver_cash_receiver` (never the driver, and the receiver wrote it), `ck_driver_cash_variance` (the variance and its
+  direction exactly the difference), `ck_driver_cash_till_payment`, `ck_driver_cash_expected_positive`, and the deferred
+  `ck_driver_cash_expected` (HK010: expected is exactly the sum of its collections).
+- `del.driver_cash_handed_in` (LEDGER, insert-only): (`reconciliation_id`, `proof_id` FK `del.proof_of_delivery`,
+  `amount_pesewas`), `proof_id` unique (`uq_driver_cash_handed_in_proof`: each collection handed in once, ever); the guard
+  `ck_driver_cash_handed_in` (HK010: the proof's delivery was the driver's, at the reconciliation's branch, with exactly
+  that cash collected).
+- PAY's side (0313): the till payment names the driver in `pay.payment.received_from_driver_id` and settles nothing (see
+  `docs/data-model/pay.md`).

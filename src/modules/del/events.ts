@@ -39,3 +39,28 @@ export interface CodCollected {
   readonly branchId: string;
   readonly collectedPesewas: number;
 }
+
+/**
+ * ◆ `del.DriverCashRemitted` v1 (ADR-0003, ADR-0092, CR-057): a driver's cash on delivery counted into a till shift by
+ * its own cashier, every collection the driver held at the branch handed in once. FIN posts Dr 1000 against the till for
+ * what was received, Cr 1020 against the driver for what was expected, the short as a debit and the over as a credit on
+ * 6900 (migration 0315). Not EXACT, it is the driver variance report's line (`DRIVER_VARIANCE`, abuse cases 6 and 43, B12).
+ */
+export interface DriverCashRemitted {
+  readonly reconciliationId: string;
+  readonly driverId: string;
+  readonly driverName: string;
+  readonly receivedBy: string;
+  readonly shiftId: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly tillPaymentId: string | null;
+  readonly branchId: string;
+  readonly expectedPesewas: number;
+  readonly receivedPesewas: number;
+  readonly shortPesewas: number;
+  readonly overPesewas: number;
+  readonly varianceDirection: 'OVER' | 'SHORT' | 'EXACT';
+  readonly proofIds: readonly string[];
+  readonly abuseCases: readonly number[];
+  readonly handedInAt: string;
+}

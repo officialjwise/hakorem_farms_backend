@@ -282,3 +282,13 @@ B09b continued 3c (migration 0284, A-282 (e)): an open `UNVERIFIED_PAYMENT` brea
 
 `pay.break_resolution.posting` gains `VERIFIED` (migration 0284).
 
+
+### A driver's hand-in at a till (B11 continued 2, migration 0313; CR-057, ADR-0092, A-345)
+
+`pay.payment.received_from_driver_id` (NULL, FK `iam.principal`): the driver whose cash on delivery this till payment
+receives, written by `DriverCash.handInIn` through `Payments.writeIn` onto the receiving cashier's own open shift
+(method `COD`). `ck_payment_driver_hand_in`: such a payment is cash into a till (a register and a shift), held by no
+driver, of no customer or order, cleared, never a late entry, and not written by that driver. `pay.driver_hand_in_guard()`
+(HK010, `ck_payment_driver_hand_in_final`) refuses an allocation, an order link, a refund or a reversal naming it, and
+any change to its status, amount, shift, driver, allocated or refunded amounts: it settles nothing, because the
+collections it receives were allocated when the driver took them. Index `ix_payment_received_from_driver`.

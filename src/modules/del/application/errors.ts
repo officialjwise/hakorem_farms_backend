@@ -7,6 +7,7 @@ registerMessages({
   'del.capacity_below_booked': 'A slot cannot hold fewer deliveries than are already booked into it.',
   'del.reference_not_found': 'Something this request refers to does not exist.',
   'del.delivery_invalid': 'This delivery cannot be recorded like this.',
+  'del.driver_cash_invalid': "This driver's cash cannot be handed in like this.",
 });
 
 function details(rules: readonly { readonly field: string; readonly rule: string }[], messageKey: string): ErrorDetail[] {
@@ -46,5 +47,14 @@ export class DeliveryInvalidError extends BusinessRuleError {
   readonly messageKey = 'del.delivery_invalid';
   constructor(rules: readonly { readonly field: string; readonly rule: string }[]) {
     super(`delivery breaks ${rules.map((r) => r.rule).join(', ')}`, details(rules, 'del.delivery_invalid'));
+  }
+}
+
+/** 422 DRIVER_CASH_INVALID: a driver's hand-in breaks a rule; `details[].code` names it (FR-DEL-010, CR-057). */
+export class DriverCashInvalidError extends BusinessRuleError {
+  readonly code = 'DRIVER_CASH_INVALID';
+  readonly messageKey = 'del.driver_cash_invalid';
+  constructor(rules: readonly { readonly field: string; readonly rule: string }[]) {
+    super(`hand-in breaks ${rules.map((r) => r.rule).join(', ')}`, details(rules, 'del.driver_cash_invalid'));
   }
 }

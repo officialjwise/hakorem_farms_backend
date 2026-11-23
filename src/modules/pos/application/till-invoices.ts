@@ -2,19 +2,14 @@ import { Money, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import type { UnitOfWork } from '../../../platform/database/unit-of-work';
-import { ForbiddenError, NotFoundError } from '../../../platform/errors/api-error';
+import { NotFoundError } from '../../../platform/errors/api-error';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Billing } from '../../bil';
-import type { Authoriser } from '../../iam';
 import type { Payments } from '../../pay';
-import { tillTakesCash } from '../domain/offline-sync';
 import { judgeTillInvoicePayment } from '../domain/till-invoice';
-import type { Devices } from './devices';
-import { ShiftNotOpenError, TillInvoicePaymentInvalidError } from './errors';
-import type { TillStore } from './till-store';
+import { TillInvoicePaymentInvalidError } from './errors';
+import type { OwnOpenShift } from './own-open-shift';
 
-/** Taking money at the till on one's own open shift: the counter sale's permission (A-285 (h)). */
-const COLLECT = 'pos.sale.create';
 /** The method an invoice is paid by at the till: cash only (A-212 (a)); mobile money and card go through the provider. */
 const CASH = 'CASH';
 
@@ -49,11 +44,9 @@ export interface TillInvoicePaymentView {
 export class TillInvoicePayments {
   constructor(
     private readonly uow: UnitOfWork,
-    private readonly store: TillStore,
-    private readonly devices: Devices,
+    private readonly ownShift: OwnOpenShift,
     private readonly billing: Billing,
     private readonly payments: Payments,
-    private readonly authoriser: Authoriser,
     private readonly idempotency: Idempotency,
     private readonly audit: AuditTrail,
     private readonly clock: Clock,
@@ -61,18 +54,12 @@ export class TillInvoicePayments {
 
   pay(actor: Actor | undefined, shiftId: string, body: TillInvoicePaymentRequest, idempotencyKey: string, deviceCredential: string | undefined): Promise<StoredResponse<TillInvoicePaymentView>> {
     return this.uow.run({ isolation: 'serializable' }, async (tx) => {
-      const shift = await this.store.lockShift(tx, shiftId);
-      const register = shift === null ? null : (await this.store.registers(tx, [shift.registerId]))[0]!;
-      await this.authoriser.authorise(tx, actor, COLLECT, register === null ? {} : { branchId: register.branchId, locationId: register.locationId });
-      if (shift === null || register === null) throw new NotFoundError(`no shift ${shiftId}`);
-      // Cash goes only onto the cashier's own shift: nobody takes it on another cashier's (A-212 (a), ADR-0077).
-      if (shift.cashierId !== actor!.principalId) throw new ForbiddenError(`${COLLECT} refused: the shift is another cashier's`);
-      await this.devices.deviceOfIn(tx, deviceCredential, register.id);
+      const { shift, register } = await this.ownShift.lockIn(tx, actor, shiftId, deviceCredential);
       const request = { shiftId, billingDocumentId: body.billingDocumentId, amountPesewas: body.amountPesewas.toString(), tenderedPesewas: body.tenderedPesewas?.toString() ?? null };
       const claim = await this.idempotency.claim(tx, { operationId: 'payInvoiceAtTill', principalId: actor!.principalId, key: idempotencyKey, request });
       if (claim.kind === 'REPLAY') return claim.response as StoredResponse<TillInvoicePaymentView>;
       // Online only cash on the shift is taken; a late entry is the queue's alone (ADR-0077 Amendments).
-      if (tillTakesCash(shift) !== 'ON_SHIFT') throw new ShiftNotOpenError(shift.status);
+      this.ownShift.takesCashIn(shift);
 
       const document = (await this.billing.settleableIn(tx, [body.billingDocumentId])).get(body.billingDocumentId);
       if (document === undefined) throw new NotFoundError(`no billing document ${body.billingDocumentId}`);

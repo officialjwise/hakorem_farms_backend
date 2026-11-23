@@ -91,6 +91,19 @@ interface CodCollectedPosting {
   readonly collectedPesewas: number;
 }
 
+/** The fields of DEL's `del.DriverCashRemitted` FIN reads (migration 0315): a driver's cash counted into a till. */
+interface DriverCashRemittedPosting {
+  readonly reconciliationId: string;
+  readonly driverId: string;
+  readonly driverName: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly branchId: string;
+  readonly expectedPesewas: number;
+  readonly receivedPesewas: number;
+  readonly shortPesewas: number;
+  readonly overPesewas: number;
+}
+
 /** POS's till events (migrations 0228 and 0281): one translator for all, each amount against the till's register. */
 export const TILL_POSTING_EVENTS = ['pos.ShiftOpened', 'pos.CashDropped', 'pos.CashPaidIn', 'pos.CashPaidOut', 'pos.ShiftClosed', 'pos.ShiftLateEntryPosted'] as const;
 
@@ -161,6 +174,7 @@ export class LedgerPostings {
       ['pay.UnidentifiedReceiptHeld', (tx, event) => this.unidentifiedReceipt(tx, event.payload as unknown as UnidentifiedReceiptPosting)],
       ...TILL_POSTING_EVENTS.map((code) => [code, async (_tx: Transaction, event: EventEnvelope) => this.till(event.payload as unknown as TillPosting)] as const),
       ['del.CodCollected', (tx, event) => this.codCollected(tx, event.payload as unknown as CodCollectedPosting)],
+      ['del.DriverCashRemitted', async (_tx, event) => this.driverCashRemitted(event.payload as unknown as DriverCashRemittedPosting)],
       ['whl.BadDebtWrittenOff', (tx, event) => this.badDebt(tx, event.payload as unknown as BadDebtPosting)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
@@ -265,6 +279,26 @@ export class LedgerPostings {
       amounts: [{ key: 'collected', amount: Money.fromJsonInteger(payload.collectedPesewas), subledgers: [driver, customerParty(payload.customerId, customer?.name ?? null)] }],
       sourceDocumentId: payload.deliveryId,
       eventSubjectId: payload.proofId,
+      branchId: payload.branchId,
+    };
+  }
+
+  /**
+   * `del.DriverCashRemitted` (ADR-0003, ADR-0092): Dr 1000 against the till that counted it, Cr 1020 against the driver
+   * for every collection handed in, the difference to 6900 (short a debit, over a credit), as a till's own close posts it.
+   */
+  private driverCashRemitted(payload: DriverCashRemittedPosting): Translated {
+    const till: SubledgerRef = { kind: 'REGISTER', refId: payload.register.id, displayName: payload.register.code };
+    const driver: SubledgerRef = { kind: 'DRIVER', refId: payload.driverId, displayName: payload.driverName };
+    return {
+      amounts: [
+        { key: 'received', amount: Money.fromJsonInteger(payload.receivedPesewas), subledgers: [till] },
+        { key: 'expected', amount: Money.fromJsonInteger(payload.expectedPesewas), subledgers: [driver] },
+        { key: 'short', amount: Money.fromJsonInteger(payload.shortPesewas) },
+        { key: 'over', amount: Money.fromJsonInteger(payload.overPesewas) },
+      ],
+      sourceDocumentId: payload.reconciliationId,
+      eventSubjectId: payload.reconciliationId,
       branchId: payload.branchId,
     };
   }

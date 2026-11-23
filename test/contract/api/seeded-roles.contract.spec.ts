@@ -71,6 +71,11 @@ describe('the seeded role matrix in the contract (CR-023, ADR-0071)', () => {
     expect(holders('ord.order.read')).not.toContain('STOREKEEPER');
   });
 
+  it("shows B11 continued 2's grant (0317, CR-057, abuse cases 6 and 43): the Manager and the Owner read the driver variance report, nobody counts a driver's cash outside a till", () => {
+    expect(holders('del.cash_reconciliation.read')).toEqual(['OWNER', 'MANAGER']);
+    expect(holders('del.cash_reconciliation.create')).toEqual([]);
+  });
+
   it('changes when a later migration changes a seeded grant, so the committed contract no longer matches and CI fails', async () => {
     const scratch = migrationsWith(
       '9999_iam_revoke_scratch_grant.sql',

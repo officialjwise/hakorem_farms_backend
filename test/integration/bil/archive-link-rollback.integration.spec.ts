@@ -48,6 +48,12 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0317_iam_grant_del_cash_reconciliation_read',
+      '0316_iam_seed_del_cash_reconciliation_read',
+      '0315_fin_driver_cash_remitted_postings',
+      '0314_del_driver_cash_reconciliation',
+      '0313_pay_driver_hand_in_payment',
+      '0312_platform_add_driver_cash_reconciliation_document',
       '0311_pay_card_hosted_page',
       '0310_iam_grant_ord_order_read_fulfilment',
       '0309_iam_seed_ord_order_read_fulfilment',
