@@ -27,6 +27,26 @@ export function stockMovementAmounts(payload: StockPostingFields, facts: { reado
   ];
 }
 
+/**
+ * `inv.NegativeStockCosted` (ADR-0081, A-283): stock an offline sale took beyond what the pool held, at the last known
+ * cost: Dr cost of sales by the product's GL group, Cr 1335 Stock sold ahead of receipt.
+ */
+export function negativeStockCostedAmounts(payload: { readonly valuePesewas: number; readonly stockUnitId: string | null }, glGroup: string): PostingAmount[] {
+  return [{ key: 'value', amount: Money.fromJsonInteger(payload.valuePesewas), determinants: { GL_GROUP: glGroup }, costObjectId: payload.stockUnitId, memo: 'NEGATIVE_STOCK' }];
+}
+
+/**
+ * `inv.NegativeStockTrueUp` (ADR-0081, A-283): on arrival the last known cost of what it covered leaves 1335 back to
+ * cost of sales (`cleared`) and its true cost leaves inventory to cost of sales (`trueUp`), so cost of sales moves by
+ * exactly the difference.
+ */
+export function negativeStockTrueUpAmounts(payload: { readonly clearedPesewas: number; readonly trueUpPesewas: number; readonly stockUnitId: string | null }, glGroup: string): PostingAmount[] {
+  return [
+    { key: 'cleared', amount: Money.fromJsonInteger(payload.clearedPesewas), determinants: { GL_GROUP: glGroup }, costObjectId: payload.stockUnitId, memo: 'NEGATIVE_TRUE_UP' },
+    { key: 'trueUp', amount: Money.fromJsonInteger(payload.trueUpPesewas), determinants: { GL_GROUP: glGroup }, costObjectId: payload.stockUnitId, memo: 'NEGATIVE_TRUE_UP' },
+  ];
+}
+
 /** One named amount on fixed accounts, for example a processing order's direct cost. */
 export function valueAmount(key: string, pesewas: number, costObjectId: string): PostingAmount[] {
   return [{ key, amount: Money.fromJsonInteger(pesewas), costObjectId }];
@@ -207,14 +227,18 @@ export interface PaymentClearedFields {
   /** The provider that took a mobile money or card payment (its party on 1120), null for any other tender. */
   readonly provider?: string | null;
   /**
-   * A mobile money tender a till took offline and could not verify (OFFLINE_SYNC 9.9, B09b continued 2c): held in the
-   * farm's wallet (1110, against it) until a statement line matches it, never with a provider.
+   * A mobile money tender a till took offline and could not verify (OFFLINE_SYNC 9.9, B09b continued 2c): held in 1115
+   * Mobile money awaiting verification, against the wallet it is expected in, until verified (the owner's decision 3 of
+   * 2026-11-18), never in 1110 and never with a provider.
    */
   readonly unverified?: boolean;
 }
 
-/** The determinant an unverified offline mobile money tender is posted by (1110 Mobile money wallets, migration 0263). */
-export const UNVERIFIED_MOBILE_MONEY_DETERMINANT = 'UNVERIFIED_MOBILE_MONEY';
+/**
+ * The determinant an unverified offline mobile money tender is posted by: 1115 Mobile money awaiting verification
+ * (migration 0285, the owner's decision 3 of 2026-11-18). 0263's `UNVERIFIED_MOBILE_MONEY` (1110) is no longer named.
+ */
+export const UNVERIFIED_MOBILE_MONEY_DETERMINANT = 'MOBILE_MONEY_AWAITING_VERIFICATION';
 
 /**
  * The payment providers' parties on 1120 Payment provider clearing: one stable party per provider PAY's port names
@@ -269,6 +293,14 @@ export function paymentClearedAmounts(payload: PaymentClearedFields, customer: S
     { key: 'allocated', amount: allocated, subledgers: [customer] },
     { key: 'unallocated', amount: unallocated, subledgers: [customer] },
   ];
+}
+
+/**
+ * `pay.UnverifiedPaymentVerified` (ADR-0003 Amendments, A-282): an unverified tender the provider confirmed moves from
+ * 1115 to 1110, both against the wallet it was expected in, for its whole amount.
+ */
+export function unverifiedVerifiedAmounts(payload: { readonly amountPesewas: number }, wallet: SubledgerRef): PostingAmount[] {
+  return [{ key: 'verified', amount: Money.fromJsonInteger(payload.amountPesewas), subledgers: [wallet] }];
 }
 
 /**

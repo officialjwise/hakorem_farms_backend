@@ -7,6 +7,7 @@ import {
   providerParty,
   refundPaidAmounts,
   chequeClearedAmounts,
+  unverifiedVerifiedAmounts,
   expenseCategoryKey,
   invoiceIssuedAmounts,
   paymentClearedAmounts,
@@ -16,6 +17,8 @@ import {
   type BillingLevy,
   type BillingLine,
   stockMovementAmounts,
+  negativeStockCostedAmounts,
+  negativeStockTrueUpAmounts,
   tillAmounts,
   supplierCreditNoteAmounts,
   supplierInvoiceAmounts,
@@ -52,6 +55,16 @@ describe('the amounts of a stock movement event (ADR-0003)', () => {
       costObjectId: null,
       memo: 'RECEIPT_HARVEST',
     });
+  });
+
+  it('costs stock sold beyond the pool at its last known cost by the GL group, and clears it at arrival against its true cost (ADR-0081)', () => {
+    expect(negativeStockCostedAmounts({ valuePesewas: 14_400, stockUnitId: null }, 'PRODUCE_EGGS')).toEqual([
+      { key: 'value', amount: expect.objectContaining({ pesewas: 14_400n }), determinants: { GL_GROUP: 'PRODUCE_EGGS' }, costObjectId: null, memo: 'NEGATIVE_STOCK' },
+    ]);
+    expect(negativeStockTrueUpAmounts({ clearedPesewas: 14_400, trueUpPesewas: 15_000, stockUnitId: null }, 'PRODUCE_EGGS').map((a) => [a.key, a.amount.pesewas, a.determinants])).toEqual([
+      ['cleared', 14_400n, { GL_GROUP: 'PRODUCE_EGGS' }],
+      ['trueUp', 15_000n, { GL_GROUP: 'PRODUCE_EGGS' }],
+    ]);
   });
 
   it('names a single value for a processing cost', () => {
@@ -311,10 +324,10 @@ describe('the amounts of a cleared payment (ADR-0003, pay.PaymentCleared)', () =
     expect(() => paymentClearedAmounts({ methodKind: 'CASH', amountPesewas: 44_000, allocatedPesewas: 44_000, unallocatedPesewas: 1, register: till }, tema)).toThrow(/sum/);
   });
 
-  it('holds an unverified offline mobile money tender in its wallet, not with a provider, the parts exact (OFFLINE_SYNC 9.9, B09b continued 2c)', () => {
+  it('holds an unverified offline mobile money tender awaiting verification against its wallet, not with a provider, the parts exact (the owner, 2026-11-18)', () => {
     const wallet = { kind: 'BANK_ACCOUNT' as const, refId: 'bank-momo', displayName: 'MTN MoMo merchant wallet' };
     expect(flat(paymentClearedAmounts({ methodKind: 'MOBILE_MONEY', unverified: true, amountPesewas: 20_000, allocatedPesewas: 20_000, unallocatedPesewas: 0, register: till }, tema, wallet))).toEqual([
-      ['tender', 20_000n, { PAYMENT_METHOD_KIND: 'UNVERIFIED_MOBILE_MONEY' }, ['bank-momo']],
+      ['tender', 20_000n, { PAYMENT_METHOD_KIND: 'MOBILE_MONEY_AWAITING_VERIFICATION' }, ['bank-momo']],
       ['allocated', 20_000n, null, ['cus-1']],
       ['unallocated', 0n, null, ['cus-1']],
     ]);
@@ -415,6 +428,12 @@ describe('the amounts of a cheque, store credit and a cheque’s clearing (ADR-0
   it('clears a cheque of 100,000 into the bank account it was paid into', () => {
     expect(flat(chequeClearedAmounts({ amountPesewas: 100_000 }, gcb))).toEqual([['cheque', 100_000n, null, ['bank-1']]]);
     expect(flat(chequeClearedAmounts({ amountPesewas: 1 }, gcb))).toEqual([['cheque', 1n, null, ['bank-1']]]);
+  });
+
+  it('moves a verified unverified tender whole against its wallet (pay.UnverifiedPaymentVerified, A-282)', () => {
+    const wallet = { kind: 'BANK_ACCOUNT' as const, refId: 'bank-momo', displayName: 'MTN MoMo merchant wallet' };
+    expect(flat(unverifiedVerifiedAmounts({ amountPesewas: 20_000 }, wallet))).toEqual([['verified', 20_000n, null, ['bank-momo']]]);
+    expect(flat(unverifiedVerifiedAmounts({ amountPesewas: 1 }, wallet))).toEqual([['verified', 1n, null, ['bank-momo']]]);
   });
 });
 
