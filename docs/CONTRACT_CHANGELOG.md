@@ -50,7 +50,7 @@ Minor, LOUD on two behaviours (FR-ORD-008 to FR-ORD-011, FR-ORD-013, FR-ORD-014,
 - **LOUD, response enum widened:** `PendingConsent.kind` (`CustomerOrder.pendingConsent`) gains `SHORT_PICK`; `CustomerOrder.pendingConsent` is now filled while the order waits for its customer.
 - **LOUD, behaviour:** `cancelOrder` cancels an order that is `PICKING` or `AWAITING_CUSTOMER` (its pick lists cancelled, its picks withdrawn, a waiting question withdrawn, its stock released and the refund asked for as before), where it answered 422 `INVALID_STATE_TRANSITION`. `ord.OrderCancelled.fromStatus` gains both statuses.
 - **Events (new):** `ord.CustomerConsentRequested`, `ord.CustomerConsentAnswered`, `ord.FulfilmentPacked`.
-- **Seed (role matrix):** the Storekeeper gains `ord.fulfilment.read`, `ord.fulfilment.pick` and `ord.order.read`; the Manager and the Owner the two fulfilment permissions and `ord.order.update` (CR-056 items 2 and 3).
+- **Seed (role matrix):** the Storekeeper gains `ord.fulfilment.read` and `ord.fulfilment.pick` (not `ord.order.read`, A-335); the Manager and the Owner the two fulfilment permissions and `ord.order.update` (CR-056 items 2 and 3).
 - No existing field removed, retyped or made required on a request.
 
 ## 2.24.0 (2026-11-23, B09b continued 4)

@@ -112,19 +112,14 @@ describe('authorisation on every order operation (ADR-0035, deny by default)', (
     placed = (await create(as('sales'), order())).body.id as string;
   });
 
-  it('refuses every read and write to the Investor, who holds no order permission', async () => {
-    expect((await consoleGet(api.server, as('investor'), '/v1/orders')).status).toBe(403);
-    expect((await consoleGet(api.server, as('investor'), `/v1/orders/${placed}`)).status).toBe(403);
-    expect((await consoleGet(api.server, as('investor'), `/v1/orders/${placed}/history`)).status).toBe(403);
-    expect((await create(as('investor'), order())).status).toBe(403);
-    expect((await confirm(as('investor'), placed)).status).toBe(403);
-  });
-
-  it('lets the Storekeeper read the order it picks (CR-056, B11) but never enter or confirm one', async () => {
-    expect((await consoleGet(api.server, as('storekeeper'), `/v1/orders/${placed}`)).status).toBe(200);
-    expect((await consoleGet(api.server, as('storekeeper'), `/v1/orders/${placed}/history`)).status).toBe(200);
-    expect((await create(as('storekeeper'), order())).status).toBe(403);
-    expect((await confirm(as('storekeeper'), placed)).status).toBe(403);
+  it('refuses every read and write to the Storekeeper and the Investor, who hold no order permission', async () => {
+    for (const who of ['storekeeper', 'investor']) {
+      expect((await consoleGet(api.server, as(who), '/v1/orders')).status, who).toBe(403);
+      expect((await consoleGet(api.server, as(who), `/v1/orders/${placed}`)).status, who).toBe(403);
+      expect((await consoleGet(api.server, as(who), `/v1/orders/${placed}/history`)).status, who).toBe(403);
+      expect((await create(as(who), order())).status, who).toBe(403);
+      expect((await confirm(as(who), placed)).status, who).toBe(403);
+    }
   });
 
   it('lets the Cashier read orders but never enter or confirm one', async () => {

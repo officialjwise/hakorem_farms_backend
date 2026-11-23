@@ -107400,7 +107400,6 @@ components:
         - mdm.weight_band.read
         - ord.fulfilment.pick
         - ord.fulfilment.read
-        - ord.order.read
         - platform.file.read
         - platform.file.upload
         - prc.order.create
