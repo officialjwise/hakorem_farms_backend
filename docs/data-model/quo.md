@@ -71,7 +71,7 @@ One revision. Immutable once issued; a change is a new version. Posted statuses:
 | `tax_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Estimate from the tax calculator |
 | `gross_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | |
 | `estimated_cost_pesewas` | `pesewas` | NULL | For margin |
-| `margin_percent` | `numeric(9,2)` | NULL | Margin over cost; may be negative or above 100, so not `percent` (A-309 (c)) |
+| `margin_percent` | `numeric(9,2)` | NULL | **Markup over cost, not margin** (the owner, 2026-11-23, migration 0307's comment): (the lines' net less cost) over cost; may be negative or above 100, so not `percent` (A-309 (c)). Answered as `markupPercent` and, deprecated, `marginPercent`; to be renamed `markup_percent` in the next release (BL-098). The margin over price is derived from `net_pesewas` and `estimated_cost_pesewas` on read, never stored (A-342) |
 | `below_margin_floor` | `boolean` | NOT NULL DEFAULT `false` | |
 | `approval_request_id` | `uuid` | NULL, FK `iam.approval_request`; required to issue when `below_margin_floor` | |
 | `approved_by`, `approved_at` | `uuid`, `timestamptz` | NULL, together; never the author nor the issuer (`ck_quote_version_margin_approved`) | B10, FR-QUO-005 |
@@ -185,8 +185,24 @@ The acceptance or decline made through a link, with the device and session behin
 | `decision` | `text` | `ACCEPTED`, `DECLINED` | |
 | `ip` | `inet` | NULL | the address as the platform resolves it for public calls |
 | `user_agent` | `text` | NULL, at most 500 characters | |
-| `staff_principal_id` | `uuid` | NULL, FK `iam.principal`; set with `staff_session_id` or neither (`ck_quote_link_decision_staff`) | whose live staff session the browser also held |
+| `staff_principal_id` | `uuid` | NULL, FK `iam.principal`; set with `staff_session_id` or neither (`ck_quote_link_decision_staff`); **null on every row since migration 0308** (`ck_quote_link_decision_no_cookie`, NOT VALID: B10 continued 4's rows keep theirs) | whose live staff session the browser also held, read from the staff cookie until the owner withdrew it on 2026-11-23 (A-343) |
 | `staff_session_id` | `uuid` | NULL | that session (IAM's id; no foreign key into IAM's session table) |
 | `decided_at` | `timestamptz` | NOT NULL | `PublicQuote.decidedAt` for a decline through the link |
+| `recorded_at` | `timestamptz` | NOT NULL | |
+| `actor_id` | `uuid` | NOT NULL, FK `iam.principal` | the Storefront principal |
+
+### `quo.quote_link_staff_match` · LEDGER
+
+A possible staff acceptance (B10 continued 6, migration 0308, the owner 2026-11-23, A-343, abuse case 40): each staff session IAM saw from a link decision's address in the 24 hours before it, by the application clock, never read from a cookie. It flags; the decision stands. Data category: CONFIDENTIAL (DC-27).
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `link_decision_id` | `uuid` | NOT NULL, FK `quo.quote_link_decision`; UNIQUE with `staff_session_id` (`uq_quote_link_staff_match_session`) | the decision matched |
+| `staff_principal_id` | `uuid` | NOT NULL, FK `iam.principal` | the staff member named on the flag |
+| `staff_session_id` | `uuid` | NOT NULL | IAM's session id; no foreign key into IAM's session table (not a published key) |
+| `same_browser` | `boolean` | NOT NULL | the session's user agent (first 500 characters) equals the decision's |
+| `session_last_seen_at` | `timestamptz` | NOT NULL | when IAM last saw the session, inside the window |
+| `window_hours` | `integer` | NOT NULL, 24 (`ck_quote_link_staff_match_window`) | the window the owner set |
 | `recorded_at` | `timestamptz` | NOT NULL | |
 | `actor_id` | `uuid` | NOT NULL, FK `iam.principal` | the Storefront principal |

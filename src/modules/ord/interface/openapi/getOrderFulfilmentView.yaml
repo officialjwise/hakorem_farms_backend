@@ -1,0 +1,81 @@
+operationId: getOrderFulfilmentView
+tags:
+  - ord
+summary: "Get an order as the store reads it"
+description: "2.29.0 (the owner, 2026-11-23, A-335, A-344): the order's lines, quantities and delivery details for the Storekeeper who picks and packs it, and **never** a payment, a credit position, a price, a total or the credit check: its own narrower read under its own permission, not `getOrder` with fields dropped. Only at a branch the caller holds the permission for, branch-wide: an order at another branch answers 404, as an unknown id does. The Storekeeper still cannot call `getOrder`.\n\nPermission: `ord.order.read.fulfilment`."
+x-permission: ord.order.read.fulfilment
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OrderFulfilmentView"
+        example:
+          id: "019a7aac-6d1e-7b42-9c3a-41f0b2e8d7a5"
+          orderNo: SO-2026-DDW-004298
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          channel: ONLINE
+          status: PICKING
+          fulfilmentMode: DELIVERY
+          customer: null
+          contactName: "Akua Sarpong"
+          contactPhone: "+233244517702"
+          deliveryAddress:
+            recipientName: "Akua Sarpong"
+            recipientPhone: "+233244517702"
+            line1: "House 14, Palm Street"
+            area: "Dome"
+            city: "Accra"
+            region: "Greater Accra"
+            digitalAddress: "GA-492-1185"
+            directions: "Behind the blue kiosk"
+          delivery: null
+          notes: "Call on arrival"
+          placedAt: "2026-11-23T08:41:00Z"
+          fulfilments:
+            - id: "019a7af0-2c11-7e05-8f6a-0b5c3d9e1a77"
+              docType: FULFILMENT
+              number: PCK-2026-DDW-000412
+          lines:
+            - id: "019a7aef-d104-74c8-b2a1-6f0e9c3b5d28"
+              lineNo: 1
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-0005
+                name: "Beef, 15 kg pack"
+              stockUnit: null
+              qtyOrdered: "2.000"
+              uom: PACK
+              estimatedWeightKg: "30.000"
+              tolerancePercent: "10.00"
+              qtyFulfilled: "0.000"
+              fulfilledWeightKg: null
+              weightSource: null
+              qtyBackordered: "0.000"
+              lineStatus: OPEN
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

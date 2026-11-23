@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.28.0"
+  version: "2.29.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -59971,7 +59971,7 @@ paths:
       tags:
         - quo
       summary: "Accept a quote by its signed link"
-      description: "Accepts the live version by its token, once (FR-QUO-008, CR-047): records the name given, the time and the address and user agent of the request. A second use is 409 `QUOTE_ALREADY_DECIDED` (also after a decline); a token whose version was replaced, has expired or was withdrawn is 422 `QUOTE_LINK_CLOSED` with its state; anything else 404. Accepted, the quote's hold on stock lasts until it is converted or withdrawn (A-310)."
+      description: "Accepts the live version by its token, once (FR-QUO-008, CR-047): records the name given, the time and the address and user agent of the request. A second use is 409 `QUOTE_ALREADY_DECIDED` (also after a decline); a token whose version was replaced, has expired or was withdrawn is 422 `QUOTE_LINK_CLOSED` with its state; anything else 404. Accepted, the quote's hold on stock lasts until it is converted or withdrawn (A-310). From 2.29.0 (the owner, 2026-11-23, abuse case 40) a decision made from the address of a staff session active in the 24 hours before is flagged for review as a possible staff acceptance, naming the staff and whether the browser matched; it is never refused, and no cookie the browser holds is read."
       x-error-codes:
         - VALIDATION_FAILED
         - IDEMPOTENCY_KEY_REQUIRED
@@ -60030,7 +60030,7 @@ paths:
       tags:
         - quo
       summary: "Decline a quote by its signed link"
-      description: "Declines the live version by its token (FR-QUO-009), with a reason or none; the quote's hold on stock is released. A second use is 409 `QUOTE_ALREADY_DECIDED`; a closed link 422 `QUOTE_LINK_CLOSED`; anything else 404."
+      description: "Declines the live version by its token (FR-QUO-009), with a reason or none; the quote's hold on stock is released. A second use is 409 `QUOTE_ALREADY_DECIDED`; a closed link 422 `QUOTE_LINK_CLOSED`; anything else 404. From 2.29.0 (the owner, 2026-11-23, abuse case 40) a decision made from the address of a staff session active in the 24 hours before is flagged for review as a possible staff acceptance, naming the staff and whether the browser matched; it is never refused, and no cookie the browser holds is read."
       x-error-codes:
         - VALIDATION_FAILED
         - IDEMPOTENCY_KEY_REQUIRED
@@ -60647,7 +60647,9 @@ paths:
                           taxPesewas: 1200
                           grossPesewas: 1717200
                           estimatedCostPesewas: 1188000
-                          marginPercent: "30.77"
+                          marginPercent: "43.94"
+                          markupPercent: "43.94"
+                          marginOverPricePercent: "30.77"
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -60729,6 +60731,8 @@ paths:
                           grossPesewas: 1185000
                           estimatedCostPesewas: null
                           marginPercent: null
+                          markupPercent: null
+                          marginOverPricePercent: null
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -60787,6 +60791,8 @@ paths:
                           grossPesewas: 726800
                           estimatedCostPesewas: null
                           marginPercent: null
+                          markupPercent: null
+                          marginOverPricePercent: null
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -60842,6 +60848,8 @@ paths:
                           grossPesewas: 285000
                           estimatedCostPesewas: null
                           marginPercent: null
+                          markupPercent: null
+                          marginOverPricePercent: null
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -60897,6 +60905,8 @@ paths:
                           grossPesewas: 228000
                           estimatedCostPesewas: null
                           marginPercent: null
+                          markupPercent: null
+                          marginOverPricePercent: null
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -60952,6 +60962,8 @@ paths:
                           grossPesewas: 380000
                           estimatedCostPesewas: null
                           marginPercent: null
+                          markupPercent: null
+                          marginOverPricePercent: null
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -61006,7 +61018,7 @@ paths:
       tags:
         - quo
       summary: "Draft a quote"
-      description: "Drafts a quote (FR-QUO-003) at the one branch the caller drafts quotes for, or its request's branch (422 `QUOTE_INVALID` `BRANCH_REQUIRED`), numbered now (`QUO-2026-DDW-000088`, kept by every version); version 1 is a `DRAFT`. Each line is priced by the salesperson (`unitPricePesewas`) and extended once, half-up; a product line is in its own unit (CR-045 as the owner worded it: a crate or a single egg, `uom`, never derived from another unit's price), converted to the base unit exactly (`NO_CONVERSION`, `INEXACT_QUANTITY`), and the engine's price for that unit is kept beside it (`resolvedUnitPricePesewas`). The cost is estimated from the cost pools of the named animal or of the product's live stock at the branch, and the margin over cost is (net less cost) over cost. A free-text line (no product) has no cost. Other refusals: `CUSTOMER_NOT_ACTIVE`, `RFQ_UNKNOWN`, `RFQ_CLOSED`, `PRODUCT_NOT_ACTIVE`, `STOCK_UNIT_OTHER_PRODUCT`, `STOCK_UNIT_NOT_AVAILABLE`, `ONE_ANIMAL_PER_LINE`, `PRICE_BASIS_MISMATCH`, `VALIDITY_PASSED`. A request it is made from becomes `QUOTED`.\n\nPermission: `quo.quote.create`."
+      description: "Drafts a quote (FR-QUO-003) at the one branch the caller drafts quotes for, or its request's branch (422 `QUOTE_INVALID` `BRANCH_REQUIRED`), numbered now (`QUO-2026-DDW-000088`, kept by every version); version 1 is a `DRAFT`. Each line is priced by the salesperson (`unitPricePesewas`) and extended once, half-up; a product line is in its own unit (CR-045 as the owner worded it: a crate or a single egg, `uom`, never derived from another unit's price), converted to the base unit exactly (`NO_CONVERSION`, `INEXACT_QUANTITY`), and the engine's price for that unit is kept beside it (`resolvedUnitPricePesewas`). The cost is estimated from the cost pools of the named animal or of the product's live stock at the branch, and the margin is over the selling price, (net less cost) over net (`marginOverPricePercent`, 2.29.0, the owner, 2026-11-23), beside the markup over cost (`markupPercent`; `marginPercent` is that markup under its old, deprecated name). A free-text line (no product) has no cost. Other refusals: `CUSTOMER_NOT_ACTIVE`, `RFQ_UNKNOWN`, `RFQ_CLOSED`, `PRODUCT_NOT_ACTIVE`, `STOCK_UNIT_OTHER_PRODUCT`, `STOCK_UNIT_NOT_AVAILABLE`, `ONE_ANIMAL_PER_LINE`, `PRICE_BASIS_MISMATCH`, `VALIDITY_PASSED`. A request it is made from becomes `QUOTED`.\n\nPermission: `quo.quote.create`."
       x-permission: quo.quote.create
       x-error-codes:
         - VALIDATION_FAILED
@@ -61087,6 +61099,8 @@ paths:
                   grossPesewas: 380000
                   estimatedCostPesewas: null
                   marginPercent: null
+                  markupPercent: null
+                  marginOverPricePercent: null
                   belowMarginFloor: false
                   subjectToStock: false
                   approvalRequestId: null
@@ -61191,7 +61205,9 @@ paths:
                   taxPesewas: 1200
                   grossPesewas: 1717200
                   estimatedCostPesewas: 1188000
-                  marginPercent: "30.77"
+                  marginPercent: "43.94"
+                  markupPercent: "43.94"
+                  marginOverPricePercent: "30.77"
                   belowMarginFloor: false
                   subjectToStock: false
                   approvalRequestId: null
@@ -61318,7 +61334,9 @@ paths:
                         taxPesewas: 1200
                         grossPesewas: 1717200
                         estimatedCostPesewas: 1188000
-                        marginPercent: "30.77"
+                        marginPercent: "43.94"
+                        markupPercent: "43.94"
+                        marginOverPricePercent: "30.77"
                         belowMarginFloor: false
                         subjectToStock: false
                         approvalRequestId: null
@@ -61377,7 +61395,9 @@ paths:
                         taxPesewas: 1200
                         grossPesewas: 1907200
                         estimatedCostPesewas: 1320000
-                        marginPercent: "30.75"
+                        marginPercent: "43.94"
+                        markupPercent: "43.94"
+                        marginOverPricePercent: "30.75"
                         belowMarginFloor: false
                         subjectToStock: false
                         approvalRequestId: null
@@ -61436,7 +61456,9 @@ paths:
                         taxPesewas: 1200
                         grossPesewas: 1717200
                         estimatedCostPesewas: 1188000
-                        marginPercent: "30.77"
+                        marginPercent: "43.94"
+                        markupPercent: "43.94"
+                        marginOverPricePercent: "30.77"
                         belowMarginFloor: false
                         subjectToStock: false
                         approvalRequestId: null
@@ -61495,7 +61517,9 @@ paths:
                         taxPesewas: 1200
                         grossPesewas: 1907200
                         estimatedCostPesewas: 1320000
-                        marginPercent: "30.75"
+                        marginPercent: "43.94"
+                        markupPercent: "43.94"
+                        marginOverPricePercent: "30.75"
                         belowMarginFloor: false
                         subjectToStock: false
                         approvalRequestId: null
@@ -61554,7 +61578,9 @@ paths:
                         taxPesewas: 1200
                         grossPesewas: 1717200
                         estimatedCostPesewas: 1188000
-                        marginPercent: "30.77"
+                        marginPercent: "43.94"
+                        markupPercent: "43.94"
+                        marginOverPricePercent: "30.77"
                         belowMarginFloor: false
                         subjectToStock: false
                         approvalRequestId: null
@@ -61689,7 +61715,9 @@ paths:
                 taxPesewas: 1200
                 grossPesewas: 1717200
                 estimatedCostPesewas: 1188000
-                marginPercent: "30.77"
+                marginPercent: "43.94"
+                markupPercent: "43.94"
+                marginOverPricePercent: "30.77"
                 belowMarginFloor: false
                 subjectToStock: false
                 approvalRequestId: null
@@ -61822,7 +61850,9 @@ paths:
                 taxPesewas: 1200
                 grossPesewas: 1717200
                 estimatedCostPesewas: 1188000
-                marginPercent: "30.77"
+                marginPercent: "43.94"
+                markupPercent: "43.94"
+                marginOverPricePercent: "30.77"
                 belowMarginFloor: false
                 subjectToStock: false
                 approvalRequestId: null
@@ -61891,7 +61921,7 @@ paths:
       tags:
         - quo
       summary: "Issue a quote version and send the acceptance link"
-      description: "Issues a draft (FR-QUO-004, FR-QUO-005, FR-QUO-007, FR-QUO-012), priced and judged again as things are now. Below the margin floor over cost (seed 10 percent, compared exactly: 264,000 over a cost of 240,000 is at the floor; 263,996 is below it), with any line below the engine's floor, or with a cost unknown, it waits: 202 `ApprovalPending` of kind `QUOTE_BELOW_MARGIN`, decided by a holder of `quo.quote_margin.approve` with step-up who is neither the version's author (`QUOTE_AUTHOR_CANNOT_APPROVE`) nor the person who asked (`MAKER_CANNOT_CHECK`); **approving only approves (the owner, 2026-11-19; 2.19.0, LOUD: until then approval issued the version)**: the version becomes `APPROVED`, holds no stock, sends nothing and has no link; calling this again, by anyone but its approver (`APPROVER_CANNOT_ISSUE`), issues it as below at the figures approved and answers its link once. The database refuses an issued version below the floor without that approval, and an approver who issues it. Otherwise every product line is reserved for the validity in the base unit, a named animal itself, lots oldest first (an unnamed animal is chosen at conversion), as much as is on hand and never more. **Stock not on hand is no longer refused (the owner, 2026-11-18; 2.23.0, LOUD: until then it was 422 `QUOTE_INVALID` `STOCK_SHORT`)**: the version is issued `subjectToStock`, each line showing what was there (`availableQuantity`) and what it holds (`heldQuantity`); `STOCK_SHORT` now answers only a balance that changed under a concurrent issue. The version is rendered and archived once as its own revision of the quote's document (`documentId`, FR-QUO-007). The live version, if any, is superseded and its hold released, and `quo.QuoteIssued` is queued once for the link to be sent (B11). The answer carries `acceptanceLinkToken`, made now; asking again for an issued version answers a fresh token and sends nothing again. Other refusals: `NO_LINES`, `LINE_NOT_PRICED`, `VALIDITY_PASSED`, `APPROVER_CANNOT_ISSUE`.\n\nPermission: `quo.quote.issue`."
+      description: "Issues a draft (FR-QUO-004, FR-QUO-005, FR-QUO-007, FR-QUO-012), priced and judged again as things are now. Below the margin floor, **a margin over the selling price since 2.29.0 (the owner, 2026-11-23; LOUD: until then the same setting was read over cost, so a version at 10 percent markup, 264,000 over a cost of 240,000, now waits)** (seed 10 percent, compared exactly on the product lines' net without the delivery fee: (net less cost) x 10,000 against the floor x net; 266,668 over a cost of 240,000 clears it, 266,664 is below it though both show 10.00), with any line below the engine's floor, or with a cost unknown, it waits: 202 `ApprovalPending` of kind `QUOTE_BELOW_MARGIN`, decided by a holder of `quo.quote_margin.approve` with step-up who is neither the version's author (`QUOTE_AUTHOR_CANNOT_APPROVE`) nor the person who asked (`MAKER_CANNOT_CHECK`); **approving only approves (the owner, 2026-11-19; 2.19.0, LOUD: until then approval issued the version)**: the version becomes `APPROVED`, holds no stock, sends nothing and has no link; calling this again, by anyone but its approver (`APPROVER_CANNOT_ISSUE`), issues it as below at the figures approved and answers its link once. The database refuses an issued version below the floor without that approval, and an approver who issues it. Otherwise every product line is reserved for the validity in the base unit, a named animal itself, lots oldest first (an unnamed animal is chosen at conversion), as much as is on hand and never more. **Stock not on hand is no longer refused (the owner, 2026-11-18; 2.23.0, LOUD: until then it was 422 `QUOTE_INVALID` `STOCK_SHORT`)**: the version is issued `subjectToStock`, each line showing what was there (`availableQuantity`) and what it holds (`heldQuantity`); `STOCK_SHORT` now answers only a balance that changed under a concurrent issue. The version is rendered and archived once as its own revision of the quote's document (`documentId`, FR-QUO-007). The live version, if any, is superseded and its hold released, and `quo.QuoteIssued` is queued once for the link to be sent (B11). The answer carries `acceptanceLinkToken`, made now; asking again for an issued version answers a fresh token and sends nothing again. Other refusals: `NO_LINES`, `LINE_NOT_PRICED`, `VALIDITY_PASSED`, `APPROVER_CANNOT_ISSUE`.\n\nPermission: `quo.quote.issue`."
       x-permission: quo.quote.issue
       x-error-codes:
         - VALIDATION_FAILED
@@ -61951,7 +61981,9 @@ paths:
                 taxPesewas: 1200
                 grossPesewas: 1717200
                 estimatedCostPesewas: 1188000
-                marginPercent: "30.77"
+                marginPercent: "43.94"
+                markupPercent: "43.94"
+                marginOverPricePercent: "30.77"
                 belowMarginFloor: false
                 subjectToStock: false
                 approvalRequestId: null
@@ -62113,6 +62145,8 @@ paths:
                   grossPesewas: 726800
                   estimatedCostPesewas: null
                   marginPercent: null
+                  markupPercent: null
+                  marginOverPricePercent: null
                   belowMarginFloor: false
                   subjectToStock: false
                   approvalRequestId: null
@@ -62235,6 +62269,8 @@ paths:
                   grossPesewas: 285000
                   estimatedCostPesewas: null
                   marginPercent: null
+                  markupPercent: null
+                  marginOverPricePercent: null
                   belowMarginFloor: false
                   subjectToStock: false
                   approvalRequestId: null
@@ -62356,7 +62392,9 @@ paths:
                   taxPesewas: 1200
                   grossPesewas: 1717200
                   estimatedCostPesewas: 1188000
-                  marginPercent: "30.77"
+                  marginPercent: "43.94"
+                  markupPercent: "43.94"
+                  marginOverPricePercent: "30.77"
                   belowMarginFloor: false
                   subjectToStock: false
                   approvalRequestId: null
@@ -62692,7 +62730,9 @@ paths:
                 taxPesewas: 1200
                 grossPesewas: 1717200
                 estimatedCostPesewas: 1188000
-                marginPercent: "30.77"
+                marginPercent: "43.94"
+                markupPercent: "43.94"
+                marginOverPricePercent: "30.77"
                 belowMarginFloor: false
                 subjectToStock: false
                 approvalRequestId: null
@@ -80318,6 +80358,89 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/orders/{id}/fulfilment-view":
+    get:
+      operationId: getOrderFulfilmentView
+      tags:
+        - ord
+      summary: "Get an order as the store reads it"
+      description: "2.29.0 (the owner, 2026-11-23, A-335, A-344): the order's lines, quantities and delivery details for the Storekeeper who picks and packs it, and **never** a payment, a credit position, a price, a total or the credit check: its own narrower read under its own permission, not `getOrder` with fields dropped. Only at a branch the caller holds the permission for, branch-wide: an order at another branch answers 404, as an unknown id does. The Storekeeper still cannot call `getOrder`.\n\nPermission: `ord.order.read.fulfilment`."
+      x-permission: ord.order.read.fulfilment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OrderFulfilmentView"
+              example:
+                id: "019a7aac-6d1e-7b42-9c3a-41f0b2e8d7a5"
+                orderNo: SO-2026-DDW-004298
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                channel: ONLINE
+                status: PICKING
+                fulfilmentMode: DELIVERY
+                customer: null
+                contactName: "Akua Sarpong"
+                contactPhone: "+233244517702"
+                deliveryAddress:
+                  recipientName: "Akua Sarpong"
+                  recipientPhone: "+233244517702"
+                  line1: "House 14, Palm Street"
+                  area: Dome
+                  city: Accra
+                  region: "Greater Accra"
+                  digitalAddress: GA-492-1185
+                  directions: "Behind the blue kiosk"
+                delivery: null
+                notes: "Call on arrival"
+                placedAt: "2026-11-23T08:41:00Z"
+                fulfilments:
+                  - id: "019a7af0-2c11-7e05-8f6a-0b5c3d9e1a77"
+                    docType: FULFILMENT
+                    number: PCK-2026-DDW-000412
+                lines:
+                  - id: "019a7aef-d104-74c8-b2a1-6f0e9c3b5d28"
+                    lineNo: 1
+                    product:
+                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                      sku: MEAT-0005
+                      name: "Beef, 15 kg pack"
+                    stockUnit: null
+                    qtyOrdered: "2.000"
+                    uom: PACK
+                    estimatedWeightKg: "30.000"
+                    tolerancePercent: "10.00"
+                    qtyFulfilled: "0.000"
+                    fulfilledWeightKg: null
+                    weightSource: null
+                    qtyBackordered: "0.000"
+                    lineStatus: OPEN
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
   "/orders/{id}/short-picks":
     post:
       operationId: proposeShortPick
@@ -96832,6 +96955,159 @@ components:
         - couponCode
         - lineId
         - amountPesewas
+    OrderFulfilmentView:
+      type: object
+      description: "An order as the store reads it (2.29.0, the owner, 2026-11-23, A-335, A-344): its lines, quantities and delivery details, and **never** a payment, a credit position, a price or a total. Its own schema, built by allow-list, so no money field can reach it unnamed."
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNo:
+          type:
+            - string
+            - "null"
+        branchId:
+          type: string
+          format: uuid
+        channel:
+          $ref: "#/components/schemas/Channel"
+        status:
+          type: string
+          enum:
+            - PLACED
+            - CONFIRMED
+            - PICKING
+            - AWAITING_CUSTOMER
+            - PACKED
+            - READY_FOR_COLLECTION
+            - DISPATCHED
+            - DELIVERED
+            - DELIVERY_FAILED
+            - RETURNED
+            - COMPLETED
+            - CANCELLED
+            - VOIDED
+        fulfilmentMode:
+          type: string
+          enum:
+            - COUNTER
+            - COLLECTION
+            - DELIVERY
+        customer:
+          anyOf:
+            - $ref: "#/components/schemas/CustomerRef"
+            - type: "null"
+        contactName:
+          type:
+            - string
+            - "null"
+        contactPhone:
+          anyOf:
+            - $ref: "#/components/schemas/PhoneNumber"
+            - type: "null"
+        deliveryAddress:
+          anyOf:
+            - $ref: "#/components/schemas/AddressSnapshot"
+            - type: "null"
+        delivery:
+          anyOf:
+            - $ref: "#/components/schemas/DeliverySummary"
+            - type: "null"
+        notes:
+          type:
+            - string
+            - "null"
+        placedAt:
+          type: string
+          format: date-time
+        fulfilments:
+          type: array
+          description: "The order's pick lists (`FULFILMENT`, `PCK-...`), oldest first, cancelled ones too."
+          items:
+            $ref: "#/components/schemas/DocumentRef"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderFulfilmentViewLine"
+      required:
+        - id
+        - orderNo
+        - branchId
+        - channel
+        - status
+        - fulfilmentMode
+        - customer
+        - contactName
+        - contactPhone
+        - deliveryAddress
+        - delivery
+        - notes
+        - placedAt
+        - fulfilments
+        - lines
+    OrderFulfilmentViewLine:
+      type: object
+      description: "A line as the store reads it (2.29.0): what to pick and what was picked, in the line's own unit, never a price."
+      properties:
+        id:
+          type: string
+          format: uuid
+        lineNo:
+          type: integer
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        stockUnit:
+          anyOf:
+            - $ref: "#/components/schemas/StockUnitRef"
+            - type: "null"
+        qtyOrdered:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+        estimatedWeightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+        tolerancePercent:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+        qtyFulfilled:
+          $ref: "#/components/schemas/Quantity"
+        fulfilledWeightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+        weightSource:
+          anyOf:
+            - $ref: "#/components/schemas/WeightSource"
+            - type: "null"
+        qtyBackordered:
+          $ref: "#/components/schemas/Quantity"
+        lineStatus:
+          type: string
+          enum:
+            - OPEN
+            - FULFILLED
+            - PARTIAL
+            - BACKORDERED
+            - SUBSTITUTED
+            - CANCELLED
+            - RETURNED
+      required:
+        - id
+        - lineNo
+        - product
+        - stockUnit
+        - qtyOrdered
+        - uom
+        - estimatedWeightKg
+        - tolerancePercent
+        - qtyFulfilled
+        - fulfilledWeightKg
+        - weightSource
+        - qtyBackordered
+        - lineStatus
     SalesOrder:
       type: object
       properties:
@@ -101165,7 +101441,20 @@ components:
             - type: string
               pattern: "^-?[0-9]{1,7}\\.[0-9]{2}$"
             - type: "null"
-          description: "Margin over cost, (net less cost) over cost, as a percentage to two places rounded half away from zero (FR-QUO-003): 19.05 for 1,700,000 over 1,428,000. It may be negative (sold below cost) or above 100, so it is not a `Percent`. Null when the cost is unknown or nil. The floor is judged exactly on the amounts, never on this rounded figure."
+          deprecated: true
+          description: "**Deprecated (2.29.0, LOUD): this figure is markup, not margin** (the owner, 2026-11-23: margin is over the selling price, and anything worked over cost is markup and is named markup). It is unchanged: (lines' net less cost) over cost, as a percentage to two places rounded half away from zero, 19.05 for 1,700,000 over 1,428,000, and always equal to `markupPercent`. Kept under its old name for one release; read `markupPercent` for this figure and `marginOverPricePercent` for the margin. Never compared with the floor."
+        markupPercent:
+          anyOf:
+            - type: string
+              pattern: "^-?[0-9]{1,18}\\.[0-9]{2}$"
+            - type: "null"
+          description: "2.29.0 (the owner, 2026-11-23): markup over cost, (the product lines' net less cost) over cost, as a percentage to two places rounded half away from zero: 19.05 for 1,700,000 over 1,428,000. It may be negative (sold below cost) or above 100, so it is not a `Percent`. Null when the cost is unknown or nil. Not the margin, and never compared with the floor."
+        marginOverPricePercent:
+          anyOf:
+            - type: string
+              pattern: "^-?[0-9]{1,18}\\.[0-9]{2}$"
+            - type: "null"
+          description: "2.29.0 (the owner, 2026-11-23, A-342): the margin, over the selling price: (net less cost) over net, the net being the lines and the delivery fee before tax, as a percentage to two places rounded half away from zero. UAT scenario 2: 30.75 for 1,906,000 over a cost of 1,320,000, 30.77 for 1,716,000 over 1,188,000. Never above 100 (a nil cost is 100.00), negative when sold below cost; null when the cost is unknown or the net is nil. The floor (`belowMarginFloor`) is a margin over price too, but judged exactly on the amounts of the product lines alone, without the delivery fee, so a fee never lifts a version over it."
         belowMarginFloor:
           type: boolean
         subjectToStock:
@@ -101244,6 +101533,8 @@ components:
         - grossPesewas
         - estimatedCostPesewas
         - marginPercent
+        - markupPercent
+        - marginOverPricePercent
         - belowMarginFloor
         - subjectToStock
         - approvalRequestId
@@ -104471,6 +104762,7 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Percent"
             - type: "null"
+          description: "The margin over revenue, gross margin over revenue (the owner, 2026-11-23: margin is over the selling price, never over cost): 30.88 for 2,730,000 over 8,840,000. Null when there is no revenue."
         priceVariancePesewas:
           $ref: "#/components/schemas/Pesewas"
         priceVarianceIsNegative:
@@ -107275,6 +107567,7 @@ components:
         - ord.order.confirm
         - ord.order.create
         - ord.order.read
+        - ord.order.read.fulfilment
         - ord.order.update
         - ord.order.void
         - ord.price_override.approve
@@ -107524,6 +107817,7 @@ components:
         - ord.order.confirm
         - ord.order.create
         - ord.order.read
+        - ord.order.read.fulfilment
         - ord.order.update
         - ord.order.void
         - ord.price_override.approve
@@ -107788,6 +108082,7 @@ components:
         - mdm.weight_band.read
         - ord.fulfilment.pick
         - ord.fulfilment.read
+        - ord.order.read.fulfilment
         - platform.file.read
         - platform.file.upload
         - prc.order.create

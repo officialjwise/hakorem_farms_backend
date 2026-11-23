@@ -2,6 +2,7 @@ import type { Transaction } from '../../../platform/database/unit-of-work';
 import type {
   AcceptanceRecord,
   LinkDecisionRecord,
+  StaffMatchRecord,
   LinkRecord,
   LineStockRecord,
   PipelineCell,
@@ -35,7 +36,7 @@ const DECISION = `id, link_token_id AS "linkTokenId", quote_version_id AS "quote
 
 const VERSION = `id, quote_id AS "quoteId", version_no AS "versionNo", status, valid_until AS "validUntil", terms, delivery_estimate AS "deliveryEstimate",
   delivery_fee_pesewas::text AS "deliveryFeePesewas", tax_inclusive AS "taxInclusive", net_pesewas::text AS "netPesewas", tax_pesewas::text AS "taxPesewas",
-  gross_pesewas::text AS "grossPesewas", estimated_cost_pesewas::text AS "estimatedCostPesewas", margin_percent::text AS "marginPercent",
+  gross_pesewas::text AS "grossPesewas", estimated_cost_pesewas::text AS "estimatedCostPesewas", margin_percent::text AS "markupPercent",
   below_margin_floor AS "belowMarginFloor", approval_request_id AS "approvalRequestId", approved_by AS "approvedBy", change_note AS "changeNote",
   issued_at AS "issuedAt", issued_by AS "issuedBy", archived_document_id AS "archivedDocumentId", version, created_at AS "createdAt", created_by AS "createdBy"`;
 
@@ -197,7 +198,7 @@ export class PgQuoteStore implements QuoteStore {
         v.taxPesewas.toString(),
         v.grossPesewas.toString(),
         text(v.estimatedCostPesewas),
-        v.marginPercent,
+        v.markupPercent,
         v.belowMarginFloor,
         v.changeNote,
         v.createdAt,
@@ -221,7 +222,7 @@ export class PgQuoteStore implements QuoteStore {
       `UPDATE quo.quote_version SET valid_until = $2, terms = $3, delivery_estimate = $4, delivery_fee_pesewas = $5, net_pesewas = $6, tax_pesewas = $7,
          gross_pesewas = $8, estimated_cost_pesewas = $9, margin_percent = $10, below_margin_floor = $11, updated_by = $12, updated_at = $13, version = version + 1
        WHERE id = $1`,
-      [id, f.validUntil, f.terms, f.deliveryEstimate, f.deliveryFeePesewas.toString(), f.netPesewas.toString(), f.taxPesewas.toString(), f.grossPesewas.toString(), text(f.estimatedCostPesewas), f.marginPercent, f.belowMarginFloor, actorId, at],
+      [id, f.validUntil, f.terms, f.deliveryEstimate, f.deliveryFeePesewas.toString(), f.netPesewas.toString(), f.taxPesewas.toString(), f.grossPesewas.toString(), text(f.estimatedCostPesewas), f.markupPercent, f.belowMarginFloor, actorId, at],
     );
   }
 
@@ -339,6 +340,16 @@ export class PgQuoteStore implements QuoteStore {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [d.id, d.linkTokenId, d.quoteVersionId, d.decision, d.ip, d.userAgent, d.staffPrincipalId, d.staffSessionId, d.decidedAt, at, actorId],
     );
+  }
+
+  async insertStaffMatches(tx: Transaction, rows: readonly StaffMatchRecord[], actorId: string, at: Date): Promise<void> {
+    for (const m of rows) {
+      await tx.query(
+        `INSERT INTO quo.quote_link_staff_match (id, link_decision_id, staff_principal_id, staff_session_id, same_browser, session_last_seen_at, window_hours, recorded_at, actor_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [m.id, m.linkDecisionId, m.staffPrincipalId, m.staffSessionId, m.sameBrowser, m.sessionLastSeenAt, m.windowHours, at, actorId],
+      );
+    }
   }
 
   async linkDecisionsOf(tx: Transaction, versionIds: readonly string[]): Promise<LinkDecisionRecord[]> {

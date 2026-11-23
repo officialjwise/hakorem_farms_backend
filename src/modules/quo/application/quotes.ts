@@ -14,7 +14,7 @@ import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import { translate } from '../../../platform/i18n/messages';
 import type { Settings } from '../../../platform/settings/settings';
-import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
+import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames, StaffSessionsSeen } from '../../iam';
 import {
   InsufficientStockError,
   reservationLockKey,
@@ -32,6 +32,7 @@ import { pageProbe } from '../domain/paging';
 import {
   DEFAULT_MARGIN_FLOOR_BASIS_POINTS,
   linkState,
+  marginPercent,
   lineNet,
   planHold,
   unitCost,
@@ -40,8 +41,9 @@ import {
   type PriceBasis,
   type QuoteStatus,
 } from '../domain/quote';
+import { matchStaff, STAFF_MATCH_WINDOW_HOURS, staffWindowStart, type StaffMatch } from '../domain/staff-match';
 import { offsetPage, pipelineFigures, pipelinePeriod } from '../domain/pipeline';
-import type { QuoteConverted, QuoteDecided, QuoteIssued, QuoteLinkDecidedInStaffBrowser } from '../events';
+import type { QuoteConverted, QuoteDecided, QuoteIssued, QuoteLinkDecidedFromStaffAddress } from '../events';
 import { QuoteAlreadyConvertedError, QuoteAlreadyDecidedError, QuoteAuthorCannotApproveError, QuoteInvalidError, QuoteLinkClosedError, type QuoteRule } from './errors';
 import { STOREFRONT_PRINCIPAL } from './public-actor';
 import type { AcceptanceRecord, LineRecord, LineStockRecord, LinkDecisionRecord, LinkRecord, QuoteFilter, QuoteRecord, QuoteStore, VersionRecord } from './quote-store';
@@ -58,23 +60,13 @@ export const QUOTE_ACCEPTED = 'quo.QuoteAccepted';
 export const QUOTE_DECLINED = 'quo.QuoteDeclined';
 export const QUOTE_EXPIRED = 'quo.QuoteExpired';
 export const QUOTE_CONVERTED = 'quo.QuoteConverted';
-/** For the exception report's source (B12, `QUOTE_ACCEPTED_BY_STAFF`, abuse case 40): never blocks the decision. */
-export const QUOTE_LINK_DECIDED_IN_STAFF_BROWSER = 'quo.QuoteLinkDecidedInStaffBrowser';
-
 /**
- * Who holds the staff session a browser presented with a call through the quote link, if any and if it is live
- * (abuse case 40). The interface reads the staff realm's access cookie; IAM authenticates it. It never blocks.
+ * For the exception report's source (B12, `QUOTE_ACCEPTED_BY_STAFF`, abuse case 40): a possible staff acceptance, found
+ * by the decision's address and browser (the owner, 2026-11-23, A-343). It never blocks the decision. It replaces
+ * `quo.QuoteLinkDecidedInStaffBrowser`, which read the staff cookie and is no longer published.
  */
-export interface StaffSessionLookup {
-  staffOf(accessToken: string): Promise<{ readonly principalId: string; readonly sessionId: string } | null>;
-}
-
-/** What the browser presented with a call through the quote link, beside the token. */
-export interface LinkBrowser {
-  /** The staff realm's access cookie, when the browser sent one. */
-  readonly staffAccessToken?: string | undefined;
-}
-/** The setting holding the margin floor in basis points of cost (FR-QUO-005, seed 10 percent). */
+export const QUOTE_LINK_DECIDED_FROM_STAFF_ADDRESS = 'quo.QuoteLinkDecidedFromStaffAddress';
+/** The setting holding the margin floor in basis points of the selling price (FR-QUO-005, seed 10 percent; over cost until 2.29.0, A-342). */
 export const MARGIN_FLOOR_SETTING = 'quo.margin_floor_basis_points';
 const TOKEN_PREFIX = 'quo_';
 const EXPIRY_BATCH = 100;
@@ -179,7 +171,12 @@ export interface QuoteVersionView {
   readonly taxPesewas: number;
   readonly grossPesewas: number;
   readonly estimatedCostPesewas: number | null;
+  /** Deprecated (2.29.0, LOUD): the markup over cost under its old name, kept for one release; read `markupPercent`. */
   readonly marginPercent: string | null;
+  /** Markup over cost on the product lines (the owner, 2026-11-23: anything over cost is markup). */
+  readonly markupPercent: string | null;
+  /** Margin over the selling price: (net less cost) over net, the net with the delivery fee and before tax (A-342). */
+  readonly marginOverPricePercent: string | null;
   readonly belowMarginFloor: boolean;
   /** A line was not wholly on hand when the version was issued: the quote is subject to stock (A-328). */
   readonly subjectToStock: boolean;
@@ -331,7 +328,7 @@ export function marginHash(version: VersionRecord, lines: readonly LineRecord[])
  * across immutable versions: a draft is edited, an issued version never changes (migration 0251), a change is a new
  * version that supersedes the live one when it is issued. Every line is priced by the engine for the record (in its own
  * unit, never derived from another unit's price, CR-045) at the quoted price the salesperson sets, extended once, with
- * its cost estimated from the cost pools it may be promised from; a version below the margin floor over cost, or with a
+ * its cost estimated from the cost pools it may be promised from; a version below the margin floor over price, or with a
  * line below the engine's floor, is issued only once a holder of `quo.quote_margin.approve` who neither drafted it nor
  * asked to issue it approves it (`QUOTE_BELOW_MARGIN`, also held by the database). Issuing reserves every product line
  * in the base unit for the validity (a named animal, or lots oldest first; an unnamed animal is chosen at conversion),
@@ -364,7 +361,7 @@ export class Quotes {
     private readonly settings: Settings,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
-    private readonly staffSessions: StaffSessionLookup,
+    private readonly staffSessions: StaffSessionsSeen,
     private readonly archive: Documents,
   ) {
     this.nextId = createUuidV7Generator(clock);
@@ -625,7 +622,7 @@ export class Quotes {
           subjectDocumentId: quote.id,
           payloadHash: marginHash(judged, priced.lines),
           amountPesewas: judged.netPesewas,
-          summary: `Quote ${quote.quoteNo} version ${judged.versionNo}: ${formatCedis(judged.netPesewas)} at a margin of ${judged.marginPercent ?? 'unknown'} percent over cost, below the floor or the engine's floor`,
+          summary: `Quote ${quote.quoteNo} version ${judged.versionNo}: ${formatCedis(judged.netPesewas)} at a margin of ${marginPercent(judged.netPesewas, judged.estimatedCostPesewas) ?? 'unknown'} percent over the price, below the floor or the engine's floor`,
         });
         await this.store.setVersionStatus(tx, versionId, { status: 'PENDING_APPROVAL', approvalRequestId: approval.id }, actor!.principalId, at);
         if (quote.status === 'DRAFT') await this.store.updateQuote(tx, quote.id, { status: 'PENDING_APPROVAL' }, actor!.principalId, at);
@@ -803,16 +800,16 @@ export class Quotes {
   }
 
   /** acceptQuoteByLink (FR-QUO-008): once, by the live version's token, recording the name, time and address. */
-  acceptByLink(token: string, request: { readonly acceptedName: string }, key: string, browser: LinkBrowser = {}): Promise<StoredResponse<QuoteDecisionView>> {
-    return this.linkWrite(token, 'acceptQuoteByLink', { acceptedName: request.acceptedName }, key, browser, async (tx, quote, version, at, device) => {
+  acceptByLink(token: string, request: { readonly acceptedName: string }, key: string): Promise<StoredResponse<QuoteDecisionView>> {
+    return this.linkWrite(token, 'acceptQuoteByLink', { acceptedName: request.acceptedName }, key, async (tx, quote, version, at, device) => {
       await this.acceptIn(tx, quote, version, { method: 'SIGNED_LINK', acceptedName: request.acceptedName, note: null, ip: device.ip, userAgent: device.userAgent }, STOREFRONT_PRINCIPAL, at);
       return { quoteNo: quote.quoteNo, versionNo: version.versionNo, status: 'ACCEPTED', message: 'Thank you. We will call you to arrange the deposit and delivery.' };
     });
   }
 
   /** declineQuoteByLink (FR-QUO-009): the buyer declines by the live version's token, with a reason or none. */
-  declineByLink(token: string, request: { readonly reason?: string | undefined }, key: string, browser: LinkBrowser = {}): Promise<StoredResponse<QuoteDecisionView>> {
-    return this.linkWrite(token, 'declineQuoteByLink', { reason: request.reason ?? null }, key, browser, async (tx, quote, version, at) => {
+  declineByLink(token: string, request: { readonly reason?: string | undefined }, key: string): Promise<StoredResponse<QuoteDecisionView>> {
+    return this.linkWrite(token, 'declineQuoteByLink', { reason: request.reason ?? null }, key, async (tx, quote, version, at) => {
       await this.declineIn(tx, quote, version, request.reason ?? 'Declined by the customer through the quote link', 'SIGNED_LINK', STOREFRONT_PRINCIPAL, at);
       return { quoteNo: quote.quoteNo, versionNo: version.versionNo, status: 'DECLINED', message: 'Thank you for letting us know.' };
     });
@@ -1155,17 +1152,18 @@ export class Quotes {
     operationId: string,
     body: object,
     key: string,
-    browser: LinkBrowser,
     work: (tx: Transaction, quote: QuoteRecord, version: VersionRecord, at: Date, device: { readonly ip: string | null; readonly userAgent: string | null }) => Promise<QuoteDecisionView>,
   ): Promise<StoredResponse<QuoteDecisionView>> {
     const hash = linkTokenHash(TOKEN_PREFIX, token);
     // The idempotency key is scoped to the token's hash, never to the token, so a stored answer holds no token.
     const scope = hash === null ? 'invalid' : hash.toString('hex');
-    // Abuse case 40: whose staff session, if any, the browser also held. Looked up before the decision's transaction;
-    // it never blocks the decision, it is recorded beside it and raised for review.
-    const staff = browser.staffAccessToken === undefined ? null : await this.staffSessions.staffOf(browser.staffAccessToken);
     const context = currentRequestContext();
     const device = { ip: context?.ip ?? null, userAgent: context?.userAgent?.slice(0, 500) ?? null };
+    // Abuse case 40 (the owner, 2026-11-23, A-343): the staff sessions seen from this address in the 24 hours before,
+    // asked of IAM at read committed before the decision's transaction (no predicate lock on IAM's sessions), never from a
+    // staff cookie. It never blocks the decision; a match is recorded beside it and raised for review.
+    const asked = this.clock.now();
+    const seen = device.ip === null ? [] : await this.uow.run({ isolation: 'read committed' }, (tx) => this.staffSessions.fromAddressIn(tx, device.ip!, { from: staffWindowStart(asked), until: asked }));
     return this.uow.run({ isolation: 'serializable' }, async (tx) => {
       const scopedKey = createHash('sha256').update(`${scope}:${key}`, 'utf8').digest('hex');
       const claim = await this.idempotency.claim(tx, { operationId, principalId: STOREFRONT_PRINCIPAL, key: scopedKey, request: { ...body, link: scope } });
@@ -1175,7 +1173,7 @@ export class Quotes {
       const at = this.clock.now();
       this.openOrRefuse(locked, version, expiresAt, at);
       const decided = await work(tx, locked, version, at, device);
-      await this.recordLinkDecisionIn(tx, locked, version, linkId, decided.status, device, staff, at);
+      await this.recordLinkDecisionIn(tx, locked, version, linkId, decided.status, device, matchStaff({ ...device, at }, seen), at);
       const response = { status: 200, body: decided };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
@@ -1183,9 +1181,10 @@ export class Quotes {
   }
 
   /**
-   * The device and session behind a decision made through a link, once per version across all its links
-   * (`uq_quote_link_decision_version`), and, when the browser also held a staff session, the flag for the exception
-   * report naming that staff member (abuse case 40). The flag never blocks: the buyer's decision stands.
+   * The device behind a decision made through a link, once per version across all its links
+   * (`uq_quote_link_decision_version`), and each staff session seen from its address in the 24 hours before, with
+   * whether its browser is the decision's: a possible staff acceptance, flagged for the exception report naming the staff
+   * (abuse case 40, the owner, 2026-11-23, A-343). The flag never blocks: the buyer's decision stands.
    */
   private async recordLinkDecisionIn(
     tx: Transaction,
@@ -1194,7 +1193,7 @@ export class Quotes {
     linkId: string,
     decision: 'ACCEPTED' | 'DECLINED',
     device: { readonly ip: string | null; readonly userAgent: string | null },
-    staff: { readonly principalId: string; readonly sessionId: string } | null,
+    matches: readonly StaffMatch[],
     at: Date,
   ): Promise<void> {
     const record: LinkDecisionRecord = {
@@ -1204,13 +1203,21 @@ export class Quotes {
       decision,
       ip: device.ip,
       userAgent: device.userAgent,
-      staffPrincipalId: staff?.principalId ?? null,
-      staffSessionId: staff?.sessionId ?? null,
+      staffPrincipalId: null,
+      staffSessionId: null,
       decidedAt: at,
     };
     await this.store.insertLinkDecision(tx, record, STOREFRONT_PRINCIPAL, at);
-    if (staff === null) return;
-    const flagged: QuoteLinkDecidedInStaffBrowser = {
+    if (matches.length === 0) return;
+    await this.store.insertStaffMatches(
+      tx,
+      matches.map((m) => ({ id: this.nextId(), linkDecisionId: record.id, staffPrincipalId: m.principalId, staffSessionId: m.sessionId, sameBrowser: m.sameBrowser, sessionLastSeenAt: m.lastSeenAt, windowHours: STAFF_MATCH_WINDOW_HOURS })),
+      STOREFRONT_PRINCIPAL,
+      at,
+    );
+    const staff = new Map<string, boolean>();
+    for (const m of matches) staff.set(m.principalId, (staff.get(m.principalId) ?? false) || m.sameBrowser);
+    const flagged: QuoteLinkDecidedFromStaffAddress = {
       quoteId: quote.id,
       quoteNo: quote.quoteNo,
       versionId: version.id,
@@ -1218,13 +1225,16 @@ export class Quotes {
       branchId: quote.branchId,
       salespersonId: quote.salespersonId,
       linkId,
+      linkDecisionId: record.id,
       decision,
-      staffPrincipalId: staff.principalId,
+      staff: [...staff].map(([principalId, sameBrowser]) => ({ principalId, sameBrowser })),
+      sameBrowser: matches.some((m) => m.sameBrowser),
+      windowHours: STAFF_MATCH_WINDOW_HOURS,
       grossPesewas: json(version.grossPesewas),
       abuseCase: 40,
       at: at.toISOString(),
     };
-    await this.events.publish(tx, { type: QUOTE_LINK_DECIDED_IN_STAFF_BROWSER, subjectType: 'Quote', subjectId: quote.id, branchId: quote.branchId, payload: flagged, occurredAt: at });
+    await this.events.publish(tx, { type: QUOTE_LINK_DECIDED_FROM_STAFF_ADDRESS, subjectType: 'Quote', subjectId: quote.id, branchId: quote.branchId, payload: flagged, occurredAt: at });
   }
 
   /** One serializable write on a quote: authorised at its branch, replayed by its key, the quote locked. */
@@ -1441,7 +1451,7 @@ export class Quotes {
       })),
       { deliveryFeePesewas: o.deliveryFeePesewas, taxPesewas: tax, floorBasisPoints: floor, taxInclusive: o.taxInclusive },
     );
-    return { netPesewas: f.netPesewas, taxPesewas: f.taxPesewas, grossPesewas: f.grossPesewas, estimatedCostPesewas: f.estimatedCostPesewas, marginPercent: f.marginPercent, belowMarginFloor: f.belowMarginFloor };
+    return { netPesewas: f.netPesewas, taxPesewas: f.taxPesewas, grossPesewas: f.grossPesewas, estimatedCostPesewas: f.estimatedCostPesewas, markupPercent: f.markupPercent, belowMarginFloor: f.belowMarginFloor };
   }
 
   /** The product line the quote is reported under (FR-QUO-013): its first product's category, by its code. */
@@ -1551,7 +1561,9 @@ export class Quotes {
         taxPesewas: json(v.taxPesewas),
         grossPesewas: json(v.grossPesewas),
         estimatedCostPesewas: jsonOrNull(v.estimatedCostPesewas),
-        marginPercent: v.marginPercent,
+        marginPercent: v.markupPercent,
+        markupPercent: v.markupPercent,
+        marginOverPricePercent: marginPercent(v.netPesewas, v.estimatedCostPesewas),
         belowMarginFloor: v.belowMarginFloor,
         subjectToStock: own.some((l) => isSubjectToStock(l, stock)),
         approvalRequestId: v.approvalRequestId,

@@ -9,7 +9,7 @@ import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { BillingDocumentView } from '../../bil';
 import type { CreditOverridePending } from '../application/order-confirmation-policy';
 import { OrderReversals, type ApprovalPendingView } from '../application/order-reversals';
-import { Orders, type OrderStatusChangeView, type Page, type SalesOrderView } from '../application/orders';
+import { Orders, type OrderFulfilmentView, type OrderStatusChangeView, type Page, type SalesOrderView } from '../application/orders';
 import { IdParam, OrderConfirmBody, OrderCreateBody, OrderPageQuery, PageQuery, ReasonCodeBody } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
@@ -95,6 +95,12 @@ export class OrdersController {
   @Operation({ operationId: 'getOrder', ...READ, permission: 'ord.order.read' })
   getOrder(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<SalesOrderView> {
     return this.orders.get(actor, id);
+  }
+
+  @Get(':id/fulfilment-view')
+  @Operation({ operationId: 'getOrderFulfilmentView', ...READ, permission: 'ord.order.read.fulfilment' })
+  getOrderFulfilmentView(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string): Promise<OrderFulfilmentView> {
+    return this.orders.getForFulfilment(actor, id);
   }
 
   @Post(':id/confirm')

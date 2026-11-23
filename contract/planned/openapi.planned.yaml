@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.28.0"
+  version: "2.29.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -29900,6 +29900,159 @@ components:
         - couponCode
         - lineId
         - amountPesewas
+    OrderFulfilmentView:
+      type: object
+      description: "An order as the store reads it (2.29.0, the owner, 2026-11-23, A-335, A-344): its lines, quantities and delivery details, and **never** a payment, a credit position, a price or a total. Its own schema, built by allow-list, so no money field can reach it unnamed."
+      properties:
+        id:
+          type: string
+          format: uuid
+        orderNo:
+          type:
+            - string
+            - "null"
+        branchId:
+          type: string
+          format: uuid
+        channel:
+          $ref: "#/components/schemas/Channel"
+        status:
+          type: string
+          enum:
+            - PLACED
+            - CONFIRMED
+            - PICKING
+            - AWAITING_CUSTOMER
+            - PACKED
+            - READY_FOR_COLLECTION
+            - DISPATCHED
+            - DELIVERED
+            - DELIVERY_FAILED
+            - RETURNED
+            - COMPLETED
+            - CANCELLED
+            - VOIDED
+        fulfilmentMode:
+          type: string
+          enum:
+            - COUNTER
+            - COLLECTION
+            - DELIVERY
+        customer:
+          anyOf:
+            - $ref: "#/components/schemas/CustomerRef"
+            - type: "null"
+        contactName:
+          type:
+            - string
+            - "null"
+        contactPhone:
+          anyOf:
+            - $ref: "#/components/schemas/PhoneNumber"
+            - type: "null"
+        deliveryAddress:
+          anyOf:
+            - $ref: "#/components/schemas/AddressSnapshot"
+            - type: "null"
+        delivery:
+          anyOf:
+            - $ref: "#/components/schemas/DeliverySummary"
+            - type: "null"
+        notes:
+          type:
+            - string
+            - "null"
+        placedAt:
+          type: string
+          format: date-time
+        fulfilments:
+          type: array
+          description: "The order's pick lists (`FULFILMENT`, `PCK-...`), oldest first, cancelled ones too."
+          items:
+            $ref: "#/components/schemas/DocumentRef"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/OrderFulfilmentViewLine"
+      required:
+        - id
+        - orderNo
+        - branchId
+        - channel
+        - status
+        - fulfilmentMode
+        - customer
+        - contactName
+        - contactPhone
+        - deliveryAddress
+        - delivery
+        - notes
+        - placedAt
+        - fulfilments
+        - lines
+    OrderFulfilmentViewLine:
+      type: object
+      description: "A line as the store reads it (2.29.0): what to pick and what was picked, in the line's own unit, never a price."
+      properties:
+        id:
+          type: string
+          format: uuid
+        lineNo:
+          type: integer
+        product:
+          $ref: "#/components/schemas/ProductRef"
+        stockUnit:
+          anyOf:
+            - $ref: "#/components/schemas/StockUnitRef"
+            - type: "null"
+        qtyOrdered:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+        estimatedWeightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+        tolerancePercent:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+        qtyFulfilled:
+          $ref: "#/components/schemas/Quantity"
+        fulfilledWeightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+        weightSource:
+          anyOf:
+            - $ref: "#/components/schemas/WeightSource"
+            - type: "null"
+        qtyBackordered:
+          $ref: "#/components/schemas/Quantity"
+        lineStatus:
+          type: string
+          enum:
+            - OPEN
+            - FULFILLED
+            - PARTIAL
+            - BACKORDERED
+            - SUBSTITUTED
+            - CANCELLED
+            - RETURNED
+      required:
+        - id
+        - lineNo
+        - product
+        - stockUnit
+        - qtyOrdered
+        - uom
+        - estimatedWeightKg
+        - tolerancePercent
+        - qtyFulfilled
+        - fulfilledWeightKg
+        - weightSource
+        - qtyBackordered
+        - lineStatus
     SalesOrder:
       type: object
       properties:
@@ -34233,7 +34386,20 @@ components:
             - type: string
               pattern: "^-?[0-9]{1,7}\\.[0-9]{2}$"
             - type: "null"
-          description: "Margin over cost, (net less cost) over cost, as a percentage to two places rounded half away from zero (FR-QUO-003): 19.05 for 1,700,000 over 1,428,000. It may be negative (sold below cost) or above 100, so it is not a `Percent`. Null when the cost is unknown or nil. The floor is judged exactly on the amounts, never on this rounded figure."
+          deprecated: true
+          description: "**Deprecated (2.29.0, LOUD): this figure is markup, not margin** (the owner, 2026-11-23: margin is over the selling price, and anything worked over cost is markup and is named markup). It is unchanged: (lines' net less cost) over cost, as a percentage to two places rounded half away from zero, 19.05 for 1,700,000 over 1,428,000, and always equal to `markupPercent`. Kept under its old name for one release; read `markupPercent` for this figure and `marginOverPricePercent` for the margin. Never compared with the floor."
+        markupPercent:
+          anyOf:
+            - type: string
+              pattern: "^-?[0-9]{1,18}\\.[0-9]{2}$"
+            - type: "null"
+          description: "2.29.0 (the owner, 2026-11-23): markup over cost, (the product lines' net less cost) over cost, as a percentage to two places rounded half away from zero: 19.05 for 1,700,000 over 1,428,000. It may be negative (sold below cost) or above 100, so it is not a `Percent`. Null when the cost is unknown or nil. Not the margin, and never compared with the floor."
+        marginOverPricePercent:
+          anyOf:
+            - type: string
+              pattern: "^-?[0-9]{1,18}\\.[0-9]{2}$"
+            - type: "null"
+          description: "2.29.0 (the owner, 2026-11-23, A-342): the margin, over the selling price: (net less cost) over net, the net being the lines and the delivery fee before tax, as a percentage to two places rounded half away from zero. UAT scenario 2: 30.75 for 1,906,000 over a cost of 1,320,000, 30.77 for 1,716,000 over 1,188,000. Never above 100 (a nil cost is 100.00), negative when sold below cost; null when the cost is unknown or the net is nil. The floor (`belowMarginFloor`) is a margin over price too, but judged exactly on the amounts of the product lines alone, without the delivery fee, so a fee never lifts a version over it."
         belowMarginFloor:
           type: boolean
         subjectToStock:
@@ -34312,6 +34478,8 @@ components:
         - grossPesewas
         - estimatedCostPesewas
         - marginPercent
+        - markupPercent
+        - marginOverPricePercent
         - belowMarginFloor
         - subjectToStock
         - approvalRequestId
@@ -37539,6 +37707,7 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Percent"
             - type: "null"
+          description: "The margin over revenue, gross margin over revenue (the owner, 2026-11-23: margin is over the selling price, never over cost): 30.88 for 2,730,000 over 8,840,000. Null when there is no revenue."
         priceVariancePesewas:
           $ref: "#/components/schemas/Pesewas"
         priceVarianceIsNegative:

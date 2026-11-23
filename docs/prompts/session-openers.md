@@ -102,6 +102,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B10 continued 5 | `B10c5-quote-document-pipeline.md` | `b10c5-quote-document-pipeline` | B4 to B12 | The quote archived once on issue and the pipeline reconciling to listQuotes; subject to stock with exact quantities (after ADR-0019); UAT scenario 2's dry run with every difference; every write refuses the wrong role |
 | B11 | `B11-fulfilment-delivery.md` | `b11-fulfilment-delivery` | B4 to B12 | A catch-weight order re-prices at pick; cash on delivery lands against the driver; the outbox guarantees the customer notification |
 | B11 continued | `B11b-dispatch-delivery.md` | `b11b-dispatch-delivery` | B4 to B12 | Cash on delivery lands against the driver and the outbox guarantees the customer notification (inserted by B11, A-336) |
+| B10 continued 6 | `B10c6-margin-staff-acceptance-storekeeper.md` | `b10c6-margin-staff-acceptance-storekeeper` | B4 to B12 | Margin is (price less cost) over price everywhere, markup named markup, UAT scenario 2's 30.75 percent exact; a possible staff acceptance flagged by address and browser, never by a cookie, never blocked; the Storekeeper reads their own branch's orders without money through their own read (inserted by the owner, 2026-11-23) |
 | B11 continued 2 | `B11c-driver-run-returns-notifications.md` | `b11c-driver-run-returns-notifications` | B4 to B12 | The driver's cash is handed in once at a till shift and a short hand-in shows on the variance report; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued, A-341) |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
 | B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
@@ -3438,13 +3439,62 @@ and finish scenario 2's dry run from step 2.12, recording every difference.
 Stop at the gate and write docs/sessions/B11b-dispatch-delivery.md.
 ```
 
+## B10 continued 6 — Margin over the selling price, a possible staff acceptance by address and browser, and the Storekeeper's order read
+
+Branch `b10c6-margin-staff-acceptance-storekeeper`. Report `docs/sessions/B10c6-margin-staff-acceptance-storekeeper.md`. Inserted by the owner's decisions of 2026-11-23 (ADR-0026 Amendments), lane B, after B11 continued and before B11 continued 2. **Built (A-342 to A-344, migrations 0307 to 0310, contract 2.29.0); BL-107 left in the backlog (the counter sale's reason check is in lane A's `sale-posting.ts`).** Gate: every margin the system shows or stores is (price less cost) over price, and anything worked over cost is named markup, with UAT scenario 2's 30.75 and 30.77 percent coming out exactly and a quote that passed the old floor but fails the new one needing approval; a quote decided through its link from the address of a staff session active in the last 24 hours, by the application clock, is flagged as a possible staff acceptance naming the staff, never blocked, and nothing in QUO reads a staff cookie; the Storekeeper reads the orders of their own branch (lines, quantities and delivery details, never a payment, credit or price total) through their own narrower read, another branch's order answering 404, and still cannot call the full order read; every write refuses the wrong role.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md, and "Two lanes" below.
+List docs/sessions/ and read only the most recent report (docs/sessions/B11b-dispatch-delivery.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read FR-QUO-003 and FR-QUO-005 of the QUO block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/quo.md and ord.md, the QUO, ORD and IAM cards in docs/MODULE_BOUNDARIES.md, ADR-0017, ADR-0035,
+ADR-0067 and ADR-0087, abuse case 40 in docs/security/THREAT_MODEL.md, scenario 2 of docs/UAT.md, and A-309, A-325 and
+A-335 in docs/ASSUMPTIONS.md. Load hakorem-money and hakorem-pricing for the margin, hakorem-security-review for the
+staff acceptance and the Storekeeper's read. Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B10 continued 6 only, on branch b10c6-margin-staff-acceptance-storekeeper from main, test-first:
+1. Margin over the selling price (the owner, 2026-11-23, UAT scenario 2): margin is (price less cost) divided by price;
+   anything worked over cost is markup and must be named markup. Sweep the code, the contract, the data model docs and
+   the UAT script for every margin figure, floor, field, column and label; compute margin correctly or keep the figure
+   and name it markup. The margin floor is a margin over price: say what each stored or seeded floor means and what was
+   done, conservatively (a quote that passed the old check but fails the new one needs approval), never converting a
+   stored value silently. Half-up once, exact integers, basis points where the code already uses them; scenario 2's
+   30.75 and 30.77 percent come out exactly. A renamed field keeps its old name, deprecated with a description saying
+   it is markup, LOUD; never change what an existing field means silently.
+2. A possible staff acceptance (the owner, 2026-11-23, A-325): never widen the staff session cookie's scope; staff
+   cookies stay host-only on the console, and nothing in QUO reads one (remove A-325 (c)'s route through IAM's
+   AuthenticationService). A decision through a link keeps its address and user agent; QUO asks IAM, through one new
+   additive read on IAM's public interface (lane A's module: leave for exactly that, and any additive column IAM needs
+   to record a session's address and browser), which staff sessions were active from the same address in the last 24
+   hours by the application clock (ADR-0067), comparing their browser with the decision's; a match is flagged as a
+   possible staff acceptance naming the staff, and it flags, never blocks. Tests: the same address and browser within
+   24 hours flagged; the same address outside 24 hours, or another address, not flagged; the same address with
+   another browser as the rule records; no staff cookie read anywhere. Update abuse case 40 and A-325; any contract
+   change LOUD.
+3. The Storekeeper's order read (the owner, 2026-11-23, A-335): the Storekeeper reads orders at their own branch only:
+   lines, quantities and delivery details, never payment, credit, price totals or the credit check. Its own narrower
+   operation under its own permission, authorised in the application layer (ADR-0035), never `ord.order.read` with
+   fields dropped in a controller. Tests: another branch's order 404; no payment or credit field present; the
+   Storekeeper still refused the full order read. Mark A-335 decided.
+4. If it fits, BL-107: ORD refuses the server-only reason `OFFLINE_PACK_PRICE` on an online sale or override, with a
+   wrong-path test; otherwise leave it in BL-107 and say so.
+Records only, not built here: A-337 approved with the owner's addition, A-338 approved (a guest's order gets a receipt)
+with dispatch on credit terms no longer deferred, A-339 to A-341 and ADR-0092 approved; B11 continued 2's opener carries
+the work.
+Stop at the gate and write docs/sessions/B10c6-margin-staff-acceptance-storekeeper.md.
+```
+
 ## B11 continued 2 — The driver's run and cash, failures, partial dispatch, returns of part of a crate and notifications
 
-Branch `b11c-driver-run-returns-notifications`. Report `docs/sessions/B11c-driver-run-returns-notifications.md`. Inserted by B11 continued (A-341, ADR-0026 Amendments). Gate: the driver's cash is handed in once at a till shift through the receiving cashier's own open shift and a short hand-in shows on the driver variance report; part of a crate returned as single eggs is refunded pro rata with the pieces adding up; the outbox's customer messages (dispatch, on the way, delivered, the receipt SMS and the tracking SMS) are sent, each once. Split again at a sub-domain boundary (the driver's run and cash, then returns, then notifications) if the context will not reach the gate; splitting early is better than late.
+Branch `b11c-driver-run-returns-notifications`. Report `docs/sessions/B11c-driver-run-returns-notifications.md`. Inserted by B11 continued (A-341, ADR-0026 Amendments); the owner's decisions of 2026-11-23 added below. Gate: the driver's cash is handed in once at a till shift through the receiving cashier's own open shift and a short hand-in shows on the driver variance report; a run closes only when every item on the van is delivered, returned to stock or written off with a reason, anything unaccounted for on the driver variance report; an order on credit terms is credit-checked at dispatch and invoiced on the quantities actually dispatched; part of a crate returned as single eggs is refunded pro rata with the pieces adding up; the outbox's customer messages (dispatch, on the way, delivered, the receipt SMS and the tracking SMS) are sent, each once. Split again at a sub-domain boundary (the driver's run and cash, then returns, then notifications) if the context will not reach the gate; splitting early is better than late.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B11b-dispatch-delivery.md).
+List docs/sessions/ and read only the most recent report (docs/sessions/B10c6-margin-staff-acceptance-storekeeper.md),
+and the "Deferred" section of docs/sessions/B11b-dispatch-delivery.md (B11 continued, which this phase continues).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the ORD (fulfilment), DEL and NTF requirement blocks of docs/SRS.md (nothing else
@@ -3505,7 +3555,23 @@ them, never again. The rest, in this order:
    random token (a guessed token or the order's id answers 404). CR-039 at the shop (the crate and the single egg, each
    at its own price; CartLineAdd.uom; test-first with exact pesewas).
 Run steps 1.11 to 1.16 of docs/UAT.md, the driver case in scenario 5 and scenario 2 from step 2.12 as a dry run and
-record every difference. CR-056's Storekeeper `ord.order.read` stays withheld until the owner answers A-335.
+record every difference. CR-056's Storekeeper order read was built in B10 continued 6 (A-335 decided, the owner
+2026-11-23): its own narrower read, never `ord.order.read`.
+The owner, 2026-11-23 (decisions 1 and 2, on A-337 and A-338):
+- A-337 is approved, plus: a run cannot be closed while goods remain on the van. Every item is delivered, returned to
+  stock or written off with a reason, and anything unaccounted for goes on the driver variance report. Test the refusal
+  to close a run with goods still on the van, each of the three ways out, and the variance line.
+- A-338: a guest's order gets a receipt: approved. Dispatch on credit terms is NOT deferred past launch: wholesale
+  credit buyers are the main delivery customers. Build it here: the credit check runs at dispatch (WHL's credit control
+  through a port, ORD sitting below WHL), and the invoice is issued from the quantities actually dispatched, with its
+  due date from the customer's terms; remove `CREDIT_DISPATCH_NOT_AVAILABLE` LOUD.
+The owner, 2026-11-23 (from the frontend's F12 and F10n, with notifications): list the message templates so a reminder
+level picks one instead of typing a code, and record each reminder's delivery per channel (sent, delivered, failed), so
+a failed reminder shows as failed.
+For B12's reused photographs (the owner, 2026-11-23): `platform.stored_file` already keeps each upload's SHA-256; record
+on the proof of delivery whether its photograph or signature matches an earlier upload (as liv.MortalityPhotoReused
+does for a death photograph) and publish it for the exception report. If this phase does not, B12 must; say which in the
+report.
 Stop at the gate and write docs/sessions/B11c-driver-run-returns-notifications.md.
 ```
 
@@ -3571,6 +3637,16 @@ NFR-023 performance budget, move its reads onto the hk_report connection, and re
 every report code listReportDefinitions lists, SALES_SUMMARY and PURCHASES included (CR-018), each matching its
 contract example's columns.
 The owner, 2026-11-16 (A-212 (a)): investor capital arrives through the investor module to the bank, never as cash.
+The owner, 2026-11-23 (from the frontend's F12 and F10n): build CR-059 to CR-062. Grant the report and exception
+report permissions to the Owner and the Manager (and the Accountant for the financial reports). Give each of these
+controls its own exception type: cash drops (witnessed or not), reused photographs, quotes accepted in a staff session,
+late cash after a shift closed, and negative stock after an offline sale. Add marking an exception reviewed with a note,
+the egg report codes, the VAT return, and the statement and exception report exports. Notes:
+- "quotes accepted in a staff session" is the possible staff acceptance of B10 continued 6 (the decision's address and
+  browser matched against staff sessions active from the same address in the last 24 hours, never a cookie);
+- "reused photographs" means a proof-of-delivery photograph or signature whose content hash matches an earlier upload
+  (beside case 2's death photographs); if B11 continued 2 did not record that match, this phase must (its report says);
+- each existing exception kind keeps working, and any rename is LOUD.
 Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
 ```
 
@@ -3633,6 +3709,9 @@ requests, as ADR-0026 proposes; provisioning of staging and production; and the 
 time actually taken. Then run the seven scenarios of docs/UAT.md against staging, with someone
 non-technical driving wherever that is possible: anything they cannot complete without a developer is
 not finished.
+The owner, 2026-11-23 (from the frontend's F12 and F10n): the investor portal moves to its own subdomain, with its own
+host-only session cookie, separate from the console's; provision the subdomain, scope the cookie and test that neither
+session's cookie is sent to, or accepted by, the other.
 Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 ```
 
@@ -3643,7 +3722,7 @@ Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 From 2026-11-17 the remaining phases before B12 run in two lanes at once, each in its own worktree and branch.
 
 - **Lane A:** the rest of B9b (B09b continued to B09b continued 4, and any split of them), then B09c.
-- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11, then B11 continued, then B11 continued 2 (and any split of them). B08 continued 2d moves into lane B because
+- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11, then B11 continued, then B10 continued 6 (inserted by the owner, 2026-11-23), then B11 continued 2 (and any split of them). B08 continued 2d moves into lane B because
   B10 reads its report and it needs only PAY's payments (B9a) and WHL, which lane B opens.
 - **B12, then B13, start only when both lanes have merged.** B09r still waits for the owner's real files.
 

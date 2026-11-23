@@ -38,8 +38,10 @@ import { PgAccessStore } from './infrastructure/pg-access-store';
 import { PgApprovalStore } from './infrastructure/pg-approval-store';
 import { PgIamStore } from './infrastructure/pg-iam-store';
 import { PgPrincipalNames } from './infrastructure/pg-principal-names';
+import { PgStaffSessionsSeen } from './infrastructure/pg-staff-sessions-seen';
 import { UqrQrCodes } from './infrastructure/uqr-qr-codes';
 import { PRINCIPAL_NAMES } from './application/principal-names';
+import { STAFF_SESSIONS_SEEN } from './application/staff-sessions-seen';
 import { RedisLoginThrottle } from './infrastructure/redis-login-throttle';
 import { AccessController } from './interface/access.controller';
 import { ApprovalsController } from './interface/approvals.controller';
@@ -84,6 +86,7 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
       inject: [SELF_SERVICE_STORE, SMS_CHANNEL, CLOCK, LOGGER, APP_CONFIG],
     },
     { provide: PRINCIPAL_NAMES, useClass: PgPrincipalNames },
+    { provide: STAFF_SESSIONS_SEEN, useClass: PgStaffSessionsSeen },
     { provide: QR_CODES, useClass: UqrQrCodes },
     {
       provide: PASSWORD_HASHER,
@@ -222,6 +225,6 @@ const BREACHED_LOOKUP_TIMEOUT_MS = 2_000;
     AuthenticationGuard,
     { provide: APP_GUARD, useExisting: AuthenticationGuard },
   ],
-  exports: [Authoriser, Approvals, ScopeNamesRegistry, PRINCIPAL_NAMES, AccessAdmin],
+  exports: [Authoriser, Approvals, ScopeNamesRegistry, PRINCIPAL_NAMES, STAFF_SESSIONS_SEEN, AccessAdmin],
 })
 export class IamModule {}

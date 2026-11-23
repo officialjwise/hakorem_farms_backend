@@ -6,10 +6,22 @@ export const VERSION_STATUSES = ['DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ISSUE
 export type VersionStatus = (typeof VERSION_STATUSES)[number];
 export type PriceBasis = 'PER_HEAD' | 'PER_KG' | 'PER_UNIT';
 
-/** The margin floor's default (FR-QUO-005, seed 10 percent), in basis points of cost. */
+/**
+ * The margin floor's default (FR-QUO-005, seed 10 percent), in basis points of the selling price (the owner, 2026-11-23:
+ * margin is over the price). Until B10 continued 6 the same number was read over cost; a stored value now reads stricter
+ * (A-342).
+ */
 export const DEFAULT_MARGIN_FLOOR_BASIS_POINTS = 1_000;
 const BASIS_POINTS = 10_000n;
 const PERCENT_HUNDREDTHS = 10_000n;
+
+/** A signed ratio as a percentage to two places, half away from zero (the magnitude half-up once, ADR-0001). */
+function percentOf(numerator: bigint, denominator: bigint): string {
+  const hundredths = halfUpDivide((numerator < 0n ? -numerator : numerator) * PERCENT_HUNDREDTHS, denominator);
+  const whole = hundredths / 100n;
+  const cents = String(hundredths % 100n).padStart(2, '0');
+  return `${numerator < 0n && hundredths > 0n ? '-' : ''}${whole}.${cents}`;
+}
 
 /** A quote line extended once at its anchor, half-up (ADR-0001): the quoted unit price times the quantity in its unit. */
 export function lineNet(unitPricePesewas: bigint, qty: Quantity): bigint {
@@ -22,26 +34,33 @@ export function lineCost(unitCostPesewas: bigint | null, qty: Quantity): bigint 
 }
 
 /**
- * Margin over cost (FR-QUO-003): (net less cost) over cost, as a percentage to two places, rounded half away from
- * zero; null when the cost is unknown or nil. It may be negative (sold below cost) or above 100.
+ * Markup over cost (the owner, 2026-11-23: anything worked over cost is markup and is named markup): (net less cost)
+ * over cost, as a percentage to two places, rounded half away from zero; null when the cost is unknown or nil. It may be
+ * negative (sold below cost) or above 100. This is the figure B10 to B10 continued 5 called "margin".
  */
-export function marginPercent(netPesewas: bigint, costPesewas: bigint | null): string | null {
+export function markupPercent(netPesewas: bigint, costPesewas: bigint | null): string | null {
   if (costPesewas === null || costPesewas === 0n) return null;
-  const gain = netPesewas - costPesewas;
-  const hundredths = halfUpDivide((gain < 0n ? -gain : gain) * PERCENT_HUNDREDTHS, costPesewas);
-  const whole = hundredths / 100n;
-  const cents = String(hundredths % 100n).padStart(2, '0');
-  return `${gain < 0n && hundredths > 0n ? '-' : ''}${whole}.${cents}`;
+  return percentOf(netPesewas - costPesewas, costPesewas);
 }
 
 /**
- * Whether a net is below the margin floor over its cost (FR-QUO-005), compared exactly in integers, never on the rounded
- * percentage: (net - cost) * 10,000 < floor * cost. An unknown cost cannot be shown to clear the floor, so it is below
- * (A-309 (c)); a nil cost (an animal born on the farm, B06 continued 2) always clears it.
+ * Margin over the selling price (the owner, 2026-11-23, FR-QUO-003): (price less cost) over price, as a percentage to
+ * two places, rounded half away from zero; null when the cost is unknown or there is no price. Never above 100 (a nil
+ * cost is 100.00); negative when sold below cost.
  */
-export function judgeMargin(netPesewas: bigint, costPesewas: bigint | null, floorBasisPoints: number): boolean {
+export function marginPercent(pricePesewas: bigint, costPesewas: bigint | null): string | null {
+  if (costPesewas === null || pricePesewas === 0n) return null;
+  return percentOf(pricePesewas - costPesewas, pricePesewas);
+}
+
+/**
+ * Whether a price is below the margin floor over that price (FR-QUO-005, the owner, 2026-11-23), compared exactly in
+ * integers, never on the rounded percentage: (price - cost) * 10,000 < floor * price. An unknown cost cannot be shown to
+ * clear the floor, so it is below (A-309 (c)); a nil cost clears any floor short of 100 percent.
+ */
+export function judgeMargin(pricePesewas: bigint, costPesewas: bigint | null, floorBasisPoints: number): boolean {
   if (costPesewas === null) return true;
-  return (netPesewas - costPesewas) * BASIS_POINTS < BigInt(floorBasisPoints) * costPesewas;
+  return (pricePesewas - costPesewas) * BASIS_POINTS < BigInt(floorBasisPoints) * pricePesewas;
 }
 
 export interface FigureLine {
@@ -58,15 +77,20 @@ export interface VersionFigures {
   readonly taxPesewas: bigint;
   readonly grossPesewas: bigint;
   readonly estimatedCostPesewas: bigint | null;
+  /** Margin over the version's net (the lines and the delivery fee, before tax), as UAT scenario 2 reads it. */
   readonly marginPercent: string | null;
+  /** Markup over cost on the product lines' net alone: what `margin_percent` has always stored (A-342). */
+  readonly markupPercent: string | null;
   readonly belowMarginFloor: boolean;
 }
 
 /**
  * A version's figures (FR-QUO-003): each line extended once at its anchor; the tax is the calculator's on those anchors.
  * Tax-exclusive, the lines are net and the tax is added; tax-inclusive, the lines carry their tax, so the net is the
- * lines less the tax. The delivery fee is added to the net untaxed (A-309 (d)). The margin is judged on the lines' net of
- * tax alone, over their summed cost; a version needs approval below the floor or with any line below the engine floor.
+ * lines less the tax. The delivery fee is added to the net untaxed (A-309 (d)). The margin shown is over that net; the
+ * floor is judged on the lines' net of tax alone, over that price (A-342: a delivery fee carries a delivery cost the
+ * estimate does not hold, so it never lifts a version over the floor); a version needs approval below the floor or with
+ * any line below the engine floor.
  */
 export function versionFigures(
   lines: readonly FigureLine[],
@@ -84,7 +108,8 @@ export function versionFigures(
     taxPesewas: extra.taxPesewas,
     grossPesewas: net + extra.taxPesewas,
     estimatedCostPesewas: cost,
-    marginPercent: marginPercent(linesNet, cost),
+    marginPercent: marginPercent(net, cost),
+    markupPercent: markupPercent(linesNet, cost),
     belowMarginFloor: judgeMargin(linesNet, cost, extra.floorBasisPoints) || lines.some((l) => l.belowEngineFloor),
   };
 }
