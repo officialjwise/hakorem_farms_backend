@@ -24,10 +24,12 @@ import { ROUTE_STORE, type RouteStore } from './application/route-store';
 import { Routes } from './application/routes';
 import { PgRouteStore } from './infrastructure/pg-route-store';
 import { DriverRouteController, DriversController, RoutesController } from './interface/routes.controller';
+import { Scheduling } from './application/scheduling';
 import { SLOT_STORE, type SlotStore } from './application/slot-store';
 import { Slots } from './application/slots';
 import { PgSlotStore } from './infrastructure/pg-slot-store';
 import { SlotsController } from './interface/slots.controller';
+import { SchedulingController } from './interface/scheduling.controller';
 
 /**
  * DEL (layer 8): delivery and logistics. B07 continued 2 builds its first pass, as ADR-0026's delivery split decides:
@@ -39,7 +41,7 @@ import { SlotsController } from './interface/slots.controller';
  */
 @Module({
   imports: [IamModule, MdmModule, PayModule],
-  controllers: [SlotsController, DeliveriesController, DriverDeliveriesController, DriverCashController, RoutesController, DriversController, DriverRouteController],
+  controllers: [SlotsController, DeliveriesController, SchedulingController, DriverDeliveriesController, DriverCashController, RoutesController, DriversController, DriverRouteController],
   providers: [
     { provide: SLOT_STORE, useClass: PgSlotStore },
     { provide: DELIVERY_STORE, useClass: PgDeliveryStore },
@@ -84,6 +86,7 @@ import { SlotsController } from './interface/slots.controller';
       useFactory: (
         uow: UnitOfWork,
         store: DeliveryStore,
+        slots: SlotStore,
         refs: MasterDataRefs,
         storefront: Storefront,
         driverCash: DriverCash,
@@ -97,8 +100,24 @@ import { SlotsController } from './interface/slots.controller';
         principals: PrincipalNames,
         cursors: Cursors,
         clock: Clock,
-      ) => new Deliveries(uow, store, refs, storefront, driverCash, files, numbers, documents, events, idempotency, audit, authoriser, principals, cursors, clock),
-      inject: [UnitOfWork, DELIVERY_STORE, MasterDataRefs, Storefront, DriverCash, FileStore, NumberSeries, DocumentRegistry, DomainEvents, Idempotency, AuditTrail, Authoriser, PRINCIPAL_NAMES, Cursors, CLOCK],
+      ) => new Deliveries(uow, store, slots, refs, storefront, driverCash, files, numbers, documents, events, idempotency, audit, authoriser, principals, cursors, clock),
+      inject: [UnitOfWork, DELIVERY_STORE, SLOT_STORE, MasterDataRefs, Storefront, DriverCash, FileStore, NumberSeries, DocumentRegistry, DomainEvents, Idempotency, AuditTrail, Authoriser, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
+    {
+      provide: Scheduling,
+      useFactory: (
+        uow: UnitOfWork,
+        store: DeliveryStore,
+        slots: SlotStore,
+        deliveries: Deliveries,
+        storefront: Storefront,
+        events: DomainEvents,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        authoriser: Authoriser,
+        clock: Clock,
+      ) => new Scheduling(uow, store, slots, deliveries, storefront, events, idempotency, audit, authoriser, clock),
+      inject: [UnitOfWork, DELIVERY_STORE, SLOT_STORE, Deliveries, Storefront, DomainEvents, Idempotency, AuditTrail, Authoriser, CLOCK],
     },
     {
       provide: Slots,

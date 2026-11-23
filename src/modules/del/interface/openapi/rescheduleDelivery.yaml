@@ -1,0 +1,111 @@
+operationId: rescheduleDelivery
+tags:
+  - del
+summary: "Move a delivery to another slot"
+description: "Booking and reattempt (2.34.0; FR-DEL-001 to FR-DEL-003, FR-DEL-011): a slot of the delivery's own zone for a delivery waiting on the van (`ASSIGNED`) or back from a failed attempt (`FAILED`), with the reason (1 to 500 characters). The slot is read under its row lock: never more bookings than its capacity, whoever books at the same time. The old slot is freed and the new one taken in the same transaction; the database keeps the slots' counts. Today's slots are offered only up to the zone's cut-off (Africa/Accra); after it the earliest is tomorrow's. **A reattempt:** a `FAILED` delivery goes back to `ASSIGNED` and its order from `DELIVERY_FAILED` to `DISPATCHED`; the goods never left the van. The same slot is taken again for a reattempt without a second booking. A delivery that is a stop of a run keeps its stop and van, so its slot falls on the run's day. The customer is told through the outbox (`del.DeliveryRescheduled`). Audited. **Refusals:** a delivery on its way or finished 422 `INVALID_STATE_TRANSITION`; 422 `DELIVERY_INVALID` with `SLOT_UNKNOWN`, `SLOT_OTHER_ZONE`, `SLOT_STARTED`, `PAST_CUT_OFF`, `SLOT_FULL`, `NOT_ON_RUN_DAY`, `SAME_SLOT` (the same slot for a delivery waiting on the van), `ZONE_NOT_DELIVERING` or `WRITE_OFF_PENDING`; another branch's delivery 403.\n\nPermission: `del.delivery.assign`."
+x-permission: del.delivery.assign
+x-error-codes:
+  - DELIVERY_INVALID
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DeliveryReschedule"
+      example:
+        slotId: "019a7afd-35dd-7d51-b289-dde6c40056c4"
+        reason: "Customer travelling on Saturday"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Delivery"
+        example:
+          id: "019a7af0-47f8-7b3e-8076-bcb6e7053594"
+          deliveryNo: DLN-2026-DDW-000216
+          status: ASSIGNED
+          order:
+            id: "019a7b07-f6f4-7d65-829e-df301289580d"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004216
+          slot:
+            id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
+            date: "2026-11-14"
+            startsAt: "10:00"
+            endsAt: "12:00"
+            available: true
+            remaining: 4
+          deliveryZone:
+            id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
+            code: ACC-EAST
+            name: "Accra East: Madina, Adenta, East Legon"
+          recipientName: "Ama Serwaa Ofori"
+          recipientPhone: "+233244512876"
+          address:
+            recipientName: "Ama Serwaa Ofori"
+            recipientPhone: "+233244512876"
+            line1: "House 14, Ashaley Botwe Road, near the Methodist church"
+            area: Madina
+            city: Accra
+            region: "Greater Accra"
+            digitalAddress: GM-091-4471
+            directions: "Blue gate opposite Sika Pharmacy"
+          latitude: "5.687214"
+          longitude: "-0.166402"
+          contents:
+            - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+              name: "Full chicken, 15 kg pack"
+              quantity: "1.000"
+              uom: PACK
+              weightKg: "14.650"
+          driver:
+            id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+            displayName: "Kwesi Appiah"
+          vehicle:
+            id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+            code: VAN-GT4521
+            name: "Delivery van GT-4521-24"
+            kind: VEHICLE
+          codDuePesewas: 0
+          codCollectedPesewas: null
+          attemptCount: 0
+          dispatchedAt: "2026-11-13T11:00:00Z"
+          deliveredAt: null
+          proof: null
+          deliveryNoteDocumentId: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

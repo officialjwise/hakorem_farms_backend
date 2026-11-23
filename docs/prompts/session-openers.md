@@ -106,7 +106,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B11 continued 2 | `B11c-driver-run-returns-notifications.md` | `b11c-driver-run-returns-notifications` | B4 to B12 | The driver's cash is handed in once at a till shift and a short hand-in shows on the variance report; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued, A-341; built to the driver's cash and split, A-346) |
 | B11 continued 3 | `B11c3-driver-run-failures-returns-notifications.md` | `b11c3-driver-run-failures-returns-notifications` | B4 to B12 | A run closes only when every item on the van is accounted for; credit-terms dispatch is credit-checked and invoiced as dispatched; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued 2, A-346; built to the driver's run and its close rule and split, A-348) |
 | B11 continued 4 | `B11c4-returns-dispatch-notifications.md` | `b11c4-returns-dispatch-notifications` | B4 to B12 | Every item on the van is delivered, returned to stock or written off with a reason, the unaccounted on the driver variance report; credit-terms dispatch is credit-checked and invoiced as dispatched; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued 3, A-348; built to the van's two other ways out and split, A-361) |
-| B11 continued 5 | `B11c5-dispatch-returns-notifications.md` | `b11c5-dispatch-returns-notifications` | B4 to B12 | A failed delivery is reattempted, reassigned or cancelled and a part delivery credits what came back; partial dispatch charges the fee once; credit-terms dispatch is credit-checked and invoiced as dispatched; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued 4, A-361) |
+| B11 continued 5 | `B11c5-dispatch-returns-notifications.md` | `b11c5-dispatch-returns-notifications` | B4 to B12 | A failed delivery is reattempted, reassigned or cancelled and a part delivery credits what came back; partial dispatch charges the fee once; credit-terms dispatch is credit-checked and invoiced as dispatched; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued 4, A-361; built to reassignment and slot booking and split, A-363) |
+| B11 continued 6 | `B11c6-dispatch-returns-notifications.md` | `b11c6-dispatch-returns-notifications` | B4 to B12 | A dispatched delivery is cancelled and a part delivery credits what came back; partial dispatch charges the fee once and an extra delivery is its own fee line; credit-terms dispatch is credit-checked and invoiced as dispatched; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued 5, A-363) |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
 | B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
 | B13 | `B13-hardening-deploy.md` | `b13-hardening-deploy` | B13 — Hardening, smoke suite and deploy | Every non-functional target met and evidenced on the live server |
@@ -3749,7 +3750,7 @@ Stop at the gate and write docs/sessions/B11c4-returns-dispatch-notifications.md
 
 ## B11 continued 5 — The rest of delivery and dispatch, returns of part of a crate and notifications
 
-Branch `b11c5-dispatch-returns-notifications`. Report `docs/sessions/B11c5-dispatch-returns-notifications.md`. Inserted by B11 continued 4 (A-361, ADR-0026 Amendments), which built the van's two other ways out (return to stock and write-off with a reason, the unaccounted on the driver variance report; contract 2.33.0, A-360). Gate: a failed delivery is reattempted, reassigned or cancelled and a part delivery credits what came back; partial dispatch charges the fee once and an extra delivery is its own fee line; an order on credit terms is credit-checked at dispatch and invoiced on the quantities actually dispatched; part of a crate returned as single eggs is refunded pro rata with the pieces adding up; the outbox's customer messages (dispatch, on the way, delivered, the receipt SMS and the tracking SMS) are sent, each once. Split again at a sub-domain boundary (the rest of delivery and dispatch, then returns, then notifications) if the context will not reach the gate; splitting early is better than late.
+Branch `b11c5-dispatch-returns-notifications`. Report `docs/sessions/B11c5-dispatch-returns-notifications.md`. Inserted by B11 continued 4 (A-361, ADR-0026 Amendments). **Built, then split after reassignment and slot booking (A-362, A-363, contract 2.34.0): `assignDelivery` (the goods following van to van), `rescheduleDelivery` (a slot booked under its row lock against capacity and the zone's cut-off) and the reattempt of a failed delivery. The rest is B11 continued 6, below.** It was inserted by B11 continued 4, which built the van's two other ways out (return to stock and write-off with a reason, the unaccounted on the driver variance report; contract 2.33.0, A-360). Gate: a failed delivery is reattempted, reassigned or cancelled and a part delivery credits what came back; partial dispatch charges the fee once and an extra delivery is its own fee line; an order on credit terms is credit-checked at dispatch and invoiced on the quantities actually dispatched; part of a crate returned as single eggs is refunded pro rata with the pieces adding up; the outbox's customer messages (dispatch, on the way, delivered, the receipt SMS and the tracking SMS) are sent, each once. Split again at a sub-domain boundary (the rest of delivery and dispatch, then returns, then notifications) if the context will not reach the gate; splitting early is better than late.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -3826,6 +3827,88 @@ report.
 Stop at the gate and write docs/sessions/B11c5-dispatch-returns-notifications.md.
 ```
 
+## B11 continued 6 — The rest of dispatch, returns of part of a crate and notifications
+
+Branch `b11c6-dispatch-returns-notifications`. Report `docs/sessions/B11c6-dispatch-returns-notifications.md`. Inserted by B11 continued 5 (A-363, ADR-0026 Amendments), which built reassignment, slot booking and the reattempt (contract 2.34.0, A-362). Gate: a dispatched delivery is cancelled and a part delivery credits what came back; partial dispatch charges the fee once and an extra delivery is its own fee line; an order on credit terms is credit-checked at dispatch and invoiced on the quantities actually dispatched; part of a crate returned as single eggs is refunded pro rata with the pieces adding up; the outbox's customer messages (dispatch, on the way, delivered, rescheduled, the receipt SMS and the tracking SMS) are sent, each once. Split again at a sub-domain boundary (the rest of dispatch, then returns, then notifications) if the context will not reach the gate; splitting early is better than late.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B11c5-dispatch-returns-notifications.md,
+B11 continued 5, which this phase continues), and the "Deferred" section of docs/sessions/B11b-dispatch-delivery.md (B11 continued).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the ORD (fulfilment), DEL and NTF requirement blocks of docs/SRS.md (nothing else
+from the SRS), docs/data-model/ord.md, del.md and ntf.md, the ORD, DEL, NTF and PAY cards in
+docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0021, ADR-0026 (the abandoned-cart assignment), ADR-0074 (a link
+sent by message gets its own token from the sending worker, never one stored in the outbox), ADR-0075 (the egg cost
+rule's running-total rounding), ADR-0077 (cash through a till only through its open shift), ADR-0091 and ADR-0092 (dispatch
+loads the vehicle; the driver's cash is a payment held by the driver), and the abuse cases 6, 43, 44 and 48 in
+docs/security/THREAT_MODEL.md. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B11 continued 6 only, on branch b11c6-dispatch-returns-notifications. B11 built picking and packing (2.25.0);
+B11 continued built dispatch of a whole delivery order and the proof with the cash held by the driver (2.27.0, ADR-0092);
+B11 continued 2 built the driver's cash handed in at a till shift (`handInDriverCash`, the variance report, 2.31.0,
+A-345); B11 continued 3 built the driver's run (`createRoute` to `completeRoute`, `getMyRoute` 404 with no run,
+`listDrivers`, `markOnTheWay`, `recordFailedDelivery`; a run closed only when every stop is DELIVERED or RETURNED and
+no collection on it is held, the hand-ins recorded against it by the database; 2.32.0, A-347); B11 continued 4 built
+the van's two other ways out (`returnDeliveryToStock` and `writeOffDelivery`, a FAILED delivery only, through INV's
+adjustment and its approval, the whole document credited through `CREDIT_NOTE` and the refund through `REFUND` once it
+is issued, `WRITTEN_OFF`, `listDriverGoodsVariances`; 2.33.0, A-360); B11 continued 5 built reassignment and slot
+booking (`assignDelivery` with the goods following van to van, never on a live run; `rescheduleDelivery` under the slot's
+row lock against capacity and the zone's cut-off, the counts the database's; a FAILED delivery rescheduled is the
+reattempt, the order DISPATCHED again; 2.34.0, A-362): build on them, never again. The rest, in this order:
+1. The rest of delivery and dispatch: cancelDelivery (A-362 and the order machine of docs/DOMAIN_MODEL.md section 7 have
+   no DISPATCHED to CANCELLED: decide the cancellation of a dispatched delivery against it, conservatively, or stop and
+   ask); the checkout's chosen slot carried onto the delivery at dispatch and booked (A-362 (e)); CR-055, a part delivery
+   (`ProofOfDeliveryCreate.lines` and `returnedReasonCode`: the rest back to stock or kept for a reattempt, the document
+   credited for what came back, the cash due fixed again); the driver's offline sync (syncDriverEvents, idempotent by
+   client id, CR-057 point 3: a DUPLICATE answers the first outcome). PAY's `Payment.driver` (BL-096). Partial
+   fulfilment and backorders (FR-ORD-012) with the delivery fee once, on the first dispatch, never again (UAT scenario
+   2's rule, A-331 (b), approved by the owner 2026-11-23, steps 2.12 and 2.13, test with exact pesewas): a later dispatch
+   the farm makes to complete a short or part order carries no fee. The owner, 2026-11-23: a delivery the customer asks
+   for as an extra is a separate, explicit fee line, added by staff who hold its permission (a new permission, granted
+   by migration, its wrong-role test), never inferred from a second dispatch; test-first with exact pesewas, on the
+   dispatch's document and its total; an order on account dispatched with its due date
+   from the customer's terms (the owner, 2026-11-23: the credit check runs at dispatch, WHL's credit control through a
+   port, ORD sitting below WHL, and the invoice is issued from the quantities actually dispatched; remove
+   `CREDIT_DISPATCH_NOT_AVAILABLE` LOUD); collectFulfilment (a collection order handed over and paid at the till); the
+   checkout's store-credit choice for a lighter total (ADR-0021, A-338 (c)); a delivered order completed once later
+   settled (BL-097); cracked eggs written off on the pick (CR-054 point 1, through INV's adjustment path and its approval).
+2. Returns of eggs (owner, 2026-11-18, ORD, test-first with exact pesewas): a return is refunded at the price actually
+   paid on that sale line, never the current price list. Part of a crate returned as single eggs (five cracked eggs) is
+   refunded pro rata at the crate's price per egg, never at the single-egg price, with the running-total rounding of the
+   egg cost rule (ADR-0075, half-up, never half-to-even): each return's refund is round(paid x cumulative returned / per
+   crate) less round(paid x previously returned / per crate), so the pieces always add up. Tests by SQL: a GH₵55.00 crate
+   (5,500 pesewas) with five eggs returned refunds exactly 917 (5,500 x 5 / 30 = 916.67, half-up); a crate returned one
+   egg at a time, all 30, refunds exactly 5,500 in total, never more; a mutation using the single-egg price, or rounding
+   each egg on its own, turns a test red. Extend createReturn's description to a part of a crate returned as single eggs.
+3. Notifications (NTF): through the outbox (SMS, WhatsApp, email, in-app) with templates, triggers, preferences, opt-out,
+   quiet hours, the message log and retry: the customer's messages from `ord.OrderDispatched` (one, with the weights and
+   the final total, FR-ORD-011), the on-the-way (`del.DeliveryOnTheWay`, already in the outbox from 2.32.0), the rescheduled
+   (`del.DeliveryRescheduled`, from 2.34.0, FR-DEL-003) and delivered
+   messages (FR-DEL-012, once per event and recipient), abandoned-cart messaging (ADR-0026), the death report sent back
+   by the malware scan (B06r, A-175: liv.MortalityReturned names the reporter and the reason), the document sends
+   (ADR-0062, A-204: sendBillingDocument and sendStatement, 202 through the outbox, a bil.reprint_log row with the
+   channel, the archived bytes or a lasting link, never a new document; the remittance advice from
+   pur.SupplierRemittanceReady, once per payment; a send reaches only the document's own customer or supplier and a
+   failed send is retried without a second archive row), CR-033 point 3 (the receipt SMS once when a counter sale with
+   customerPhone syncs, with a fresh server-made token for a sale whose till token was refused, ADR-0074; the refused
+   till token still opens nothing), and the guest's SMS tracking link with its own long random token (a guessed token or
+   the order's id answers 404). The owner, 2026-11-23 (from the frontend's F12 and F10n): list the message templates so a
+   reminder level picks one instead of typing a code, and record each reminder's delivery per channel (sent, delivered,
+   failed), so a failed reminder shows as failed. CR-039 at the shop (the crate and the single egg, each at its own
+   price; CartLineAdd.uom; test-first with exact pesewas).
+Run steps 1.11 to 1.16 of docs/UAT.md, the driver case in scenario 5 and scenario 2 from step 2.12 as a dry run and
+record every difference.
+For B12's reused photographs (the owner, 2026-11-23): `platform.stored_file` already keeps each upload's SHA-256; record
+on the proof of delivery whether its photograph or signature matches an earlier upload (as liv.MortalityPhotoReused
+does for a death photograph) and publish it for the exception report. If this phase does not, B12 must; say which in the
+report.
+Stop at the gate and write docs/sessions/B11c6-dispatch-returns-notifications.md.
+```
+
 ## B12 — Capital, costing, reporting and the public API, and the daily exception report
 
 Branch `b12-capital-costing-reporting`. Report `docs/sessions/B12-capital-costing-reporting.md`. Gate: a distribution matches a hand calculation on unit-days and ties exactly to the ledger.
@@ -3896,7 +3979,7 @@ the egg report codes, the VAT return, and the statement and exception report exp
 - "quotes accepted in a staff session" is the possible staff acceptance of B10 continued 6 (the decision's address and
   browser matched against staff sessions active from the same address in the last 24 hours, never a cookie);
 - "reused photographs" means a proof-of-delivery photograph or signature whose content hash matches an earlier upload
-  (beside case 2's death photographs); if B11 continued 5 did not record that match, this phase must (its report says);
+  (beside case 2's death photographs); if B11 continued 6 did not record that match, this phase must (its report says);
 - each existing exception kind keeps working, and any rename is LOUD.
 Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
 ```
@@ -3981,7 +4064,7 @@ Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 From 2026-11-17 the remaining phases before B12 run in two lanes at once, each in its own worktree and branch.
 
 - **Lane A:** the rest of B9b (B09b continued to B09b continued 4, and any split of them), then B09c.
-- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11, then B11 continued, then B10 continued 6 (inserted by the owner, 2026-11-23), then B11 continued 2, then B11 continued 3 (inserted by B11 continued 2, A-346), then B11 continued 4 (inserted by B11 continued 3, A-348), then B11 continued 5 (inserted by B11 continued 4, A-361) (and any split of them). B08 continued 2d moves into lane B because
+- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11, then B11 continued, then B10 continued 6 (inserted by the owner, 2026-11-23), then B11 continued 2, then B11 continued 3 (inserted by B11 continued 2, A-346), then B11 continued 4 (inserted by B11 continued 3, A-348), then B11 continued 5 (inserted by B11 continued 4, A-361), then B11 continued 6 (inserted by B11 continued 5, A-363) (and any split of them). B08 continued 2d moves into lane B because
   B10 reads its report and it needs only PAY's payments (B9a) and WHL, which lane B opens.
 - **B12, then B13, start only when both lanes have merged.** B09r still waits for the owner's real files.
 

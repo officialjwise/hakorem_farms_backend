@@ -17,7 +17,10 @@ import { codVariance, judgeProof, takesProof, type DeliveryStatus, type ProofFil
 import { nextAttemptNo, pageProbe } from '../domain/numbering';
 import { judgeFailure, judgeOnTheWay, takesFailure } from '../domain/routes';
 import type { CodCollected, DeliveryCompleted, DeliveryFailed, DeliveryOnTheWay, DeliveryReturned, DeliveryWrittenOff } from '../events';
+import { remaining } from '../domain/slots';
 import { DeliveryInvalidError } from './errors';
+import type { SlotRecord, SlotStore } from './slot-store';
+import type { SlotOptionView } from './slots';
 import type { ContentsLine, DeliveryRecord, DeliveryStore, ProofRecord, WriteOffFacts, WrittenOffRecord } from './delivery-store';
 
 const READ = 'del.delivery.read';
@@ -134,7 +137,7 @@ export interface DeliveryView {
   readonly deliveryNo: string | null;
   readonly status: DeliveryStatus;
   readonly order: { readonly id: string; readonly docType: string; readonly number: string | null };
-  readonly slot: null;
+  readonly slot: SlotOptionView | null;
   readonly deliveryZone: Ref;
   readonly recipientName: string;
   readonly recipientPhone: string;
@@ -156,14 +159,14 @@ export interface DeliveryView {
   readonly version: number;
 }
 
-/** The contract's `DeliverySummary`: what an order shows of its delivery. The slot is null until booking (B11 continued 2). */
+/** The contract's `DeliverySummary`: what an order shows of its delivery. The slot is null until one is booked (B11 continued 5). */
 export interface DeliverySummaryView {
   readonly id: string;
   readonly deliveryNo: string | null;
   readonly status: DeliveryStatus;
-  readonly slotDate: null;
-  readonly slotStartsAt: null;
-  readonly slotEndsAt: null;
+  readonly slotDate: string | null;
+  readonly slotStartsAt: string | null;
+  readonly slotEndsAt: string | null;
 }
 
 /** What ORD's van returns read of a delivery before taking its goods off the van. */
@@ -207,6 +210,7 @@ export interface Page<T> {
 const json = (pesewas: bigint) => Money.ofPesewas(pesewas).toJsonInteger();
 const invalidState = (what: string, status: string) =>
   new InvalidStateTransitionError(`${what} is ${status}`, [{ field: null, code: status, message: translate('error.invalid_state_transition') }]);
+const slotOption = (slot: SlotRecord): SlotOptionView => ({ id: slot.id, date: slot.slotDate, startsAt: slot.startsAt, endsAt: slot.endsAt, available: remaining(slot) > 0, remaining: remaining(slot) });
 const coordinate = (value: unknown): string | null => (typeof value === 'string' || typeof value === 'number' ? String(value) : null);
 
 /**
@@ -227,6 +231,7 @@ export class Deliveries {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly store: DeliveryStore,
+    private readonly slots: SlotStore,
     private readonly refs: MasterDataRefs,
     private readonly storefront: Storefront,
     private readonly driverCash: DriverCash,
@@ -315,9 +320,21 @@ export class Deliveries {
     const found = new Map<string, DeliverySummaryView>();
     for (const orderId of new Set(orderIds)) {
       const d = await this.store.liveOfOrder(tx, orderId);
-      if (d !== null) found.set(orderId, { id: d.id, deliveryNo: d.deliveryNo, status: d.status, slotDate: null, slotStartsAt: null, slotEndsAt: null });
+      if (d === null) continue;
+      const slot = d.slotId === null ? undefined : (await this.slots.slots(tx, [d.slotId])).get(d.slotId);
+      found.set(orderId, { id: d.id, deliveryNo: d.deliveryNo, status: d.status, slotDate: slot?.slotDate ?? null, slotStartsAt: slot?.startsAt ?? null, slotEndsAt: slot?.endsAt ?? null });
     }
     return found;
+  }
+
+  /** Slots by id, as a delivery's view and a run's stops show them. Read-only; it authorises nothing. */
+  slotsIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, SlotRecord>> {
+    return ids.length === 0 ? Promise.resolve(new Map()) : this.slots.slots(tx, [...new Set(ids)]);
+  }
+
+  /** One delivery as the contract's `Delivery`, inside the caller's transaction. It authorises nothing. */
+  async viewIn(tx: Transaction, id: string): Promise<DeliveryView> {
+    return (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
   }
 
   /** getDelivery: at the delivery's branch; another branch's is refused as any other. */
@@ -731,16 +748,18 @@ export class Deliveries {
     const drivers = await this.principals.refs(tx, records.flatMap((r) => (r.driverId === null ? [] : [r.driverId])));
     const orders = await this.documents.numberedRefs(tx, records.map((r) => r.orderDocumentId));
     const proofs = new Map((await this.store.proofsOf(tx, records.map((r) => r.id))).map((p) => [p.deliveryId, p]));
+    const slots = await this.slotsIn(tx, records.flatMap((r) => (r.slotId === null ? [] : [r.slotId])));
     return records.map((r) => {
       const zone = zones.get(r.deliveryZoneId);
       const vehicle = r.vehicleLocationId === null ? undefined : vehicles.get(r.vehicleLocationId);
       const proof = proofs.get(r.id);
+      const slot = r.slotId === null ? undefined : slots.get(r.slotId);
       return {
         id: r.id,
         deliveryNo: r.deliveryNo,
         status: r.status,
         order: orders.get(r.orderDocumentId) ?? { id: r.orderDocumentId, docType: 'SALES_ORDER', number: null },
-        slot: null,
+        slot: slot === undefined ? null : slotOption(slot),
         deliveryZone: { id: r.deliveryZoneId, code: zone?.code ?? '', name: zone?.name ?? '' },
         recipientName: r.recipientName,
         recipientPhone: r.recipientPhoneE164,

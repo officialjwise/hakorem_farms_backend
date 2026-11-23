@@ -147,3 +147,40 @@ export interface DeliveryWrittenOff {
   readonly writtenOffAt: string;
   readonly abuseCases: readonly number[];
 }
+
+/**
+ * `del.DeliveryReassigned` v1 (FR-DEL-004, B11 continued 5): a delivery waiting on the van or failed, on no live run, was
+ * given another driver or vehicle. When the vehicle changed, ORD moved its goods from the one van to the other in the
+ * same transaction (still the farm's stock, never below zero).
+ */
+export interface DeliveryReassigned {
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly orderDocumentId: string;
+  readonly branchId: string;
+  readonly fromDriverId: string | null;
+  readonly toDriverId: string;
+  readonly fromVehicleLocationId: string | null;
+  readonly toVehicleLocationId: string;
+  readonly reassignedAt: string;
+}
+
+/**
+ * `del.DeliveryRescheduled` v1 (FR-DEL-003, FR-DEL-011, B11 continued 5): a delivery booked another slot of its zone (the
+ * first freed and the second taken in the same transaction). `reattempt` is a failed delivery sent out again: ORD moved
+ * the order from DELIVERY_FAILED back to DISPATCHED in the same transaction. NTF tells the customer (FR-DEL-003).
+ */
+export interface DeliveryRescheduled {
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly orderDocumentId: string;
+  readonly branchId: string;
+  readonly fromSlotId: string | null;
+  readonly toSlotId: string;
+  readonly slotDate: string;
+  readonly slotStartsAt: string;
+  readonly slotEndsAt: string;
+  readonly reattempt: boolean;
+  readonly reason: string;
+  readonly rescheduledAt: string;
+}

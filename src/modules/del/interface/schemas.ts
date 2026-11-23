@@ -93,3 +93,9 @@ export const DeliveryFailure = z.strictObject({
   longitude: Coordinate.optional(),
   occurredAt: z.iso.datetime({ offset: true }),
 });
+
+/** assignDelivery's `DeliveryAssign` (FR-DEL-004). */
+export const DeliveryAssign = z.strictObject({ driverId: z.uuid(), vehicleLocationId: z.uuid() });
+
+/** rescheduleDelivery's `DeliveryReschedule` (FR-DEL-003): the slot and why, 1 to 500 characters once trimmed. */
+export const DeliveryReschedule = z.strictObject({ slotId: z.uuid(), reason: z.string().trim().min(1).max(500) });

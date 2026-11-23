@@ -98,8 +98,18 @@ describe('delivery slots (FR-DEL-001)', () => {
     expect(raised.status).toBe(200);
     expect(raised.body).toMatchObject({ capacity: 10, remaining: 10, version: slot!.version + 1 });
     expect((await patch('manager', slot!.id, { version: slot!.version, capacity: 12 })).status).toBe(409);
-    // B11 books deliveries into a slot; until then a booking is written here by hand to prove the rule.
-    await database.pool('admin').query('UPDATE del.delivery_slot SET booked = 4, version = version + 1 WHERE id = $1', [slot!.id]);
+    // Since 0326 only a delivery's booking moves `booked` (B11 continued 5 books them, test/integration/del/scheduling);
+    // a hand write is refused, so the four bookings this rule needs are written here with the triggers held off.
+    await expect(database.pool('app').query('UPDATE del.delivery_slot SET booked = 4, version = version + 1 WHERE id = $1', [slot!.id])).rejects.toMatchObject({ code: 'HK004', constraint: 'ck_delivery_slot_booked_by_delivery' });
+    const client = await database.pool('admin').connect();
+    try {
+      await client.query('BEGIN');
+      await client.query("SET LOCAL session_replication_role = 'replica'");
+      await client.query('UPDATE del.delivery_slot SET booked = 4, version = version + 1 WHERE id = $1', [slot!.id]);
+      await client.query('COMMIT');
+    } finally {
+      client.release();
+    }
     const below = await patch('manager', slot!.id, { version: slot!.version + 2, capacity: 3 });
     expect(below.status).toBe(422);
     expect(below.body.error.code).toBe('CAPACITY_BELOW_BOOKED');
