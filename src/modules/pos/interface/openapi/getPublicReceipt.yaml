@@ -1,0 +1,58 @@
+operationId: getPublicReceipt
+tags:
+  - pos
+summary: "Read a counter sale's receipt by its link"
+description: "The digital receipt of a counter sale (2.24.0, CR-033 points 1 and 2, ADR-0074 Amendments, ADR-0083): every sale produces one, and a printer is optional. **No session; the token is the only key.** The till makes the token itself when the sale is made, offline if need be (at least 128 random bits from its secure source, base64url without padding, 22 to 86 characters), fills `OfflinePack.receiptLinkTemplate` with it to show and print the link, and sends it with the sale as `OfflineSale.receiptToken`. The server keeps only its SHA-256, unique, and the link reads for twelve months from the sale's time unless it is revoked. Until the sale has synced the server has not been sent the token, so the link reads nothing: the till's own receipt says the link works once the sale reaches the server. **One answer for everything else, 404 `NOT_FOUND`:** a token never sent, mistyped, guessed or altered, expired or revoked, another sale's token for a different sale, the sale's id, its order or receipt number, a SKU. The answer is the sale as the server recorded it: the sale reference (the order number) and the official receipt number, the lines as charged, the total, the tenders as the till took them with the change it gave, and the business's name, phone and address (the shop's public profile, CR-028, null while none is set). It carries no id of anything and nothing of any customer. Rate-limited as every public read."
+x-error-codes:
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: token
+    in: path
+    required: true
+    schema:
+      type: string
+      maxLength: 200
+security: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/PublicReceipt"
+        example:
+          state: RECORDED
+          saleReference: SO-2026-DDW-004207
+          receiptNo: RCP-2026-DDW-T2-006101
+          occurredAt: "2026-11-13T09:40:12Z"
+          validUntil: "2027-11-13T09:40:12Z"
+          business:
+            name: "HaKorem Farms"
+            phone: "+233200000000"
+            address: "Example Road, Dodowa"
+          lines:
+            - name: "Eggs, large"
+              quantity: "2.000"
+              saleUom: CRATE
+              weightKg: null
+              stockUnitIdentifier: null
+              unitPricePesewas: 6000
+              amountPesewas: 12000
+          totalPesewas: 12000
+          tenders:
+            - name: Cash
+              amountPesewas: 12000
+              tenderedPesewas: 15000
+              unverified: false
+          changePesewas: 3000
+          currency: GHS
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.23.0"
+  version: "2.24.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -34086,6 +34086,11 @@ components:
           description: "The units the pack's products are sold or counted in, with the names `Uom` gives them (2.17.0, CR-051), so the till says \"6 eggs\" and \"1 crate\" offline. In code order."
           items:
             $ref: "#/components/schemas/OfflineUom"
+        receiptLinkTemplate:
+          type:
+            - string
+            - "null"
+          description: "The receipt link (2.24.0, CR-033 point 1, ADR-0083): an absolute `https` URL containing `{token}`, which the till fills with each sale's own token to show and print the link before the sale reaches the server. Null while the shop's address is not configured: the till then makes no link and sends no `receiptToken`, and the sale syncs as before. Always sent; optional so no earlier example changes."
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -34314,6 +34319,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/TenderInput"
+        receiptToken:
+          type: string
+          pattern: "^[A-Za-z0-9_-]{22,86}$"
+          description: "The receipt link's token (2.24.0, CR-033 point 2, ADR-0083): made by the till once for this sale, when it is made, from the device's cryptographically secure generator (at least 128 random bits, base64url without padding), never derived from the sale's id, the device, the shift or the time, and kept with the sale so a resend carries the same token. Part of the canonical sale `payloadHash` covers. The server stores only its SHA-256 and the link reads from the sale's first sync for twelve months (`getPublicReceipt`); a resend (`DUPLICATE`) changes nothing. **A token already bound to another sale, or shaped like an identifier (a UUID), is refused**: the sale is still recorded, only its link is refused, the result names the exception `RECEIPT_TOKEN_REFUSED` (URGENT, abuse case 37, on the daily exception report's source once per refused sale, naming the device, the shift, the cashier and both sales), the refused token opens nothing for it, and the sale is marked as needing a fresh link made by the server, which B11's receipt SMS sends. Optional, so a till without the template still syncs."
         payloadHash:
           type: string
           description: "SHA-256 of the canonical sale, computed on the device."
@@ -35650,6 +35659,121 @@ components:
         - unitPricePesewas
         - lineNetPesewas
         - subjectToStock
+    PublicReceipt:
+      type: object
+      description: "A counter sale's digital receipt by its link (2.24.0, CR-033, ADR-0083). No id of anything and nothing of any customer."
+      properties:
+        state:
+          type: string
+          enum:
+            - RECORDED
+          description: "The sale is recorded. A sale not yet synced has no live link, so it is never answered here."
+        saleReference:
+          type: string
+          description: "The order number."
+        receiptNo:
+          type: string
+          description: "The official receipt number, allocated at sync."
+        occurredAt:
+          type: string
+          format: date-time
+          description: "When the sale was made, by the till."
+        validUntil:
+          type: string
+          format: date-time
+          description: "Twelve months after the sale; the link reads nothing afterwards."
+        business:
+          anyOf:
+            - $ref: "#/components/schemas/PublicReceiptBusiness"
+            - type: "null"
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicReceiptLine"
+        totalPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        tenders:
+          type: array
+          items:
+            $ref: "#/components/schemas/PublicReceiptTender"
+        changePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        currency:
+          $ref: "#/components/schemas/Currency"
+      required:
+        - state
+        - saleReference
+        - receiptNo
+        - occurredAt
+        - validUntil
+        - business
+        - lines
+        - totalPesewas
+        - tenders
+        - changePesewas
+        - currency
+    PublicReceiptBusiness:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          $ref: "#/components/schemas/PhoneNumber"
+        address:
+          type: string
+      required:
+        - name
+        - phone
+        - address
+    PublicReceiptLine:
+      type: object
+      properties:
+        name:
+          type: string
+        quantity:
+          $ref: "#/components/schemas/Quantity"
+        saleUom:
+          type: string
+        weightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+        stockUnitIdentifier:
+          type:
+            - string
+            - "null"
+          description: "An animal's tag or a lot's number, as printed on the receipt."
+        unitPricePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        amountPesewas:
+          $ref: "#/components/schemas/Pesewas"
+      required:
+        - name
+        - quantity
+        - saleUom
+        - weightKg
+        - stockUnitIdentifier
+        - unitPricePesewas
+        - amountPesewas
+    PublicReceiptTender:
+      type: object
+      properties:
+        name:
+          type: string
+        amountPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        tenderedPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+        unverified:
+          type: boolean
+          description: "A mobile money tender taken unverified offline, awaiting the farm's verification."
+      required:
+        - name
+        - amountPesewas
+        - tenderedPesewas
+        - unverified
     PublicQuote:
       type: object
       properties:
