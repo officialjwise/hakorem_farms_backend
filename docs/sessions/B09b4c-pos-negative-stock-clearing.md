@@ -29,6 +29,8 @@ Run as a fresh agent inside the 2026-11-15 overnight session: the parent session
 - **CR-060, CR-061, CR-062** (egg reports, the VAT return, statement exports and the reports seed): RPT's, B12.
 - **CR-057** point 1 still needs both lanes (as the last report said).
 
+**ADR-0082 (new, with the parent session's leave):** CI shards the unit and integration job in three and judges coverage once, merged (NFR-016; see CI). A flaky test helper was fixed (`fix(test)`, see CI).
+
 **ADR conflicts: none stopped the work.** The owner's decision 2 contradicted two rules, and the parent session gave leave for both:
 - ADR-0018's "uncovered quantity carries zero value";
 - ADR-0002's "type and location must both allow negative".
@@ -207,10 +209,15 @@ On this machine, at `9098ab9`; `main` has not moved since `f065dec`, so no rebas
 ## CI
 
 - **Merge slot:** taken 2026-11-23. `main` was still `f065dec` (lane B idle), so there was nothing to rebase or renumber: migrations 0283 to 0287 sit above main's 0282, and the contract's 2.22.0 sits above 2.21.0.
-- **Pull request #120.** On the code head `c89ad4c` (the six code, contract and docs commits and the `test(inv)` commit), every run that exists is green:
-  - run 45103026079, `push`, success;
-  - run 45103076291, `pull_request`, success.
-- A report cannot name the runs of the commit that adds it. The runs on the head that adds this report are named in the closing message to the parent session, and the PR merges only when every one of them is green.
+- **Pull request #120.**
+  - **`c89ad4c`** (the code, contract and docs commits and the `test(inv)` commit): every run green, push 45103026079 success and pull_request 45103076291 success.
+  - **`a37e9ab`** (this report's first version, docs only): push 45104107067 and pull_request 45104112126 were both **cancelled at the job's 12-minute timeout**. No test failed: the job log showed 106 of 161 integration files passed. The single "unit and integration with the coverage gate" step had come to use 568 to 574 s of its 720 s.
+    - I asked the parent session to raise the timeout. It refused: 12 minutes is NFR-016, the owner's.
+    - It gave leave instead to **shard the job (ADR-0082)**: three shards, each under 12 minutes, writing blob reports with their coverage. The gate job keeps its name, fails unless every shard passed and all three reported, and merges the reports to judge every threshold once (today's, with every 100 percent gate). Nothing was re-run.
+  - **`ecc16f3`** (the sharding, plus a deliberate red with shard 2 made to fail): push 45106043187 **failure** and pull_request 45106049807 **failure**. In both, the gate job failed at "every shard passed", as it must.
+    - The pull_request run also showed **a real failing test** in shard 3 of 3: `ord/price-override`'s "refuses an approval asked for by one cashier and spent by another", `uq_register_code`. `test/support/till.ts` gave each test till `X` plus three random digits, which collides about one run in a thousand with the spec's other till.
+    - Reproduced by making the code constant (`X000`: the same error). Fixed in its own commit (`fix(test)`): the first free `X000` to `X999`. Five specs that use the helper passed.
+  - **`b5b8f47`** reverts the deliberate red, then this report's update follows. The runs on the final head, and the merged gate's test counts against the local full run (unit 1,817 plus integration 1,969), are named in the closing message to the parent session. The PR merges only when every one of them is green.
 
 ## Next session
 
