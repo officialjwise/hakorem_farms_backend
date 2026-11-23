@@ -79,6 +79,33 @@ export interface DeliveryFilter {
   readonly date: string | null;
 }
 
+/** How a delivery's goods were written off the van (migration 0322). */
+export interface WriteOffFacts {
+  readonly reasonCode: string;
+  readonly valuePesewas: bigint;
+  readonly stockAdjustmentId: string;
+}
+
+export interface WrittenOffRecord extends WriteOffFacts {
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly orderDocumentId: string;
+  readonly driverId: string | null;
+  readonly vehicleLocationId: string | null;
+  readonly routeId: string | null;
+  readonly writtenOffAt: Date;
+  readonly branchId: string;
+}
+
+export interface WrittenOffFilter {
+  readonly branchIds: readonly string[];
+  readonly reasonCodes: readonly string[];
+  readonly driverId: string | null;
+  /** Written off on these Africa/Accra calendar dates, both included (UTC+0 all year, A-028). */
+  readonly from: string | null;
+  readonly to: string | null;
+}
+
 /** DEL's deliveries, attempts and proofs (migration 0303). The attempts and proofs are inserted only. */
 export interface DeliveryStore {
   insert(tx: Transaction, d: NewDelivery): Promise<void>;
@@ -100,6 +127,12 @@ export interface DeliveryStore {
   /** To FAILED, one attempt more (FR-DEL-011). */
   markFailed(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void>;
   attemptById(tx: Transaction, id: string): Promise<AttemptRecord | null>;
+  /** FAILED to RETURNED, posted: the goods came off the van into the returns hold (FR-DEL-011). */
+  markReturned(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void>;
+  /** FAILED to WRITTEN_OFF, posted, with its reason, its value at cost and the stock adjustment that took the goods. */
+  markWrittenOff(tx: Transaction, id: string, d: WriteOffFacts & { readonly at: Date; readonly actorId: string }): Promise<void>;
+  /** Deliveries written off with one of these reasons at the branches given, newest first, before `beforeId`, at most `limit`. */
+  writtenOff(tx: Transaction, f: WrittenOffFilter, beforeId: string | null, limit: number): Promise<WrittenOffRecord[]>;
   /** The status of the route the delivery sits on; null when it is on none. */
   routeStatusOf(tx: Transaction, deliveryId: string): Promise<'PLANNED' | 'IN_PROGRESS' | 'COMPLETED' | null>;
 }

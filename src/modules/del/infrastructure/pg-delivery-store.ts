@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { AttemptRecord, ContentsLine, DeliveryFilter, DeliveryRecord, DeliveryStore, NewDelivery, ProofRecord } from '../application/delivery-store';
+import type { AttemptRecord, ContentsLine, DeliveryFilter, DeliveryRecord, DeliveryStore, NewDelivery, ProofRecord, WriteOffFacts, WrittenOffFilter, WrittenOffRecord } from '../application/delivery-store';
 import type { DeliveryStatus } from '../domain/deliveries';
 
 interface DeliveryRow {
@@ -215,6 +215,59 @@ export class PgDeliveryStore implements DeliveryStore {
 
   async markFailed(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void> {
     await tx.query(`UPDATE del.delivery SET status = 'FAILED', attempt_count = attempt_count + 1, updated_at = $2, updated_by = $3, version = version + 1 WHERE id = $1`, [id, d.at, d.actorId]);
+  }
+
+  async markReturned(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query(`UPDATE del.delivery SET status = 'RETURNED', posted_at = $2, posted_by = $3, updated_at = $2, updated_by = $3, version = version + 1 WHERE id = $1`, [id, d.at, d.actorId]);
+  }
+
+  async markWrittenOff(tx: Transaction, id: string, d: WriteOffFacts & { readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query(
+      `UPDATE del.delivery SET status = 'WRITTEN_OFF', written_off_reason_code = $2, written_off_value_pesewas = $3, write_off_document_id = $4, written_off_at = $5,
+              posted_at = $5, posted_by = $6, updated_at = $5, updated_by = $6, version = version + 1
+        WHERE id = $1`,
+      [id, d.reasonCode, d.valuePesewas.toString(), d.stockAdjustmentId, d.at, d.actorId],
+    );
+  }
+
+  async writtenOff(tx: Transaction, f: WrittenOffFilter, beforeId: string | null, limit: number): Promise<WrittenOffRecord[]> {
+    const { rows } = await tx.query<{
+      id: string;
+      delivery_no: string;
+      order_document_id: string;
+      driver_id: string | null;
+      vehicle_location_id: string | null;
+      route_id: string | null;
+      reason: string;
+      value: string;
+      adjustment: string;
+      at: Date;
+      branch_id: string;
+    }>(
+      `SELECT d.id, d.delivery_no, d.order_document_id, d.driver_id, d.vehicle_location_id, s.route_id, d.written_off_reason_code AS reason,
+              d.written_off_value_pesewas::text AS value, d.write_off_document_id AS adjustment, d.written_off_at AS at, d.branch_id
+         FROM del.delivery d LEFT JOIN del.route_stop s ON s.delivery_id = d.id
+        WHERE d.status = 'WRITTEN_OFF' AND d.branch_id = ANY($1::uuid[]) AND d.written_off_reason_code = ANY($2::text[])
+          AND ($3::uuid IS NULL OR d.driver_id = $3)
+          AND ($4::date IS NULL OR d.written_off_at >= $4::date::timestamp AT TIME ZONE 'UTC')
+          AND ($5::date IS NULL OR d.written_off_at < ($5::date + 1)::timestamp AT TIME ZONE 'UTC')
+          AND ($6::uuid IS NULL OR d.id < $6)
+        ORDER BY d.id DESC LIMIT $7`,
+      [f.branchIds, f.reasonCodes, f.driverId, f.from, f.to, beforeId, limit],
+    );
+    return rows.map((r) => ({
+      deliveryId: r.id,
+      deliveryNo: r.delivery_no,
+      orderDocumentId: r.order_document_id,
+      driverId: r.driver_id,
+      vehicleLocationId: r.vehicle_location_id,
+      routeId: r.route_id,
+      reasonCode: r.reason,
+      valuePesewas: BigInt(r.value),
+      stockAdjustmentId: r.adjustment,
+      writtenOffAt: r.at,
+      branchId: r.branch_id,
+    }));
   }
 
   async attemptById(tx: Transaction, id: string): Promise<AttemptRecord | null> {

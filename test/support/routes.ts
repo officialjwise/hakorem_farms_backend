@@ -292,6 +292,8 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   reorderRouteStops: { version: 1, deliveryIds: [randomUUID()] },
   markOnTheWay: { occurredAt: '2026-11-23T10:00:00Z' },
   recordFailedDelivery: { id: randomUUID(), failureReasonCode: 'CUSTOMER_NOT_AVAILABLE', nextAction: 'REATTEMPT', occurredAt: '2026-11-23T10:00:00Z' },
+  returnDeliveryToStock: { returnsLocationId: randomUUID(), note: 'Customer unreachable after three calls' },
+  writeOffDelivery: { reasonCode: 'UNACCOUNTED_ON_VAN', note: 'Driver reports the crate missing' },
   cancelFulfilment: { reason: 'Picked from the wrong shelf' },
   proposeSubstitution: { lineId: randomUUID(), productId: randomUUID(), quantity: '1.000', note: 'Out of big eggs' },
   proposeShortPick: { lineId: randomUUID(), quantity: '1.000', note: 'One crate cracked' },

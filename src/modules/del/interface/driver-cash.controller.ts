@@ -4,8 +4,9 @@ import type { Actor } from '../../../platform/context/request-context';
 import { CurrentActor } from '../../../platform/http/actor-param';
 import { Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
+import { Deliveries, type DriverGoodsVarianceView } from '../application/deliveries';
 import { DriverCashReconciliations, type DriverCashReconciliationView, type DriverCashSummaryView, type Page } from '../application/driver-cash';
-import { CashSummaryQuery, DriverCashReconciliationPageQuery, IdParam } from './schemas';
+import { CashSummaryQuery, DriverCashReconciliationPageQuery, DriverGoodsVariancePageQuery, IdParam } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 
@@ -15,7 +16,10 @@ const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: fa
  */
 @Controller()
 export class DriverCashController {
-  constructor(@Inject(DriverCashReconciliations) private readonly cash: DriverCashReconciliations) {}
+  constructor(
+    @Inject(DriverCashReconciliations) private readonly cash: DriverCashReconciliations,
+    @Inject(Deliveries) private readonly deliveries: Deliveries,
+  ) {}
 
   @Get('driver/cash-summary')
   @Operation({ operationId: 'getMyCashSummary', ...READ, permission: 'del.delivery.read.assigned' })
@@ -30,6 +34,15 @@ export class DriverCashController {
     @Query(zodPipe(DriverCashReconciliationPageQuery)) query: z.infer<typeof DriverCashReconciliationPageQuery>,
   ): Promise<Page<DriverCashReconciliationView>> {
     return this.cash.list(actor, { driverId: query.driverId ?? null, from: query.from ?? null, to: query.to ?? null, varianceOnly: query.varianceOnly ?? false }, query.cursor, query.limit);
+  }
+
+  @Get('driver-goods-variances')
+  @Operation({ operationId: 'listDriverGoodsVariances', ...READ, permission: 'del.cash_reconciliation.read' })
+  listDriverGoodsVariances(
+    @CurrentActor() actor: Actor | undefined,
+    @Query(zodPipe(DriverGoodsVariancePageQuery)) query: z.infer<typeof DriverGoodsVariancePageQuery>,
+  ): Promise<Page<DriverGoodsVarianceView>> {
+    return this.deliveries.goodsVariances(actor, { driverId: query.driverId ?? null, from: query.from ?? null, to: query.to ?? null }, query.cursor, query.limit);
   }
 
   @Get('driver-cash-reconciliations/:id')

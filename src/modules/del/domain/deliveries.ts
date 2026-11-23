@@ -1,7 +1,7 @@
 import type { Money } from '@hakorem/kernel';
 
 /** The delivery machine (docs/data-model/del.md); `del.delivery_guard` holds the same edges. */
-export type DeliveryStatus = 'SCHEDULED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'FAILED' | 'RETURNED' | 'CANCELLED';
+export type DeliveryStatus = 'SCHEDULED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'FAILED' | 'RETURNED' | 'WRITTEN_OFF' | 'CANCELLED';
 
 /** The reason a short collection names: a code from the fixed list, `UNKNOWN` when none has that code. */
 export type VarianceReason = { readonly domain: string; readonly requiresNote: boolean } | 'UNKNOWN' | null;

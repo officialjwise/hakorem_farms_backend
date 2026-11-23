@@ -48,6 +48,11 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0325_iam_grant_van_way_out_permissions',
+      '0324_iam_seed_van_way_out_permissions',
+      '0323_ord_delivery_return',
+      '0322_del_delivery_written_off',
+      '0321_mdm_van_write_off_reasons',
       '0320_iam_grant_del_route_permissions',
       '0319_iam_seed_del_route_permissions',
       '0318_del_routes',

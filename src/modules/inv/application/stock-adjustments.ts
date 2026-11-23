@@ -212,6 +212,12 @@ export class StockAdjustments implements ApprovalHandler {
     );
   }
 
+  /** An adjustment as the contract shows it, read in the caller's transaction (ORD's van write-off, B11 continued 4); null when none. It authorises nothing. */
+  async viewIn(tx: Transaction, id: string): Promise<StockAdjustmentView | null> {
+    const record = await this.store.adjustment(tx, id);
+    return record === null ? null : (await this.views(tx, [record]))[0]!;
+  }
+
   /** Values a DRAFT again, and posts it or asks for approval, in the caller's serializable transaction. */
   async submitIn(tx: Transaction, actor: Actor, id: string): Promise<StoredResponse<StockAdjustmentView | ApprovalPendingView>> {
     const before = await this.locked(tx, id, 'DRAFT');

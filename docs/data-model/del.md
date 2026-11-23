@@ -194,3 +194,14 @@ Only `del.delivery_slot` exists, as above, plus `ck_delivery_slot_capacity` (1 t
 - `del.driver_cash_handed_in` gains `route_id` (FK `del.route`, NULL for a delivery on no run), set by the database from
   the proof's stop on insert (`trg_driver_cash_handed_in_route`), so a run's hand-ins are recorded against it (A-345 (g)).
 
+
+## As built (B11 continued 4, migrations 0321 and 0322; FR-DEL-011, the owner's van rule of 2026-11-23, A-360)
+
+- `del.delivery` `status` gains `WRITTEN_OFF`, a posted status (`ck_delivery_status`, `ck_delivery_delivered`); the guard
+  `ck_delivery_transition` gains the edge `FAILED` to `WRITTEN_OFF` and freezes it. New columns, all set exactly when
+  `WRITTEN_OFF` (`ck_delivery_written_off`): `written_off_reason_code` (FK `mdm.reason_code`: `UNACCOUNTED_ON_VAN`, new, or
+  a `WASTAGE` reason), `written_off_value_pesewas` (the posted adjustment's value at cost), `written_off_at` and
+  `write_off_document_id` (FK `platform.business_document`, INV's `STOCK_ADJUSTMENT` at the vehicle). Index
+  `ix_delivery_written_off` (`branch_id`, `written_off_at`, `id`) for the driver variance report's goods line.
+- `RETURNED` is reached by ORD's `returnDeliveryToStock` (the goods moved from the vehicle into the returns hold); the
+  deferred `ck_route_closed` takes `DELIVERED`, `RETURNED` or `WRITTEN_OFF` as off the van.

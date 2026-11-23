@@ -157,3 +157,17 @@ export const ConsentRecordBody = z.strictObject({
 });
 
 export const MyConsentBody = z.strictObject({ accepted: z.boolean() });
+
+/** The contract's `ReturnToStock` (B11 continued 4): the refund goes back to the original method unless store credit is asked. */
+export const ReturnToStockBody = z.strictObject({
+  returnsLocationId: z.uuid(),
+  note: Text(500),
+  refundDestination: z.enum(['ORIGINAL_METHOD', 'STORE_CREDIT']).optional(),
+});
+
+/** The contract's `DeliveryWriteOff` (B11 continued 4). */
+export const DeliveryWriteOffBody = z.strictObject({
+  reasonCode: z.string().min(1).max(64),
+  note: Text(500).optional(),
+  refundDestination: z.enum(['ORIGINAL_METHOD', 'STORE_CREDIT']).optional(),
+});
