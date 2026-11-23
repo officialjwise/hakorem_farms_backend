@@ -101,7 +101,9 @@ export default defineConfig({
       // Excluded by docs/TEST_STRATEGY.md section 6: entry points (the API's and the worker's), the migration runner and
       // test files.
       exclude: ['**/*.spec.ts', '**/index.ts', 'src/main.ts', 'src/worker.ts', 'src/cli/**', 'src/platform/database/migration-runner.ts'],
-      thresholds: {
+      // A CI shard (HK_COVERAGE_SHARD=1, ADR-0082) only records its coverage in its blob report; the thresholds below are
+      // judged once, whole, when the shards' reports are merged (`pnpm test:coverage:merge`), never per shard.
+      thresholds: process.env['HK_COVERAGE_SHARD'] === '1' ? {} : {
         lines: 80,
         statements: 80,
         functions: 80,

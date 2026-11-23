@@ -9,6 +9,7 @@ build/
 
 # Test and coverage output
 coverage/
+.vitest-reports/
 .nyc_output/
 playwright-report/
 test-results/

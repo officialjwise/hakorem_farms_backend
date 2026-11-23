@@ -130,7 +130,7 @@ CI order on every pull request: lint (with the boundary rule), type check, unit,
 
 ## 6. Coverage gates
 
-Coverage is measured with V8 coverage in Vitest, with unit and integration results merged, and enforced in CI.
+Coverage is measured with V8 coverage in Vitest, with unit and integration results merged, and enforced in CI. In CI the unit and integration suites run in three parallel shards (ADR-0082, NFR-016). Each shard writes a blob report holding its coverage (`pnpm test:coverage:shard --shard=<n>/3`, no thresholds judged). The job `unit and integration with the coverage gate (NFR-015)` fails unless every shard passed and all three reports arrived, then merges them (`pnpm test:coverage:merge`) and judges every threshold of this section once over the whole run, the 100 percent gates included. Locally, `pnpm test:coverage` still runs the whole set in one go.
 
 | Gate | Threshold | Applies to |
 | --- | --- | --- |
