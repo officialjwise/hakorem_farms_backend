@@ -61,7 +61,7 @@ describe('B09a continued 2f online order operations answer in the contract shape
     const guestWrite = (path: string, body: object) => request(api.server).post(`/v1${path}`).set('Origin', TEST_ORIGIN).set('Idempotency-Key', randomUUID()).set('Cookie', cookie).send(body);
     expect((await guestWrite(`/shop/carts/${created.body.id as string}/lines`, { productId: eggs, quantity: '2.000' })).status).toBe(200);
     const started = await guestWrite(`/shop/carts/${created.body.id as string}/checkout`, { contactName: 'Ama Serwaa Ofori', contactPhone: '+233244512876', fulfilmentMode: 'COLLECTION', paymentTerms: 'PREPAID' });
-    const refused = await guestWrite(`/shop/checkouts/${started.body.id as string}/place`, { paymentMethod: 'CARD' });
+    const refused = await guestWrite(`/shop/checkouts/${started.body.id as string}/place`, { paymentMethod: 'COD' });
     expect(refused.status).toBe(422);
     expectShape('Error', refused.body);
     const placed = await guestWrite(`/shop/checkouts/${started.body.id as string}/place`, { paymentMethod: 'MOBILE_MONEY', payerPhone: PAYSTACK_MTN_TEST_PHONE, network: 'MTN' });
@@ -70,6 +70,16 @@ describe('B09a continued 2f online order operations answer in the contract shape
     const closed = await guestWrite(`/shop/checkouts/${started.body.id as string}/place`, { paymentMethod: 'MOBILE_MONEY', payerPhone: PAYSTACK_MTN_TEST_PHONE, network: 'MTN' });
     expect(closed.status).toBe(409);
     expectShape('Error', closed.body);
+    // By card (2.30.0, B09c): the hosted page's address in `payment.redirectUrl`.
+    const second = await request(api.server).post('/v1/shop/carts').set('Origin', TEST_ORIGIN).set('Idempotency-Key', randomUUID());
+    const secondCookie = (second.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('__Host-hk_guest='))!.split(';')[0]!;
+    const secondWrite = (path: string, body: object) => request(api.server).post(`/v1${path}`).set('Origin', TEST_ORIGIN).set('Idempotency-Key', randomUUID()).set('Cookie', secondCookie).send(body);
+    expect((await secondWrite(`/shop/carts/${second.body.id as string}/lines`, { productId: eggs, quantity: '1.000' })).status).toBe(200);
+    const cardCheckout = await secondWrite(`/shop/carts/${second.body.id as string}/checkout`, { contactName: 'Kofi Boateng', contactPhone: '+233201234567', fulfilmentMode: 'COLLECTION', paymentTerms: 'PREPAID' });
+    const byCard = await secondWrite(`/shop/checkouts/${cardCheckout.body.id as string}/place`, { paymentMethod: 'CARD' });
+    expect(byCard.status, JSON.stringify(byCard.body)).toBe(201);
+    expect(byCard.body.payment.redirectUrl).toMatch(/^https:\/\/checkout\.paystack\.com\//);
+    expectShape('PlaceOrderResult', byCard.body);
 
     const tracked = await request(api.server).get(`/v1/shop/orders/track/${placed.body.trackingToken as string}`);
     expect(tracked.status).toBe(200);
