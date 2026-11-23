@@ -3879,6 +3879,14 @@ not finished.
 The owner, 2026-11-23 (from the frontend's F12 and F10n): the investor portal moves to its own subdomain, with its own
 host-only session cookie, separate from the console's; provision the subdomain, scope the cookie and test that neither
 session's cookie is sent to, or accepted by, the other.
+The owner, 2026-11-23 (reviews and approvals):
+- Before launch: a release review of the whole system by the owner. Prepare it: what to review and in what order
+  (written in docs/DEPLOYMENT.md's release checklist and the report). Do not deploy to production until the owner signs
+  it off.
+- After launch: branch protection on main, so nothing merges without the owner's approval. Set it up (or, if the
+  repository settings cannot be reached, write the exact steps for the owner), and change CLAUDE.md step 6 to match
+  from that point.
+- During the build: no review per pull request, unchanged.
 Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 ```
 
