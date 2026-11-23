@@ -410,7 +410,7 @@ A counter sale is not a POS aggregate. It is a sales order on channel `POS`, pla
 | A product in `REQUEST_TO_BUY` mode cannot be added to a cart | Domain |
 | A cart line's price is re-resolved at checkout; a changed price is shown before payment | Domain |
 
-**Events:** `whl.BusinessAccountOpened`, `whl.CreditLimitExceeded`, `whl.CreditOverrideApproved`, `whl.AccountPlacedOnHold`, `whl.AccountReleased`, `whl.StatementIssued`, `whl.DunningNoticeDue`, ◆`whl.BadDebtWrittenOff`, `whl.WrittenOffCustomerPaid` (B10 continued 3: money from a customer with a debt written off, for the exception report), `quo.RfqReceived`, `quo.QuoteIssued`, `quo.QuoteRevised`, `quo.QuoteAccepted`, `quo.QuoteDeclined`, `quo.QuoteExpired`, `quo.QuoteConverted`, `shp.CheckoutStarted`, `shp.CheckoutExpired`, `shp.CartAbandoned`.
+**Events:** `whl.BusinessAccountOpened`, `whl.CreditLimitExceeded`, `whl.CreditOverrideApproved`, `whl.AccountPlacedOnHold`, `whl.AccountReleased`, `whl.StatementIssued`, `whl.DunningNoticeDue`, ◆`whl.BadDebtWrittenOff`, `whl.WrittenOffCustomerPaid` (B10 continued 3: money from a customer with a debt written off, for the exception report), `quo.RfqReceived`, `quo.QuoteIssued`, `quo.QuoteRevised`, `quo.QuoteAccepted`, `quo.QuoteDeclined`, `quo.QuoteExpired`, `quo.QuoteConverted`, `quo.QuoteLinkDecidedInStaffBrowser` (B10 continued 4: a decision through the quote link from a browser holding a staff session, for the exception report, abuse case 40), `shp.CheckoutStarted`, `shp.CheckoutExpired`, `shp.CartAbandoned`.
 
 ### 5.13 DEL: delivery and logistics
 

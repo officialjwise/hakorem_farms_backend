@@ -143,3 +143,35 @@ The acceptance links of a version (B10, CR-047, ADR-0074, ADR-0087): one row per
 | `recorded_at` | `timestamptz` | NOT NULL | |
 | `expires_at` | `timestamptz` | NOT NULL, after `recorded_at`, no later than the version's `valid_until` | |
 | `actor_id` | `uuid` | NOT NULL, FK `iam.principal` | |
+
+A version may have several live links (the owner, 2026-11-18, A-324): each opens it while it is live and nobody has revoked it.
+
+### `quo.quote_link_revocation` · LEDGER
+
+One link revoked, with its reason (B10 continued 4, migration 0282, A-324). A revoked link opens nothing (404); the version's other links keep working.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `link_token_id` | `uuid` | NOT NULL, FK `quo.quote_link_token`, UNIQUE (`uq_quote_link_revocation_link`) | revoked once |
+| `reason` | `text` | NOT NULL, 1 to 500 characters | |
+| `recorded_at` | `timestamptz` | NOT NULL | when it was revoked (the application clock) |
+| `actor_id` | `uuid` | NOT NULL, FK `iam.principal` | who revoked it (`quo.quote.issue`) |
+
+### `quo.quote_link_decision` · LEDGER
+
+The acceptance or decline made through a link, with the device and session behind it (B10 continued 4, migration 0282, A-325, abuse case 40). Data category: CONFIDENTIAL (DC-22, DC-27).
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `link_token_id` | `uuid` | NOT NULL, FK `quo.quote_link_token`; a link of this version nobody revoked (`quo.quote_link_decision_check`, HK004) | which link decided it |
+| `quote_version_id` | `uuid` | NOT NULL, FK `quo.quote_version`, UNIQUE (`uq_quote_link_decision_version`) | decided once across all its links |
+| `decision` | `text` | `ACCEPTED`, `DECLINED` | |
+| `ip` | `inet` | NULL | the address as the platform resolves it for public calls |
+| `user_agent` | `text` | NULL, at most 500 characters | |
+| `staff_principal_id` | `uuid` | NULL, FK `iam.principal`; set with `staff_session_id` or neither (`ck_quote_link_decision_staff`) | whose live staff session the browser also held |
+| `staff_session_id` | `uuid` | NULL | that session (IAM's id; no foreign key into IAM's session table) |
+| `decided_at` | `timestamptz` | NOT NULL | `PublicQuote.decidedAt` for a decline through the link |
+| `recorded_at` | `timestamptz` | NOT NULL | |
+| `actor_id` | `uuid` | NOT NULL, FK `iam.principal` | the Storefront principal |
