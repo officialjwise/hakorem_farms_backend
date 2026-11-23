@@ -1,11 +1,11 @@
-import { Body, Controller, Headers, Inject, Param, Post, Res } from '@nestjs/common';
+import { Body, Controller, Get, Headers, Inject, Param, Post, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import type { z } from 'zod';
 import type { Actor } from '../../../platform/context/request-context';
 import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
-import type { DriverCashReconciliationView } from '../../del';
+import type { DriverCashHolderView, DriverCashReconciliationView } from '../../del';
 import { TillDriverCash } from '../application/till-driver-cash';
 import { TillInvoicePayments, type TillInvoicePaymentView } from '../application/till-invoices';
 import { DriverCashHandInCreate, IdParam, TillInvoicePaymentCreate } from './schemas';
@@ -47,5 +47,16 @@ export class TillInvoicesController {
     const stored = await this.driverCash.handIn(actor, id, body, key, deviceCredential);
     res.status(stored.status);
     return stored.body;
+  }
+
+  /** The drivers holding cash at the shift's branch, for its own cashier on its till's device (CR-063); no amount. */
+  @Get('shifts/:id/driver-cash-holders')
+  @Operation({ operationId: 'listShiftDriverCashHolders', access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console', permission: 'pos.sale.create' })
+  listShiftDriverCashHolders(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Headers('x-device-credential') deviceCredential: string | undefined,
+  ): Promise<{ readonly data: readonly DriverCashHolderView[] }> {
+    return this.driverCash.holders(actor, id, deviceCredential);
   }
 }

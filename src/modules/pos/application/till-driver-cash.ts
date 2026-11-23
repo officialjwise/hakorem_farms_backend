@@ -2,7 +2,7 @@ import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import type { UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
-import type { DriverCashReconciliations, DriverCashReconciliationView } from '../../del';
+import type { DriverCashHolderView, DriverCashReconciliations, DriverCashReconciliationView } from '../../del';
 import type { OwnOpenShift } from './own-open-shift';
 
 /** The contract's `DriverCashHandInCreate`. */
@@ -50,6 +50,22 @@ export class TillDriverCash {
       const response: StoredResponse<DriverCashReconciliationView> = { status: 201, body: view };
       await this.idempotency.complete(tx, claim.id, response);
       return response;
+    });
+  }
+
+  /**
+   * `listShiftDriverCashHolders` (CR-063, added by B11 continued 6 with the parent session's leave): who the cashier
+   * can take a driver's cash from, on the same shift check as the hand-in (the shift's own cashier, an enrolled device
+   * of its till, 404 for an unknown shift, 422 `SHIFT_NOT_OPEN` once it stops taking cash). DEL lists each driver holding
+   * a collection at the shift's branch not yet handed in, and how many; never an amount (a blind count). The caller is
+   * left out: the cashier is never the driver.
+   */
+  holders(actor: Actor | undefined, shiftId: string, deviceCredential: string | undefined): Promise<{ readonly data: readonly DriverCashHolderView[] }> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const { shift, register } = await this.ownShift.lockIn(tx, actor, shiftId, deviceCredential);
+      this.ownShift.takesCashIn(shift);
+      const data = (await this.cash.holdersIn(tx, register.branchId)).filter((h) => h.driver.id !== actor!.principalId);
+      return { data };
     });
   }
 }

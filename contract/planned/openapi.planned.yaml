@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.34.0"
+  version: "2.35.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -3812,110 +3812,7 @@ paths:
   "/deliveries/{id}/assign": {}
   "/deliveries/{id}/reschedule": {}
   "/deliveries/{id}/return-to-stock": {}
-  "/deliveries/{id}/cancel":
-    post:
-      operationId: cancelDelivery
-      tags:
-        - del
-      summary: "Cancel a delivery before dispatch"
-      description: "Permission: `del.delivery.assign`."
-      x-permission: del.delivery.assign
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReasonCodeRequest"
-            example:
-              reasonCode: CUSTOMER_CANCELLED
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Delivery"
-              example:
-                id: "019a7af0-47f8-7b3e-8076-bcb6e7053594"
-                deliveryNo: null
-                status: SCHEDULED
-                order:
-                  id: "019a7b07-f6f4-7d65-829e-df301289580d"
-                  docType: SALES_ORDER
-                  number: SO-2026-DDW-004216
-                slot:
-                  id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
-                  date: "2026-11-14"
-                  startsAt: "10:00"
-                  endsAt: "12:00"
-                  available: true
-                  remaining: 4
-                deliveryZone:
-                  id: "019a7a93-5c09-76f4-bc2c-78125a54f0f0"
-                  code: ACC-EAST
-                  name: "Accra East: Madina, Adenta, East Legon"
-                recipientName: "Ama Serwaa Ofori"
-                recipientPhone: "+233244512876"
-                address:
-                  recipientName: "Ama Serwaa Ofori"
-                  recipientPhone: "+233244512876"
-                  line1: "House 14, Ashaley Botwe Road, near the Methodist church"
-                  area: Madina
-                  city: Accra
-                  region: "Greater Accra"
-                  digitalAddress: GM-091-4471
-                  directions: "Blue gate opposite Sika Pharmacy"
-                latitude: "5.687214"
-                longitude: "-0.166402"
-                contents:
-                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
-                    name: "Full chicken, 15 kg pack"
-                    quantity: "1.000"
-                    uom: PACK
-                    weightKg: "14.650"
-                driver: null
-                vehicle: null
-                codDuePesewas: 0
-                codCollectedPesewas: null
-                attemptCount: 0
-                dispatchedAt: null
-                deliveredAt: null
-                proof: null
-                deliveryNoteDocumentId: null
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/deliveries/{id}/cancel": {}
   "/routes": {}
   "/routes/{id}": {}
   "/routes/{id}/stops": {}
@@ -3925,70 +3822,7 @@ paths:
   "/driver/deliveries/{id}/on-the-way": {}
   "/driver/deliveries/{id}/proof": {}
   "/driver/deliveries/{id}/fail": {}
-  "/driver/sync":
-    post:
-      operationId: syncDriverEvents
-      tags:
-        - del
-      summary: "Sync proofs and failures captured without signal"
-      description: "Permission: `del.proof.create`. Ownership: deliveries assigned to the caller."
-      x-permission: del.proof.create
-      parameters:
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DriverSyncBatch"
-            example:
-              proofs:
-                - deliveryId: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
-                  proof:
-                    id: "019a7b0a-be6d-70d5-b60d-162c01708f09"
-                    recipientName: "Asantewaa Boateng"
-                    photoFileId: "019a7b0a-fc4b-749c-99d4-529af4d2cb78"
-                    codCollectedPesewas: 24000
-                    capturedAt: "2026-11-13T11:52:00Z"
-              failures: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DriverSyncResult"
-              example:
-                results:
-                  - clientId: "019a7b0a-be6d-70d5-b60d-162c01708f09"
-                    deliveryId: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
-                    outcome: APPLIED
-                    reason: null
-                  - clientId: "019a7b0b-1b3a-7e80-a3b8-f0d26e8369b0"
-                    deliveryId: "019a7b09-2c4a-7048-a580-0d5ad3738638"
-                    outcome: DUPLICATE
-                    reason: null
-                serverTime: "2026-11-13T13:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/driver/sync": {}
   "/driver/cash-summary": {}
   "/driver-cash-reconciliations":
     post:
@@ -30001,6 +29835,74 @@ components:
       required:
         - data
         - asOf
+    ProofOfDeliveryLine:
+      type: object
+      description: "What the customer kept of one delivered line (CR-055), in the line's own unit."
+      properties:
+        orderLineId:
+          type: string
+          format: uuid
+          description: "A line of the delivery's `contents`."
+        deliveredQty:
+          $ref: "#/components/schemas/Quantity"
+        dispatchedQty:
+          allOf:
+            - $ref: "#/components/schemas/Quantity"
+          readOnly: true
+          description: "What was dispatched of the line (answered, never sent)."
+      required:
+        - orderLineId
+        - deliveredQty
+      additionalProperties: false
+    DeliveryCancel:
+      type: object
+      description: "Cancelling a dispatched delivery before it leaves the farm (A-364 (a)): why, and where its goods go back to."
+      properties:
+        reasonCode:
+          type: string
+          description: "A `CANCELLATION` reason (`listReasonCodes?domain=CANCELLATION`)."
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Required when the reason asks for a note."
+        returnsLocationId:
+          type: string
+          format: uuid
+          description: "A live `RETURNS_HOLD` of the delivery's branch: the goods are not sellable until inspected."
+        refundDestination:
+          type: string
+          enum:
+            - ORIGINAL_METHOD
+            - STORE_CREDIT
+          description: "Where what the customer paid goes once the credit note is issued; `ORIGINAL_METHOD` by default. Store credit only for a customer account."
+      required:
+        - reasonCode
+        - returnsLocationId
+      additionalProperties: false
+    DriverCashHolder:
+      type: object
+      description: "A driver holding cash on delivery at the shift's branch that is not yet handed in (CR-063). No amount: the cashier counts blind, and `handInDriverCash` answers what was expected."
+      properties:
+        driver:
+          $ref: "#/components/schemas/PrincipalRef"
+        collections:
+          type: integer
+          minimum: 1
+          description: "How many collections the driver holds at the branch, not yet handed in."
+      required:
+        - driver
+        - collections
+    DriverCashHolderList:
+      type: object
+      description: "The drivers a cashier can take cash on delivery from at the shift's branch (CR-063), by name; the caller is never listed."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DriverCashHolder"
+      required:
+        - data
     CashMovementPage:
       type: object
       description: "A page of `CashMovement` results."
@@ -34383,6 +34285,24 @@ components:
           type:
             - string
             - "null"
+        lines:
+          type: array
+          description: "A part delivery (2.35.0, CR-055): what the customer kept of each line the driver named; a line not named was kept whole. Empty when everything was kept."
+          items:
+            $ref: "#/components/schemas/ProofOfDeliveryLine"
+        returnedReasonCode:
+          type:
+            - string
+            - "null"
+          description: "Why the rest came back: a `DELIVERY_FAILURE` reason (2.35.0, CR-055); null when everything was kept."
+        returnedNote:
+          type:
+            - string
+            - "null"
+        returnedCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The credit for what came back, as the credit note prices it (2.35.0, ADR-0093); 0 when everything was kept. The cash due at the door was the delivery's `codDuePesewas` less this, never below zero."
       required:
         - id
         - recipientName
@@ -34394,6 +34314,10 @@ components:
         - codCollectedPesewas
         - codVarianceReasonCode
         - codVarianceNote
+        - lines
+        - returnedReasonCode
+        - returnedNote
+        - returnedCreditPesewas
         - capturedAt
     Delivery:
       type: object
@@ -34809,6 +34733,21 @@ components:
         capturedAt:
           type: string
           format: date-time
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 200
+          description: "A part delivery (2.35.0, CR-055): what the customer kept of each line named, in the line's own unit; a line not named was kept whole; absent means everything was delivered. Never more than was dispatched (`ABOVE_DISPATCHED`); a weighed line (a catch-weight pack) kept or sent back whole (`WEIGHED_LINE_WHOLE`); something must be kept (`NOTHING_DELIVERED`: record a failed attempt instead)."
+          items:
+            $ref: "#/components/schemas/ProofOfDeliveryLine"
+        returnedReasonCode:
+          type: string
+          description: "Why the rest came back: a `DELIVERY_FAILURE` reason, required when a line was kept short (`REASON_REQUIRED`) and refused otherwise (`REASON_NOT_NEEDED`)."
+        returnedNote:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Required when the returned reason asks for a note (`NOTE_REQUIRED`), refused when nothing came back."
       required:
         - id
         - recipientName
@@ -34901,11 +34840,21 @@ components:
             - string
             - "null"
           description: "Why it was rejected, or the exception raised, for example cash collected differs from the amount due."
+        firstOutcome:
+          type:
+            - string
+            - "null"
+          enum:
+            - APPLIED
+            - APPLIED_WITH_EXCEPTION
+            - null
+          description: "On a `DUPLICATE`, what the record answered when it was first applied (2.35.0, CR-057 point 3); null otherwise."
       required:
         - clientId
         - deliveryId
         - outcome
         - reason
+        - firstOutcome
     DriverSyncResult:
       type: object
       properties:

@@ -14,7 +14,7 @@ import type { MasterDataRefs } from '../../mdm';
 import type { Payments, Refunds } from '../../pay';
 import { canMove, type OrderStatus } from '../domain/order';
 import { planReturnRefund } from '../domain/order-return';
-import { judgeWayOut, type WayOutFacts } from '../domain/van-return';
+import { judgeCancelReturn, judgeWayOut, type WayOutFacts } from '../domain/van-return';
 import type { FulfilmentStore, PickRecord } from './fulfilment-store';
 import type { ApprovalPendingView } from './order-reversals';
 import type { OrderHeaderRecord, OrderStore } from './order-store';
@@ -22,6 +22,8 @@ import type { VanRefundDestination, VanReturnRecord, VanReturnStore } from './va
 
 const RETURN = 'del.delivery.return';
 const WRITE_OFF = 'del.delivery.write_off';
+/** cancelDelivery's permission, as the contract planned it: the Manager's and the Owner's. */
+const CANCEL = 'del.delivery.assign';
 /** The goods move from the vehicle into the returns hold as any move between two of the branch's own locations. */
 const OFF_THE_VEHICLE = 'TRANSFER_INTERNAL';
 /** The credit note's reason: a failed delivery whose goods came back or were written off (migration 0321). */
@@ -42,6 +44,14 @@ export interface ReturnToStockRequest {
 export interface WriteOffRequest {
   readonly reasonCode: string;
   readonly note: string | null;
+  readonly refundDestination: VanRefundDestination;
+}
+
+/** The contract's `DeliveryCancel` (A-364 (a)). */
+export interface CancelRequest {
+  readonly reasonCode: string;
+  readonly note: string | null;
+  readonly returnsLocationId: string;
   readonly refundDestination: VanRefundDestination;
 }
 
@@ -132,6 +142,59 @@ export class VanReturns {
       const view = await this.deliveries.returnedIn(tx, actorId, delivery.id, body.returnsLocationId, at);
       await this.postIn(tx, actor!, delivery, header, { wayOut: 'RETURN_TO_STOCK', returnsLocationId: body.returnsLocationId, reasonCode: null, stockAdjustmentId: null, note: body.note, refundDestination: body.refundDestination }, at);
       return { status: 200, body: view };
+    });
+  }
+
+  /**
+   * cancelDelivery (FR-ORD-014, A-364 (a)): a dispatched delivery cancelled before it left the farm, its goods still on
+   * the van on no planned or started run. FR-ORD-014 allows no cancel after dispatch but the delivery return, and the
+   * order machine has no DISPATCHED to CANCELLED, so the cancellation is that return through the machine's own edges:
+   * DEL marks the delivery CANCELLED with its `CANCELLATION` reason; each dispatched pick moves from the vehicle into the
+   * branch's returns hold, not sellable until inspected; the order moves DISPATCHED to DELIVERY_FAILED and on to RETURNED,
+   * each step recorded with the cancellation's reason; the whole document is credited and the refund asked for exactly
+   * as `returnDeliveryToStock`'s.
+   */
+  cancel(actor: Actor | undefined, id: string, body: CancelRequest, key: string): Promise<StoredResponse<DeliveryView>> {
+    return this.command(actor, CANCEL, 'cancelDelivery', id, body, key, async (tx, delivery, header) => {
+      const at = this.clock.now();
+      const actorId = actor!.principalId;
+      // The delivery's own state is answered first; DEL judges it again, with its run, as it marks it CANCELLED.
+      if (delivery.status !== 'SCHEDULED' && delivery.status !== 'ASSIGNED') throw invalidState(`delivery ${delivery.id}`, delivery.status);
+      const location = (await this.refs.locationsIn(tx, [body.returnsLocationId])).get(body.returnsLocationId);
+      const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
+      const broken = judgeCancelReturn({
+        branchId: delivery.branchId,
+        orderStatus: header.status,
+        returnsLocation: location === undefined ? 'MISSING' : { kind: location.isVirtual ? 'VIRTUAL' : location.kind, branchId: location.branchId, isLive: location.isLive },
+        reason: reason === undefined ? 'UNKNOWN' : { code: reason.code, domain: reason.domain, requiresNote: reason.requiresNote },
+        note: body.note,
+        refundDestination: body.refundDestination,
+        hasCustomer: header.customerId !== null,
+      });
+      if (broken.some((b) => b.rule === 'INVALID_STATE_TRANSITION')) throw invalidState(`order ${header.id}`, header.status);
+      if (broken.length > 0) throw new DeliveryInvalidError(broken);
+      const view = await this.deliveries.cancelledIn(tx, actorId, delivery.id, { reasonCode: body.reasonCode, returnsLocationId: body.returnsLocationId }, at);
+      for (const { pick, productId } of await this.picksOf(tx, header.id)) {
+        await this.stock.postIn(tx, actorId, {
+          movementType: OFF_THE_VEHICLE,
+          productId,
+          stockUnitId: pick.stockUnitId,
+          branchId: delivery.branchId,
+          fromLocationId: delivery.vehicleLocationId!,
+          toLocationId: body.returnsLocationId,
+          qty: Quantity.parse(pick.qtyBase),
+          weight: pick.weightKg === null ? null : { kg: Weight.parseKg(pick.weightKg), source: pick.weightSource! },
+          sourceDocumentId: delivery.id,
+          sourceLineRef: pick.id,
+          occurredAt: at,
+        });
+      }
+      const why = `${delivery.deliveryNo} cancelled before it left (${body.reasonCode})`;
+      await this.moveIn(tx, header, 'DELIVERY_FAILED', `Delivery ${why}`, at, actorId);
+      const note = body.note ?? `Delivery ${why}`;
+      await this.postIn(tx, actor!, delivery, header, { wayOut: 'RETURN_TO_STOCK', returnsLocationId: body.returnsLocationId, reasonCode: null, stockAdjustmentId: null, note, refundDestination: body.refundDestination }, at);
+      await this.audit.record(tx, { module: 'ord', action: 'CANCEL_DELIVERY', entityType: 'SalesOrder', entityId: header.id, branchId: header.branchId, before: { status: 'DISPATCHED' }, after: { status: 'RETURNED', deliveryId: delivery.id, reasonCode: body.reasonCode, returnsLocationId: body.returnsLocationId } });
+      return { status: 200, body: { ...view } };
     });
   }
 
@@ -251,6 +314,42 @@ export class VanReturns {
     if (header.status !== 'DELIVERY_FAILED') throw invalidState(`order ${header.id}`, header.status);
     await this.moveIn(tx, header, 'DISPATCHED', `Reattempt of ${moved.deliveryNo} on ${moved.slotDate} ${moved.slotStartsAt}: ${moved.reason}`, new Date(moved.rescheduledAt), event.actorId);
     await this.audit.record(tx, { module: 'ord', action: 'REATTEMPT', entityType: 'SalesOrder', entityId: header.id, branchId: header.branchId, before: { status: 'DELIVERY_FAILED' }, after: { status: 'DISPATCHED', deliveryId: moved.deliveryId, slotId: moved.toSlotId } });
+  }
+
+  /**
+   * A part delivery's credit (CR-055, ADR-0093), in DEL's transaction once the proof is recorded and ORD has moved what
+   * came back into the returns hold: the credit note of the returned quantities asked for through BIL's `CREDIT_NOTE`
+   * approval (the driver its maker, so a different person approves it), recorded as the delivery's way out into the
+   * returns hold, and, once the credit note is issued, what the customer paid beyond what the document still asks
+   * refunded to the original method through PAY's `REFUND` approval (here when issued at once, else on its approval).
+   */
+  async partReturnedIn(
+    tx: Transaction,
+    maker: Actor,
+    facts: { readonly deliveryId: string; readonly salesOrderId: string; readonly billingDocumentId: string; readonly branchId: string; readonly returnsLocationId: string; readonly note: string },
+    lines: readonly { readonly lineId: string; readonly quantity: string }[],
+    at: Date,
+  ): Promise<{ readonly creditNoteId: string; readonly approvalRequestId: string | null }> {
+    const credit = await this.billing.requestCreditIn(tx, maker, facts.billingDocumentId, { reasonCode: CREDIT_REASON, note: facts.note, lines });
+    const id = this.nextId();
+    await this.store.insertPosted(tx, {
+      id,
+      deliveryId: facts.deliveryId,
+      salesOrderId: facts.salesOrderId,
+      originalBillingDocumentId: facts.billingDocumentId,
+      branchId: facts.branchId,
+      createdBy: maker.principalId,
+      at,
+      creditNoteId: credit.creditNoteId,
+      wayOut: 'RETURN_TO_STOCK',
+      returnsLocationId: facts.returnsLocationId,
+      reasonCode: null,
+      stockAdjustmentId: null,
+      note: facts.note,
+      refundDestination: 'ORIGINAL_METHOD',
+    });
+    if (credit.approvalRequestId === null) await this.refundIn(tx, (await this.store.ofCreditNote(tx, credit.creditNoteId))!, at);
+    return { creditNoteId: credit.creditNoteId, approvalRequestId: credit.approvalRequestId };
   }
 
   private async assertNoPendingWriteOff(tx: Transaction, deliveryId: string): Promise<void> {

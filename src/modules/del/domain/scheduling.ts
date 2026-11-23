@@ -81,3 +81,24 @@ export function judgeBooking(f: BookingFacts): SchedulingRule[] {
   if (!same && f.slot.booked >= f.slot.capacity) broken.push({ field: '/slotId', rule: 'SLOT_FULL' });
   return broken;
 }
+
+export interface CancellationFacts {
+  readonly status: DeliveryStatus;
+  /** The delivery is a stop of a run that is PLANNED or IN_PROGRESS. */
+  readonly onLiveRun: boolean;
+}
+
+/** Still at the farm: its goods wait on the van and no driver has set off with them. */
+const CANCELLABLE: ReadonlySet<DeliveryStatus> = new Set(['SCHEDULED', 'ASSIGNED']);
+
+/**
+ * A dispatched delivery is cancelled only before it leaves (A-364 (a); FR-ORD-014: "a cancel after dispatch is not
+ * allowed; use delivery return"): its goods still wait on the van, on no planned or started run (a run's stop must end
+ * DELIVERED, RETURNED or WRITTEN_OFF, `ck_route_closed`). One on its way is the driver's to deliver or fail; a failed one
+ * goes back through `returnDeliveryToStock`; a finished one is frozen.
+ */
+export function judgeCancellation(f: CancellationFacts): SchedulingRule[] {
+  if (!CANCELLABLE.has(f.status)) return state();
+  if (f.onLiveRun) return [{ field: '', rule: 'ON_A_RUN' }];
+  return [];
+}

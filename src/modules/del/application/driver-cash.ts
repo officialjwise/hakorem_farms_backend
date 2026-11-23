@@ -71,6 +71,12 @@ export interface DriverCashReconciliationView {
 }
 
 /** The contract's `DriverCashSummary`: the cash a driver still holds. */
+/** The contract's `DriverCashHolder` (CR-063): a driver holding cash at a branch, and how many collections; no amount. */
+export interface DriverCashHolderView {
+  readonly driver: PrincipalRef;
+  readonly collections: number;
+}
+
 export interface DriverCashSummaryView {
   readonly driver: PrincipalRef;
   readonly date: string;
@@ -186,6 +192,23 @@ export class DriverCashReconciliations {
     const view = (await this.viewsIn(tx, [record]))[0]!;
     await this.audit.record(tx, { module: 'del', action: 'HAND_IN', entityType: 'DriverCashReconciliation', entityId: id, branchId: request.branchId, before: null, after: { ...view } });
     return view;
+  }
+
+  /**
+   * The drivers who hold cash on delivery at the branch, for POS's `listShiftDriverCashHolders` in its transaction
+   * (CR-063): each driver with at least one collection there not yet handed in, and how many, by name. No amount: the
+   * cashier counts blind, and `handInDriverCash` answers what was expected. It authorises nothing (POS's read has, on
+   * the cashier's own open shift).
+   */
+  async holdersIn(tx: Transaction, branchId: string): Promise<DriverCashHolderView[]> {
+    const found = await this.store.holders(tx, branchId);
+    const names = await this.principals.refs(
+      tx,
+      found.map((h) => h.driverId),
+    );
+    return found
+      .map((h) => ({ driver: names.get(h.driverId) ?? { id: h.driverId, displayName: h.driverId }, collections: h.collections }))
+      .sort((a, b) => a.driver.displayName.localeCompare(b.driver.displayName) || a.driver.id.localeCompare(b.driver.id));
   }
 
   /**

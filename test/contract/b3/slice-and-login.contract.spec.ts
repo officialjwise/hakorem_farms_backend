@@ -167,7 +167,7 @@ import {
   RfqUpdate as QuoRfqUpdate,
 } from '../../../src/modules/quo/interface/schemas';
 import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
-import { DeliveryAssign, DeliveryFailure, DeliveryReschedule, OnTheWay, ProofOfDeliveryCreate, RouteCreate, RouteStopsReplace, SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
+import { DeliveryAssign, DeliveryFailure, DeliveryReschedule, DriverSyncBatch, OnTheWay, ProofOfDeliveryCreate, RouteCreate, RouteStopsReplace, SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
 import {
   ConsentRecordBody,
@@ -183,6 +183,7 @@ import {
   ReturnCreateBody,
   ReturnToStockBody,
   DeliveryWriteOffBody,
+  DeliveryCancelBody,
   ShortPickCreateBody,
   SubstitutionCreateBody,
 } from '../../../src/modules/ord/interface/schemas';
@@ -555,6 +556,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     packFulfilment: PackRecordBody,
     dispatchFulfilment: DispatchRecordBody,
     recordProofOfDelivery: ProofOfDeliveryCreate,
+    syncDriverEvents: DriverSyncBatch,
     createRoute: RouteCreate,
     reorderRouteStops: RouteStopsReplace,
     markOnTheWay: OnTheWay,
@@ -563,6 +565,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     assignDelivery: DeliveryAssign,
     rescheduleDelivery: DeliveryReschedule,
     writeOffDelivery: DeliveryWriteOffBody,
+    cancelDelivery: DeliveryCancelBody,
     cancelFulfilment: FulfilmentReasonBody,
     proposeSubstitution: SubstitutionCreateBody,
     proposeShortPick: ShortPickCreateBody,

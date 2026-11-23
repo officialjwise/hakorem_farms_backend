@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.34.0"
+  version: "2.35.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -66398,6 +66398,10 @@ paths:
                           codCollectedPesewas: 0
                           codVarianceReasonCode: null
                           codVarianceNote: null
+                          lines: []
+                          returnedReasonCode: null
+                          returnedNote: null
+                          returnedCreditPesewas: 0
                           capturedAt: "2026-11-13T11:48:00Z"
                         deliveryNoteDocumentId: "019a7ae0-d078-7982-8eba-a0fa0e8519d7"
                         currency: GHS
@@ -66574,6 +66578,10 @@ paths:
                           codCollectedPesewas: 0
                           codVarianceReasonCode: null
                           codVarianceNote: null
+                          lines: []
+                          returnedReasonCode: null
+                          returnedNote: null
+                          returnedCreditPesewas: 0
                           capturedAt: "2026-11-13T11:48:00Z"
                         deliveryNoteDocumentId: "019a7ae0-d078-7982-8eba-a0fa0e8519d7"
                         currency: GHS
@@ -67037,8 +67045,10 @@ paths:
       operationId: cancelDelivery
       tags:
         - del
-      summary: "Cancel a delivery before dispatch"
-      description: "Permission: `del.delivery.assign`."
+      summary: "Cancel a dispatched delivery before it leaves"
+      description: "A dispatched delivery cancelled before it left the farm (2.35.0, B11 continued 6; FR-ORD-014, A-364 (a)): its goods still wait on the van (`SCHEDULED` or `ASSIGNED`) and it is a stop of no planned or started run. FR-ORD-014 allows no cancel of an order after dispatch but the delivery return, so the cancellation **is** that return, in one transaction: the delivery `CANCELLED` with its `CANCELLATION` reason (its slot freed); each dispatched pick moved from the vehicle into the branch's returns hold (`returnsLocationId`, a live `RETURNS_HOLD` of the delivery's branch), not sellable until inspected; the order moved `DISPATCHED` to `DELIVERY_FAILED` to `RETURNED`, each step with the cancellation's reason; the whole document credited through the `CREDIT_NOTE` approval and, once that credit note is issued, what the customer paid beyond what the document still asks refunded through the `REFUND` approval, to the original method or to store credit (`refundDestination`, a customer account only), exactly as `returnDeliveryToStock`. `del.DeliveryCancelled` in the outbox. Audited. **Refusals:** a delivery on its way, failed (use `returnDeliveryToStock`) or finished 422 `INVALID_STATE_TRANSITION`; 422 `DELIVERY_INVALID` with `ON_A_RUN`, `NOT_A_RETURNS_HOLD`, `REASON_UNKNOWN`, `REASON_NOT_ALLOWED` (not a `CANCELLATION` reason), `NOTE_REQUIRED` or `STORE_CREDIT_NEEDS_CUSTOMER`; another branch's delivery 403. The same key answers the first cancellation.\n\nPermission: `del.delivery.assign`."
+      x-error-codes:
+        - DELIVERY_INVALID
       x-permission: del.delivery.assign
       parameters:
         - name: id
@@ -67057,9 +67067,11 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/ReasonCodeRequest"
+              $ref: "#/components/schemas/DeliveryCancel"
             example:
               reasonCode: CUSTOMER_CANCELLED
+              returnsLocationId: "019a7a90-1c3e-7d2a-9b41-6e5f4a3b2c10"
+              refundDestination: ORIGINAL_METHOD
       responses:
         "200":
           description: OK
@@ -67072,8 +67084,8 @@ paths:
                 $ref: "#/components/schemas/Delivery"
               example:
                 id: "019a7af0-47f8-7b3e-8076-bcb6e7053594"
-                deliveryNo: null
-                status: SCHEDULED
+                deliveryNo: DLN-2026-DDW-000216
+                status: CANCELLED
                 order:
                   id: "019a7b07-f6f4-7d65-829e-df301289580d"
                   docType: SALES_ORDER
@@ -67108,18 +67120,24 @@ paths:
                     quantity: "1.000"
                     uom: PACK
                     weightKg: "14.650"
-                driver: null
-                vehicle: null
+                driver:
+                  id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                  displayName: "Kwesi Appiah"
+                vehicle:
+                  id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+                  code: VAN-GT4521
+                  name: "Delivery van GT-4521-24"
+                  kind: VEHICLE
                 codDuePesewas: 0
                 codCollectedPesewas: null
                 attemptCount: 0
-                dispatchedAt: null
+                dispatchedAt: "2026-11-13T11:00:00Z"
                 deliveredAt: null
                 proof: null
                 deliveryNoteDocumentId: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
+                version: 4
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -68250,7 +68268,7 @@ paths:
       tags:
         - del
       summary: "Record proof of delivery and cash collected"
-      description: "Completes a delivery assigned to the caller that is `ASSIGNED` or `OUT_FOR_DELIVERY` (else 422 `INVALID_STATE_TRANSITION`), in one serializable transaction (B11 continued, FR-DEL-008, FR-DEL-009): the recipient's name and a `signatureFileId` (a `SIGNATURE` file) or a `photoFileId` (a `PROOF_OF_DELIVERY` file), each uploaded by the caller and not held by the malware scan; the position when known; and the cash collected. The cash is never above the amount due fixed at dispatch; less than due needs `codVarianceReasonCode` (a `COD_VARIANCE` reason) and its `codVarianceNote` when the reason asks for one, and is reported short for the driver variance report and the daily exception report; collected cash is recorded as a payment held by the driver (account 1020), allocated to the delivery's billing document, and handed in later at a till shift (B11 continued 2). The order's goods are issued from the vehicle to the customer, and the order moves to `DELIVERED`, then `COMPLETED` when nothing is left to pay. Refusals: 422 `DELIVERY_INVALID` with `EVIDENCE_REQUIRED`, `FILE_UNKNOWN`, `FILE_NOT_PROOF`, `FILE_NOT_YOURS`, `FILE_NOT_CLEAN`, `ABOVE_DUE`, `REASON_REQUIRED`, `REASON_UNKNOWN`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `REASON_NOT_NEEDED`, `POSITION_INCOMPLETE`, `CAPTURED_BEFORE_DISPATCH` or `ID_IN_USE` (the proof's id already used for another delivery); another driver's delivery 403.\n\nPermission: `del.proof.create`. Ownership: deliveries assigned to the caller.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the delivery as it stands and records nothing again."
+      description: "Completes a delivery assigned to the caller that is `ASSIGNED` or `OUT_FOR_DELIVERY` (else 422 `INVALID_STATE_TRANSITION`), in one serializable transaction (B11 continued, FR-DEL-008, FR-DEL-009): the recipient's name and a `signatureFileId` (a `SIGNATURE` file) or a `photoFileId` (a `PROOF_OF_DELIVERY` file), each uploaded by the caller and not held by the malware scan; the position when known; and the cash collected. The cash is never above the amount due fixed at dispatch; less than due needs `codVarianceReasonCode` (a `COD_VARIANCE` reason) and its `codVarianceNote` when the reason asks for one, and is reported short for the driver variance report and the daily exception report; collected cash is recorded as a payment held by the driver (account 1020), allocated to the delivery's billing document, and handed in later at a till shift (B11 continued 2). The order's goods are issued from the vehicle to the customer, and the order moves to `DELIVERED`, then `COMPLETED` when nothing is left to pay. Refusals: 422 `DELIVERY_INVALID` with `EVIDENCE_REQUIRED`, `FILE_UNKNOWN`, `FILE_NOT_PROOF`, `FILE_NOT_YOURS`, `FILE_NOT_CLEAN`, `ABOVE_DUE`, `REASON_REQUIRED`, `REASON_UNKNOWN`, `REASON_NOT_ALLOWED`, `NOTE_REQUIRED`, `REASON_NOT_NEEDED`, `POSITION_INCOMPLETE`, `CAPTURED_BEFORE_DISPATCH` or `ID_IN_USE` (the proof's id already used for another delivery); another driver's delivery 403. **A part delivery (2.35.0, CR-055, ADR-0093):** `lines` names what the customer kept of each line (a line not named was kept whole), with a `DELIVERY_FAILURE` `returnedReasonCode`; what was kept is issued for the sale from the vehicle, the rest goes from the vehicle into the branch's returns hold (not sellable until inspected), and the document is credited for it through the `CREDIT_NOTE` approval (the driver its maker; the delivery fee is never credited). The cash due at the door is the delivery's `codDuePesewas` less that credit (`proof.returnedCreditPesewas`), never below zero: never more is collected, less only with a `COD_VARIANCE` reason as before; what the customer paid ahead beyond what they kept is refunded to the original method once the credit note is issued. The delivery's `codDuePesewas` itself never changes. Refusals as 422 `DELIVERY_INVALID`: `LINE_UNKNOWN`, `LINE_REPEATED`, `ABOVE_DISPATCHED`, `WEIGHED_LINE_WHOLE`, `NOTHING_DELIVERED`, `REASON_REQUIRED`, `NOTE_REQUIRED` (`returnedNote`, where the reason asks for one), `REASON_UNKNOWN`, `REASON_NOT_ALLOWED`, `REASON_NOT_NEEDED`, `UNIT_SPLIT` (a quantity that is not a whole number of the line's base units), `NO_RETURNS_HOLD`.\n\nPermission: `del.proof.create`. Ownership: deliveries assigned to the caller.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the delivery as it stands and records nothing again."
       x-permission: del.proof.create
       parameters:
         - name: id
@@ -68485,7 +68503,7 @@ paths:
       tags:
         - del
       summary: "Sync proofs and failures captured without signal"
-      description: "Permission: `del.proof.create`. Ownership: deliveries assigned to the caller."
+      description: "The proofs and failures the caller's phone captured without signal (2.35.0, B11 continued 6; CR-057 point 3, OFFLINE_SYNC). Each record is applied in its own transaction by exactly the rules of `recordProofOfDelivery` (a part delivery included) and `recordFailedDelivery`, on the caller's own deliveries only; one refused never loses the rest of the batch. **Exactly once by the record's own client id** (a UUIDv7: `proof.id`, `failure.id`), so the operation takes no `Idempotency-Key`. `outcome` is `APPLIED`; `APPLIED_WITH_EXCEPTION` with `reason` naming each exception (`COD_VARIANCE:<reason>` for less cash than due, `PART_DELIVERY:<reason>` for a part delivery); `REJECTED` with `reason` the refusal's codes (for example `ABOVE_DUE`, `FORBIDDEN` for another driver's delivery, `NOT_FOUND`, `CLIENT_ID_NOT_V7`, `ID_IN_USE` for an id already used for another delivery), nothing of it written. **A resend** of a record already applied answers `DUPLICATE` with the first answer's outcome in `firstOutcome` and its `reason`, so a phone that lost the first answer still learns that the cash differed. A refused record may be sent again once corrected.\n\nPermission: `del.proof.create`. Ownership: deliveries assigned to the caller."
       x-permission: del.proof.create
       parameters:
         - $ref: "#/components/parameters/CsrfToken"
@@ -68524,10 +68542,12 @@ paths:
                     deliveryId: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
                     outcome: APPLIED
                     reason: null
+                    firstOutcome: null
                   - clientId: "019a7b0b-1b3a-7e80-a3b8-f0d26e8369b0"
                     deliveryId: "019a7b09-2c4a-7048-a580-0d5ad3738638"
                     outcome: DUPLICATE
-                    reason: null
+                    reason: "COD_VARIANCE:CUSTOMER_PAID_SHORT"
+                    firstOutcome: APPLIED_WITH_EXCEPTION
                 serverTime: "2026-11-13T13:00:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -81923,6 +81943,81 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/shifts/{id}/driver-cash-holders":
+    get:
+      operationId: listShiftDriverCashHolders
+      tags:
+        - pos
+      summary: "List the drivers holding delivery cash at the shift's branch"
+      description: "Who the cashier can take a driver's cash on delivery from (2.35.0, B11 continued 6; CR-063): each driver holding at least one collection at the shift's branch that is not yet handed in, and how many, by name. **No amount**: the cashier counts blind, as the close is counted, and `handInDriverCash` then answers what was expected. The caller is never listed (the cashier is never the driver). Judged by the same shift check as `handInDriverCash`: the shift's own cashier, from an enrolled device of its till (`X-Device-Credential`). **Refusals:** another cashier's shift 403; a closing, closed or force-closed shift 422 `SHIFT_NOT_OPEN`; 404 for a shift the caller cannot see; 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`.\n\nPermission: `pos.sale.create`."
+      x-permission: pos.sale.create
+      x-error-codes:
+        - SHIFT_NOT_OPEN
+        - DEVICE_CREDENTIAL_INVALID
+        - DEVICE_REVOKED
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: "The cashier's own open shift."
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+          deviceCredential: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverCashHolderList"
+              examples:
+                default:
+                  value:
+                    data:
+                      - driver:
+                          id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                          displayName: "Kwabena Asare"
+                        collections: 3
+                      - driver:
+                          id: "019a7a87-5b1c-7f02-9a1e-3c4d5e6f7a81"
+                          displayName: "Kwesi Appiah"
+                        collections: 1
+                      - driver:
+                          id: "019a7a87-6c2d-7013-8b2f-4d5e6f7a8b92"
+                          displayName: "Kofi Mensah"
+                        collections: 2
+                      - driver:
+                          id: "019a7a87-7d3e-7124-9c30-5e6f7a8b9ca3"
+                          displayName: "Yaw Ofori"
+                        collections: 4
+                      - driver:
+                          id: "019a7a87-8e4f-7235-8d41-6f7a8b9cadb4"
+                          displayName: "Kojo Tetteh"
+                        collections: 1
+                empty:
+                  summary: "No driver holds cash at the branch"
+                  value:
+                    data: []
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/BusinessRuleViolation"
         "429":
@@ -99368,6 +99463,74 @@ components:
       required:
         - data
         - asOf
+    ProofOfDeliveryLine:
+      type: object
+      description: "What the customer kept of one delivered line (CR-055), in the line's own unit."
+      properties:
+        orderLineId:
+          type: string
+          format: uuid
+          description: "A line of the delivery's `contents`."
+        deliveredQty:
+          $ref: "#/components/schemas/Quantity"
+        dispatchedQty:
+          allOf:
+            - $ref: "#/components/schemas/Quantity"
+          readOnly: true
+          description: "What was dispatched of the line (answered, never sent)."
+      required:
+        - orderLineId
+        - deliveredQty
+      additionalProperties: false
+    DeliveryCancel:
+      type: object
+      description: "Cancelling a dispatched delivery before it leaves the farm (A-364 (a)): why, and where its goods go back to."
+      properties:
+        reasonCode:
+          type: string
+          description: "A `CANCELLATION` reason (`listReasonCodes?domain=CANCELLATION`)."
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Required when the reason asks for a note."
+        returnsLocationId:
+          type: string
+          format: uuid
+          description: "A live `RETURNS_HOLD` of the delivery's branch: the goods are not sellable until inspected."
+        refundDestination:
+          type: string
+          enum:
+            - ORIGINAL_METHOD
+            - STORE_CREDIT
+          description: "Where what the customer paid goes once the credit note is issued; `ORIGINAL_METHOD` by default. Store credit only for a customer account."
+      required:
+        - reasonCode
+        - returnsLocationId
+      additionalProperties: false
+    DriverCashHolder:
+      type: object
+      description: "A driver holding cash on delivery at the shift's branch that is not yet handed in (CR-063). No amount: the cashier counts blind, and `handInDriverCash` answers what was expected."
+      properties:
+        driver:
+          $ref: "#/components/schemas/PrincipalRef"
+        collections:
+          type: integer
+          minimum: 1
+          description: "How many collections the driver holds at the branch, not yet handed in."
+      required:
+        - driver
+        - collections
+    DriverCashHolderList:
+      type: object
+      description: "The drivers a cashier can take cash on delivery from at the shift's branch (CR-063), by name; the caller is never listed."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DriverCashHolder"
+      required:
+        - data
     CashMovementPage:
       type: object
       description: "A page of `CashMovement` results."
@@ -103750,6 +103913,24 @@ components:
           type:
             - string
             - "null"
+        lines:
+          type: array
+          description: "A part delivery (2.35.0, CR-055): what the customer kept of each line the driver named; a line not named was kept whole. Empty when everything was kept."
+          items:
+            $ref: "#/components/schemas/ProofOfDeliveryLine"
+        returnedReasonCode:
+          type:
+            - string
+            - "null"
+          description: "Why the rest came back: a `DELIVERY_FAILURE` reason (2.35.0, CR-055); null when everything was kept."
+        returnedNote:
+          type:
+            - string
+            - "null"
+        returnedCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The credit for what came back, as the credit note prices it (2.35.0, ADR-0093); 0 when everything was kept. The cash due at the door was the delivery's `codDuePesewas` less this, never below zero."
       required:
         - id
         - recipientName
@@ -103761,6 +103942,10 @@ components:
         - codCollectedPesewas
         - codVarianceReasonCode
         - codVarianceNote
+        - lines
+        - returnedReasonCode
+        - returnedNote
+        - returnedCreditPesewas
         - capturedAt
     Delivery:
       type: object
@@ -104176,6 +104361,21 @@ components:
         capturedAt:
           type: string
           format: date-time
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 200
+          description: "A part delivery (2.35.0, CR-055): what the customer kept of each line named, in the line's own unit; a line not named was kept whole; absent means everything was delivered. Never more than was dispatched (`ABOVE_DISPATCHED`); a weighed line (a catch-weight pack) kept or sent back whole (`WEIGHED_LINE_WHOLE`); something must be kept (`NOTHING_DELIVERED`: record a failed attempt instead)."
+          items:
+            $ref: "#/components/schemas/ProofOfDeliveryLine"
+        returnedReasonCode:
+          type: string
+          description: "Why the rest came back: a `DELIVERY_FAILURE` reason, required when a line was kept short (`REASON_REQUIRED`) and refused otherwise (`REASON_NOT_NEEDED`)."
+        returnedNote:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Required when the returned reason asks for a note (`NOTE_REQUIRED`), refused when nothing came back."
       required:
         - id
         - recipientName
@@ -104268,11 +104468,21 @@ components:
             - string
             - "null"
           description: "Why it was rejected, or the exception raised, for example cash collected differs from the amount due."
+        firstOutcome:
+          type:
+            - string
+            - "null"
+          enum:
+            - APPLIED
+            - APPLIED_WITH_EXCEPTION
+            - null
+          description: "On a `DUPLICATE`, what the record answered when it was first applied (2.35.0, CR-057 point 3); null otherwise."
       required:
         - clientId
         - deliveryId
         - outcome
         - reason
+        - firstOutcome
     DriverSyncResult:
       type: object
       properties:

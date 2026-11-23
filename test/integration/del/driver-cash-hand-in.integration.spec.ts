@@ -43,6 +43,11 @@ const handIn = (who: string, shift: string, body: object, key: string = randomUU
   if (device !== null) call.set('X-Device-Credential', device);
   return call.send(body);
 };
+const holders = (who: string, shift: string, device: string | null = credential) => {
+  const call = consoleGet(api.server, as(who), `/v1/shifts/${shift}/driver-cash-holders`);
+  if (device !== null) call.set('X-Device-Credential', device);
+  return call;
+};
 /** Everything a hand-in writes, to show a refusal wrote none of it. */
 const footprint = async () =>
   count(
@@ -184,6 +189,19 @@ describe('a driver hands in the cash collected on delivery at a till shift, once
     expect((await get('driver', '/driver/cash-summary?date=2026-02-30')).status).toBe(400);
   });
 
+  it('lists the drivers holding cash at the shift\'s branch for its own cashier on its device, with no amount (CR-063)', async () => {
+    const listed = await holders('cashier', shiftId);
+    expect(listed.status, JSON.stringify(listed.body)).toBe(200);
+    expect(listed.body).toEqual({ data: [{ driver: { id: id('driver'), displayName: 'Kwabena Asare' }, collections: 2 }] });
+    expect(JSON.stringify(listed.body)).not.toContain(String(crate));
+    for (const who of ['driver', 'storekeeper', 'sales', 'accountant', 'otherManager']) expect((await holders(who, shiftId)).status, who).toBe(403);
+    expect((await holders('otherCashier', shiftId)).status, 'another cashier\'s shift').toBe(403);
+    expect((await holders('manager', shiftId)).status, 'a manager is not the shift\'s cashier').toBe(403);
+    expect((await holders('cashier', shiftId, null)).status).toBe(401);
+    expect((await holders('cashier', randomUUID())).status).toBe(404);
+    expect((await consoleGet(api.server, as('cashier'), '/v1/shifts/not-a-uuid/driver-cash-holders').set('X-Device-Credential', credential)).status).toBe(400);
+  });
+
   it('refuses every role but the till\'s own cashier on an enrolled device, and a driver with nothing held, writing nothing', async () => {
     const before = await footprint();
     const body = { driverId: id('driver'), declaredPesewas: 2 * crate };
@@ -241,6 +259,7 @@ describe('a driver hands in the cash collected on delivery at a till shift, once
     const flagged = await one<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'del.DriverCashRemitted' AND subject_id = $1", [reconciliationId]);
     expect(flagged.payload).toMatchObject({ driverId: id('driver'), receivedBy: id('cashier'), expectedPesewas: 2 * crate, receivedPesewas: 2 * crate - 1_000, shortPesewas: 1_000, overPesewas: 0, varianceDirection: 'SHORT', abuseCases: [6, 43] });
     expect((await get('driver', '/driver/cash-summary')).body).toMatchObject({ expectedPesewas: 0, collections: [], reconciled: true });
+    expect((await holders('cashier', shiftId)).body).toEqual({ data: [] });
   });
 
   it('hands each collection in exactly once: the same key answers the first, a second hand-in finds nothing held', async () => {
@@ -324,6 +343,8 @@ describe('a driver hands in the cash collected on delivery at a till shift, once
     const closing = await handIn('cashier', shiftId, { driverId: id('driver'), declaredPesewas: fourth.gross });
     expect([closing.status, closing.body.error?.code]).toEqual([422, 'SHIFT_NOT_OPEN']);
     expect(await footprint()).toBe(before);
+    const listed = await holders('cashier', shiftId);
+    expect([listed.status, listed.body.error?.code]).toEqual([422, 'SHIFT_NOT_OPEN']);
     await stepUp(api.server, as('manager') as TotpSession, clock);
     const signed = await post('manager', `/shifts/${shiftId}/approve-close`, { reason: 'Counted together' });
     expect(signed.status, JSON.stringify(signed.body)).toBe(200);

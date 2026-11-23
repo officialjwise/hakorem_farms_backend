@@ -1,10 +1,10 @@
-import { createUuidV7Generator, Money, toBusinessDate, type Clock } from '@hakorem/kernel';
+import { createUuidV7Generator, Money, parseUuidV7, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import { IsolationLevelError, type Transaction, type UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
 import type { NumberSeries } from '../../../platform/documents/number-series';
-import { InvalidStateTransitionError, NotFoundError } from '../../../platform/errors/api-error';
+import { ApiError, InvalidStateTransitionError, NotFoundError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import { translate } from '../../../platform/i18n/messages';
@@ -12,16 +12,18 @@ import type { Idempotency, StoredResponse } from '../../../platform/idempotency/
 import type { FileStore, StoredFileRecord } from '../../../platform/storage/file-store';
 import type { Authoriser, PrincipalNames } from '../../iam';
 import type { MasterDataRefs, Storefront } from '../../mdm';
+import type { Billing } from '../../bil';
 import type { DriverCash } from '../../pay';
-import { codVariance, judgeProof, takesProof, type DeliveryStatus, type ProofFile, type VarianceReason } from '../domain/deliveries';
+import { codVariance, dueAtDoor, judgePartDelivery, judgeProof, syncOutcomeOfProof, takesProof, type SyncOutcome, type DeliveredLine, type DeliveryStatus, type ProofFile, type ReturnedLine, type VarianceReason } from '../domain/deliveries';
 import { nextAttemptNo, pageProbe } from '../domain/numbering';
 import { judgeFailure, judgeOnTheWay, takesFailure } from '../domain/routes';
-import type { CodCollected, DeliveryCompleted, DeliveryFailed, DeliveryOnTheWay, DeliveryReturned, DeliveryWrittenOff } from '../events';
+import { judgeCancellation } from '../domain/scheduling';
+import type { CodCollected, DeliveryCancelled, DeliveryCompleted, DeliveryFailed, DeliveryOnTheWay, DeliveryReturned, DeliveryWrittenOff } from '../events';
 import { remaining } from '../domain/slots';
 import { DeliveryInvalidError } from './errors';
 import type { SlotRecord, SlotStore } from './slot-store';
 import type { SlotOptionView } from './slots';
-import type { ContentsLine, DeliveryRecord, DeliveryStore, ProofRecord, WriteOffFacts, WrittenOffRecord } from './delivery-store';
+import type { ContentsLine, DeliveryRecord, DeliveryStore, ProofLineRecord, ProofRecord, WriteOffFacts, WrittenOffRecord } from './delivery-store';
 
 const READ = 'del.delivery.read';
 const READ_MINE = 'del.delivery.read.assigned';
@@ -34,6 +36,7 @@ const DRIVES = PROOF;
 export const DELIVERY_COMPLETED = 'del.DeliveryCompleted';
 export const DELIVERY_RETURNED = 'del.DeliveryReturned';
 export const DELIVERY_WRITTEN_OFF = 'del.DeliveryWrittenOff';
+export const DELIVERY_CANCELLED = 'del.DeliveryCancelled';
 /** The driver variance report's permission (B11 continued 2): its goods line reads under it too. */
 const VARIANCE_READ = 'del.cash_reconciliation.read';
 /** The write-off reasons that are the driver's variance: goods they cannot account for (migration 0321, A-360). */
@@ -52,6 +55,8 @@ const NO_OVERRIDE = 'del.delivery.any_driver';
 const UNASSIGNED = '00000000-0000-0000-0000-000000000000';
 /** A file the malware scan holds back is never proof (docs/security, SA-11). */
 const QUARANTINED: ReadonlySet<string> = new Set(['INFECTED', 'FAILED']);
+/** The credit a part delivery prices what came back by: a failed delivery's goods back (migration 0321). */
+const RETURNED_CREDIT_REASON = 'DELIVERY_RETURNED';
 
 /** What ORD's dispatch gives DEL to deliver: DEL does not know orders (MODULE_BOUNDARIES, DEL card). */
 export interface DeliveryRequest {
@@ -82,6 +87,12 @@ export interface ProofRequest {
   readonly codCollectedPesewas: bigint;
   readonly codVarianceReasonCode?: string | undefined;
   readonly codVarianceNote?: string | undefined;
+  /** A part delivery (CR-055): what the customer kept of each line named; a line not named was kept whole. */
+  readonly lines?: readonly DeliveredLine[] | undefined;
+  /** A `DELIVERY_FAILURE` reason, required when a line was kept short. */
+  readonly returnedReasonCode?: string | undefined;
+  /** Required when the returned reason asks for a note. */
+  readonly returnedNote?: string | undefined;
   readonly capturedAt: Date;
 }
 
@@ -99,6 +110,26 @@ export interface FailureRequest {
   readonly latitude?: string | undefined;
   readonly longitude?: string | undefined;
   readonly occurredAt: Date;
+}
+
+/** The contract's `DriverSyncBatch`: proofs and failures a driver's phone captured without signal. */
+export interface DriverSyncRequest {
+  readonly proofs: readonly { readonly deliveryId: string; readonly proof: ProofRequest }[];
+  readonly failures: readonly { readonly deliveryId: string; readonly failure: FailureRequest }[];
+}
+
+/** The contract's `DriverSyncItem`, with the first answer of a resend (CR-057 point 3, 2.35.0). */
+export interface DriverSyncItemView {
+  readonly clientId: string;
+  readonly deliveryId: string;
+  readonly outcome: SyncOutcome;
+  readonly reason: string | null;
+  readonly firstOutcome: 'APPLIED' | 'APPLIED_WITH_EXCEPTION' | null;
+}
+
+export interface DriverSyncResultView {
+  readonly results: readonly DriverSyncItemView[];
+  readonly serverTime: string;
 }
 
 export interface DeliveryQuery {
@@ -128,6 +159,12 @@ export interface ProofView {
   readonly codCollectedPesewas: number;
   readonly codVarianceReasonCode: string | null;
   readonly codVarianceNote: string | null;
+  /** A part delivery (CR-055, 2.35.0): what the customer kept of each line named; empty when everything was kept. */
+  readonly lines: readonly { readonly orderLineId: string; readonly dispatchedQty: string; readonly deliveredQty: string }[];
+  readonly returnedReasonCode: string | null;
+  readonly returnedNote: string | null;
+  /** The credit for what came back (ADR-0093); 0 when everything was kept. */
+  readonly returnedCreditPesewas: number;
   readonly capturedAt: string;
 }
 
@@ -235,6 +272,7 @@ export class Deliveries {
     private readonly refs: MasterDataRefs,
     private readonly storefront: Storefront,
     private readonly driverCash: DriverCash,
+    private readonly billing: Billing,
     private readonly files: FileStore,
     private readonly numbers: NumberSeries,
     private readonly documents: DocumentRegistry,
@@ -378,8 +416,10 @@ export class Deliveries {
    * order told. The proof's id is the device's: sent again it answers the delivery as it stands and records nothing;
    * an id already used for another delivery is refused.
    */
-  recordProof(actor: Actor | undefined, id: string, body: ProofRequest, key: string): Promise<StoredResponse<DeliveryView>> {
-    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+  async recordProof(actor: Actor | undefined, id: string, body: ProofRequest, key: string): Promise<StoredResponse<DeliveryView>> {
+    // A part delivery may issue its credit note at once: its series lock is taken before BEGIN (A-186).
+    const branchId = body.lines === undefined ? null : await this.uow.run({ isolation: 'read committed' }, async (tx) => (await this.store.deliveries(tx, [id]))[0]?.branchId ?? null);
+    return this.uow.run({ isolation: 'serializable', seriesLocks: branchId === null ? [] : this.billing.seriesLocksFor('CREDIT_NOTE', branchId) }, async (tx) => {
       await this.authoriser.authorise(tx, actor, PROOF);
       const claim = await this.idempotency.claim(tx, { operationId: 'recordProofOfDelivery', principalId: actor!.principalId, key, request: { deliveryId: id, ...body, codCollectedPesewas: body.codCollectedPesewas.toString() } });
       if (claim.kind === 'REPLAY') return claim.response as StoredResponse<DeliveryView>;
@@ -398,7 +438,13 @@ export class Deliveries {
     if (!takesProof(delivery.status)) throw invalidState(`delivery ${id}`, delivery.status);
     await this.assertRouteStartedIn(tx, id);
 
-    const due = Money.ofPesewas(delivery.codDuePesewas);
+    // A part delivery (CR-055): what came back is credited at the door, and the cash due there is the rest (ADR-0093).
+    const returnedCode = body.returnedReasonCode ?? null;
+    const returnedReason = returnedCode === null ? undefined : (await this.refs.reasonCodesIn(tx, [returnedCode])).get(returnedCode);
+    const part = judgePartDelivery(delivery.contents, body.lines, returnedCode === null ? null : returnedReason === undefined ? 'UNKNOWN' : { domain: returnedReason.domain, requiresNote: returnedReason.requiresNote }, body.returnedNote?.trim() ?? null);
+    if (part.broken.length > 0) throw new DeliveryInvalidError(part.broken);
+    const credited = part.returned.length === 0 ? Money.ofPesewas(0n) : await this.creditForIn(tx, delivery, part.returned);
+    const due = dueAtDoor(Money.ofPesewas(delivery.codDuePesewas), credited);
     const collected = Money.ofPesewas(body.codCollectedPesewas);
     const reasonCode = body.codVarianceReasonCode ?? null;
     const reason = reasonCode === null ? undefined : (await this.refs.reasonCodesIn(tx, [reasonCode])).get(reasonCode);
@@ -453,10 +499,15 @@ export class Deliveries {
       codVarianceReasonCode: reasonCode,
       codVarianceNote: body.codVarianceNote?.trim() ?? null,
       paymentId: payment?.id ?? null,
+      returnedReasonCode: part.returned.length === 0 ? null : returnedCode,
+      returnedNote: body.returnedNote?.trim() ?? null,
+      returnedCreditPesewas: credited.pesewas,
       capturedAt: body.capturedAt,
       createdBy: actor.principalId,
     };
     await this.store.insertProof(tx, proof);
+    const named: ProofLineRecord[] = (body.lines ?? []).map((l) => ({ orderLineId: l.orderLineId, dispatchedQty: delivery.contents.find((c) => c.orderLineId === l.orderLineId)!.quantity, deliveredQty: l.deliveredQty }));
+    await this.store.insertProofLines(tx, proof.id, named, actor.principalId);
     await this.store.markDelivered(tx, id, { collectedPesewas: collected.pesewas, at, actorId: actor.principalId });
 
     if (payment !== null) {
@@ -486,12 +537,79 @@ export class Deliveries {
       codCollectedPesewas: collected.toJsonInteger(),
       codShortPesewas: codVariance(due, collected).toJsonInteger(),
       codVarianceReasonCode: reasonCode,
+      returnedLines: part.returned,
+      returnedReasonCode: proof.returnedReasonCode,
+      returnedCreditPesewas: credited.toJsonInteger(),
       deliveredAt: body.capturedAt.toISOString(),
     };
     await this.events.publish<DeliveryCompleted>(tx, { type: DELIVERY_COMPLETED, subjectType: 'Delivery', subjectId: id, branchId: delivery.branchId, payload: completed, occurredAt: body.capturedAt });
     const after = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
     await this.audit.record(tx, { module: 'del', action: 'DELIVER', entityType: 'Delivery', entityId: id, branchId: delivery.branchId, before: { ...before }, after: { ...after } });
     return { status: 200, body: after };
+  }
+
+  /**
+   * syncDriverEvents (FR-DEL-008, FR-DEL-011, CR-057 point 3, OFFLINE_SYNC): the proofs and failures the caller's phone
+   * captured without signal, each in its own serializable transaction (one refused never loses the rest), each by the
+   * same rules as `recordProofOfDelivery` and `recordFailedDelivery` on the caller's own deliveries only. Exactly once by
+   * the record's client id, a UUIDv7 (no `Idempotency-Key`): a resend answers DUPLICATE with the first answer's outcome
+   * and reason (`firstOutcome`), derived from what was stored, so a lost answer is never lost; an id used for another
+   * delivery is REJECTED `ID_IN_USE`. A refusal is REJECTED with its codes; nothing of it is written.
+   */
+  async sync(actor: Actor | undefined, body: DriverSyncRequest): Promise<DriverSyncResultView> {
+    await this.uow.run({ isolation: 'read committed' }, (tx) => this.authoriser.authorise(tx, actor, PROOF));
+    const results: DriverSyncItemView[] = [];
+    for (const item of body.proofs) {
+      results.push(await this.syncOne(actor!, item.deliveryId, item.proof.id, async (tx) => {
+        const earlier = await this.store.proofById(tx, item.proof.id);
+        if (earlier !== null) return this.duplicateIn(tx, actor!, PROOF, earlier.deliveryId, item.deliveryId, syncOutcomeOfProof(earlier));
+        const done = await this.proofIn(tx, actor!, item.deliveryId, item.proof);
+        return { ...syncOutcomeOfProof(done.body.proof!), firstOutcome: null };
+      }, item.proof.lines !== undefined));
+    }
+    for (const item of body.failures) {
+      results.push(await this.syncOne(actor!, item.deliveryId, item.failure.id, async (tx) => {
+        const earlier = await this.store.attemptById(tx, item.failure.id);
+        if (earlier !== null) return this.duplicateIn(tx, actor!, UPDATE_MINE, earlier.deliveryId, item.deliveryId, { outcome: 'APPLIED', reason: null });
+        await this.failureIn(tx, actor!, item.deliveryId, item.failure);
+        return { outcome: 'APPLIED' as const, reason: null, firstOutcome: null };
+      }, false));
+    }
+    return { results, serverTime: this.clock.now().toISOString() };
+  }
+
+  /** One synced record in its own transaction; a refusal answers REJECTED with its codes and writes nothing. */
+  private async syncOne(
+    actor: Actor,
+    deliveryId: string,
+    clientId: string,
+    work: (tx: Transaction) => Promise<{ readonly outcome: SyncOutcome; readonly reason: string | null; readonly firstOutcome: 'APPLIED' | 'APPLIED_WITH_EXCEPTION' | null }>,
+    credits: boolean,
+  ): Promise<DriverSyncItemView> {
+    if (!parseUuidV7(clientId).ok) return { clientId, deliveryId, outcome: 'REJECTED', reason: 'CLIENT_ID_NOT_V7', firstOutcome: null };
+    try {
+      const branchId = credits ? await this.uow.run({ isolation: 'read committed' }, async (tx) => (await this.store.deliveries(tx, [deliveryId]))[0]?.branchId ?? null) : null;
+      const done = await this.uow.run({ isolation: 'serializable', seriesLocks: branchId === null ? [] : this.billing.seriesLocksFor('CREDIT_NOTE', branchId) }, work);
+      return { clientId, deliveryId, ...done };
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status >= 500) throw error;
+      const codes = error.details.map((d) => d.code);
+      return { clientId, deliveryId, outcome: 'REJECTED', reason: (codes.length > 0 ? codes : [error.code]).join(' '), firstOutcome: null };
+    }
+  }
+
+  /** A resend: the record is the caller's own delivery's, and answers what it answered first; another delivery's id is refused. */
+  private async duplicateIn(
+    tx: Transaction,
+    actor: Actor,
+    permission: string,
+    recordedFor: string,
+    sentFor: string,
+    first: { readonly outcome: 'APPLIED' | 'APPLIED_WITH_EXCEPTION'; readonly reason: string | null },
+  ): Promise<{ readonly outcome: SyncOutcome; readonly reason: string | null; readonly firstOutcome: 'APPLIED' | 'APPLIED_WITH_EXCEPTION' }> {
+    if (recordedFor !== sentFor) throw new DeliveryInvalidError([{ field: '/id', rule: 'ID_IN_USE' }]);
+    await this.mineIn(tx, actor, permission, sentFor, false);
+    return { outcome: 'DUPLICATE', reason: first.reason, firstOutcome: first.outcome };
   }
 
   /**
@@ -634,6 +752,38 @@ export class Deliveries {
   }
 
   /**
+   * SCHEDULED or ASSIGNED to CANCELLED, posted, with its reason (FR-ORD-014, A-364 (a)), in ORD's serializable
+   * transaction for `cancelDelivery`: only a delivery whose goods still wait on the van on no planned or started run
+   * (`judgeCancellation`); ORD then moves the goods into the returns hold and credits the document. The slot, if any, is
+   * freed by the database. It authorises nothing: ORD's `cancelDelivery` has.
+   */
+  async cancelledIn(tx: Transaction, actorId: string, id: string, facts: { readonly reasonCode: string; readonly returnsLocationId: string }, at: Date): Promise<DeliveryView> {
+    const d = await this.store.lock(tx, id);
+    if (d === null) throw new NotFoundError('no such delivery');
+    const route = await this.store.routeStatusOf(tx, id);
+    const broken = judgeCancellation({ status: d.status, onLiveRun: route === 'PLANNED' || route === 'IN_PROGRESS' });
+    if (broken.some((b) => b.rule === 'INVALID_STATE_TRANSITION')) throw invalidState(`delivery ${id}`, d.status);
+    if (broken.length > 0) throw new DeliveryInvalidError(broken);
+    const before = (await this.viewsIn(tx, [d]))[0]!;
+    await this.store.markCancelled(tx, id, { reasonCode: facts.reasonCode, at, actorId });
+    const cancelled: DeliveryCancelled = {
+      deliveryId: id,
+      deliveryNo: d.deliveryNo,
+      orderDocumentId: d.orderDocumentId,
+      branchId: d.branchId,
+      driverId: d.driverId,
+      vehicleLocationId: d.vehicleLocationId,
+      returnsLocationId: facts.returnsLocationId,
+      reasonCode: facts.reasonCode,
+      cancelledAt: at.toISOString(),
+    };
+    await this.events.publish<DeliveryCancelled>(tx, { type: DELIVERY_CANCELLED, subjectType: 'Delivery', subjectId: id, branchId: d.branchId, payload: cancelled, occurredAt: at });
+    const after = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
+    await this.audit.record(tx, { module: 'del', action: 'CANCEL', entityType: 'Delivery', entityId: id, branchId: d.branchId, before: { ...before }, after: { ...after, reasonCode: facts.reasonCode, returnsLocationId: facts.returnsLocationId } });
+    return after;
+  }
+
+  /**
    * FAILED to WRITTEN_OFF, posted, with its reason and value (FR-DEL-011, the owner's van rule of 2026-11-23), in the
    * transaction in which INV's adjustment posted the goods' loss from the vehicle. Goods unaccounted for are the driver's
    * variance (`del.DeliveryWrittenOff`, abuse case 48). It authorises nothing: ORD's `writeOffDelivery`, or the approval
@@ -716,6 +866,24 @@ export class Deliveries {
     });
   }
 
+  /**
+   * What a credit note of the lines that came back would take off the delivery's document, by BIL's own rules (its
+   * preview; nothing written): a line kept short credited by the quantity that came back, in its own unit; a weighed
+   * line (priced by its weight) credited whole. The delivery fee is never credited: the delivery was made.
+   */
+  private async creditForIn(tx: Transaction, delivery: DeliveryRecord, returned: readonly ReturnedLine[]): Promise<Money> {
+    const byOrderLine = await this.billing.linesByOrderLineIn(tx, delivery.billingDocumentId);
+    const [document] = await this.billing.viewsIn(tx, [delivery.billingDocumentId]);
+    const lines = returned.map((r) => {
+      const lineId = byOrderLine.get(r.orderLineId);
+      const line = document?.lines.find((l) => l.id === lineId);
+      if (lineId === undefined || line === undefined) throw new Error(`document ${delivery.billingDocumentId} has no line for order line ${r.orderLineId}`);
+      return { lineId, quantity: r.weighed ? line.quantity : r.returnedQty };
+    });
+    const preview = await this.billing.creditPreviewIn(tx, delivery.billingDocumentId, { reasonCode: RETURNED_CREDIT_REASON, lines });
+    return Money.ofPesewas(preview.grossPesewas);
+  }
+
   /** A delivery on a run is acted on at the doorstep only once its run has started (422 ROUTE_NOT_STARTED); one on no run is not held back. */
   private async assertRouteStartedIn(tx: Transaction, id: string): Promise<void> {
     if ((await this.store.routeStatusOf(tx, id)) === 'PLANNED') throw new DeliveryInvalidError([{ field: '', rule: 'ROUTE_NOT_STARTED' }]);
@@ -748,6 +916,10 @@ export class Deliveries {
     const drivers = await this.principals.refs(tx, records.flatMap((r) => (r.driverId === null ? [] : [r.driverId])));
     const orders = await this.documents.numberedRefs(tx, records.map((r) => r.orderDocumentId));
     const proofs = new Map((await this.store.proofsOf(tx, records.map((r) => r.id))).map((p) => [p.deliveryId, p]));
+    const proofLines = await this.store.proofLinesOf(
+      tx,
+      [...proofs.values()].map((p) => p.id),
+    );
     const slots = await this.slotsIn(tx, records.flatMap((r) => (r.slotId === null ? [] : [r.slotId])));
     return records.map((r) => {
       const zone = zones.get(r.deliveryZoneId);
@@ -788,6 +960,10 @@ export class Deliveries {
                 codCollectedPesewas: json(proof.codCollectedPesewas),
                 codVarianceReasonCode: proof.codVarianceReasonCode,
                 codVarianceNote: proof.codVarianceNote,
+                lines: proofLines.get(proof.id) ?? [],
+                returnedReasonCode: proof.returnedReasonCode,
+                returnedNote: proof.returnedNote,
+                returnedCreditPesewas: json(proof.returnedCreditPesewas),
                 capturedAt: proof.capturedAt.toISOString(),
               },
         deliveryNoteDocumentId: r.deliveryNoteDocumentId,

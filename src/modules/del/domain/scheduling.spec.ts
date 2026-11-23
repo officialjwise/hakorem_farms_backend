@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { judgeBooking, judgeReassignment, type BookingFacts } from './scheduling';
+import { judgeBooking, judgeCancellation, judgeReassignment, type BookingFacts } from './scheduling';
 
 const now = new Date('2026-11-24T10:30:00.000Z');
 const slot = { deliveryZoneId: 'zone-1', slotDate: '2026-11-26', startsAt: '08:00', capacity: 2, booked: 1 };
@@ -86,5 +86,19 @@ describe('booking a slot for a delivery (FR-DEL-001 to FR-DEL-003, FR-DEL-011)',
       { field: '/slotId', rule: 'NOT_ON_RUN_DAY' },
       { field: '/slotId', rule: 'SLOT_FULL' },
     ]);
+  });
+});
+
+describe('cancelling a dispatched delivery before it leaves (A-364 (a), FR-ORD-014)', () => {
+  it('takes a delivery whose goods still wait on the van, on no live run', () => {
+    expect(judgeCancellation({ status: 'ASSIGNED', onLiveRun: false })).toEqual([]);
+    expect(judgeCancellation({ status: 'SCHEDULED', onLiveRun: false })).toEqual([]);
+  });
+
+  it('refuses one on its way, failed (its way out is the return to stock) or finished, and a stop of a live run', () => {
+    for (const status of ['OUT_FOR_DELIVERY', 'FAILED', 'DELIVERED', 'RETURNED', 'WRITTEN_OFF', 'CANCELLED'] as const) {
+      expect(judgeCancellation({ status, onLiveRun: false }), status).toEqual([{ field: '', rule: 'INVALID_STATE_TRANSITION' }]);
+    }
+    expect(judgeCancellation({ status: 'ASSIGNED', onLiveRun: true })).toEqual([{ field: '', rule: 'ON_A_RUN' }]);
   });
 });

@@ -1,4 +1,4 @@
-import type { Money } from '@hakorem/kernel';
+import { Quantity, type Money } from '@hakorem/kernel';
 
 /** The delivery machine (docs/data-model/del.md); `del.delivery_guard` holds the same edges. */
 export type DeliveryStatus = 'SCHEDULED' | 'ASSIGNED' | 'OUT_FOR_DELIVERY' | 'DELIVERED' | 'FAILED' | 'RETURNED' | 'WRITTEN_OFF' | 'CANCELLED';
@@ -68,4 +68,89 @@ export function judgeProof(f: ProofFacts): ProofRule[] {
     if (f.note !== null) broken.push({ field: '/codVarianceNote', rule: 'REASON_NOT_NEEDED' });
   }
   return broken;
+}
+
+/** A line of what the delivery carries, as the part delivery judges it. */
+export interface CarriedLine {
+  readonly orderLineId: string;
+  readonly quantity: string;
+  /** A weighed line (a catch-weight pack) is kept or sent back whole. */
+  readonly weightKg: string | null;
+}
+
+/** The contract's `ProofOfDeliveryLine`: what the customer kept of one line, in the line's own unit. */
+export interface DeliveredLine {
+  readonly orderLineId: string;
+  readonly deliveredQty: string;
+}
+
+/** A line the customer did not keep all of. */
+export interface ReturnedLine {
+  readonly orderLineId: string;
+  readonly dispatchedQty: string;
+  readonly deliveredQty: string;
+  readonly returnedQty: string;
+  readonly weighed: boolean;
+}
+
+const DELIVERY_FAILURE = 'DELIVERY_FAILURE';
+
+/**
+ * A part delivery (CR-055, A-364 (b)): the lines named say what the customer kept, in each line's own unit; a line not
+ * named was kept whole. Never more than was dispatched; a weighed line (a catch-weight pack, priced by its weight) is kept
+ * or sent back whole, never split at the door; something must have been kept (nothing kept is a failed attempt). A line
+ * kept short needs a `DELIVERY_FAILURE` reason, and a reason is refused when everything was kept.
+ */
+export function judgePartDelivery(carried: readonly CarriedLine[], lines: readonly DeliveredLine[] | undefined, reason: VarianceReason, note: string | null = null): { readonly broken: ProofRule[]; readonly returned: ReturnedLine[] } {
+  const broken: ProofRule[] = [];
+  const returned: ReturnedLine[] = [];
+  const kept = new Map<string, Quantity>();
+  (lines ?? []).forEach((l, i) => {
+    const line = carried.find((c) => c.orderLineId === l.orderLineId);
+    if (line === undefined) return broken.push({ field: `/lines/${i}/orderLineId`, rule: 'LINE_UNKNOWN' });
+    if (kept.has(l.orderLineId)) return broken.push({ field: `/lines/${i}/orderLineId`, rule: 'LINE_REPEATED' });
+    const dispatched = Quantity.parse(line.quantity);
+    const delivered = Quantity.parse(l.deliveredQty);
+    kept.set(l.orderLineId, delivered);
+    if (delivered.compareTo(dispatched) > 0) return broken.push({ field: `/lines/${i}/deliveredQty`, rule: 'ABOVE_DISPATCHED' });
+    if (line.weightKg !== null && !delivered.isZero() && !delivered.equals(dispatched)) return broken.push({ field: `/lines/${i}/deliveredQty`, rule: 'WEIGHED_LINE_WHOLE' });
+    if (delivered.compareTo(dispatched) < 0) {
+      returned.push({ orderLineId: line.orderLineId, dispatchedQty: dispatched.toDecimalString(), deliveredQty: delivered.toDecimalString(), returnedQty: dispatched.minus(delivered).toDecimalString(), weighed: line.weightKg !== null });
+    }
+    return undefined;
+  });
+  if (broken.length > 0) return { broken, returned: [] };
+  if (carried.every((c) => kept.get(c.orderLineId)?.isZero() === true)) return { broken: [{ field: '/lines', rule: 'NOTHING_DELIVERED' }], returned: [] };
+  if (returned.length > 0) {
+    if (reason === null) broken.push({ field: '/returnedReasonCode', rule: 'REASON_REQUIRED' });
+    else if (reason === 'UNKNOWN') broken.push({ field: '/returnedReasonCode', rule: 'REASON_UNKNOWN' });
+    else if (reason.domain !== DELIVERY_FAILURE) broken.push({ field: '/returnedReasonCode', rule: 'REASON_NOT_ALLOWED' });
+    else if (reason.requiresNote && (note === null || note.trim() === '')) broken.push({ field: '/returnedNote', rule: 'NOTE_REQUIRED' });
+  } else {
+    if (reason !== null) broken.push({ field: '/returnedReasonCode', rule: 'REASON_NOT_NEEDED' });
+    if (note !== null) broken.push({ field: '/returnedNote', rule: 'REASON_NOT_NEEDED' });
+  }
+  return broken.length > 0 ? { broken, returned: [] } : { broken: [], returned };
+}
+
+/**
+ * The cash the driver may collect at the door after a part delivery (ADR-0093): the cash due fixed at dispatch less
+ * the credit for what came back, never below zero (what the customer paid ahead beyond what they kept is refunded once
+ * the credit note is issued, never handed over by the driver). The cash due itself is never changed (ADR-0092).
+ */
+export function dueAtDoor(due: Money, credited: Money): Money {
+  return credited.compareTo(due) >= 0 ? due.minus(due) : due.minus(credited);
+}
+
+/** A synced record's outcome (the contract's `DriverSyncItem`). */
+export type SyncOutcome = 'APPLIED' | 'APPLIED_WITH_EXCEPTION' | 'DUPLICATE' | 'REJECTED';
+
+/**
+ * What a recorded proof answers at sync, first and on every resend (CR-057 point 3): APPLIED when the cash due was
+ * collected and everything kept; APPLIED_WITH_EXCEPTION naming a short collection (`COD_VARIANCE:<reason>`) and a part
+ * delivery (`PART_DELIVERY:<reason>`). Derived from the stored proof, so a lost answer is never lost.
+ */
+export function syncOutcomeOfProof(p: { readonly codVarianceReasonCode: string | null; readonly returnedReasonCode: string | null }): { readonly outcome: 'APPLIED' | 'APPLIED_WITH_EXCEPTION'; readonly reason: string | null } {
+  const raised = [...(p.codVarianceReasonCode === null ? [] : [`COD_VARIANCE:${p.codVarianceReasonCode}`]), ...(p.returnedReasonCode === null ? [] : [`PART_DELIVERY:${p.returnedReasonCode}`])];
+  return raised.length === 0 ? { outcome: 'APPLIED', reason: null } : { outcome: 'APPLIED_WITH_EXCEPTION', reason: raised.join(' ') };
 }

@@ -21,6 +21,14 @@ export interface DeliveryCompleted {
   readonly codCollectedPesewas: number;
   readonly codShortPesewas: number;
   readonly codVarianceReasonCode: string | null;
+  /**
+   * What the customer did not keep (CR-055, B11 continued 6, additive): each line kept short, in its own unit; empty when
+   * everything was kept. ORD issues what was kept, moves the rest into the returns hold and asks for its credit note.
+   */
+  readonly returnedLines: readonly { readonly orderLineId: string; readonly dispatchedQty: string; readonly deliveredQty: string; readonly returnedQty: string; readonly weighed: boolean }[];
+  readonly returnedReasonCode: string | null;
+  /** The credit for what came back as BIL priced it at the door (ADR-0093); 0 when everything was kept. */
+  readonly returnedCreditPesewas: number;
   readonly deliveredAt: string;
 }
 
@@ -126,6 +134,23 @@ export interface DeliveryReturned {
   readonly vehicleLocationId: string | null;
   readonly returnsLocationId: string;
   readonly returnedAt: string;
+}
+
+/**
+ * `del.DeliveryCancelled` v1 (FR-ORD-014, B11 continued 6, A-364 (a)): a dispatched delivery cancelled before it left
+ * the farm, with its `CANCELLATION` reason; ORD moved its goods off the van into the returns hold, credited the document
+ * and moved the order RETURNED in the same transaction. Its slot, if any, is freed by the database.
+ */
+export interface DeliveryCancelled {
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly orderDocumentId: string;
+  readonly branchId: string;
+  readonly driverId: string | null;
+  readonly vehicleLocationId: string | null;
+  readonly returnsLocationId: string;
+  readonly reasonCode: string;
+  readonly cancelledAt: string;
 }
 
 /**

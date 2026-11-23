@@ -75,12 +75,12 @@ interface Crate {
 }
 
 /** A guest's order of one crate of big eggs, on cash on delivery or paid ahead by mobile money, dispatched onto VAN1 to the driver named. */
-async function dispatchedCrate(driver: string, pay: 'COD' | 'MOMO'): Promise<Crate> {
+async function dispatchedCrate(driver: string, pay: 'COD' | 'MOMO', crates = 1): Promise<Crate> {
   const created = await request(api.server).post('/v1/shop/carts').set('Origin', TEST_ORIGIN).set('Idempotency-Key', randomUUID());
   const cookie = (created.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('__Host-hk_guest='))!.split(';')[0]!;
   const cartId = created.body.id as string;
   const guest = (path: string, body: object) => request(api.server).post(`/v1${path}`).set('Origin', TEST_ORIGIN).set('Idempotency-Key', randomUUID()).set('Cookie', cookie).send(body);
-  expect((await guest(`/shop/carts/${cartId}/lines`, { productId: id('EGG-0003'), quantity: '1.000' })).status).toBe(200);
+  expect((await guest(`/shop/carts/${cartId}/lines`, { productId: id('EGG-0003'), quantity: `${crates}.000` })).status).toBe(200);
   const started = await guest(`/shop/carts/${cartId}/checkout`, { contactName: 'Kofi Boateng', contactPhone: '0201234567', fulfilmentMode: 'DELIVERY', address: dodowa, paymentTerms: pay === 'COD' ? 'COD' : 'PREPAID' });
   expect(started.status, JSON.stringify(started.body)).toBe(201);
   const placed = await guest(`/shop/checkouts/${started.body.id as string}/place`, pay === 'COD' ? { paymentMethod: 'COD' } : { paymentMethod: 'MOBILE_MONEY', payerPhone: PAYSTACK_MTN_TEST_PHONE, network: 'MTN' });
@@ -93,7 +93,7 @@ async function dispatchedCrate(driver: string, pay: 'COD' | 'MOMO'): Promise<Cra
   const made = await post('storekeeper', `/orders/${orderId}/fulfilments`, { pickLocationId: id('location:SHOP') });
   expect(made.status, JSON.stringify(made.body)).toBe(201);
   const lineId = (await get('manager', `/orders/${orderId}`)).body.lines[0].id as string;
-  expect((await post('storekeeper', `/fulfilments/${made.body.id as string}/picks`, { picks: [{ id: nextId(), orderLineId: lineId, stockUnitId: id('lot:EGG-0003'), qty: '1.000' }] })).status).toBe(200);
+  expect((await post('storekeeper', `/fulfilments/${made.body.id as string}/picks`, { picks: [{ id: nextId(), orderLineId: lineId, stockUnitId: id('lot:EGG-0003'), qty: `${crates}.000` }] })).status).toBe(200);
   expect((await post('storekeeper', `/fulfilments/${made.body.id as string}/pack`, { packageCount: 1 })).status).toBe(200);
   const sent = await post('manager', `/fulfilments/${made.body.id as string}/dispatch`, { driverId: id(driver), vehicleLocationId: id('location:VAN1') });
   expect(sent.status, JSON.stringify(sent.body)).toBe(200);
@@ -386,5 +386,321 @@ describe("the van's two other ways out: returned to stock or written off with a 
           )
       ),
     ).toBe(SQLSTATE.uniqueViolation);
+  });
+});
+
+describe('a dispatched delivery cancelled before it leaves: its goods back into the returns hold, the document credited (FR-ORD-014, A-364 (a))', () => {
+  let cod: Crate;
+  let paid: Crate;
+  let onRun: Crate;
+  let failed: Crate;
+  const body = () => ({ reasonCode: 'CUSTOMER_CANCELLED', returnsLocationId: id('location:RETURNS') });
+  const cancel = (who: string, deliveryId: string, sent: object = body(), key = randomUUID()) => post(who, `/deliveries/${deliveryId}/cancel`, sent, key);
+
+  beforeAll(async () => {
+    cod = await dispatchedCrate('driver', 'COD');
+    paid = await dispatchedCrate('driver', 'MOMO');
+    onRun = await dispatchedCrate('otherDriver', 'COD');
+    failed = await dispatchedCrate('otherDriver', 'COD');
+    const tomorrow = toBusinessDate(new Date(clock.now().getTime() + 86_400_000));
+    const made = await post('manager', '/routes', { driverId: id('otherDriver'), routeDate: tomorrow, vehicleLocationId: id('location:VAN1'), deliveryIds: [onRun.deliveryId] });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    clock.advanceBy(60_000);
+    const fail = await post('otherDriver', `/driver/deliveries/${failed.deliveryId}/fail`, { id: nextId(), failureReasonCode: 'CUSTOMER_NOT_AVAILABLE', nextAction: 'RETURN_TO_STOCK', occurredAt: clock.now().toISOString() });
+    expect(fail.status, JSON.stringify(fail.body)).toBe(200);
+  });
+
+  it('refuses the Driver, the Storekeeper, the Cashier, Sales and another branch\'s Manager, writing nothing', async () => {
+    const before = await footprint();
+    for (const who of ['driver', 'storekeeper', 'cashier', 'sales', 'otherManager']) expect((await cancel(who, cod.deliveryId)).status, who).toBe(403);
+    expect((await cancel('manager', randomUUID())).status).toBe(404);
+    expect((await cancel('manager', cod.deliveryId, { reasonCode: 'CUSTOMER_CANCELLED' })).status).toBe(400);
+    expect((await cancel('manager', cod.deliveryId, { ...body(), extra: true })).status).toBe(400);
+    expect(await footprint()).toBe(before);
+  });
+
+  it('refuses a failed delivery, a stop of a planned run, a shelf, a reason not a cancellation, and store credit for a guest, writing nothing', async () => {
+    const before = await footprint();
+    expect(codes(await cancel('manager', failed.deliveryId))).toEqual([422, 'INVALID_STATE_TRANSITION', 'FAILED']);
+    expect(codes(await cancel('manager', onRun.deliveryId))).toEqual([422, 'DELIVERY_INVALID', 'ON_A_RUN']);
+    expect(codes(await cancel('manager', cod.deliveryId, { ...body(), returnsLocationId: id('location:SHOP') }))).toEqual([422, 'DELIVERY_INVALID', 'NOT_A_RETURNS_HOLD']);
+    expect(codes(await cancel('manager', cod.deliveryId, { ...body(), reasonCode: 'SPOILED' }))).toEqual([422, 'DELIVERY_INVALID', 'REASON_NOT_ALLOWED']);
+    expect(codes(await cancel('manager', cod.deliveryId, { ...body(), reasonCode: 'NO_SUCH_REASON' }))).toEqual([422, 'DELIVERY_INVALID', 'REASON_UNKNOWN']);
+    expect(codes(await cancel('manager', cod.deliveryId, { ...body(), refundDestination: 'STORE_CREDIT' }))).toEqual([422, 'DELIVERY_INVALID', 'STORE_CREDIT_NEEDS_CUSTOMER']);
+    expect(await footprint()).toBe(before);
+  });
+
+  it('cancels a crate waiting on the van: CANCELLED with its reason, the eggs into the returns hold, the order RETURNED, the whole document credited, once', async () => {
+    const van = Number(await eggsAt('VAN1'));
+    const hold = Number(await eggsAt('RETURNS'));
+    const key = randomUUID();
+    const done = await cancel('manager', cod.deliveryId, { ...body(), note: 'Customer travelled to Kumasi' }, key);
+    expect(done.status, `${JSON.stringify(done.body)} ${errors()}`).toBe(200);
+    expect(done.body).toMatchObject({ id: cod.deliveryId, status: 'CANCELLED' });
+    expect(await one('SELECT status, cancel_reason_code, (cancelled_at IS NOT NULL) AS dated, (posted_at IS NOT NULL) AS posted FROM del.delivery WHERE id = $1', [cod.deliveryId])).toEqual({
+      status: 'CANCELLED',
+      cancel_reason_code: 'CUSTOMER_CANCELLED',
+      dated: true,
+      posted: true,
+    });
+    const moved = await admin().query<{ type: string; from: string; to: string; qty: string }>(
+      'SELECT movement_type AS type, from_location_id AS from, to_location_id AS to, qty_base::text AS qty FROM inv.stock_movement WHERE source_document_id = $1',
+      [cod.deliveryId],
+    );
+    expect(moved.rows).toEqual([{ type: 'TRANSFER_INTERNAL', from: id('location:VAN1'), to: id('location:RETURNS'), qty: '30.000' }]);
+    expect(Number(await eggsAt('VAN1'))).toBe(van - 30);
+    expect(Number(await eggsAt('RETURNS'))).toBe(hold + 30);
+    const history = await admin().query<{ from: string; to: string; reason: string }>('SELECT from_status AS from, to_status AS to, reason FROM ord.order_status_history WHERE sales_order_id = $1 ORDER BY occurred_at, id', [cod.orderId]);
+    expect(history.rows.slice(-2).map((h) => [h.from, h.to])).toEqual([
+      ['DISPATCHED', 'DELIVERY_FAILED'],
+      ['DELIVERY_FAILED', 'RETURNED'],
+    ]);
+    expect(history.rows.at(-2)!.reason).toContain('cancelled before it left (CUSTOMER_CANCELLED)');
+    expect((await one<{ status: string }>('SELECT status FROM ord.sales_order WHERE id = $1', [cod.orderId])).status).toBe('RETURNED');
+    const way = await wayOut(cod.deliveryId);
+    expect(way).toMatchObject({ status: 'POSTED', way_out: 'RETURN_TO_STOCK', refund_id: null, created_by: id('manager') });
+    const credit = await creditOf(way.credit_note_id!);
+    expect(credit).toMatchObject({ status: 'DRAFT', asked: (await documentOf(cod.billingDocumentId)).gross, original: cod.billingDocumentId, reason: 'DELIVERY_RETURNED', created_by: id('manager') });
+    expect(await count("SELECT count(*)::text AS n FROM platform.outbox_message WHERE event_type = 'del.DeliveryCancelled' AND subject_id = $1", [cod.deliveryId])).toBe(1);
+    expect(await count("SELECT count(*)::text AS n FROM platform.audit_event WHERE entity_id = $1 AND action = 'CANCEL'", [cod.deliveryId])).toBe(1);
+
+    const after = await footprint();
+    const replay = await cancel('manager', cod.deliveryId, { ...body(), note: 'Customer travelled to Kumasi' }, key);
+    expect([replay.status, replay.body]).toEqual([200, done.body]);
+    expect(codes(await cancel('manager', cod.deliveryId))).toEqual([422, 'INVALID_STATE_TRANSITION', 'CANCELLED']);
+    expect(await footprint()).toBe(after);
+    // The driver no longer has it to deliver.
+    expect(codes(await post('driver', `/driver/deliveries/${cod.deliveryId}/fail`, { id: nextId(), failureReasonCode: 'CUSTOMER_NOT_AVAILABLE', nextAction: 'REATTEMPT', occurredAt: clock.now().toISOString() })).slice(0, 2)).toEqual([422, 'INVALID_STATE_TRANSITION']);
+  });
+
+  it('never takes the van below zero, and asks back what a paid-ahead order paid once its credit note is issued', async () => {
+    const onVan = await eggsAt('VAN1');
+    const taken = await post('manager', '/stock-adjustments', { locationId: id('location:VAN1'), reasonCode: 'BREAKAGE', lines: [{ productId: id('EGG-0003'), stockUnitId: id('lot:EGG-0003'), direction: 'LOSS', qty: onVan }] });
+    expect(taken.status, JSON.stringify(taken.body)).toBe(201);
+    expect((await post('manager', `/stock-adjustments/${taken.body.id as string}/submit`, {})).status).toBe(200);
+    const before = await footprint();
+    expect(codes(await cancel('manager', paid.deliveryId)).slice(0, 2)).toEqual([422, 'INSUFFICIENT_STOCK']);
+    expect(await footprint()).toBe(before);
+    expect((await one<{ status: string }>('SELECT status FROM del.delivery WHERE id = $1', [paid.deliveryId])).status).toBe('ASSIGNED');
+    const found = await post('manager', '/stock-adjustments', { locationId: id('location:VAN1'), reasonCode: 'FOUND_STOCK', note: 'Under the seat', lines: [{ productId: id('EGG-0003'), stockUnitId: id('lot:EGG-0003'), direction: 'GAIN', qty: onVan }] });
+    expect((await post('manager', `/stock-adjustments/${found.body.id as string}/submit`, {})).status).toBe(200);
+
+    const done = await cancel('manager', paid.deliveryId, { ...body(), reasonCode: 'CUSTOMER_CANCELLED' });
+    expect(done.status, `${JSON.stringify(done.body)} ${errors()}`).toBe(200);
+    const way = await wayOut(paid.deliveryId);
+    const credit = await creditOf(way.credit_note_id!);
+    expect((await decide('owner', credit.approval, 'approve')).status).toBe(200);
+    const refund = await one<{ amount: string; destination: string; reason: string }>('SELECT amount_pesewas::text AS amount, destination, reason_code AS reason FROM pay.refund WHERE id = $1', [(await wayOut(paid.deliveryId)).refund_id]);
+    const allocated = await one<{ n: string }>('SELECT sum(amount_pesewas)::text AS n FROM pay.payment_allocation WHERE billing_document_id = $1', [paid.billingDocumentId]);
+    expect(refund).toEqual({ amount: allocated.n, destination: 'ORIGINAL_METHOD', reason: 'ORDER_RETURNED' });
+  });
+
+  it('holds the cancellation in the database: a reason and a time exactly when CANCELLED, and frozen after', async () => {
+    const app = database.pool('app');
+    const client = await app.connect();
+    try {
+      await client.query('BEGIN');
+      expect(await sqlStateOf(client.query("UPDATE del.delivery SET status = 'CANCELLED', posted_at = now(), posted_by = created_by, version = version + 1 WHERE id = $1", [failed.deliveryId]))).toBe(SQLSTATE.documentFrozen);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+    const second = await app.connect();
+    try {
+      await second.query('BEGIN');
+      // ASSIGNED to CANCELLED is an edge of the guard, but never without its reason and time (ck_delivery_cancelled).
+      const stillAssigned = (await second.query<{ id: string }>("SELECT id FROM del.delivery WHERE status = 'ASSIGNED' LIMIT 1")).rows[0]!.id;
+      expect(await sqlStateOf(second.query("UPDATE del.delivery SET status = 'CANCELLED', posted_at = now(), posted_by = created_by, version = version + 1 WHERE id = $1", [stillAssigned]))).toBe(SQLSTATE.checkViolation);
+    } finally {
+      await second.query('ROLLBACK');
+      second.release();
+    }
+    expect(await sqlStateOf(app.query("UPDATE del.delivery SET cancel_reason_code = 'OTHER', version = version + 1 WHERE id = $1", [cod.deliveryId]))).toBe(SQLSTATE.documentFrozen);
+  });
+});
+
+describe('a part delivery: the customer keeps two of three crates, the third comes back and is credited (CR-055, ADR-0093)', () => {
+  let three: Crate;
+  let paidTwo: Crate;
+  let lineOf = '';
+  let photoId = '';
+  const photo = (seed: number) => Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(1_020, seed)]);
+  const upload = async (who: string, seed: number) => {
+    const sent = await consolePost(api.server, as(who), '/v1/files').field('purpose', 'PROOF_OF_DELIVERY').attach('file', photo(seed), 'door.jpg');
+    expect(sent.status, JSON.stringify(sent.body)).toBe(201);
+    return sent.body.id as string;
+  };
+  const proof = (deliveryId: string, body: object, who = 'driver', key = randomUUID()) =>
+    post(who, `/driver/deliveries/${deliveryId}/proof`, { id: nextId(), recipientName: 'Ama Serwaa Ofori', photoFileId: photoId, capturedAt: clock.now().toISOString(), ...body }, key);
+  const lineGross = async (billingDocumentId: string) => Number((await one<{ g: string }>("SELECT line_gross_pesewas::text AS g FROM bil.billing_document_line WHERE billing_document_id = $1 AND line_kind = 'PRODUCT'", [billingDocumentId])).g);
+  const proofFootprint = () => count('SELECT ((SELECT count(*) FROM del.proof_of_delivery) + (SELECT count(*) FROM del.proof_line) + (SELECT count(*) FROM inv.stock_movement) + (SELECT count(*) FROM pay.payment))::text AS n');
+
+  beforeAll(async () => {
+    three = await dispatchedCrate('driver', 'COD', 3);
+    paidTwo = await dispatchedCrate('driver', 'MOMO', 2);
+    lineOf = (await get('manager', `/orders/${three.orderId}`)).body.lines[0].id as string;
+    photoId = await upload('driver', 41);
+    clock.advanceBy(60_000);
+  });
+
+  it('refuses another driver, more than was dispatched, nothing kept, a short line with no reason or note, and a reason when all was kept, writing nothing', async () => {
+    const before = await proofFootprint();
+    const due = (await get('driver', `/driver/deliveries/${three.deliveryId}`)).body.codDuePesewas as number;
+    expect((await proof(three.deliveryId, { codCollectedPesewas: due }, 'otherDriver')).status).toBe(403);
+    expect(codes(await proof(three.deliveryId, { codCollectedPesewas: due, lines: [{ orderLineId: lineOf, deliveredQty: '3.001' }] }))).toEqual([422, 'DELIVERY_INVALID', 'ABOVE_DISPATCHED']);
+    expect(codes(await proof(three.deliveryId, { codCollectedPesewas: 0, lines: [{ orderLineId: lineOf, deliveredQty: '0.000' }], returnedReasonCode: 'CUSTOMER_NOT_AVAILABLE' }))).toEqual([422, 'DELIVERY_INVALID', 'NOTHING_DELIVERED']);
+    expect(codes(await proof(three.deliveryId, { codCollectedPesewas: due, lines: [{ orderLineId: lineOf, deliveredQty: '2.000' }] }))).toEqual([422, 'DELIVERY_INVALID', 'REASON_REQUIRED']);
+    expect(codes(await proof(three.deliveryId, { codCollectedPesewas: due, lines: [{ orderLineId: lineOf, deliveredQty: '2.000' }], returnedReasonCode: 'CUSTOMER_REFUSED' }))).toEqual([422, 'DELIVERY_INVALID', 'NOTE_REQUIRED']);
+    expect(codes(await proof(three.deliveryId, { codCollectedPesewas: due, lines: [{ orderLineId: lineOf, deliveredQty: '2.000' }], returnedReasonCode: 'SPOILED' }))).toEqual([422, 'DELIVERY_INVALID', 'REASON_NOT_ALLOWED']);
+    expect(codes(await proof(three.deliveryId, { codCollectedPesewas: due, lines: [{ orderLineId: lineOf, deliveredQty: '3.000' }], returnedReasonCode: 'CUSTOMER_NOT_AVAILABLE' }))).toEqual([422, 'DELIVERY_INVALID', 'REASON_NOT_NEEDED']);
+    expect(codes(await proof(three.deliveryId, { codCollectedPesewas: due, lines: [{ orderLineId: randomUUID(), deliveredQty: '1.000' }] }))).toEqual([422, 'DELIVERY_INVALID', 'LINE_UNKNOWN']);
+    expect((await proof(three.deliveryId, { codCollectedPesewas: due, lines: [{ orderLineId: lineOf, deliveredQty: '2.5' }] })).status).toBe(400);
+    expect(await proofFootprint()).toBe(before);
+  });
+
+  it('collects the cash due less the crate that came back, to the pesewa: never the whole, never more', async () => {
+    const due = (await get('driver', `/driver/deliveries/${three.deliveryId}`)).body.codDuePesewas as number;
+    const gross = await lineGross(three.billingDocumentId);
+    expect(gross % 3).toBe(0);
+    const crate = gross / 3;
+    const part = { lines: [{ orderLineId: lineOf, deliveredQty: '2.000' }], returnedReasonCode: 'CUSTOMER_REFUSED', returnedNote: 'One crate had cracked eggs; the customer kept two' };
+    const before = await proofFootprint();
+    expect(codes(await proof(three.deliveryId, { ...part, codCollectedPesewas: due }))).toEqual([422, 'DELIVERY_INVALID', 'ABOVE_DUE']);
+    expect(codes(await proof(three.deliveryId, { ...part, codCollectedPesewas: due - crate + 1 }))).toEqual([422, 'DELIVERY_INVALID', 'ABOVE_DUE']);
+    expect(await proofFootprint()).toBe(before);
+    const van = Number(await eggsAt('VAN1'));
+    const hold = Number(await eggsAt('RETURNS'));
+    const done = await proof(three.deliveryId, { ...part, codCollectedPesewas: due - crate });
+    expect(done.status, `${JSON.stringify(done.body)} ${errors()}`).toBe(200);
+    expect(done.body).toMatchObject({ status: 'DELIVERED', codDuePesewas: due, codCollectedPesewas: due - crate });
+    expect(done.body.proof).toMatchObject({ returnedReasonCode: 'CUSTOMER_REFUSED', returnedNote: 'One crate had cracked eggs; the customer kept two', returnedCreditPesewas: crate, codVarianceReasonCode: null, lines: [{ orderLineId: lineOf, dispatchedQty: '3.000', deliveredQty: '2.000' }] });
+    // Two crates issued to the customer from the van, the third back into the returns hold.
+    const moved = await admin().query<{ type: string; from: string; to: string; qty: string }>(
+      `SELECT m.movement_type AS type, m.from_location_id AS from, m.to_location_id AS to, m.qty_base::text AS qty FROM inv.stock_movement m
+        WHERE (m.source_document_id = $1 OR m.source_document_id = $2) AND m.from_location_id = $3 ORDER BY m.movement_type`,
+      [three.orderId, three.deliveryId, id('location:VAN1')],
+    );
+    expect(moved.rows.map((r) => [r.type, r.qty, r.to === id('location:RETURNS') ? 'RETURNS' : 'CUSTOMER'])).toEqual([
+      ['SALE_ISSUE', '60.000', 'CUSTOMER'],
+      ['TRANSFER_INTERNAL', '30.000', 'RETURNS'],
+    ]);
+    expect(Number(await eggsAt('VAN1'))).toBe(van - 90);
+    expect(Number(await eggsAt('RETURNS'))).toBe(hold + 30);
+    // The crate that came back is credited by its own price, through the credit note approval, the driver its maker.
+    const way = await wayOut(three.deliveryId);
+    expect(way).toMatchObject({ status: 'POSTED', way_out: 'RETURN_TO_STOCK', refund_id: null, created_by: id('driver') });
+    const credit = await creditOf(way.credit_note_id!);
+    expect(credit).toMatchObject({ status: 'DRAFT', asked: String(crate), original: three.billingDocumentId, reason: 'DELIVERY_RETURNED', created_by: id('driver') });
+    expect((await decide('owner', credit.approval, 'approve')).status).toBe(200);
+    expect(await creditOf(way.credit_note_id!)).toMatchObject({ status: 'ISSUED', gross: String(crate) });
+    expect((await wayOut(three.deliveryId)).refund_id).toBeNull();
+    const event = await one<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'del.DeliveryCompleted' AND subject_id = $1", [three.deliveryId]);
+    expect(event.payload).toMatchObject({ returnedReasonCode: 'CUSTOMER_REFUSED', returnedCreditPesewas: crate, returnedLines: [{ orderLineId: lineOf, returnedQty: '1.000', weighed: false }] });
+    expect(await count("SELECT count(*)::text AS n FROM platform.audit_event WHERE entity_id = $1 AND action = 'PART_DELIVERY'", [three.orderId])).toBe(1);
+  });
+
+  it('collects nothing on a paid-ahead order kept in part, and refunds the crate that came back once its credit note is issued', async () => {
+    expect((await get('driver', `/driver/deliveries/${paidTwo.deliveryId}`)).body.codDuePesewas).toBe(0);
+    const line = (await get('manager', `/orders/${paidTwo.orderId}`)).body.lines[0].id as string;
+    const crate = (await lineGross(paidTwo.billingDocumentId)) / 2;
+    const done = await proof(paidTwo.deliveryId, { codCollectedPesewas: 0, lines: [{ orderLineId: line, deliveredQty: '1.000' }], returnedReasonCode: 'CUSTOMER_NOT_AVAILABLE' });
+    expect(done.status, `${JSON.stringify(done.body)} ${errors()}`).toBe(200);
+    expect(done.body.proof).toMatchObject({ returnedCreditPesewas: crate, codVarianceReasonCode: null });
+    const way = await wayOut(paidTwo.deliveryId);
+    const credit = await creditOf(way.credit_note_id!);
+    expect((await decide('owner', credit.approval, 'approve')).status).toBe(200);
+    const refund = await one<{ amount: string; destination: string; reason: string }>('SELECT amount_pesewas::text AS amount, destination, reason_code AS reason FROM pay.refund WHERE id = $1', [(await wayOut(paidTwo.deliveryId)).refund_id]);
+    expect(refund).toEqual({ amount: String(crate), destination: 'ORIGINAL_METHOD', reason: 'ORDER_RETURNED' });
+  });
+
+  it('holds the part delivery in the database: never more kept than dispatched, and a returned reason exactly when a line was kept short', async () => {
+    const app = database.pool('app');
+    const proofId = (await one<{ id: string }>('SELECT id FROM del.proof_of_delivery WHERE delivery_id = $1', [three.deliveryId])).id;
+    expect(await sqlStateOf(app.query('UPDATE del.proof_line SET delivered_qty = 3 WHERE proof_id = $1', [proofId]))).toBe(SQLSTATE.insufficientPrivilege);
+    expect(await sqlStateOf(admin().query('UPDATE del.proof_line SET delivered_qty = 3 WHERE proof_id = $1', [proofId]))).toBe(SQLSTATE.ledgerImmutable);
+    expect(await sqlStateOf(app.query('INSERT INTO del.proof_line (proof_id, order_line_id, dispatched_qty, delivered_qty, actor_id) VALUES ($1, $2, 1, 2, $3)', [proofId, randomUUID(), id('driver')]))).toBe(SQLSTATE.checkViolation);
+    // A line kept short added to a proof that gave no returned reason: refused at commit.
+    const whole = await dispatchedCrate('driver', 'COD');
+    const due = (await get('driver', `/driver/deliveries/${whole.deliveryId}`)).body.codDuePesewas as number;
+    expect((await proof(whole.deliveryId, { codCollectedPesewas: due })).status).toBe(200);
+    const other = (await one<{ id: string }>('SELECT id FROM del.proof_of_delivery WHERE delivery_id = $1', [whole.deliveryId])).id;
+    expect(await sqlStateOf(app.query('INSERT INTO del.proof_line (proof_id, order_line_id, dispatched_qty, delivered_qty, actor_id) VALUES ($1, $2, 2, 1, $3)', [other, randomUUID(), id('driver')]))).toBe('HK010');
+  });
+});
+
+describe("the driver's offline queue: each proof and failure once by its client id, a resend answering the first outcome (CR-057 point 3)", () => {
+  let full: Crate;
+  let short: Crate;
+  let failing: Crate;
+  let kwesis: Crate;
+  let photoId = '';
+  const sync = (who: string, body: object) => consolePost(api.server, as(who), '/v1/driver/sync').send(body);
+  const outcomes = (res: request.Response) => (res.body.results as { deliveryId: string; outcome: string; reason: string | null; firstOutcome: string | null }[]).map((r) => [r.deliveryId, r.outcome, r.reason, r.firstOutcome]);
+  const written = () => count('SELECT ((SELECT count(*) FROM del.proof_of_delivery) + (SELECT count(*) FROM del.delivery_attempt) + (SELECT count(*) FROM pay.payment))::text AS n');
+  let batch: { proofs: object[]; failures: object[] };
+
+  beforeAll(async () => {
+    full = await dispatchedCrate('driver', 'COD');
+    short = await dispatchedCrate('driver', 'COD');
+    failing = await dispatchedCrate('driver', 'COD');
+    kwesis = await dispatchedCrate('otherDriver', 'COD');
+    const sent = await consolePost(api.server, as('driver'), '/v1/files').field('purpose', 'PROOF_OF_DELIVERY').attach('file', Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(1_020, 77)]), 'door.jpg');
+    photoId = sent.body.id as string;
+    clock.advanceBy(60_000);
+    const due = (await get('driver', `/driver/deliveries/${full.deliveryId}`)).body.codDuePesewas as number;
+    const at = clock.now().toISOString();
+    batch = {
+      proofs: [
+        { deliveryId: full.deliveryId, proof: { id: nextId(), recipientName: 'Ama Serwaa Ofori', photoFileId: photoId, codCollectedPesewas: due, capturedAt: at } },
+        { deliveryId: short.deliveryId, proof: { id: nextId(), recipientName: 'Ama Serwaa Ofori', photoFileId: photoId, codCollectedPesewas: due - 500, codVarianceReasonCode: 'CUSTOMER_PAID_SHORT', codVarianceNote: 'Short by GHS 5.00, will pay at the shop', capturedAt: at } },
+        { deliveryId: kwesis.deliveryId, proof: { id: nextId(), recipientName: 'Ama Serwaa Ofori', photoFileId: photoId, codCollectedPesewas: due, capturedAt: at } },
+        { deliveryId: failing.deliveryId, proof: { id: randomUUID(), recipientName: 'Ama Serwaa Ofori', photoFileId: photoId, codCollectedPesewas: due, capturedAt: at } },
+        { deliveryId: failing.deliveryId, proof: { id: nextId(), recipientName: 'Ama Serwaa Ofori', photoFileId: photoId, codCollectedPesewas: due + 1, capturedAt: at } },
+      ],
+      failures: [{ deliveryId: failing.deliveryId, failure: { id: nextId(), failureReasonCode: 'CUSTOMER_NOT_AVAILABLE', nextAction: 'REATTEMPT', occurredAt: at } }],
+    };
+  });
+
+  it('refuses the whole batch to every role but the Driver, and a malformed batch, writing nothing', async () => {
+    const before = await written();
+    for (const who of ['storekeeper', 'cashier', 'sales']) expect((await sync(who, batch)).status, who).toBe(403);
+    // The Manager may drive (del.proof.create), but only their own deliveries: every record here is another's.
+    const manager = await sync('manager', batch);
+    expect(outcomes(manager).map((o) => o[1])).toEqual(['REJECTED', 'REJECTED', 'REJECTED', 'REJECTED', 'REJECTED', 'REJECTED']);
+    expect((await sync('driver', { proofs: [] })).status).toBe(400);
+    expect((await sync('driver', { ...batch, extra: true })).status).toBe(400);
+    expect(await written()).toBe(before);
+  });
+
+  it('applies each record in its own transaction: a refused one never loses the rest', async () => {
+    const res = await sync('driver', batch);
+    expect(res.status, `${JSON.stringify(res.body)} ${errors()}`).toBe(200);
+    expect(outcomes(res), JSON.stringify(outcomes(res))).toEqual([
+      [full.deliveryId, 'APPLIED', null, null],
+      [short.deliveryId, 'APPLIED_WITH_EXCEPTION', 'COD_VARIANCE:CUSTOMER_PAID_SHORT', null],
+      [kwesis.deliveryId, 'REJECTED', 'FORBIDDEN', null],
+      [failing.deliveryId, 'REJECTED', 'CLIENT_ID_NOT_V7', null],
+      [failing.deliveryId, 'REJECTED', 'ABOVE_DUE', null],
+      [failing.deliveryId, 'APPLIED', null, null],
+    ]);
+    expect(res.body.serverTime).toBe(clock.now().toISOString());
+    const statuses = await admin().query<{ id: string; status: string }>('SELECT id, status FROM del.delivery WHERE id = ANY($1::uuid[])', [[full.deliveryId, short.deliveryId, failing.deliveryId, kwesis.deliveryId]]);
+    expect(Object.fromEntries(statuses.rows.map((r) => [r.id, r.status]))).toEqual({ [full.deliveryId]: 'DELIVERED', [short.deliveryId]: 'DELIVERED', [failing.deliveryId]: 'FAILED', [kwesis.deliveryId]: 'ASSIGNED' });
+  });
+
+  it('answers a resend DUPLICATE with the first outcome and its reason, writing nothing more; an id of another delivery is refused', async () => {
+    const before = await written();
+    const again = await sync('driver', { proofs: batch.proofs.slice(0, 2), failures: batch.failures });
+    expect(outcomes(again), JSON.stringify(outcomes(again))).toEqual([
+      [full.deliveryId, 'DUPLICATE', null, 'APPLIED'],
+      [short.deliveryId, 'DUPLICATE', 'COD_VARIANCE:CUSTOMER_PAID_SHORT', 'APPLIED_WITH_EXCEPTION'],
+      [failing.deliveryId, 'DUPLICATE', null, 'APPLIED'],
+    ]);
+    const reused = { ...(batch.proofs[0] as { proof: object }), deliveryId: failing.deliveryId };
+    expect(outcomes(await sync('driver', { proofs: [reused], failures: [] }))).toEqual([[failing.deliveryId, 'REJECTED', 'ID_IN_USE', null]]);
+    // Kwesi resending Kwabena's proof by its id learns nothing of it.
+    expect(outcomes(await sync('otherDriver', { proofs: [batch.proofs[0]], failures: [] }))).toEqual([[full.deliveryId, 'REJECTED', 'FORBIDDEN', null]]);
+    expect(await written()).toBe(before);
+    expect(await count('SELECT count(*)::text AS n FROM del.proof_of_delivery WHERE delivery_id = ANY($1::uuid[])', [[full.deliveryId, short.deliveryId]])).toBe(2);
   });
 });

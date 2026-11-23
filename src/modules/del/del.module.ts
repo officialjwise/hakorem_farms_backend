@@ -11,6 +11,7 @@ import { CLOCK } from '../../platform/platform.module';
 import { FileStore } from '../../platform/storage/file-store';
 import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { MasterDataRefs, MdmModule, Storefront } from '../mdm';
+import { BilModule, Billing } from '../bil';
 import { DriverCash, PayModule } from '../pay';
 import { DEL_LEDGER_EVENTS, Deliveries } from './application/deliveries';
 import { DELIVERY_STORE, type DeliveryStore } from './application/delivery-store';
@@ -19,7 +20,7 @@ import { DriverCashReconciliations } from './application/driver-cash';
 import { DRIVER_CASH_STORE, type DriverCashStore } from './application/driver-cash-store';
 import { PgDriverCashStore } from './infrastructure/pg-driver-cash-store';
 import { DriverCashController } from './interface/driver-cash.controller';
-import { DeliveriesController, DriverDeliveriesController } from './interface/deliveries.controller';
+import { DeliveriesController, DriverDeliveriesController, DriverSyncController } from './interface/deliveries.controller';
 import { ROUTE_STORE, type RouteStore } from './application/route-store';
 import { Routes } from './application/routes';
 import { PgRouteStore } from './infrastructure/pg-route-store';
@@ -40,8 +41,8 @@ import { SchedulingController } from './interface/scheduling.controller';
  * booking against capacity, cut-offs, returns to stock and reassignment follow in B11 continued 4.
  */
 @Module({
-  imports: [IamModule, MdmModule, PayModule],
-  controllers: [SlotsController, DeliveriesController, SchedulingController, DriverDeliveriesController, DriverCashController, RoutesController, DriversController, DriverRouteController],
+  imports: [IamModule, MdmModule, BilModule, PayModule],
+  controllers: [SlotsController, DeliveriesController, SchedulingController, DriverDeliveriesController, DriverSyncController, DriverCashController, RoutesController, DriversController, DriverRouteController],
   providers: [
     { provide: SLOT_STORE, useClass: PgSlotStore },
     { provide: DELIVERY_STORE, useClass: PgDeliveryStore },
@@ -90,6 +91,7 @@ import { SchedulingController } from './interface/scheduling.controller';
         refs: MasterDataRefs,
         storefront: Storefront,
         driverCash: DriverCash,
+        billing: Billing,
         files: FileStore,
         numbers: NumberSeries,
         documents: DocumentRegistry,
@@ -100,8 +102,8 @@ import { SchedulingController } from './interface/scheduling.controller';
         principals: PrincipalNames,
         cursors: Cursors,
         clock: Clock,
-      ) => new Deliveries(uow, store, slots, refs, storefront, driverCash, files, numbers, documents, events, idempotency, audit, authoriser, principals, cursors, clock),
-      inject: [UnitOfWork, DELIVERY_STORE, SLOT_STORE, MasterDataRefs, Storefront, DriverCash, FileStore, NumberSeries, DocumentRegistry, DomainEvents, Idempotency, AuditTrail, Authoriser, PRINCIPAL_NAMES, Cursors, CLOCK],
+      ) => new Deliveries(uow, store, slots, refs, storefront, driverCash, billing, files, numbers, documents, events, idempotency, audit, authoriser, principals, cursors, clock),
+      inject: [UnitOfWork, DELIVERY_STORE, SLOT_STORE, MasterDataRefs, Storefront, DriverCash, Billing, FileStore, NumberSeries, DocumentRegistry, DomainEvents, Idempotency, AuditTrail, Authoriser, PRINCIPAL_NAMES, Cursors, CLOCK],
     },
     {
       provide: Scheduling,

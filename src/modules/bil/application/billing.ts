@@ -621,6 +621,33 @@ export class Billing {
     });
   }
 
+  /**
+   * A credit note of the named lines of an issued invoice or receipt (each by quantity), asked for in the caller's
+   * serializable transaction by a higher module whose own command has authorised the correction (ORD's part delivery:
+   * what the customer did not keep at the door, B11 continued 6, CR-055, ADR-0093). It follows `requestWholeCreditIn`'s
+   * path and approval exactly, for these lines only: drafted and waiting for a holder of `bil.credit_note.approve` other
+   * than its maker (`CREDIT_NOTE`), issued at once only if the policy lets it through; never more than a line has left
+   * uncredited. The caller declares `seriesLocksFor('CREDIT_NOTE', branch)`. It authorises nothing.
+   */
+  async requestCreditIn(tx: Transaction, actor: Actor, originalId: string, body: CreditNoteRequest): Promise<RequestedCredit> {
+    return translateRefusal(async () => {
+      const original = await this.documentOf(tx, originalId, true);
+      if (!correctable(original)) throw new BillingDocumentInvalidError([{ field: null, rule: 'ORIGINAL_NOT_CORRECTABLE' }]);
+      const { header, gross } = await this.draftCreditIn(tx, original, body, actor.principalId, CREDIT_REASON_DOMAINS);
+      const judged = await this.approvals.judgeIn(tx, CREDIT_NOTE_KIND, original.branchId, gross);
+      if (!judged.required) {
+        await this.issueDraft(tx, header.id, actor.principalId, null);
+        return { creditNoteId: header.id, grossPesewas: gross, approvalRequestId: null };
+      }
+      const [draft] = await this.store.documents(tx, [header.id]);
+      const summary = `Credit ${gross} pesewas against ${original.documentNo} to ${original.customerName ?? 'a walk-in customer'} (${body.reasonCode})`;
+      const request = await this.approvals.request(tx, actor, { kind: CREDIT_NOTE_KIND, branchId: original.branchId, subjectDocumentId: header.id, payloadHash: draftHash(draft!), amountPesewas: gross, summary });
+      await this.store.markPending(tx, header.id, request.id, actor.principalId);
+      await this.audit.record(tx, { module: 'bil', action: 'SUBMIT', entityType: 'BillingDocument', entityId: header.id, branchId: original.branchId, before: null, after: { ...auditShape(draft!), approvalRequestId: request.id } });
+      return { creditNoteId: header.id, grossPesewas: gross, approvalRequestId: request.id };
+    });
+  }
+
   /** An issued document's lines by the order line each was raised for (ORD's returns, A-228). It authorises nothing. */
   async linesByOrderLineIn(tx: Transaction, documentId: string): Promise<ReadonlyMap<string, string>> {
     const [record] = await this.store.documents(tx, [documentId]);
