@@ -3822,70 +3822,7 @@ paths:
   "/driver/deliveries/{id}/on-the-way": {}
   "/driver/deliveries/{id}/proof": {}
   "/driver/deliveries/{id}/fail": {}
-  "/driver/sync":
-    post:
-      operationId: syncDriverEvents
-      tags:
-        - del
-      summary: "Sync proofs and failures captured without signal"
-      description: "Permission: `del.proof.create`. Ownership: deliveries assigned to the caller."
-      x-permission: del.proof.create
-      parameters:
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/DriverSyncBatch"
-            example:
-              proofs:
-                - deliveryId: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
-                  proof:
-                    id: "019a7b0a-be6d-70d5-b60d-162c01708f09"
-                    recipientName: "Asantewaa Boateng"
-                    photoFileId: "019a7b0a-fc4b-749c-99d4-529af4d2cb78"
-                    codCollectedPesewas: 24000
-                    capturedAt: "2026-11-13T11:52:00Z"
-              failures: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DriverSyncResult"
-              example:
-                results:
-                  - clientId: "019a7b0a-be6d-70d5-b60d-162c01708f09"
-                    deliveryId: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
-                    outcome: APPLIED
-                    reason: null
-                  - clientId: "019a7b0b-1b3a-7e80-a3b8-f0d26e8369b0"
-                    deliveryId: "019a7b09-2c4a-7048-a580-0d5ad3738638"
-                    outcome: DUPLICATE
-                    reason: null
-                serverTime: "2026-11-13T13:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/driver/sync": {}
   "/driver/cash-summary": {}
   "/driver-cash-reconciliations":
     post:
@@ -29898,6 +29835,25 @@ components:
       required:
         - data
         - asOf
+    ProofOfDeliveryLine:
+      type: object
+      description: "What the customer kept of one delivered line (CR-055), in the line's own unit."
+      properties:
+        orderLineId:
+          type: string
+          format: uuid
+          description: "A line of the delivery's `contents`."
+        deliveredQty:
+          $ref: "#/components/schemas/Quantity"
+        dispatchedQty:
+          allOf:
+            - $ref: "#/components/schemas/Quantity"
+          readOnly: true
+          description: "What was dispatched of the line (answered, never sent)."
+      required:
+        - orderLineId
+        - deliveredQty
+      additionalProperties: false
     DeliveryCancel:
       type: object
       description: "Cancelling a dispatched delivery before it leaves the farm (A-364 (a)): why, and where its goods go back to."
@@ -34329,6 +34285,24 @@ components:
           type:
             - string
             - "null"
+        lines:
+          type: array
+          description: "A part delivery (2.35.0, CR-055): what the customer kept of each line the driver named; a line not named was kept whole. Empty when everything was kept."
+          items:
+            $ref: "#/components/schemas/ProofOfDeliveryLine"
+        returnedReasonCode:
+          type:
+            - string
+            - "null"
+          description: "Why the rest came back: a `DELIVERY_FAILURE` reason (2.35.0, CR-055); null when everything was kept."
+        returnedNote:
+          type:
+            - string
+            - "null"
+        returnedCreditPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The credit for what came back, as the credit note prices it (2.35.0, ADR-0093); 0 when everything was kept. The cash due at the door was the delivery's `codDuePesewas` less this, never below zero."
       required:
         - id
         - recipientName
@@ -34340,6 +34314,10 @@ components:
         - codCollectedPesewas
         - codVarianceReasonCode
         - codVarianceNote
+        - lines
+        - returnedReasonCode
+        - returnedNote
+        - returnedCreditPesewas
         - capturedAt
     Delivery:
       type: object
@@ -34755,6 +34733,21 @@ components:
         capturedAt:
           type: string
           format: date-time
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 200
+          description: "A part delivery (2.35.0, CR-055): what the customer kept of each line named, in the line's own unit; a line not named was kept whole; absent means everything was delivered. Never more than was dispatched (`ABOVE_DISPATCHED`); a weighed line (a catch-weight pack) kept or sent back whole (`WEIGHED_LINE_WHOLE`); something must be kept (`NOTHING_DELIVERED`: record a failed attempt instead)."
+          items:
+            $ref: "#/components/schemas/ProofOfDeliveryLine"
+        returnedReasonCode:
+          type: string
+          description: "Why the rest came back: a `DELIVERY_FAILURE` reason, required when a line was kept short (`REASON_REQUIRED`) and refused otherwise (`REASON_NOT_NEEDED`)."
+        returnedNote:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Required when the returned reason asks for a note (`NOTE_REQUIRED`), refused when nothing came back."
       required:
         - id
         - recipientName
@@ -34847,11 +34840,21 @@ components:
             - string
             - "null"
           description: "Why it was rejected, or the exception raised, for example cash collected differs from the amount due."
+        firstOutcome:
+          type:
+            - string
+            - "null"
+          enum:
+            - APPLIED
+            - APPLIED_WITH_EXCEPTION
+            - null
+          description: "On a `DUPLICATE`, what the record answered when it was first applied (2.35.0, CR-057 point 3); null otherwise."
       required:
         - clientId
         - deliveryId
         - outcome
         - reason
+        - firstOutcome
     DriverSyncResult:
       type: object
       properties:

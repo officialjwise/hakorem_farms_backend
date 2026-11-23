@@ -316,6 +316,42 @@ export class VanReturns {
     await this.audit.record(tx, { module: 'ord', action: 'REATTEMPT', entityType: 'SalesOrder', entityId: header.id, branchId: header.branchId, before: { status: 'DELIVERY_FAILED' }, after: { status: 'DISPATCHED', deliveryId: moved.deliveryId, slotId: moved.toSlotId } });
   }
 
+  /**
+   * A part delivery's credit (CR-055, ADR-0093), in DEL's transaction once the proof is recorded and ORD has moved what
+   * came back into the returns hold: the credit note of the returned quantities asked for through BIL's `CREDIT_NOTE`
+   * approval (the driver its maker, so a different person approves it), recorded as the delivery's way out into the
+   * returns hold, and, once the credit note is issued, what the customer paid beyond what the document still asks
+   * refunded to the original method through PAY's `REFUND` approval (here when issued at once, else on its approval).
+   */
+  async partReturnedIn(
+    tx: Transaction,
+    maker: Actor,
+    facts: { readonly deliveryId: string; readonly salesOrderId: string; readonly billingDocumentId: string; readonly branchId: string; readonly returnsLocationId: string; readonly note: string },
+    lines: readonly { readonly lineId: string; readonly quantity: string }[],
+    at: Date,
+  ): Promise<{ readonly creditNoteId: string; readonly approvalRequestId: string | null }> {
+    const credit = await this.billing.requestCreditIn(tx, maker, facts.billingDocumentId, { reasonCode: CREDIT_REASON, note: facts.note, lines });
+    const id = this.nextId();
+    await this.store.insertPosted(tx, {
+      id,
+      deliveryId: facts.deliveryId,
+      salesOrderId: facts.salesOrderId,
+      originalBillingDocumentId: facts.billingDocumentId,
+      branchId: facts.branchId,
+      createdBy: maker.principalId,
+      at,
+      creditNoteId: credit.creditNoteId,
+      wayOut: 'RETURN_TO_STOCK',
+      returnsLocationId: facts.returnsLocationId,
+      reasonCode: null,
+      stockAdjustmentId: null,
+      note: facts.note,
+      refundDestination: 'ORIGINAL_METHOD',
+    });
+    if (credit.approvalRequestId === null) await this.refundIn(tx, (await this.store.ofCreditNote(tx, credit.creditNoteId))!, at);
+    return { creditNoteId: credit.creditNoteId, approvalRequestId: credit.approvalRequestId };
+  }
+
   private async assertNoPendingWriteOff(tx: Transaction, deliveryId: string): Promise<void> {
     if ((await this.store.liveOfDelivery(tx, deliveryId))?.status === 'PENDING_APPROVAL') throw new DeliveryInvalidError([{ field: '', rule: 'WRITE_OFF_PENDING' }]);
   }

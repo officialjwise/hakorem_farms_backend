@@ -153,6 +153,7 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   handInDriverCash: { driverId: randomUUID(), declaredPesewas: 20_000 },
   holdSale: { id: '019a7afb-a3ba-7cc4-a1fc-d51596034df3', label: 'Back in ten minutes', payload: { lines: [{ productId: randomUUID(), quantity: '1.000' }] } },
   syncOfflineSales: { deviceId: randomUUID(), shiftId: randomUUID(), sales: [] },
+  syncDriverEvents: { proofs: [], failures: [] },
   completeCounterSale: { id: '019a7aac-216c-721a-8753-2a7ecd11a35c', shiftId: randomUUID(), lines: [{ productId: randomUUID(), quantity: '1.000', agreedUnitPricePesewas: 2_000 }], tenders: [{ paymentMethodId: randomUUID(), amountPesewas: 2_000 }], occurredAt: '2026-11-13T09:11:00Z' },
   createStatement: { customerId: randomUUID(), periodStart: toBusinessDate(new Date()), periodEnd: toBusinessDate(new Date()), issue: true },
   submitQuoteRequest: { contactName: 'Efua Asante', contactPhone: '+233201234567', requirements: 'Ten crates for a wedding', productId: randomUUID(), quantity: '10.000', uom: 'CRATE', consentToContact: true },

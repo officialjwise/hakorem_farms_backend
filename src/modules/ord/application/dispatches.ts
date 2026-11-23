@@ -7,7 +7,7 @@ import type { DomainEvents, EventEnvelope } from '../../../platform/events/domai
 import { translate } from '../../../platform/i18n/messages';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Billing, IssueLineRequest } from '../../bil';
-import type { ContentsLine, Deliveries, DeliveryCompleted, DeliveryFailed } from '../../del';
+import { DeliveryInvalidError, type ContentsLine, type Deliveries, type DeliveryCompleted, type DeliveryFailed } from '../../del';
 import type { Authoriser } from '../../iam';
 import type { Reservations, Stock, StockUnits } from '../../inv';
 import type { MasterDataRefs, Storefront } from '../../mdm';
@@ -19,6 +19,7 @@ import { FulfilmentInvalidError, type SaleRule } from './errors';
 import type { FulfilmentStore, PickRecord } from './fulfilment-store';
 import type { Fulfilments, FulfilmentView } from './fulfilments';
 import type { OrderHeaderRecord, OrderLineRecord, OrderStore } from './order-store';
+import type { VanReturns } from './van-returns';
 
 const DISPATCH = 'ord.fulfilment.dispatch';
 export const ORDER_DISPATCHED = 'ord.OrderDispatched';
@@ -29,6 +30,8 @@ const ONTO_VEHICLE = 'TRANSFER_INTERNAL';
 const SALE_ISSUE = 'SALE_ISSUE';
 /** ADR-0021: what was paid beyond the weighed total is asked back to the original method with this reason (migration 0302). */
 const WEIGHED_BELOW_PAID = 'WEIGHED_BELOW_PAID';
+/** What a part delivery's customer did not keep goes back from the vehicle into the returns hold (CR-055). */
+const BACK_FROM_VEHICLE = 'TRANSFER_INTERNAL';
 
 const invalidState = (what: string, status: string) =>
   new InvalidStateTransitionError(`${what} is ${status}`, [{ field: null, code: status, message: translate('error.invalid_state_transition') }]);
@@ -75,6 +78,7 @@ export class Dispatches {
     private readonly payments: Payments,
     private readonly refunds: Refunds,
     private readonly deliveries: Deliveries,
+    private readonly vanReturns: VanReturns,
     private readonly events: DomainEvents,
     private readonly idempotency: Idempotency,
     private readonly audit: AuditTrail,
@@ -263,25 +267,56 @@ export class Dispatches {
     );
     const customer = await this.refs.virtualLocationIn(tx, header.branchId, 'CUSTOMER');
     if (customer === null) throw new Error(`branch ${header.branchId} has no CUSTOMER location`);
+    // A part delivery (CR-055): what came back of each line, in base units, taken from its last picks first.
+    const returned = done.returnedLines ?? [];
+    const backOf = splitReturned(picks, returned, order.lines);
+    const hold = returned.length === 0 ? null : await this.refs.physicalLocationOfKindIn(tx, header.branchId, 'RETURNS_HOLD');
+    if (returned.length > 0 && hold === null) throw new DeliveryInvalidError([{ field: '/lines', rule: 'NO_RETURNS_HOLD' }]);
+    const lineMovement = new Map<string, string>();
     for (const pick of picks) {
       if (issued.has(pick.id)) continue;
       const line = order.lines.find((l) => l.id === pick.salesOrderLineId)!;
-      const posted = await this.stock.postIn(tx, actorId, {
-        movementType: SALE_ISSUE,
-        productId: line.productId,
-        stockUnitId: pick.stockUnitId,
-        branchId: header.branchId,
-        fromLocationId: done.vehicleLocationId,
-        toLocationId: customer,
-        qty: Quantity.parse(pick.qtyBase),
-        weight: pick.weightKg === null ? null : { kg: Weight.parseKg(pick.weightKg), source: pick.weightSource! },
-        sourceDocumentId: header.id,
-        sourceLineRef: line.id,
-        occurredAt: at,
-      });
-      await this.store.insertIssue(tx, { pickId: pick.id, movementId: posted.id, at, actorId });
-      await this.store.setLineMovement(tx, line.id, posted.id);
+      const whole = Quantity.parse(pick.qtyBase);
+      const back = backOf.get(pick.id) ?? Quantity.zero();
+      const kept = whole.minus(back);
+      const weight = pick.weightKg === null ? null : { kg: Weight.parseKg(pick.weightKg), source: pick.weightSource! };
+      if (!kept.isZero()) {
+        const posted = await this.stock.postIn(tx, actorId, {
+          movementType: SALE_ISSUE,
+          productId: line.productId,
+          stockUnitId: pick.stockUnitId,
+          branchId: header.branchId,
+          fromLocationId: done.vehicleLocationId,
+          toLocationId: customer,
+          qty: kept,
+          weight: back.isZero() ? weight : null,
+          sourceDocumentId: header.id,
+          sourceLineRef: line.id,
+          occurredAt: at,
+        });
+        await this.store.insertIssue(tx, { pickId: pick.id, movementId: posted.id, at, actorId });
+        lineMovement.set(line.id, lineMovement.get(line.id) ?? posted.id);
+      }
+      if (!back.isZero()) {
+        const moved = await this.stock.postIn(tx, actorId, {
+          movementType: BACK_FROM_VEHICLE,
+          productId: line.productId,
+          stockUnitId: pick.stockUnitId,
+          branchId: header.branchId,
+          fromLocationId: done.vehicleLocationId,
+          toLocationId: hold!,
+          qty: back,
+          weight: kept.isZero() ? weight : null,
+          sourceDocumentId: done.deliveryId,
+          sourceLineRef: pick.id,
+          occurredAt: at,
+        });
+        // A line that came back whole names its way back, so the order's lines each name a movement.
+        if (!lineMovement.has(line.id)) lineMovement.set(line.id, moved.id);
+      }
     }
+    for (const [lineId, movementId] of lineMovement) await this.store.setLineMovement(tx, lineId, movementId);
+    if (returned.length > 0) await this.creditReturnedIn(tx, event, done, header, hold!, at);
     await this.moveIn(tx, header, 'DELIVERED', `Delivered on ${done.deliveryNo}`, at, actorId);
     const outstanding = (await this.billing.settleableIn(tx, [done.billingDocumentId])).get(done.billingDocumentId)?.outstandingPesewas ?? null;
     const completed = outstanding === 0n;
@@ -330,6 +365,31 @@ export class Dispatches {
     });
   }
 
+  /**
+   * What a part delivery's customer did not keep, credited (CR-055, ADR-0093): the returned quantity of each line in the
+   * document's own unit, a weighed line whole, the driver the credit note's maker; the delivery fee is never credited.
+   */
+  private async creditReturnedIn(tx: Transaction, event: EventEnvelope, done: DeliveryCompleted, header: OrderHeaderRecord, hold: string, at: Date): Promise<void> {
+    const byOrderLine = await this.billing.linesByOrderLineIn(tx, done.billingDocumentId);
+    const [document] = await this.billing.viewsIn(tx, [done.billingDocumentId]);
+    const lines = done.returnedLines.map((r) => {
+      const lineId = byOrderLine.get(r.orderLineId)!;
+      return { lineId, quantity: r.weighed ? document!.lines.find((l) => l.id === lineId)!.quantity : r.returnedQty };
+    });
+    const maker: Actor = { principalId: event.actorId, kind: 'USER', displayName: '', realm: 'STAFF', sessionId: null, steppedUpAt: null };
+    const note = `Part delivery ${done.deliveryNo}: ${done.returnedReasonCode ?? 'returned'}`;
+    const credit = await this.vanReturns.partReturnedIn(tx, maker, { deliveryId: done.deliveryId, salesOrderId: header.id, billingDocumentId: done.billingDocumentId, branchId: header.branchId, returnsLocationId: hold, note }, lines, at);
+    await this.audit.record(tx, {
+      module: 'ord',
+      action: 'PART_DELIVERY',
+      entityType: 'SalesOrder',
+      entityId: header.id,
+      branchId: header.branchId,
+      before: null,
+      after: { deliveryId: done.deliveryId, returnedLines: [...done.returnedLines], returnedReasonCode: done.returnedReasonCode, returnedCreditPesewas: done.returnedCreditPesewas, creditNoteId: credit.creditNoteId, creditApprovalRequestId: credit.approvalRequestId, returnsLocationId: hold },
+    });
+  }
+
   /** Each open line as weighed and picked: a catch-weight line in kilograms, any other in its sold unit (FR-BIL-005). */
   private async billedLines(tx: Transaction, open: readonly OrderLineRecord[], picks: readonly PickRecord[], at: Date): Promise<IssueLineRequest[]> {
     const unitIds = [...new Set(picks.flatMap((p) => (p.stockUnitId === null ? [] : [p.stockUnitId])))];
@@ -375,4 +435,36 @@ export class Dispatches {
     else await write();
     await this.orderStore.recordStatus(tx, header.id, { id: this.nextId(), fromStatus: from, toStatus: to, reason, occurredAt: at, actorId });
   }
+}
+
+/**
+ * Each pick's part that came back (CR-055), in base units: a line's returned quantity in its own unit is converted by
+ * the line's own picked ratio (base picked over the line's quantity), exactly or not at all (`UNIT_SPLIT`), and taken
+ * from the line's last picks first, so the first picks are kept whole. A weighed line comes back whole.
+ */
+export function splitReturned(
+  picks: readonly PickRecord[],
+  returned: readonly { readonly orderLineId: string; readonly dispatchedQty: string; readonly returnedQty: string; readonly weighed: boolean }[],
+  lines: readonly OrderLineRecord[],
+): Map<string, Quantity> {
+  const back = new Map<string, Quantity>();
+  for (const r of returned) {
+    const mine = picks.filter((p) => p.salesOrderLineId === r.orderLineId);
+    if (lines.every((l) => l.id !== r.orderLineId) || mine.length === 0) throw new DeliveryInvalidError([{ field: '/lines', rule: 'LINE_UNKNOWN' }]);
+    const base = Quantity.sum(mine.map((p) => Quantity.parse(p.qtyBase)));
+    const dispatched = Quantity.parse(r.dispatchedQty).thousandths;
+    const product = base.thousandths * Quantity.parse(r.returnedQty).thousandths;
+    if (product % dispatched !== 0n) throw new DeliveryInvalidError([{ field: '/lines', rule: 'UNIT_SPLIT' }]);
+    let remaining = r.weighed ? base : Quantity.ofThousandths(product / dispatched);
+    for (const pick of [...mine].reverse()) {
+      if (remaining.isZero()) break;
+      const whole = Quantity.parse(pick.qtyBase);
+      const take = whole.compareTo(remaining) <= 0 ? whole : remaining;
+      // A weighed pick (a pack priced by its weight) is never split at the door.
+      if (!take.equals(whole) && pick.weightKg !== null) throw new DeliveryInvalidError([{ field: '/lines', rule: 'UNIT_SPLIT' }]);
+      back.set(pick.id, take);
+      remaining = remaining.minus(take);
+    }
+  }
+  return back;
 }

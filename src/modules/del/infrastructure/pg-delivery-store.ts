@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { AttemptRecord, ContentsLine, DeliveryFilter, DeliveryRecord, DeliveryStore, NewDelivery, ProofRecord, WriteOffFacts, WrittenOffFilter, WrittenOffRecord } from '../application/delivery-store';
+import type { AttemptRecord, ContentsLine, DeliveryFilter, DeliveryRecord, DeliveryStore, NewDelivery, ProofLineRecord, ProofRecord, WriteOffFacts, WrittenOffFilter, WrittenOffRecord } from '../application/delivery-store';
 import type { DeliveryStatus } from '../domain/deliveries';
 
 interface DeliveryRow {
@@ -40,6 +40,9 @@ interface ProofRow {
   cod_variance_reason_code: string | null;
   cod_variance_note: string | null;
   payment_id: string | null;
+  returned_reason_code: string | null;
+  returned_note: string | null;
+  returned_credit: string;
   captured_at: Date;
   created_by: string;
 }
@@ -49,7 +52,8 @@ const COLUMNS = `id, delivery_no, order_document_id, billing_document_id, custom
   attempt_count, dispatched_at, delivered_at, delivery_note_document_id, status, branch_id, version`;
 
 const PROOF_COLUMNS = `id, delivery_id, recipient_name, signature_file_id, photo_file_id, latitude::text, longitude::text, position_accuracy_m,
-  cod_collected_pesewas::text AS cod_collected, cod_variance_reason_code, cod_variance_note, payment_id, captured_at, created_by`;
+  cod_collected_pesewas::text AS cod_collected, cod_variance_reason_code, cod_variance_note, payment_id, returned_reason_code, returned_note,
+  returned_credit_pesewas::text AS returned_credit, captured_at, created_by`;
 
 function toRecord(r: DeliveryRow): DeliveryRecord {
   return {
@@ -92,6 +96,9 @@ function toProof(r: ProofRow): ProofRecord {
     codVarianceReasonCode: r.cod_variance_reason_code,
     codVarianceNote: r.cod_variance_note,
     paymentId: r.payment_id,
+    returnedReasonCode: r.returned_reason_code,
+    returnedNote: r.returned_note,
+    returnedCreditPesewas: BigInt(r.returned_credit),
     capturedAt: r.captured_at,
     createdBy: r.created_by,
   };
@@ -179,8 +186,9 @@ export class PgDeliveryStore implements DeliveryStore {
   async insertProof(tx: Transaction, p: ProofRecord): Promise<void> {
     await tx.query(
       `INSERT INTO del.proof_of_delivery (id, delivery_id, recipient_name, signature_file_id, photo_file_id, latitude, longitude, position_accuracy_m,
-                                          cod_collected_pesewas, cod_variance_reason_code, cod_variance_note, payment_id, captured_at, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6::numeric, $7::numeric, $8, $9, $10, $11, $12, $13, $14)`,
+                                          cod_collected_pesewas, cod_variance_reason_code, cod_variance_note, payment_id, captured_at, created_by,
+                                          returned_reason_code, returned_credit_pesewas, returned_note)
+       VALUES ($1, $2, $3, $4, $5, $6::numeric, $7::numeric, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
       [
         p.id,
         p.deliveryId,
@@ -196,8 +204,28 @@ export class PgDeliveryStore implements DeliveryStore {
         p.paymentId,
         p.capturedAt,
         p.createdBy,
+        p.returnedReasonCode,
+        p.returnedCreditPesewas.toString(),
+        p.returnedNote,
       ],
     );
+  }
+
+  async insertProofLines(tx: Transaction, proofId: string, lines: readonly ProofLineRecord[], actorId: string): Promise<void> {
+    for (const l of lines) {
+      await tx.query('INSERT INTO del.proof_line (proof_id, order_line_id, dispatched_qty, delivered_qty, actor_id) VALUES ($1, $2, $3::numeric, $4::numeric, $5)', [proofId, l.orderLineId, l.dispatchedQty, l.deliveredQty, actorId]);
+    }
+  }
+
+  async proofLinesOf(tx: Transaction, proofIds: readonly string[]): Promise<Map<string, ProofLineRecord[]>> {
+    const found = new Map<string, ProofLineRecord[]>();
+    if (proofIds.length === 0) return found;
+    const { rows } = await tx.query<{ proof_id: string; order_line_id: string; dispatched: string; delivered: string }>(
+      'SELECT proof_id, order_line_id, dispatched_qty::text AS dispatched, delivered_qty::text AS delivered FROM del.proof_line WHERE proof_id = ANY($1::uuid[]) ORDER BY proof_id, order_line_id',
+      [[...proofIds]],
+    );
+    for (const r of rows) found.set(r.proof_id, [...(found.get(r.proof_id) ?? []), { orderLineId: r.order_line_id, dispatchedQty: r.dispatched, deliveredQty: r.delivered }]);
+    return found;
   }
 
   async markDelivered(tx: Transaction, id: string, d: { readonly collectedPesewas: bigint; readonly at: Date; readonly actorId: string }): Promise<void> {

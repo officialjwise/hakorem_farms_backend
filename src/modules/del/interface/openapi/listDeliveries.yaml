@@ -226,6 +226,10 @@ responses:
                     codCollectedPesewas: 0
                     codVarianceReasonCode: null
                     codVarianceNote: null
+                    lines: []
+                    returnedReasonCode: null
+                    returnedNote: null
+                    returnedCreditPesewas: 0
                     capturedAt: "2026-11-13T11:48:00Z"
                   deliveryNoteDocumentId: "019a7ae0-d078-7982-8eba-a0fa0e8519d7"
                   currency: GHS
@@ -402,6 +406,10 @@ responses:
                     codCollectedPesewas: 0
                     codVarianceReasonCode: null
                     codVarianceNote: null
+                    lines: []
+                    returnedReasonCode: null
+                    returnedNote: null
+                    returnedCreditPesewas: 0
                     capturedAt: "2026-11-13T11:48:00Z"
                   deliveryNoteDocumentId: "019a7ae0-d078-7982-8eba-a0fa0e8519d7"
                   currency: GHS

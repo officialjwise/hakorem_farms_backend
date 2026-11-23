@@ -1,0 +1,64 @@
+operationId: syncDriverEvents
+tags:
+  - del
+summary: "Sync proofs and failures captured without signal"
+description: "The proofs and failures the caller's phone captured without signal (2.35.0, B11 continued 6; CR-057 point 3, OFFLINE_SYNC). Each record is applied in its own transaction by exactly the rules of `recordProofOfDelivery` (a part delivery included) and `recordFailedDelivery`, on the caller's own deliveries only; one refused never loses the rest of the batch. **Exactly once by the record's own client id** (a UUIDv7: `proof.id`, `failure.id`), so the operation takes no `Idempotency-Key`. `outcome` is `APPLIED`; `APPLIED_WITH_EXCEPTION` with `reason` naming each exception (`COD_VARIANCE:<reason>` for less cash than due, `PART_DELIVERY:<reason>` for a part delivery); `REJECTED` with `reason` the refusal's codes (for example `ABOVE_DUE`, `FORBIDDEN` for another driver's delivery, `NOT_FOUND`, `CLIENT_ID_NOT_V7`, `ID_IN_USE` for an id already used for another delivery), nothing of it written. **A resend** of a record already applied answers `DUPLICATE` with the first answer's outcome in `firstOutcome` and its `reason`, so a phone that lost the first answer still learns that the cash differed. A refused record may be sent again once corrected.\n\nPermission: `del.proof.create`. Ownership: deliveries assigned to the caller."
+x-permission: del.proof.create
+parameters:
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DriverSyncBatch"
+      example:
+        proofs:
+          - deliveryId: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
+            proof:
+              id: "019a7b0a-be6d-70d5-b60d-162c01708f09"
+              recipientName: "Asantewaa Boateng"
+              photoFileId: "019a7b0a-fc4b-749c-99d4-529af4d2cb78"
+              codCollectedPesewas: 24000
+              capturedAt: "2026-11-13T11:52:00Z"
+        failures: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DriverSyncResult"
+        example:
+          results:
+            - clientId: "019a7b0a-be6d-70d5-b60d-162c01708f09"
+              deliveryId: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
+              outcome: APPLIED
+              reason: null
+              firstOutcome: null
+            - clientId: "019a7b0b-1b3a-7e80-a3b8-f0d26e8369b0"
+              deliveryId: "019a7b09-2c4a-7048-a580-0d5ad3738638"
+              outcome: DUPLICATE
+              reason: "COD_VARIANCE:CUSTOMER_PAID_SHORT"
+              firstOutcome: APPLIED_WITH_EXCEPTION
+          serverTime: "2026-11-13T13:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

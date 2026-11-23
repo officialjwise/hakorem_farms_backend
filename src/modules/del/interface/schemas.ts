@@ -33,6 +33,8 @@ export const DeliveryPageQuery = z.object({
   limit: Limit,
 });
 
+const Quantity = z.string().regex(/^(0|[1-9][0-9]{0,10})\.[0-9]{3}$/);
+
 export const ProofOfDeliveryCreate = z.strictObject({
   id: z.uuid(),
   recipientName: z.string().trim().min(1).max(160),
@@ -44,6 +46,9 @@ export const ProofOfDeliveryCreate = z.strictObject({
   codCollectedPesewas: Pesewas,
   codVarianceReasonCode: z.string().min(1).max(64).optional(),
   codVarianceNote: z.string().trim().min(1).max(500).optional(),
+  lines: z.array(z.strictObject({ orderLineId: z.uuid(), deliveredQty: Quantity })).min(1).max(200).optional(),
+  returnedReasonCode: z.string().min(1).max(64).optional(),
+  returnedNote: z.string().trim().min(1).max(500).optional(),
   capturedAt: z.iso.datetime({ offset: true }),
 });
 
@@ -92,6 +97,12 @@ export const DeliveryFailure = z.strictObject({
   latitude: Coordinate.optional(),
   longitude: Coordinate.optional(),
   occurredAt: z.iso.datetime({ offset: true }),
+});
+
+/** syncDriverEvents' `DriverSyncBatch` (CR-057 point 3): each record by its own client id, never an `Idempotency-Key`. */
+export const DriverSyncBatch = z.strictObject({
+  proofs: z.array(z.strictObject({ deliveryId: z.uuid(), proof: ProofOfDeliveryCreate })).max(500),
+  failures: z.array(z.strictObject({ deliveryId: z.uuid(), failure: DeliveryFailure })).max(500),
 });
 
 /** assignDelivery's `DeliveryAssign` (FR-DEL-004). */

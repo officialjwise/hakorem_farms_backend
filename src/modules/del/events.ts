@@ -21,6 +21,14 @@ export interface DeliveryCompleted {
   readonly codCollectedPesewas: number;
   readonly codShortPesewas: number;
   readonly codVarianceReasonCode: string | null;
+  /**
+   * What the customer did not keep (CR-055, B11 continued 6, additive): each line kept short, in its own unit; empty when
+   * everything was kept. ORD issues what was kept, moves the rest into the returns hold and asks for its credit note.
+   */
+  readonly returnedLines: readonly { readonly orderLineId: string; readonly dispatchedQty: string; readonly deliveredQty: string; readonly returnedQty: string; readonly weighed: boolean }[];
+  readonly returnedReasonCode: string | null;
+  /** The credit for what came back as BIL priced it at the door (ADR-0093); 0 when everything was kept. */
+  readonly returnedCreditPesewas: number;
   readonly deliveredAt: string;
 }
 

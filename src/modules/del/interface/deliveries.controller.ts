@@ -1,12 +1,12 @@
-import { Body, Controller, Get, Inject, Param, Post, Query, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Param, Post, Query, Res } from '@nestjs/common';
 import type { Response } from 'express';
 import type { z } from 'zod';
 import type { Actor } from '../../../platform/context/request-context';
 import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
-import { Deliveries, type DeliveryView, type Page } from '../application/deliveries';
-import { DeliveryFailure, DeliveryPageQuery, IdParam, OnTheWay, ProofOfDeliveryCreate } from './schemas';
+import { Deliveries, type DeliveryView, type DriverSyncResultView, type Page } from '../application/deliveries';
+import { DeliveryFailure, DeliveryPageQuery, DriverSyncBatch, IdParam, OnTheWay, ProofOfDeliveryCreate } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -85,5 +85,21 @@ export class DriverDeliveriesController {
     const response = await this.deliveries.recordFailure(actor, id, { ...body, occurredAt: new Date(body.occurredAt) }, key);
     res.status(response.status);
     return response.body;
+  }
+}
+
+/** The driver's offline queue (CR-057 point 3): exactly once per record by its client id, so no `Idempotency-Key`. */
+@Controller('driver/sync')
+export class DriverSyncController {
+  constructor(@Inject(Deliveries) private readonly deliveries: Deliveries) {}
+
+  @Post()
+  @HttpCode(200)
+  @Operation({ operationId: 'syncDriverEvents', access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: true, rateLimit: 'console', permission: 'del.proof.create' })
+  syncDriverEvents(@CurrentActor() actor: Actor | undefined, @Body(zodPipe(DriverSyncBatch)) body: z.infer<typeof DriverSyncBatch>): Promise<DriverSyncResultView> {
+    return this.deliveries.sync(actor, {
+      proofs: body.proofs.map((p) => ({ deliveryId: p.deliveryId, proof: { ...p.proof, codCollectedPesewas: BigInt(p.proof.codCollectedPesewas), capturedAt: new Date(p.proof.capturedAt) } })),
+      failures: body.failures.map((f) => ({ deliveryId: f.deliveryId, failure: { ...f.failure, occurredAt: new Date(f.failure.occurredAt) } })),
+    });
   }
 }

@@ -52,8 +52,20 @@ export interface ProofRecord {
   readonly codVarianceReasonCode: string | null;
   readonly codVarianceNote: string | null;
   readonly paymentId: string | null;
+  /** A part delivery's reason for what came back (CR-055); null when everything was kept. */
+  readonly returnedReasonCode: string | null;
+  readonly returnedNote: string | null;
+  /** The credit for what came back, as BIL priced it at the door (ADR-0093); 0 when everything was kept. */
+  readonly returnedCreditPesewas: bigint;
   readonly capturedAt: Date;
   readonly createdBy: string;
+}
+
+/** What the customer kept of one line a part delivery names (`del.proof_line`, CR-055). */
+export interface ProofLineRecord {
+  readonly orderLineId: string;
+  readonly dispatchedQty: string;
+  readonly deliveredQty: string;
 }
 
 export interface AttemptRecord {
@@ -120,6 +132,9 @@ export interface DeliveryStore {
   proofById(tx: Transaction, id: string): Promise<ProofRecord | null>;
   insertAttempt(tx: Transaction, a: AttemptRecord): Promise<void>;
   insertProof(tx: Transaction, p: ProofRecord): Promise<void>;
+  insertProofLines(tx: Transaction, proofId: string, lines: readonly ProofLineRecord[], actorId: string): Promise<void>;
+  /** The lines each proof names, by proof. */
+  proofLinesOf(tx: Transaction, proofIds: readonly string[]): Promise<Map<string, ProofLineRecord[]>>;
   /** ASSIGNED or OUT_FOR_DELIVERY to DELIVERED with the cash collected; one more attempt. */
   markDelivered(tx: Transaction, id: string, d: { readonly collectedPesewas: bigint; readonly at: Date; readonly actorId: string }): Promise<void>;
   /** ASSIGNED to OUT_FOR_DELIVERY, its time recorded (FR-DEL-007). */
