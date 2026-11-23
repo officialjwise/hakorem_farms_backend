@@ -84,6 +84,8 @@ responses:
             notes: null
             branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
             version: 3
+            fulfilments: []
+            pendingConsent: null
             orderNo: SO-2026-DDW-004211
             channel: POS
             status: COMPLETED

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.24.0"
+  version: "2.25.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -50136,6 +50136,8 @@ paths:
                         notes: null
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 3
+                        fulfilments: []
+                        pendingConsent: null
                         orderNo: SO-2026-DDW-004211
                         channel: POS
                         status: COMPLETED
@@ -50300,6 +50302,8 @@ paths:
                         notes: null
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 3
+                        fulfilments: []
+                        pendingConsent: null
                         orderNo: SO-2026-DDW-004216
                         channel: ONLINE
                         status: PICKING
@@ -50416,6 +50420,8 @@ paths:
                         notes: null
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 3
+                        fulfilments: []
+                        pendingConsent: null
                         orderNo: SO-2026-DDW-004198
                         channel: WHOLESALE
                         status: CONFIRMED
@@ -50535,6 +50541,8 @@ paths:
                         notes: "Funeral at Kasoa on 12 December; deliver on the 11th, morning"
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 3
+                        fulfilments: []
+                        pendingConsent: null
                         orderNo: SO-2026-DDW-004213
                         channel: QUOTE
                         status: CONFIRMED
@@ -50646,6 +50654,8 @@ paths:
                         notes: null
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 3
+                        fulfilments: []
+                        pendingConsent: null
                         orderNo: SO-2026-DDW-004207
                         channel: POS
                         status: COMPLETED
@@ -50756,6 +50766,8 @@ paths:
                         notes: "Customer cancelled by phone"
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 3
+                        fulfilments: []
+                        pendingConsent: null
                         orderNo: SO-2026-DDW-004198-1
                         channel: WHOLESALE
                         status: CANCELLED
@@ -50970,6 +50982,8 @@ paths:
                 notes: "Collecting Friday morning for the hotel kitchen"
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 1
+                fulfilments: []
+                pendingConsent: null
         "202":
           description: "Accepted for approval: the order is entered PLACED and waits for a different user to approve its price."
           headers:
@@ -51059,6 +51073,8 @@ paths:
                 notes: null
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 3
+                fulfilments: []
+                pendingConsent: null
                 orderNo: SO-2026-DDW-004211
                 channel: POS
                 status: COMPLETED
@@ -51334,6 +51350,8 @@ paths:
                 notes: "Collecting Friday morning for the hotel kitchen"
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
+                fulfilments: []
+                pendingConsent: null
         "202":
           description: "Accepted for approval. Nothing has taken effect yet."
           content:
@@ -51464,6 +51482,8 @@ paths:
                 notes: "Customer cancelled by phone"
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 3
+                fulfilments: []
+                pendingConsent: null
                 orderNo: SO-2026-DDW-004198-1
                 channel: WHOLESALE
                 status: CANCELLED
@@ -51593,6 +51613,8 @@ paths:
                 notes: null
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 3
+                fulfilments: []
+                pendingConsent: null
                 orderNo: SO-2026-DDW-004211
                 channel: POS
                 status: COMPLETED
@@ -51858,7 +51880,7 @@ paths:
       tags:
         - ord
       summary: "Propose a substitute for a line"
-      description: "Moves the order to AWAITING_CUSTOMER and notifies the customer. Nothing is substituted until consent is recorded.\n\nPermission: `ord.fulfilment.pick`."
+      description: "Another product for an open line of a `PICKING` order (FR-ORD-013), in `uom` (the line's unit when left out; a unit the product is not sold by `UNIT_NOT_SOLD`), priced by the engine now (`NO_PRICE` when it cannot; a product priced by the kilogram `CATCH_WEIGHT_NOT_AVAILABLE`). The same product in a smaller quantity is `proposeShortPick` (`SAME_PRODUCT`). A named animal is one animal (`STOCK_UNIT_REQUIRED`, `ONE_ANIMAL_PER_LINE`). The order moves to `AWAITING_CUSTOMER` and `ord.CustomerConsentRequested` goes through the outbox for the customer's message; nothing is substituted until the customer accepts. One question waits at a time (`CONSENT_PENDING`).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
       x-permission: ord.fulfilment.pick
       parameters:
         - name: id
@@ -51921,6 +51943,8 @@ paths:
                 notes: null
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 3
+                fulfilments: []
+                pendingConsent: null
                 orderNo: SO-2026-DDW-004211
                 channel: POS
                 status: COMPLETED
@@ -52062,7 +52086,7 @@ paths:
       tags:
         - ord
       summary: "Record the customer's consent to a higher total or a substitution"
-      description: "Permission: `ord.order.update`."
+      description: "The customer's answer to what the order waits for (`pendingConsent`), as staff took it (`PHONE`, `IN_PERSON`, `WHATSAPP`, `SIGNED_LINK`), never by the person who asked (422 `FULFILMENT_INVALID` `CONSENT_ASKER_CANNOT_ANSWER`, A-334); `kind` must be what was asked (`CONSENT_KIND_MISMATCH`); nothing waiting `NO_CONSENT_PENDING`. A higher total accepted lets the line pack at that weighed total; refused, the picker swaps packs or the order is cancelled. A substitute accepted replaces the line (the original `SUBSTITUTED`, its picks withdrawn and its stock released; the substitute at its proposed price with stock reserved for it, 422 `STOCK_UNAVAILABLE` and nothing changed when there is none, and put on the original's open pick list). A smaller quantity accepted packs the line at exactly it. A substitute or a smaller quantity refused, or a smaller quantity of nothing accepted, cancels the line; the last line cancelled cancels the order (`OUT_OF_STOCK`) and asks back what was paid. The order then picks on (`PICKING`) or asks the next question. Publishes `ord.CustomerConsentAnswered`.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.order.update`."
       x-permission: ord.order.update
       parameters:
         - name: id
@@ -52125,6 +52149,8 @@ paths:
                 notes: null
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 3
+                fulfilments: []
+                pendingConsent: null
                 orderNo: SO-2026-DDW-004211
                 channel: POS
                 status: COMPLETED
@@ -52266,14 +52292,28 @@ paths:
       tags:
         - ord
       summary: "List pick lists and fulfilments"
-      description: "Permission: `ord.fulfilment.read`."
+      description: "The pick lists at the branches the caller reads whole, newest first, filtered by `orderId` (an order's own pick lists, CR-053), `status`, `pickLocationId` and `date` (the Africa/Accra day the pick list was made).\n\nPermission: `ord.fulfilment.read`."
       x-permission: ord.fulfilment.read
       parameters:
+        - name: orderId
+          in: query
+          required: false
+          description: "An order's own pick lists (CR-053)."
+          schema:
+            type: string
+            format: uuid
         - name: status
           in: query
           required: false
           schema:
             type: string
+            enum:
+              - PICK_LIST
+              - PICKING
+              - PACKED
+              - DISPATCHED
+              - COLLECTED
+              - CANCELLED
         - name: pickLocationId
           in: query
           required: false
@@ -52341,6 +52381,12 @@ paths:
                               - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                                 identifier: MEAT-CHK-261106-02
                                 tracking: LOT
+                            status: OPEN
+                            pickedQty: "0.000"
+                            pickedWeightKg: null
+                            minimumWeightKg: "13.500"
+                            maximumWeightKg: "16.500"
+                            toleranceState: null
                         lines:
                           - id: "019a7af3-2e60-7891-8dc9-91ea4f9d0ac8"
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
@@ -52394,6 +52440,12 @@ paths:
                               - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                                 identifier: MEAT-CHK-261106-02
                                 tracking: LOT
+                            status: OPEN
+                            pickedQty: "0.000"
+                            pickedWeightKg: null
+                            minimumWeightKg: "13.500"
+                            maximumWeightKg: "16.500"
+                            toleranceState: null
                         lines:
                           - id: "019a7af3-6c3e-7c58-a190-ce5942ff4737"
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
@@ -52447,6 +52499,12 @@ paths:
                               - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                                 identifier: MEAT-CHK-261106-02
                                 tracking: LOT
+                            status: OPEN
+                            pickedQty: "0.000"
+                            pickedWeightKg: null
+                            minimumWeightKg: "13.500"
+                            maximumWeightKg: "16.500"
+                            toleranceState: null
                         lines: []
                         weighedTotalPesewas: null
                         withinTolerance: null
@@ -52485,6 +52543,12 @@ paths:
                               - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                                 identifier: MEAT-CHK-261106-02
                                 tracking: LOT
+                            status: OPEN
+                            pickedQty: "0.000"
+                            pickedWeightKg: null
+                            minimumWeightKg: "13.500"
+                            maximumWeightKg: "16.500"
+                            toleranceState: null
                         lines:
                           - id: "019a7af3-c90b-7a02-9f3b-a8ffb01221dd"
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
@@ -52538,6 +52602,12 @@ paths:
                               - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                                 identifier: MEAT-CHK-261106-02
                                 tracking: LOT
+                            status: OPEN
+                            pickedQty: "0.000"
+                            pickedWeightKg: null
+                            minimumWeightKg: "13.500"
+                            maximumWeightKg: "16.500"
+                            toleranceState: null
                         lines:
                           - id: "019a7af4-06e9-7dc9-b302-e56ea3745e4c"
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
@@ -52591,6 +52661,12 @@ paths:
                               - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                                 identifier: MEAT-CHK-261106-02
                                 tracking: LOT
+                            status: OPEN
+                            pickedQty: "0.000"
+                            pickedWeightKg: null
+                            minimumWeightKg: "13.500"
+                            maximumWeightKg: "16.500"
+                            toleranceState: null
                         lines:
                           - id: "019a7af4-44c7-7190-96c9-21dd96d69abb"
                             orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
@@ -52644,7 +52720,7 @@ paths:
       tags:
         - ord
       summary: "Create a pick list for a confirmed order"
-      description: "Permission: `ord.fulfilment.pick`."
+      description: "A pick list of a `CONFIRMED` or `PICKING` order at one pick location of its branch (a physical, live location: never in transit, a van, a site or the returns hold, else 422 `FULFILMENT_INVALID` `NOT_A_PICK_LOCATION`), numbered `PCK-...` from its own series. Of every open line's remainder, or of `lines` (part of the order, FR-ORD-008): a line not on the order `LINE_NOT_ON_ORDER`, not open `LINE_NOT_OPEN`, named twice `LINE_REPEATED`, above what no other pick list asks `QUANTITY_ABOVE_REMAINING`; a catch-weight line goes whole on one pick list (`CATCH_WEIGHT_LINE_WHOLE`); nothing left `NOTHING_TO_PICK`. The database refuses pick lists asking more of a line than it ordered. The first pick list moves the order `CONFIRMED` to `PICKING`. Another status is 422 `INVALID_STATE_TRANSITION`. Nothing moves stock: a pick names what is taken; stock moves at dispatch.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
       x-permission: ord.fulfilment.pick
       parameters:
         - name: id
@@ -52705,6 +52781,12 @@ paths:
                       - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                         identifier: MEAT-CHK-261106-02
                         tracking: LOT
+                    status: OPEN
+                    pickedQty: "0.000"
+                    pickedWeightKg: null
+                    minimumWeightKg: "13.500"
+                    maximumWeightKg: "16.500"
+                    toleranceState: null
                 lines: []
                 weighedTotalPesewas: null
                 withinTolerance: null
@@ -52737,7 +52819,7 @@ paths:
       tags:
         - ord
       summary: "Get a fulfilment"
-      description: "Permission: `ord.fulfilment.read`."
+      description: "One pick list: what it asks of each order line, the picks not withdrawn with their weights, and each catch-weight line's tolerance. Another branch's pick list is 403.\n\nPermission: `ord.fulfilment.read`."
       x-permission: ord.fulfilment.read
       parameters:
         - name: id
@@ -52788,6 +52870,12 @@ paths:
                       - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                         identifier: MEAT-CHK-261106-02
                         tracking: LOT
+                    status: OPEN
+                    pickedQty: "0.000"
+                    pickedWeightKg: null
+                    minimumWeightKg: "13.500"
+                    maximumWeightKg: "16.500"
+                    toleranceState: null
                 lines:
                   - id: "019a7af3-2e60-7891-8dc9-91ea4f9d0ac8"
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
@@ -52831,7 +52919,7 @@ paths:
       tags:
         - ord
       summary: "Record picked packs or animals with their weights"
-      description: "Re-prices catch-weight lines at the weighed quantity. If the total exceeds the customer's maximum, the order moves to AWAITING_CUSTOMER.\n\nPermission: `ord.fulfilment.pick`.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+      description: "Each pick by its client id (UUIDv7): a resubmitted pick with the same figures is stored once, an id used for another pick is 422 `FULFILMENT_INVALID` `PICK_ID_REUSED`. A pick is of an open line of this pick list (`LINE_NOT_ON_PICK_LIST`), in the line's unit, and the picks never come to more than the pick list asks (`PICK_OVER`; the database holds the cap). A lot is named (`STOCK_UNIT_REQUIRED`, `STOCK_UNIT_OTHER_PRODUCT`), an animal is the line's own (`STOCK_UNIT_OTHER_ANIMAL`, `ONE_ANIMAL_PER_LINE`), an untracked product names none (`STOCK_UNIT_NOT_TRACKED`). A catch-weight pick carries its weight and source (`WEIGHT_REQUIRED`, `WEIGHT_SOURCE_REQUIRED`) and takes its weighed kilograms of stock. A pick never takes more than the pick location holds that nobody else is promised, the order's own reservations counted as its own (`STOCK_SHORT`): a balance below zero offers nothing. `withdraw` takes picks of this pick list back first (a pack swapped).\n\nThe line is re-priced at its weighed quantity, `half_up(price per kg x weighed kg)` once over the line (FR-ORD-009): its `fulfilledWeightKg`, `weightSource` (the least trusted pack's) and `finalLineTotalPesewas`. A catch-weight line above the estimate plus its tolerance, or above the most the customer was shown, makes the order ask the customer (`HIGHER_TOTAL`, the order `AWAITING_CUSTOMER`, `withinTolerance` false); a swap that brings it back within withdraws the question. Below the estimate less the tolerance the line shows `toleranceState` `BELOW`, the prompt to add a pack; it may still be packed at the lower total. Only a `PICK_LIST` or `PICKING` pick list of a `PICKING` or `AWAITING_CUSTOMER` order (else 422 `INVALID_STATE_TRANSITION`).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`.\n\nAccepted from an offline queue: the client supplies the pick id (UUIDv7), and a resubmission with the same id stores nothing twice."
       x-permission: ord.fulfilment.pick
       parameters:
         - name: id
@@ -52899,6 +52987,12 @@ paths:
                       - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                         identifier: MEAT-CHK-261106-02
                         tracking: LOT
+                    status: OPEN
+                    pickedQty: "0.000"
+                    pickedWeightKg: null
+                    minimumWeightKg: "13.500"
+                    maximumWeightKg: "16.500"
+                    toleranceState: null
                 lines:
                   - id: "019a7af3-2e60-7891-8dc9-91ea4f9d0ac8"
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
@@ -52946,7 +53040,7 @@ paths:
       tags:
         - ord
       summary: "Mark a fulfilment packed"
-      description: "Permission: `ord.fulfilment.pick`."
+      description: "Seals a pick list (FR-ORD-011): every open line picked in full (`SHORT_PICK_NOT_AGREED` otherwise, unless the customer agreed to the smaller quantity, packed at exactly that), a catch-weight line with at least one pack weighed (`NOTHING_PICKED`) and within its tolerance or consented above it (`TOLERANCE_EXCEEDED`), each refusal naming `/pickList/<lineNo>`. While the order waits for its customer, 422 `CONSENT_PENDING`. The order moves to `PACKED` once no pick list of it is still being picked and every open line is packed. Publishes `ord.FulfilmentPacked`.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
       x-permission: ord.fulfilment.pick
       parameters:
         - name: id
@@ -53007,6 +53101,12 @@ paths:
                       - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                         identifier: MEAT-CHK-261106-02
                         tracking: LOT
+                    status: OPEN
+                    pickedQty: "0.000"
+                    pickedWeightKg: null
+                    minimumWeightKg: "13.500"
+                    maximumWeightKg: "16.500"
+                    toleranceState: null
                 lines:
                   - id: "019a7af3-6c3e-7c58-a190-ce5942ff4737"
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
@@ -53116,6 +53216,12 @@ paths:
                       - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                         identifier: MEAT-CHK-261106-02
                         tracking: LOT
+                    status: OPEN
+                    pickedQty: "0.000"
+                    pickedWeightKg: null
+                    minimumWeightKg: "13.500"
+                    maximumWeightKg: "16.500"
+                    toleranceState: null
                 lines:
                   - id: "019a7af3-c90b-7a02-9f3b-a8ffb01221dd"
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
@@ -53216,6 +53322,12 @@ paths:
                       - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                         identifier: MEAT-CHK-261106-02
                         tracking: LOT
+                    status: OPEN
+                    pickedQty: "0.000"
+                    pickedWeightKg: null
+                    minimumWeightKg: "13.500"
+                    maximumWeightKg: "16.500"
+                    toleranceState: null
                 lines:
                   - id: "019a7af4-06e9-7dc9-b302-e56ea3745e4c"
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
@@ -53263,7 +53375,7 @@ paths:
       tags:
         - ord
       summary: "Cancel a fulfilment and return picked stock"
-      description: "Permission: `ord.fulfilment.pick`."
+      description: "Cancels a pick list not yet packed (`PICK_LIST` or `PICKING`, else 422 `INVALID_STATE_TRANSITION`) with its reason: its picks are withdrawn and kept, nothing goes back to stock (a pick moved none), and its lines may go on another pick list. The order stays where it is; `cancelOrder` ends the order itself, picking or not.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
       x-permission: ord.fulfilment.pick
       parameters:
         - name: id
@@ -53324,6 +53436,12 @@ paths:
                       - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
                         identifier: MEAT-CHK-261106-02
                         tracking: LOT
+                    status: OPEN
+                    pickedQty: "0.000"
+                    pickedWeightKg: null
+                    minimumWeightKg: "13.500"
+                    maximumWeightKg: "16.500"
+                    toleranceState: null
                 lines:
                   - id: "019a7af3-2e60-7891-8dc9-91ea4f9d0ac8"
                     orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
@@ -56202,6 +56320,8 @@ paths:
                   notes: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 3
+                  fulfilments: []
+                  pendingConsent: null
                   orderNo: SO-2026-DDW-004211
                   channel: POS
                   status: COMPLETED
@@ -59382,6 +59502,7 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+      description: "The signed-in customer answers what their own order waits for, with the same effects as `recordCustomerConsent` (recorded as `CUSTOMER_ACCOUNT`). Another customer's order is 404; nothing waiting is 422 `FULFILMENT_INVALID` `NO_CONSENT_PENDING`. Answers the order as the customer sees it, `pendingConsent` saying what is asked next, if anything.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result."
   "/me/orders/{id}/reorder":
     post:
       operationId: reorderMyOrder
@@ -62361,6 +62482,8 @@ paths:
                 notes: "Funeral at Prampram on 12 December; deliver on the 11th, morning"
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 3
+                fulfilments: []
+                pendingConsent: null
                 orderNo: SO-2026-DDW-004213
                 channel: QUOTE
                 status: CONFIRMED
@@ -80125,6 +80248,211 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/orders/{id}/short-picks":
+    post:
+      operationId: proposeShortPick
+      tags:
+        - ord
+      summary: "Propose a smaller quantity of a line, for the customer to agree"
+      description: "A smaller quantity of an open line of a `PICKING` order (CR-054 point 2), in the line's own unit, at least nothing and less than it ordered (422 `FULFILMENT_INVALID` `SHORT_NOT_LESS`; inexact in the base unit `INEXACT_QUANTITY`). A catch-weight line goes by its weight instead (`CATCH_WEIGHT_GOES_BY_WEIGHT`: below its tolerance it packs at the lower total). The order moves to `AWAITING_CUSTOMER` and `ord.CustomerConsentRequested` goes through the outbox; the pick list packs the line at that quantity only once the customer agrees (`recordCustomerConsent` `SHORT_PICK`), and a refusal cancels the line. One question waits at a time (`CONSENT_PENDING`).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
+      x-permission: ord.fulfilment.pick
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShortPickCreate"
+            example:
+              lineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+              quantity: "10.000"
+              note: "Two crates found cracked; ten can go today"
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SalesOrder"
+              example:
+                id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+                customer: null
+                contactName: null
+                contactPhone: null
+                source: null
+                parentOrderId: null
+                shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+                salesperson:
+                  id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+                  displayName: "Adwoa Darko"
+                deliveryAddress: null
+                deliveryZone: null
+                deliveryFeePesewas: 0
+                delivery: null
+                taxInclusive: true
+                finalTotalPesewas: 137900
+                billingDocument:
+                  id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
+                  docType: RECEIPT
+                  number: RCP-2026-DDW-T1-018834
+                creditCheck: NOT_REQUIRED
+                isOffline: false
+                completedAt: "2026-11-13T09:12:00Z"
+                adjustments: []
+                notes: null
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                version: 3
+                fulfilments: []
+                pendingConsent: null
+                orderNo: SO-2026-DDW-004211
+                channel: POS
+                status: COMPLETED
+                paymentStatus: PAID
+                paymentTerms: IMMEDIATE
+                fulfilmentMode: COUNTER
+                estimatedTotalPesewas: 137900
+                maximumTotalPesewas: 137900
+                paidPesewas: 137900
+                outstandingPesewas: 0
+                currency: GHS
+                placedAt: "2026-11-13T09:04:00Z"
+                recordedAt: "2026-11-13T09:12:00Z"
+                lines:
+                  - id: "019a7aef-cc3c-73b0-88e8-43d90041bcb6"
+                    lineNo: 1
+                    product:
+                      id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                      sku: LIV-0004
+                      name: Goat
+                    stockUnit:
+                      id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                      identifier: G-0142
+                      tracking: SERIAL
+                    qtyOrdered: "1.000"
+                    uom: HEAD
+                    estimatedWeightKg: null
+                    tolerancePercent: null
+                    qtyFulfilled: "1.000"
+                    fulfilledWeightKg: "26.400"
+                    weightSource: SCALE
+                    qtyBackordered: "0.000"
+                    priceSource: ENGINE
+                    priceBasis: PER_HEAD
+                    priceListEntryId: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
+                    quoteLineId: null
+                    resolvedUnitPricePesewas: 85000
+                    floorUnitPricePesewas: 70000
+                    ceilingUnitPricePesewas: 98000
+                    agreedUnitPricePesewas: 80000
+                    variancePesewas: 5000
+                    varianceDirection: BELOW
+                    varianceReasonCode: REGULAR_CUSTOMER
+                    varianceApprovalRequestId: null
+                    discountPesewas: 0
+                    estimatedLineTotalPesewas: 80000
+                    finalLineTotalPesewas: 80000
+                    lineStatus: FULFILLED
+                    stockException: null
+                  - id: "019a7aef-eb2b-7d93-92cc-e21079f25aee"
+                    lineNo: 2
+                    product:
+                      id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                      sku: EGG-0003
+                      name: "Eggs, big, crate of 30"
+                    stockUnit:
+                      id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                      identifier: EGG-261112-L1
+                      tracking: LOT
+                    qtyOrdered: "2.000"
+                    uom: CRATE
+                    estimatedWeightKg: null
+                    tolerancePercent: null
+                    qtyFulfilled: "2.000"
+                    fulfilledWeightKg: null
+                    weightSource: null
+                    qtyBackordered: "0.000"
+                    priceSource: ENGINE
+                    priceBasis: PER_UNIT
+                    priceListEntryId: "019a7aa6-927a-7b3b-a073-bc86ef433564"
+                    quoteLineId: null
+                    resolvedUnitPricePesewas: 6000
+                    floorUnitPricePesewas: 6000
+                    ceilingUnitPricePesewas: 6000
+                    agreedUnitPricePesewas: 6000
+                    variancePesewas: 0
+                    varianceDirection: null
+                    varianceReasonCode: null
+                    varianceApprovalRequestId: null
+                    discountPesewas: 0
+                    estimatedLineTotalPesewas: 12000
+                    finalLineTotalPesewas: 12000
+                    lineStatus: FULFILLED
+                    stockException: null
+                  - id: "019a7af0-0a1a-7777-acaf-8047f3a3f925"
+                    lineNo: 3
+                    product:
+                      id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                      sku: MEAT-0005
+                      name: "Beef, 15 kg pack"
+                    stockUnit:
+                      id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+                      identifier: MEAT-BEEF-261104-01
+                      tracking: LOT
+                    qtyOrdered: "15.300"
+                    uom: KG
+                    estimatedWeightKg: "15.300"
+                    tolerancePercent: "10.00"
+                    qtyFulfilled: "15.300"
+                    fulfilledWeightKg: "15.300"
+                    weightSource: SCALE
+                    qtyBackordered: "0.000"
+                    priceSource: ENGINE
+                    priceBasis: PER_KG
+                    priceListEntryId: "019a7aa6-b169-751e-ba57-5abe68f4d39c"
+                    quoteLineId: null
+                    resolvedUnitPricePesewas: 3000
+                    floorUnitPricePesewas: 2200
+                    ceilingUnitPricePesewas: 4333
+                    agreedUnitPricePesewas: 3000
+                    variancePesewas: 0
+                    varianceDirection: null
+                    varianceReasonCode: null
+                    varianceApprovalRequestId: null
+                    discountPesewas: 0
+                    estimatedLineTotalPesewas: 45900
+                    finalLineTotalPesewas: 45900
+                    lineStatus: FULFILLED
+                    stockException: null
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
   "/pos/till-pin":
     put:
       operationId: setTillPin
@@ -96451,6 +96779,16 @@ components:
           format: uuid
         version:
           type: integer
+        fulfilments:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentRef"
+          description: "The order's pick lists (`FULFILMENT`, `PCK-...`), oldest first, cancelled ones too (CR-053)."
+        pendingConsent:
+          anyOf:
+            - $ref: "#/components/schemas/OrderPendingConsent"
+            - type: "null"
+          description: "What the order waits for its customer to answer while AWAITING_CUSTOMER; null otherwise (CR-053)."
       required:
         - id
         - orderNo
@@ -96488,6 +96826,8 @@ components:
         - notes
         - branchId
         - version
+        - fulfilments
+        - pendingConsent
     SalesOrderPage:
       type: object
       description: "A page of `SalesOrder` results."
@@ -96628,6 +96968,9 @@ components:
           format: uuid
         quantity:
           $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+          description: "The unit `quantity` is in (a crate or a single egg, CR-054 point 3): the line's unit when left out; a unit the product is not sold by is 422 `FULFILMENT_INVALID` `UNIT_NOT_SOLD`."
         note:
           type: string
       required:
@@ -96644,6 +96987,8 @@ components:
           enum:
             - HIGHER_TOTAL
             - SUBSTITUTION
+            - SHORT_PICK
+          description: "What the order asked (`SalesOrder.pendingConsent.kind`); another kind is 422 `FULFILMENT_INVALID` `CONSENT_KIND_MISMATCH`."
         accepted:
           type: boolean
         method:
@@ -96655,6 +97000,8 @@ components:
             - SIGNED_LINK
         note:
           type: string
+          maxLength: 500
+          description: "What the customer said, and how it was confirmed."
       required:
         - kind
         - accepted
@@ -96680,6 +97027,40 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/StockUnitRef"
+        status:
+          type: string
+          enum:
+            - OPEN
+            - CANCELLED
+          description: "CANCELLED when its order line was substituted or cancelled with the customer's answer."
+        pickedQty:
+          allOf:
+            - $ref: "#/components/schemas/Quantity"
+          description: "What the picks not withdrawn come to, in `uom`."
+        pickedWeightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+          description: "The weighed kilograms of the picks not withdrawn; null when none is weighed."
+        minimumWeightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+          description: "A catch-weight line: the estimate less its tolerance, rounded up to a gram. Below it the picker is prompted to add a pack (FR-ORD-010); null on any other line."
+        maximumWeightKg:
+          anyOf:
+            - $ref: "#/components/schemas/Kilograms"
+            - type: "null"
+          description: "A catch-weight line: the estimate plus its tolerance, rounded down to a gram. Above it the order asks the customer (FR-ORD-010); null on any other line."
+        toleranceState:
+          anyOf:
+            - type: string
+              enum:
+                - BELOW
+                - WITHIN
+                - ABOVE
+            - type: "null"
+          description: "A catch-weight line once weighed: BELOW the minimum, WITHIN, or ABOVE the maximum (by weight, or by a total above the most the customer was shown). Null on any other line, or before a pack is weighed."
       required:
         - orderLineId
         - product
@@ -96687,6 +97068,12 @@ components:
         - uom
         - estimatedWeightKg
         - suggestedStockUnits
+        - status
+        - pickedQty
+        - pickedWeightKg
+        - minimumWeightKg
+        - maximumWeightKg
+        - toleranceState
     FulfilmentLine:
       type: object
       properties:
@@ -96826,6 +97213,23 @@ components:
         pickLocationId:
           type: string
           format: uuid
+        lines:
+          type: array
+          minItems: 1
+          maxItems: 200
+          description: "Part of the order (FR-ORD-008): the open lines and how much of each, in the line's unit. Left out, every open line's remainder. A catch-weight line goes whole on one pick list (`CATCH_WEIGHT_LINE_WHOLE`)."
+          items:
+            type: object
+            properties:
+              orderLineId:
+                type: string
+                format: uuid
+              quantity:
+                $ref: "#/components/schemas/Quantity"
+            required:
+              - orderLineId
+              - quantity
+            additionalProperties: false
       required:
         - pickLocationId
       additionalProperties: false
@@ -96875,6 +97279,13 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PickInput"
+        withdraw:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 200
+          description: "Picks of this pick list to take back first (a pack swapped for one that fits the tolerance). A withdrawn pick is kept, marked, and never counted again."
       required:
         - picks
       additionalProperties: false
@@ -99650,6 +100061,7 @@ components:
           enum:
             - HIGHER_TOTAL
             - SUBSTITUTION
+            - SHORT_PICK
         detail:
           type: string
         proposedTotalPesewas:
@@ -106233,6 +106645,83 @@ components:
           type: string
           maxLength: 500
       additionalProperties: false
+    OrderPendingConsent:
+      type: object
+      description: "What an order waits for its customer to answer (CR-053): a weighed total above the tolerance (`HIGHER_TOTAL`), a substitute (`SUBSTITUTION`) or a smaller quantity (`SHORT_PICK`). Answer it with `recordCustomerConsent` of the same `kind`."
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - HIGHER_TOTAL
+            - SUBSTITUTION
+            - SHORT_PICK
+        lineId:
+          type: string
+          format: uuid
+          description: "The order line asked about."
+        proposed:
+          anyOf:
+            - type: object
+              properties:
+                productId:
+                  type: string
+                  format: uuid
+                productName:
+                  type: string
+                quantity:
+                  $ref: "#/components/schemas/Quantity"
+                uom:
+                  type: string
+              required:
+                - productId
+                - productName
+                - quantity
+                - uom
+            - type: "null"
+          description: "The substitute, or the line's own product at the smaller quantity; null for a higher total."
+        proposedTotalPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+          description: "A substitute's line total at the price the engine gave when it was proposed; null otherwise."
+        weighedTotalPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+          description: "A higher total: the line's total at its weighed kilograms; null otherwise."
+        askedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - kind
+        - lineId
+        - proposed
+        - proposedTotalPesewas
+        - weighedTotalPesewas
+        - askedAt
+    ShortPickCreate:
+      type: object
+      description: "A smaller quantity of an open line, in its own unit (CR-054 point 2)."
+      properties:
+        lineId:
+          type: string
+          format: uuid
+        quantity:
+          allOf:
+            - $ref: "#/components/schemas/Quantity"
+          description: "What can be sent, at least nothing and less than was ordered."
+        note:
+          type: string
+          maxLength: 500
+      required:
+        - lineId
+        - quantity
+        - note
+      additionalProperties: false
   x-seeded-roles:
     - id: "01900000-0000-7000-8000-000000000101"
       code: OWNER
@@ -106400,10 +106889,13 @@ components:
         - mdm.weight_band.create
         - mdm.weight_band.read
         - mdm.weight_band.update
+        - ord.fulfilment.pick
+        - ord.fulfilment.read
         - ord.order.cancel
         - ord.order.confirm
         - ord.order.create
         - ord.order.read
+        - ord.order.update
         - ord.order.void
         - ord.price_override.approve
         - ord.return.approve
@@ -106639,10 +107131,13 @@ components:
         - mdm.weight_band.create
         - mdm.weight_band.read
         - mdm.weight_band.update
+        - ord.fulfilment.pick
+        - ord.fulfilment.read
         - ord.order.cancel
         - ord.order.confirm
         - ord.order.create
         - ord.order.read
+        - ord.order.update
         - ord.order.void
         - ord.price_override.approve
         - ord.return.approve
@@ -106903,6 +107398,9 @@ components:
         - mdm.supplier.read
         - mdm.supplier.update
         - mdm.weight_band.read
+        - ord.fulfilment.pick
+        - ord.fulfilment.read
+        - ord.order.read
         - platform.file.read
         - platform.file.upload
         - prc.order.create

@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.25.0, LOUD for `cancelOrder` on a picking order and for `PendingConsent.kind`:** no field removed or retyped. Nine planned picking operations move into code and `proposeShortPick` is new; `SalesOrder` gains `fulfilments` and `pendingConsent` (always sent); `PickListLine` gains its picked figures and tolerance. **Behaviour:** `cancelOrder` now cancels a `PICKING` or `AWAITING_CUSTOMER` order where it answered 422 `INVALID_STATE_TRANSITION`; `PendingConsent.kind` and `ConsentRecord.kind` gain `SHORT_PICK`. See its entry.
 - **2.24.0:** additive. No existing field, parameter or status changed. `getPublicReceipt` is new (public, by the till's token alone); `OfflineSale.receiptToken` and `OfflinePack.receiptLinkTemplate` are new and optional; a sync result may name the new exception `RECEIPT_TOKEN_REFUSED`. See its entry.
 - **2.23.0, LOUD for `issueQuoteVersion` on stock not on hand (the owner, 2026-11-18):** no field removed or retyped. A quote for stock not on hand is issued subject to stock where it was refused with `STOCK_SHORT`; `getQuotePipeline` moves into code with its planned shape; `QuoteVersion.subjectToStock`, `QuoteLine.availableQuantity`, `heldQuantity` and `subjectToStock`, `PublicQuote.subjectToStock` and `PublicQuoteLine.subjectToStock` are new and always sent; `QuoteVersion.documentId` and `PublicQuote.documentUrl` are now filled.
 - **2.22.0, LOUD for `syncOfflineSales` beyond stock and for `resolveReconciliationBreak` on an unverified tender:** no field removed or retyped. `BreakResolve.posting` gains `VERIFIED`; a bare close of an `UNVERIFIED_PAYMENT` break whose tender still waits is now refused (`VERIFICATION_REQUIRED`). An offline line beyond stock at a location that does not allow negative now moves the stock below zero, instead of moving nothing; its `NEGATIVE_STOCK` names the movement. `reversePayment` takes `MOBILE_MONEY_NOT_RECEIVED`.
@@ -36,6 +37,21 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.25.0 (2026-11-23, B11)
+
+Minor, LOUD on two behaviours (FR-ORD-008 to FR-ORD-011, FR-ORD-013, FR-ORD-014, ADR-0021, ADR-0091, CR-053, CR-054, CR-056). A-332 to A-336, migrations 0293 to 0296.
+
+- **Into code with their planned shapes, described in full:** `listFulfilments`, `createFulfilment`, `getFulfilment`, `recordPicks`, `packFulfilment`, `cancelFulfilment`, `proposeSubstitution`, `recordCustomerConsent`, `answerMyOrderConsent`. Their 422 refusals are the new code `FULFILMENT_INVALID` with one `details[].code` per rule (listed in docs/API.md), besides `INVALID_STATE_TRANSITION` and, for an accepted substitute with no stock, `STOCK_UNAVAILABLE`.
+- **New operation:** `proposeShortPick` (`POST /orders/{id}/short-picks`, `ord.fulfilment.pick`), request `ShortPickCreate` (new), answering `SalesOrder` (CR-054 point 2).
+- **Request fields (optional):** `listFulfilments?orderId` (CR-053 point 1); `FulfilmentCreate.lines` (part of an order); `PickRecord.withdraw` (picks taken back first); `SubstitutionCreate.uom` (CR-054 point 3).
+- **Request enum widened:** `ConsentRecord.kind` gains `SHORT_PICK`; `ConsentRecord.note` is described.
+- **Response fields (always sent):** `SalesOrder.fulfilments` (`DocumentRef[]`, the order's pick lists) and `SalesOrder.pendingConsent` (new `OrderPendingConsent`, or null) (CR-053 point 2); `PickListLine.status`, `pickedQty`, `pickedWeightKg`, `minimumWeightKg`, `maximumWeightKg`, `toleranceState`. Every `SalesOrder` and `PickListLine` example carries them (the POS and QUO examples of a `SalesOrder` included, examples only).
+- **LOUD, response enum widened:** `PendingConsent.kind` (`CustomerOrder.pendingConsent`) gains `SHORT_PICK`; `CustomerOrder.pendingConsent` is now filled while the order waits for its customer.
+- **LOUD, behaviour:** `cancelOrder` cancels an order that is `PICKING` or `AWAITING_CUSTOMER` (its pick lists cancelled, its picks withdrawn, a waiting question withdrawn, its stock released and the refund asked for as before), where it answered 422 `INVALID_STATE_TRANSITION`. `ord.OrderCancelled.fromStatus` gains both statuses.
+- **Events (new):** `ord.CustomerConsentRequested`, `ord.CustomerConsentAnswered`, `ord.FulfilmentPacked`.
+- **Seed (role matrix):** the Storekeeper gains `ord.fulfilment.read`, `ord.fulfilment.pick` and `ord.order.read`; the Manager and the Owner the two fulfilment permissions and `ord.order.update` (CR-056 items 2 and 3).
+- No existing field removed, retyped or made required on a request.
 
 ## 2.24.0 (2026-11-23, B09b continued 4)
 

@@ -167,7 +167,20 @@ import {
 import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
-import { OrderConfirmBody, OrderCreateBody, ReasonCodeBody, ReturnCreateBody } from '../../../src/modules/ord/interface/schemas';
+import {
+  ConsentRecordBody,
+  FulfilmentCreateBody,
+  FulfilmentReasonBody,
+  MyConsentBody,
+  OrderConfirmBody,
+  OrderCreateBody,
+  PackRecordBody,
+  PickRecordBody,
+  ReasonCodeBody,
+  ReturnCreateBody,
+  ShortPickCreateBody,
+  SubstitutionCreateBody,
+} from '../../../src/modules/ord/interface/schemas';
 import {
   AllocationBody,
   BankLineMatchBody,
@@ -529,6 +542,14 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     cancelOrder: ReasonCodeBody,
     voidOrder: ReasonCodeBody,
     createReturn: ReturnCreateBody,
+    createFulfilment: FulfilmentCreateBody,
+    recordPicks: PickRecordBody,
+    packFulfilment: PackRecordBody,
+    cancelFulfilment: FulfilmentReasonBody,
+    proposeSubstitution: SubstitutionCreateBody,
+    proposeShortPick: ShortPickCreateBody,
+    recordCustomerConsent: ConsentRecordBody,
+    answerMyOrderConsent: MyConsentBody,
     receivePaymentWebhook: ProviderWebhookBody,
     issueDebitNote: DebitNoteCreate,
     reprintBillingDocument: ReprintRequest,

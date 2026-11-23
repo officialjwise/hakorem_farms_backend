@@ -97,6 +97,8 @@ responses:
           notes: "Funeral at Prampram on 12 December; deliver on the 11th, morning"
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 3
+          fulfilments: []
+          pendingConsent: null
           orderNo: SO-2026-DDW-004213
           channel: QUOTE
           status: CONFIRMED
