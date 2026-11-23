@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.32.0, LOUD for the planned `RouteStopDelivery` (its slot times may be null) and `Route` (six fields added, always sent):** no field removed or retyped on an implemented operation. A driver's run moves into code (`createRoute`, `getRoute`, `listRoutes`, `reorderRouteStops`, `startRoute`, `getMyRoute`, 404 with no run that day), with `markOnTheWay` and `recordFailedDelivery`; `completeRoute` and `listDrivers` are new; the error code `ROUTE_INVALID` is new; `recordProofOfDelivery` on a stop of a run not started is refused `ROUTE_NOT_STARTED`. See its entry.
 - **2.31.0, LOUD for the planned `createDriverCashReconciliation` and `postDriverCashReconciliation` (deprecated, never built):** no field removed or retyped. A driver's cash is handed in at a till shift: `handInDriverCash` is new (POS, `POST /shifts/{id}/driver-cash-hand-ins`, on the cashier's own open shift); `getMyCashSummary`, `listDriverCashReconciliations` and `getDriverCashReconciliation` move into code; `DriverCashReconciliation` gains `shiftId` and `tillPaymentId` (always sent) and is always `POSTED`. See its entry.
 - **2.30.0, LOUD for `placeOrder` by card and for `ReconciliationBreak.kind`:** no field removed or retyped. `placeOrder` with `paymentMethod: CARD` is no longer refused (`CARD_NOT_AVAILABLE` is deprecated and never answered): it places the order and answers Paystack's hosted card page in `payment.redirectUrl` (always `https://checkout.paystack.com/...`), or 503 with the order placed when the page cannot be opened (replay to open it). `ReconciliationBreak.kind` gains `PROVIDER_PAID_AFTER_FAILURE` and `PROVIDER_DISPUTE_OPENED`. A webhook's refused body is no longer kept.
 - **2.29.0, LOUD for `QuoteVersion.marginPercent` (deprecated: it is markup) and for `issueQuoteVersion`'s margin floor (now over the selling price):** no field removed or retyped. `QuoteVersion` gains `markupPercent` and `marginOverPricePercent`; `marginPercent` keeps its value, the markup over cost, deprecated. The floor is read as a margin over price, so a version at 10 percent markup now waits for approval. `getOrderFulfilmentView` is new (the Storekeeper's read, no money). A decision through a quote link is flagged by address and browser, never by a cookie (no shape changed).
@@ -43,6 +44,17 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.32.0 (2026-11-23, B11 continued 3)
+
+Minor, LOUD on two planned schemas (a driver's run and its close rule, FR-DEL-005, FR-DEL-007, FR-DEL-011, CR-056 items 3 and 4, CR-057 point 2, the owner's rule of 2026-11-23, A-347; migrations 0318 to 0320).
+
+- **Into code with their planned paths:** `createRoute`, `getRoute`, `listRoutes`, `reorderRouteStops`, `startRoute`, `getMyRoute`, `markOnTheWay`, `recordFailedDelivery`. `getMyRoute` lists **404** for a driver with no run that day (CR-057 point 2).
+- **New operations:** `completeRoute` (`POST /routes/{id}/complete`, `del.route.manage`): closes a started run only when nothing is left on the van and nothing is still held; `listDrivers` (`GET /drivers`, `del.route.manage`, `DriverPage` of `PrincipalRef`; CR-056 item 4).
+- **New permissions in `x-seeded-roles`:** `del.route.read`, `del.route.manage` (the Manager and the Owner).
+- **Response fields (always sent), `Route`:** `stopsOnVan`, `codCollectedPesewas`, `codHeldPesewas`, `handIns` (the till hand-ins that took the run's cash), `startedAt`, `completedAt`. **LOUD:** `RouteStopDelivery.slotStartsAt` and `slotEndsAt` are now nullable (no slot is booked yet; slot booking is B11 continued 4's).
+- **New error code `ROUTE_INVALID`**; `DELIVERY_INVALID` gains `ROUTE_NOT_STARTED` (also on `recordProofOfDelivery`, for a stop of a run not started), `OCCURRED_BEFORE_DISPATCH`, `REASON_UNKNOWN`, `REASON_NOT_ALLOWED` on a failure.
+- No existing field removed, retyped or made required on a request.
 
 ## 2.31.0 (2026-11-23, B11 continued 2)
 

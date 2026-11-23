@@ -20,6 +20,10 @@ import { DRIVER_CASH_STORE, type DriverCashStore } from './application/driver-ca
 import { PgDriverCashStore } from './infrastructure/pg-driver-cash-store';
 import { DriverCashController } from './interface/driver-cash.controller';
 import { DeliveriesController, DriverDeliveriesController } from './interface/deliveries.controller';
+import { ROUTE_STORE, type RouteStore } from './application/route-store';
+import { Routes } from './application/routes';
+import { PgRouteStore } from './infrastructure/pg-route-store';
+import { DriverRouteController, DriversController, RoutesController } from './interface/routes.controller';
 import { SLOT_STORE, type SlotStore } from './application/slot-store';
 import { Slots } from './application/slots';
 import { PgSlotStore } from './infrastructure/pg-slot-store';
@@ -30,15 +34,35 @@ import { SlotsController } from './interface/slots.controller';
  * `del.delivery_slot` and slot generation, so the storefront checkout's foreign key exists. B11 continued adds
  * deliveries made at dispatch, the driver's own reads and the proof of delivery with the cash collected (`Deliveries`);
  * B11 continued 2 adds the driver's cash handed in at a till shift and the driver variance report
- * (`DriverCashReconciliations`); booking against capacity, cut-offs, routes and failures follow in B11 continued 3.
+ * (`DriverCashReconciliations`); B11 continued 3 adds a driver's run (`Routes`), on the way and the failed attempt;
+ * booking against capacity, cut-offs, returns to stock and reassignment follow in B11 continued 4.
  */
 @Module({
   imports: [IamModule, MdmModule, PayModule],
-  controllers: [SlotsController, DeliveriesController, DriverDeliveriesController, DriverCashController],
+  controllers: [SlotsController, DeliveriesController, DriverDeliveriesController, DriverCashController, RoutesController, DriversController, DriverRouteController],
   providers: [
     { provide: SLOT_STORE, useClass: PgSlotStore },
     { provide: DELIVERY_STORE, useClass: PgDeliveryStore },
     { provide: DRIVER_CASH_STORE, useClass: PgDriverCashStore },
+    { provide: ROUTE_STORE, useClass: PgRouteStore },
+    {
+      provide: Routes,
+      useFactory: (
+        uow: UnitOfWork,
+        store: RouteStore,
+        deliveryStore: DeliveryStore,
+        deliveries: Deliveries,
+        refs: MasterDataRefs,
+        events: DomainEvents,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        authoriser: Authoriser,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new Routes(uow, store, deliveryStore, deliveries, refs, events, idempotency, audit, authoriser, principals, cursors, clock),
+      inject: [UnitOfWork, ROUTE_STORE, DELIVERY_STORE, Deliveries, MasterDataRefs, DomainEvents, Idempotency, AuditTrail, Authoriser, PRINCIPAL_NAMES, Cursors, CLOCK],
+    },
     {
       provide: DriverCashReconciliations,
       useFactory: (

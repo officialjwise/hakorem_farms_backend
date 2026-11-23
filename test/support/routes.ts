@@ -288,6 +288,10 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   // B11 continued: dispatch and the driver's proof.
   dispatchFulfilment: { driverId: randomUUID(), vehicleLocationId: randomUUID() },
   recordProofOfDelivery: { id: randomUUID(), recipientName: 'Ama Serwaa Ofori', photoFileId: randomUUID(), codCollectedPesewas: 0, capturedAt: '2026-11-23T10:00:00Z' },
+  createRoute: { driverId: randomUUID(), routeDate: '2026-11-23', vehicleLocationId: randomUUID(), deliveryIds: [randomUUID()] },
+  reorderRouteStops: { version: 1, deliveryIds: [randomUUID()] },
+  markOnTheWay: { occurredAt: '2026-11-23T10:00:00Z' },
+  recordFailedDelivery: { id: randomUUID(), failureReasonCode: 'CUSTOMER_NOT_AVAILABLE', nextAction: 'REATTEMPT', occurredAt: '2026-11-23T10:00:00Z' },
   cancelFulfilment: { reason: 'Picked from the wrong shelf' },
   proposeSubstitution: { lineId: randomUUID(), productId: randomUUID(), quantity: '1.000', note: 'Out of big eggs' },
   proposeShortPick: { lineId: randomUUID(), quantity: '1.000', note: 'One crate cracked' },

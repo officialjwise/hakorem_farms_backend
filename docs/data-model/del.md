@@ -156,7 +156,7 @@ Only `del.delivery_slot` exists, as above, plus `ck_delivery_slot_capacity` (1 t
   and `cod_variance_note`; `payment_id` unique. Checks: `ck_proof_evidence` (a signature or a photograph),
   `ck_proof_payment` (a payment exactly when cash was collected), `ck_proof_position`, and the guard `ck_proof_variance`
   (HK010: never above the delivery's cash due; less only with a `COD_VARIANCE` reason; a reason or note only when less).
-- `del.route` and `del.route_stop` are B11 continued 3's.
+- `del.route` and `del.route_stop` are B11 continued 3's (below).
 
 ## As built (B11 continued 2, migrations 0312 to 0314; CR-057, ADR-0092, A-345)
 
@@ -175,3 +175,22 @@ Only `del.delivery_slot` exists, as above, plus `ck_delivery_slot_capacity` (1 t
   that cash collected).
 - PAY's side (0313): the till payment names the driver in `pay.payment.received_from_driver_id` and settles nothing (see
   `docs/data-model/pay.md`).
+
+## As built (B11 continued 3, migration 0318; FR-DEL-005, the owner's close rule of 2026-11-23, A-347)
+
+- `del.route` as above (DOCUMENT, not registered in `platform.business_document`: a run is no business document), with
+  `started_at` and `started_by` (set exactly when it has started, `ck_route_started`), `posted_at` and `posted_by` (exactly
+  when `COMPLETED`, `ck_route_posted`) and the DOCUMENT standard columns; UNIQUE (`driver_id`, `route_date`) as above. The
+  guard `ck_route_transition` (HK004): written `PLANNED`, moving `PLANNED` to `IN_PROGRESS` to `COMPLETED` only, its
+  driver, date, vehicle and branch never changing, frozen once `COMPLETED`. The deferred `ck_route_closed` (HK010):
+  `COMPLETED` only when every stop's delivery is `DELIVERED` or `RETURNED` and no proof on its stops with cash collected
+  lacks a `del.driver_cash_handed_in` row.
+- `del.route_stop` as above, with the DOCUMENT row columns `created_*` and `updated_*`; its primary key (`route_id`,
+  `stop_no`) is checked at commit so a reorder may swap numbers; `uq_route_stop_delivery` keeps a delivery on one run. The
+  guard `ck_route_stop` (HK010): written and renumbered only while its route is `PLANNED`, never moved to another route or
+  delivery; the delivery `ASSIGNED`, to the route's driver, on its vehicle, at its branch. `hk_app` has no DELETE.
+- `del.delivery` gains `on_the_way_at` (FR-DEL-007) and the guard `ck_delivery_route` (HK004): a delivery on a `PLANNED`
+  run never moves to `OUT_FOR_DELIVERY`, `DELIVERED` or `FAILED`, and keeps its driver and vehicle while its run is live.
+- `del.driver_cash_handed_in` gains `route_id` (FK `del.route`, NULL for a delivery on no run), set by the database from
+  the proof's stop on insert (`trg_driver_cash_handed_in_route`), so a run's hand-ins are recorded against it (A-345 (g)).
+

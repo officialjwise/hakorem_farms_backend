@@ -136,7 +136,7 @@ Inventory accounts (`13xx`), sales (`40xx`) and cost of sales (`50xx`) are selec
 | `pay.ProviderSettled` | 1100; 6910 fees | 1120 |
 | `pay.ChequeCleared` | 1100 | 1130 |
 | `del.CodCollected` | 1020 | 1200 |
-| `del.DriverCashRemitted` | 1010; 6900 for a shortage | 1020; 6900 for an overage |
+| `del.DriverCashRemitted` | 1000 the till that counted it, for what was counted; 6900 for a shortage | 1020 the driver, for what was expected; 6900 for an overage |
 | `pos.ShiftOpened` (float) | 1000 | 1010 |
 | `pos.CashDropped` | 1010 | 1000 |
 | `pos.CashPaidOut` | 6xxx | 1000 |
@@ -199,4 +199,6 @@ A cash sale posts three linked entries (stock issue, invoice, payment) sharing o
 
 Migrations 0285 and 0287. The exact-amount tests are `test/integration/pos/unverified-clearing.integration.spec.ts` and `test/integration/pos/negative-stock.integration.spec.ts`. The decision is unchanged.
 
-**Applied in B11 continued 2 (2026-11-23, ADR-0092, ADR-0077, the owner's rule of 2026-11-16 on A-212 (a), CR-057, A-345).** The row `del.DriverCashRemitted` is catalogued with four amount keys (migration 0315, rules 294 to 297): `received` Dr 1000 against the till (REGISTER) that counted the cash, `expected` Cr 1020 against the driver, `short` Dr 6900 and `over` Cr 6900, balanced by construction, once per hand-in (`uq_journal_entry_driver_cash_remitted`). The row's debit read 1010 (the safe): a driver's cash now enters through a till shift first, as ADR-0092 decided, and reaches 1010 with the rest of the till's cash at the shift's close (`pos.ShiftClosed`'s `returnedToSafe`). No existing rule, account or determination changes. Its exact-amount test is `test/integration/del/driver-cash-hand-in.integration.spec.ts`.
+## Amendments
+
+- **2026-11-23, the owner:** "a driver's cash goes to the till (1000) and reaches the safe when the till closes." The row `del.DriverCashRemitted` debits 1000 against the till (REGISTER) that counted the cash for what was counted, credits 1020 against the driver for what was expected, and takes a shortage as a debit and an overage as a credit on 6900 (migration 0315, rules 294 to 297, as A-345 (d) built; ADR-0092, ADR-0077); the cash reaches 1010 with the rest of the till's at the shift's close (`pos.ShiftClosed`). Its exact-amount test is `test/integration/del/driver-cash-hand-in.integration.spec.ts`. "Accounting documents must say what the system does."

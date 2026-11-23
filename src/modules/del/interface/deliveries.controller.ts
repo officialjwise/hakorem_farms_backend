@@ -6,7 +6,7 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import { Deliveries, type DeliveryView, type Page } from '../application/deliveries';
-import { DeliveryPageQuery, IdParam, ProofOfDeliveryCreate } from './schemas';
+import { DeliveryFailure, DeliveryPageQuery, IdParam, OnTheWay, ProofOfDeliveryCreate } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -55,6 +55,34 @@ export class DriverDeliveriesController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<DeliveryView> {
     const response = await this.deliveries.recordProof(actor, id, { ...body, codCollectedPesewas: BigInt(body.codCollectedPesewas), capturedAt: new Date(body.capturedAt) }, key);
+    res.status(response.status);
+    return response.body;
+  }
+
+  @Post(':id/on-the-way')
+  @Operation({ operationId: 'markOnTheWay', ...WRITE, permission: 'del.delivery.update.assigned' })
+  async markOnTheWay(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(OnTheWay)) body: z.infer<typeof OnTheWay>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<DeliveryView> {
+    const response = await this.deliveries.markOnTheWay(actor, id, { occurredAt: new Date(body.occurredAt), etaMinutes: body.etaMinutes }, key);
+    res.status(response.status);
+    return response.body;
+  }
+
+  @Post(':id/fail')
+  @Operation({ operationId: 'recordFailedDelivery', ...WRITE, permission: 'del.delivery.update.assigned' })
+  async recordFailedDelivery(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(DeliveryFailure)) body: z.infer<typeof DeliveryFailure>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<DeliveryView> {
+    const response = await this.deliveries.recordFailure(actor, id, { ...body, occurredAt: new Date(body.occurredAt) }, key);
     res.status(response.status);
     return response.body;
   }

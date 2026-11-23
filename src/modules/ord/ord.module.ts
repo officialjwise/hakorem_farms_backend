@@ -11,7 +11,7 @@ import { CLOCK } from '../../platform/platform.module';
 import { BilModule, Billing } from '../bil';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { InvModule, Reservations, Stock, StockExceptions, StockMovements, StockQueries, StockUnits } from '../inv';
-import { Deliveries, DelModule, DELIVERY_COMPLETED } from '../del';
+import { Deliveries, DelModule, DELIVERY_COMPLETED, DELIVERY_FAILED } from '../del';
 import { MasterDataRefs, MdmModule, PricingService, Storefront } from '../mdm';
 import { PayModule, Payments, ProviderPayments, Receipts, Refunds } from '../pay';
 import { Dispatches } from './application/dispatches';
@@ -356,6 +356,7 @@ export class OrdModule implements OnModuleInit {
     this.events.subscribeInTransaction('inv.ReservationExpired', (tx, event) => this.online.holdEndedIn(tx, event));
     this.events.subscribeInTransaction('inv.ReservationReleased', (tx, event) => this.online.holdEndedIn(tx, event));
     this.events.subscribeInTransaction(DELIVERY_COMPLETED, (tx, event) => this.dispatches.deliveredIn(tx, event));
+    this.events.subscribeInTransaction(DELIVERY_FAILED, (tx, event) => this.dispatches.failedIn(tx, event));
     this.approvals.registerHandler(SALE_VOID_KIND, this.reversals.approvalHandler);
     this.approvals.registerHandler(RETURN_KIND, this.returns.approvalHandler);
     this.approvals.registerHandler(PRICE_OVERRIDE_KIND, this.overrides.approvalHandler);

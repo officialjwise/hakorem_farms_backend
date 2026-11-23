@@ -1,0 +1,109 @@
+operationId: startRoute
+tags:
+  - del
+summary: "Start a route"
+description: "Starts a planned run on or after its day (2.32.0): `IN_PROGRESS`, with its start time. The goods are already on the vehicle, loaded at dispatch and still the farm's stock (ADR-0092), so nothing moves here. Until its run has started a stop cannot be marked on the way, delivered or failed (422 `DELIVERY_INVALID` `ROUTE_NOT_STARTED`). Before its day 422 `ROUTE_INVALID` `NOT_ITS_DAY`; a run already started or closed 422 `INVALID_STATE_TRANSITION`. Audited.\n\nPermission: `del.route.manage`."
+x-permission: del.route.manage
+x-error-codes:
+  - ROUTE_INVALID
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Route"
+        example:
+          id: "019a7b0a-04d3-7580-9ab9-60df274ad9bd"
+          driver:
+            id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+            displayName: "Kwesi Appiah"
+          routeDate: "2026-11-13"
+          vehicle:
+            id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+            code: VAN-GT4521
+            name: "Delivery van GT-4521-24"
+            kind: VEHICLE
+          status: IN_PROGRESS
+          stops:
+            - stopNo: 1
+              delivery:
+                id: "019a7b08-15e3-7749-9c81-7d678c3af645"
+                deliveryNo: DLN-2026-DDW-000191
+                recipientName: "Royal Palm Hotel, kitchen"
+                area: "Airport Residential"
+                status: ASSIGNED
+                codDuePesewas: 0
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+            - stopNo: 2
+              delivery:
+                id: "019a7b08-53c1-7b10-b048-b9d67f9c32b4"
+                deliveryNo: DLN-2026-DDW-000192
+                recipientName: "Kofi Agyeman"
+                area: "East Legon"
+                status: ASSIGNED
+                codDuePesewas: 0
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+            - stopNo: 3
+              delivery:
+                id: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
+                deliveryNo: DLN-2026-DDW-000193
+                recipientName: "Asantewaa Chop Bar"
+                area: Adenta
+                status: ASSIGNED
+                codDuePesewas: 24000
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+            - stopNo: 4
+              delivery:
+                id: "019a7b09-2c4a-7048-a580-0d5ad3738638"
+                deliveryNo: DLN-2026-DDW-000194
+                recipientName: "Grace Nyarko"
+                area: "Tema Community 11"
+                status: ASSIGNED
+                codDuePesewas: 130000
+                slotStartsAt: "10:00"
+                slotEndsAt: "12:00"
+          stopsOnVan: 4
+          codDueTotalPesewas: 154000
+          codCollectedPesewas: 0
+          codHeldPesewas: 0
+          handIns: []
+          startedAt: "2026-11-13T07:30:00Z"
+          completedAt: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

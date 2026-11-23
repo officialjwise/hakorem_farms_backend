@@ -64,3 +64,50 @@ export interface DriverCashRemitted {
   readonly abuseCases: readonly number[];
   readonly handedInAt: string;
 }
+
+/**
+ * `del.DeliveryOnTheWay` v1 (FR-DEL-007, FR-DEL-012): the driver set off for this stop. NTF tells the customer once
+ * (B11 continued 4), reading the recipient's phone from the delivery by its id when it sends: no phone or name is
+ * written to the outbox (SECURE_CODING_STANDARDS, logging and personal data).
+ */
+export interface DeliveryOnTheWay {
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly orderDocumentId: string;
+  readonly branchId: string;
+  readonly driverId: string;
+  readonly etaMinutes: number | null;
+  readonly occurredAt: string;
+}
+
+/**
+ * `del.DeliveryFailed` v1 (FR-DEL-011): an attempt failed, with its reason and what the driver asks next. ORD subscribes
+ * in the transaction (ADR-0010) and moves the order DISPATCHED to DELIVERY_FAILED; the goods stay on the van, the farm's,
+ * until a reattempt or a return to stock (B11 continued 4).
+ */
+export interface DeliveryFailed {
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly orderDocumentId: string;
+  readonly branchId: string;
+  readonly driverId: string;
+  readonly attemptNo: number;
+  readonly failureReasonCode: string;
+  readonly nextAction: 'REATTEMPT' | 'RETURN_TO_STOCK';
+  readonly occurredAt: string;
+}
+
+/**
+ * `del.RouteCompleted` v1 (FR-DEL-005, the owner's close rule, 2026-11-23): a driver's run closed with nothing left on
+ * the van and nothing held; the hand-ins that took its cash are named (A-345 (g)).
+ */
+export interface RouteCompleted {
+  readonly routeId: string;
+  readonly driverId: string;
+  readonly routeDate: string;
+  readonly branchId: string;
+  readonly deliveryIds: readonly string[];
+  readonly codCollectedPesewas: number;
+  readonly reconciliationIds: readonly string[];
+  readonly completedAt: string;
+}

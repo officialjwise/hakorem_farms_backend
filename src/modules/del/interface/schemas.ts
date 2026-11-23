@@ -59,3 +59,29 @@ export const DriverCashReconciliationPageQuery = z.object({
   cursor: Cursor,
   limit: Limit,
 });
+
+export const RouteCreate = z.strictObject({
+  driverId: z.uuid(),
+  routeDate: CalendarDate,
+  vehicleLocationId: z.uuid(),
+  deliveryIds: z.array(z.uuid()).max(100),
+});
+
+export const RouteStopsReplace = z.strictObject({ version: z.number().int().min(1), deliveryIds: z.array(z.uuid()).max(100) });
+
+export const RoutePageQuery = z.object({ date: CalendarDate.optional(), driverId: z.uuid().optional(), cursor: Cursor, limit: Limit });
+
+export const MyRouteQuery = z.object({ date: CalendarDate.optional() });
+
+export const DriverPageQuery = z.object({ branchId: z.uuid().optional(), cursor: Cursor, limit: Limit });
+
+export const OnTheWay = z.strictObject({ occurredAt: z.iso.datetime({ offset: true }), etaMinutes: z.number().int().min(0).max(1_440).optional() });
+
+export const DeliveryFailure = z.strictObject({
+  id: z.uuid(),
+  failureReasonCode: z.string().min(1).max(64),
+  nextAction: z.enum(['REATTEMPT', 'RETURN_TO_STOCK']),
+  latitude: Coordinate.optional(),
+  longitude: Coordinate.optional(),
+  occurredAt: z.iso.datetime({ offset: true }),
+});

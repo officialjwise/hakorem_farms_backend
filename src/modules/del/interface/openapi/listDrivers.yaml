@@ -1,0 +1,73 @@
+operationId: listDrivers
+tags:
+  - del
+summary: "List the drivers of a branch"
+description: "Who a delivery or a run at the branch may be given (2.32.0, B11 continued 3; CR-056 item 4), without `iam.user.read`: everyone who drives for the branch now, as dispatch and `createRoute` judge it (holds `del.proof.create` there; A-337 (d): the Driver role, and the Manager and the Owner, who hold the Driver's permissions), by id, with their display name only. A branch the caller does not manage 403.\n\nPermission: `del.route.manage`."
+x-permission: del.route.manage
+parameters:
+  - name: branchId
+    in: query
+    required: false
+    description: "The branch; every branch the caller manages whole when absent."
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DriverPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a87-0b51-7c2e-8a3d-5f1e2b9c4d10"
+                  displayName: "Abena Owusu"
+                - id: "019a7a87-2c3e-7f41-9b2a-6d0e1f8a3c22"
+                  displayName: "Kwabena Asare"
+                - id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                  displayName: "Kwesi Appiah"
+                - id: "019a7a87-5d7f-7a60-8c4b-1e2f3a4b5c66"
+                  displayName: "Yaw Ofori-Atta"
+                - id: "019a7a87-6e80-7b71-9d5c-2f3a4b5c6d77"
+                  displayName: "Kojo Nkansah"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

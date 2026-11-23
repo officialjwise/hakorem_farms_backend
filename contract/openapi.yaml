@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.31.0"
+  version: "2.32.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -67123,7 +67123,7 @@ paths:
       tags:
         - del
       summary: "List driver routes"
-      description: "Permission: `del.route.read`."
+      description: "The runs at the branches the caller reads whole, newest first, by date or driver.\n\nPermission: `del.route.read`."
       x-permission: del.route.read
       parameters:
         - name: date
@@ -67217,7 +67217,13 @@ paths:
                               codDuePesewas: 130000
                               slotStartsAt: "10:00"
                               slotEndsAt: "12:00"
+                        stopsOnVan: 3
                         codDueTotalPesewas: 154000
+                        codCollectedPesewas: 0
+                        codHeldPesewas: 0
+                        handIns: []
+                        startedAt: "2026-11-13T07:30:00Z"
+                        completedAt: null
                         currency: GHS
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
@@ -67239,7 +67245,7 @@ paths:
                               deliveryNo: DLN-2026-DDW-000191
                               recipientName: "Royal Palm Hotel, kitchen"
                               area: "Airport Residential"
-                              status: OUT_FOR_DELIVERY
+                              status: DELIVERED
                               codDuePesewas: 0
                               slotStartsAt: "10:00"
                               slotEndsAt: "12:00"
@@ -67253,7 +67259,13 @@ paths:
                               codDuePesewas: 0
                               slotStartsAt: "10:00"
                               slotEndsAt: "12:00"
+                        stopsOnVan: 0
                         codDueTotalPesewas: 0
+                        codCollectedPesewas: 0
+                        codHeldPesewas: 0
+                        handIns: []
+                        startedAt: "2026-11-12T07:30:00Z"
+                        completedAt: "2026-11-12T17:10:00Z"
                         currency: GHS
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
@@ -67275,7 +67287,7 @@ paths:
                               deliveryNo: DLN-2026-DDW-000191
                               recipientName: "Royal Palm Hotel, kitchen"
                               area: "Airport Residential"
-                              status: OUT_FOR_DELIVERY
+                              status: DELIVERED
                               codDuePesewas: 0
                               slotStartsAt: "10:00"
                               slotEndsAt: "12:00"
@@ -67289,7 +67301,13 @@ paths:
                               codDuePesewas: 0
                               slotStartsAt: "10:00"
                               slotEndsAt: "12:00"
+                        stopsOnVan: 0
                         codDueTotalPesewas: 0
+                        codCollectedPesewas: 0
+                        codHeldPesewas: 0
+                        handIns: []
+                        startedAt: "2026-11-11T07:30:00Z"
+                        completedAt: "2026-11-11T17:10:00Z"
                         currency: GHS
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
@@ -67311,7 +67329,7 @@ paths:
                               deliveryNo: DLN-2026-DDW-000191
                               recipientName: "Royal Palm Hotel, kitchen"
                               area: "Airport Residential"
-                              status: OUT_FOR_DELIVERY
+                              status: DELIVERED
                               codDuePesewas: 0
                               slotStartsAt: "10:00"
                               slotEndsAt: "12:00"
@@ -67325,7 +67343,13 @@ paths:
                               codDuePesewas: 0
                               slotStartsAt: "10:00"
                               slotEndsAt: "12:00"
+                        stopsOnVan: 0
                         codDueTotalPesewas: 0
+                        codCollectedPesewas: 0
+                        codHeldPesewas: 0
+                        handIns: []
+                        startedAt: "2026-11-10T07:30:00Z"
+                        completedAt: "2026-11-10T17:10:00Z"
                         currency: GHS
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
@@ -67347,7 +67371,7 @@ paths:
                               deliveryNo: DLN-2026-DDW-000191
                               recipientName: "Royal Palm Hotel, kitchen"
                               area: "Airport Residential"
-                              status: OUT_FOR_DELIVERY
+                              status: DELIVERED
                               codDuePesewas: 0
                               slotStartsAt: "10:00"
                               slotEndsAt: "12:00"
@@ -67361,7 +67385,13 @@ paths:
                               codDuePesewas: 0
                               slotStartsAt: "10:00"
                               slotEndsAt: "12:00"
+                        stopsOnVan: 0
                         codDueTotalPesewas: 0
+                        codCollectedPesewas: 0
+                        codHeldPesewas: 0
+                        handIns: []
+                        startedAt: "2026-11-09T07:30:00Z"
+                        completedAt: "2026-11-09T17:10:00Z"
                         currency: GHS
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
@@ -67383,7 +67413,7 @@ paths:
                               deliveryNo: DLN-2026-DDW-000191
                               recipientName: "Royal Palm Hotel, kitchen"
                               area: "Airport Residential"
-                              status: OUT_FOR_DELIVERY
+                              status: DELIVERED
                               codDuePesewas: 0
                               slotStartsAt: "10:00"
                               slotEndsAt: "12:00"
@@ -67397,7 +67427,13 @@ paths:
                               codDuePesewas: 0
                               slotStartsAt: "10:00"
                               slotEndsAt: "12:00"
+                        stopsOnVan: 0
                         codDueTotalPesewas: 0
+                        codCollectedPesewas: 0
+                        codHeldPesewas: 0
+                        handIns: []
+                        startedAt: "2026-11-08T07:30:00Z"
+                        completedAt: "2026-11-08T17:10:00Z"
                         currency: GHS
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 2
@@ -67428,8 +67464,11 @@ paths:
       tags:
         - del
       summary: "Plan a driver's route for a day"
-      description: "Permission: `del.route.manage`."
+      description: "A driver's run for a day (2.32.0, B11 continued 3; FR-DEL-005, A-337): the deliveries dispatch loaded onto the vehicle (ADR-0092), in the order given, for one driver who drives for the vehicle's branch, on that live vehicle, on a date not past; one run per driver per day. Each stop is a delivery `ASSIGNED` to that driver on that vehicle at that branch, on no other run, dispatched on or before the run's date. Written `PLANNED`; stops are ordered by a person (no optimisation). **Refusals:** 422 `ROUTE_INVALID` with `NO_STOPS`, `STOP_REPEATED`, `DELIVERY_UNKNOWN`, `OTHER_BRANCH`, `NOT_ASSIGNED`, `NOT_THE_DRIVERS`, `NOT_ON_THE_VEHICLE`, `ON_ANOTHER_ROUTE`, `DISPATCHED_AFTER_ROUTE_DATE`, `ROUTE_DATE_PAST`, `DRIVER_HAS_A_ROUTE` or `NOT_A_VEHICLE`; 422 `DELIVERY_INVALID` with `NOT_A_DRIVER` or `NOT_A_VEHICLE`. The same key answers the first run. Audited.\n\nPermission: `del.route.manage`."
       x-permission: del.route.manage
+      x-error-codes:
+        - ROUTE_INVALID
+        - DELIVERY_INVALID
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -67471,7 +67510,7 @@ paths:
                   code: VAN-GT4521
                   name: "Delivery van GT-4521-24"
                   kind: VEHICLE
-                status: IN_PROGRESS
+                status: PLANNED
                 stops:
                   - stopNo: 1
                     delivery:
@@ -67479,7 +67518,7 @@ paths:
                       deliveryNo: DLN-2026-DDW-000191
                       recipientName: "Royal Palm Hotel, kitchen"
                       area: "Airport Residential"
-                      status: OUT_FOR_DELIVERY
+                      status: ASSIGNED
                       codDuePesewas: 0
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
@@ -67489,7 +67528,7 @@ paths:
                       deliveryNo: DLN-2026-DDW-000192
                       recipientName: "Kofi Agyeman"
                       area: "East Legon"
-                      status: DELIVERED
+                      status: ASSIGNED
                       codDuePesewas: 0
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
@@ -67499,7 +67538,7 @@ paths:
                       deliveryNo: DLN-2026-DDW-000193
                       recipientName: "Asantewaa Chop Bar"
                       area: Adenta
-                      status: OUT_FOR_DELIVERY
+                      status: ASSIGNED
                       codDuePesewas: 24000
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
@@ -67509,14 +67548,20 @@ paths:
                       deliveryNo: DLN-2026-DDW-000194
                       recipientName: "Grace Nyarko"
                       area: "Tema Community 11"
-                      status: FAILED
+                      status: ASSIGNED
                       codDuePesewas: 130000
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
+                stopsOnVan: 4
                 codDueTotalPesewas: 154000
+                codCollectedPesewas: 0
+                codHeldPesewas: 0
+                handIns: []
+                startedAt: null
+                completedAt: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
+                version: 1
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -67537,7 +67582,7 @@ paths:
       tags:
         - del
       summary: "Get a route"
-      description: "Permission: `del.route.read`."
+      description: "A driver's run with its stops in order, what is still on the van (`stopsOnVan`), the cash due on it, collected on it and still held by the driver (`codHeldPesewas`), and the hand-ins at a till shift that took its cash (`handIns`, the driver variance report's `DriverCashReconciliation` ids). Another branch's run is refused as any other.\n\nPermission: `del.route.read`."
       x-permission: del.route.read
       parameters:
         - name: id
@@ -67612,7 +67657,13 @@ paths:
                       codDuePesewas: 130000
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
+                stopsOnVan: 3
                 codDueTotalPesewas: 154000
+                codCollectedPesewas: 0
+                codHeldPesewas: 0
+                handIns: []
+                startedAt: "2026-11-13T07:30:00Z"
+                completedAt: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
@@ -67634,8 +67685,10 @@ paths:
       tags:
         - del
       summary: "Set the order of a route's stops"
-      description: "Permission: `del.route.manage`."
+      description: "Sets the order of a planned run's stops (2.32.0): exactly the stops it has, each once, at the `version` read (409 otherwise). A started or closed run is refused 422 `INVALID_STATE_TRANSITION`; other stops 422 `ROUTE_INVALID` `NOT_THE_SAME_STOPS` or `STOP_REPEATED`. Audited.\n\nPermission: `del.route.manage`."
       x-permission: del.route.manage
+      x-error-codes:
+        - ROUTE_INVALID
       parameters:
         - name: id
           in: path
@@ -67681,7 +67734,7 @@ paths:
                   code: VAN-GT4521
                   name: "Delivery van GT-4521-24"
                   kind: VEHICLE
-                status: IN_PROGRESS
+                status: PLANNED
                 stops:
                   - stopNo: 1
                     delivery:
@@ -67689,7 +67742,7 @@ paths:
                       deliveryNo: DLN-2026-DDW-000191
                       recipientName: "Royal Palm Hotel, kitchen"
                       area: "Airport Residential"
-                      status: OUT_FOR_DELIVERY
+                      status: ASSIGNED
                       codDuePesewas: 0
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
@@ -67699,7 +67752,7 @@ paths:
                       deliveryNo: DLN-2026-DDW-000192
                       recipientName: "Kofi Agyeman"
                       area: "East Legon"
-                      status: DELIVERED
+                      status: ASSIGNED
                       codDuePesewas: 0
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
@@ -67709,7 +67762,7 @@ paths:
                       deliveryNo: DLN-2026-DDW-000193
                       recipientName: "Asantewaa Chop Bar"
                       area: Adenta
-                      status: OUT_FOR_DELIVERY
+                      status: ASSIGNED
                       codDuePesewas: 24000
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
@@ -67719,14 +67772,20 @@ paths:
                       deliveryNo: DLN-2026-DDW-000194
                       recipientName: "Grace Nyarko"
                       area: "Tema Community 11"
-                      status: FAILED
+                      status: ASSIGNED
                       codDuePesewas: 130000
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
+                stopsOnVan: 4
                 codDueTotalPesewas: 154000
+                codCollectedPesewas: 0
+                codHeldPesewas: 0
+                handIns: []
+                startedAt: null
+                completedAt: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
+                version: 3
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -67749,8 +67808,10 @@ paths:
       tags:
         - del
       summary: "Start a route"
-      description: "Permission: `del.route.manage`."
+      description: "Starts a planned run on or after its day (2.32.0): `IN_PROGRESS`, with its start time. The goods are already on the vehicle, loaded at dispatch and still the farm's stock (ADR-0092), so nothing moves here. Until its run has started a stop cannot be marked on the way, delivered or failed (422 `DELIVERY_INVALID` `ROUTE_NOT_STARTED`). Before its day 422 `ROUTE_INVALID` `NOT_ITS_DAY`; a run already started or closed 422 `INVALID_STATE_TRANSITION`. Audited.\n\nPermission: `del.route.manage`."
       x-permission: del.route.manage
+      x-error-codes:
+        - ROUTE_INVALID
       parameters:
         - name: id
           in: path
@@ -67792,7 +67853,7 @@ paths:
                       deliveryNo: DLN-2026-DDW-000191
                       recipientName: "Royal Palm Hotel, kitchen"
                       area: "Airport Residential"
-                      status: OUT_FOR_DELIVERY
+                      status: ASSIGNED
                       codDuePesewas: 0
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
@@ -67802,7 +67863,7 @@ paths:
                       deliveryNo: DLN-2026-DDW-000192
                       recipientName: "Kofi Agyeman"
                       area: "East Legon"
-                      status: DELIVERED
+                      status: ASSIGNED
                       codDuePesewas: 0
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
@@ -67812,7 +67873,7 @@ paths:
                       deliveryNo: DLN-2026-DDW-000193
                       recipientName: "Asantewaa Chop Bar"
                       area: Adenta
-                      status: OUT_FOR_DELIVERY
+                      status: ASSIGNED
                       codDuePesewas: 24000
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
@@ -67822,11 +67883,17 @@ paths:
                       deliveryNo: DLN-2026-DDW-000194
                       recipientName: "Grace Nyarko"
                       area: "Tema Community 11"
-                      status: FAILED
+                      status: ASSIGNED
                       codDuePesewas: 130000
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
+                stopsOnVan: 4
                 codDueTotalPesewas: 154000
+                codCollectedPesewas: 0
+                codHeldPesewas: 0
+                handIns: []
+                startedAt: "2026-11-13T07:30:00Z"
+                completedAt: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
@@ -67852,7 +67919,7 @@ paths:
       tags:
         - del
       summary: "Get my route for a day"
-      description: "Small and cacheable for a weak connection. Only the caller's own deliveries.\n\nPermission: `del.delivery.read.assigned`. Ownership: the driver's own route."
+      description: "The caller's own run for a day (today in Africa/Accra by default), small and cacheable for a weak connection: the stops in order with what is due on each, and the cash collected and still held. **A driver with no run that day gets 404** (CR-057 point 2), whatever else they hold; nobody else's run is ever answered.\n\nPermission: `del.delivery.read.assigned`. Ownership: the driver's own route."
       x-permission: del.delivery.read.assigned
       parameters:
         - name: date
@@ -67927,7 +67994,13 @@ paths:
                       codDuePesewas: 130000
                       slotStartsAt: "10:00"
                       slotEndsAt: "12:00"
+                stopsOnVan: 3
                 codDueTotalPesewas: 154000
+                codCollectedPesewas: 0
+                codHeldPesewas: 0
+                handIns: []
+                startedAt: "2026-11-13T07:30:00Z"
+                completedAt: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
@@ -67937,6 +68010,8 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         "403":
           $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -68043,8 +68118,10 @@ paths:
       tags:
         - del
       summary: "Tell the customer I am on the way"
-      description: "Permission: `del.delivery.update.assigned`. Ownership: deliveries assigned to the caller.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+      description: "The driver sets off for a stop (2.32.0; FR-DEL-007, FR-DEL-012): a delivery assigned to the caller and waiting on the van moves to `OUT_FOR_DELIVERY`, its time recorded once, and the customer's message is queued through the outbox in the same transaction. One already on its way answers as it stands and records nothing more. A delivered, failed, returned or cancelled stop is refused 422 `INVALID_STATE_TRANSITION`; a stop on a run not started 422 `DELIVERY_INVALID` `ROUTE_NOT_STARTED`; a time before dispatch `OCCURRED_BEFORE_DISPATCH`. Another driver's delivery 403. The same key answers the first result. Audited.\n\nPermission: `del.delivery.update.assigned`. Ownership: deliveries assigned to the caller."
       x-permission: del.delivery.update.assigned
+      x-error-codes:
+        - DELIVERY_INVALID
       parameters:
         - name: id
           in: path
@@ -68272,8 +68349,10 @@ paths:
       tags:
         - del
       summary: "Record a failed attempt"
-      description: "Permission: `del.delivery.update.assigned`. Ownership: deliveries assigned to the caller.\n\nAccepted from an offline queue: the client supplies the record id (UUIDv7), and a resubmission with the same id returns the first result."
+      description: "A failed attempt (2.32.0; FR-DEL-011): on a delivery assigned to the caller, waiting on the van or on its way, a reason from the fixed `DELIVERY_FAILURE` list, what the driver asks next (`REATTEMPT` or `RETURN_TO_STOCK`), the time and the position when known. The delivery is `FAILED` with one attempt more and the order `DELIVERY_FAILED`, in one transaction; the goods stay on the van, the farm's, until a reattempt or a return to stock, and a run cannot be closed while they are there. **Accepted from an offline queue:** the attempt's `id` is the device's (UUIDv7); sent again it answers the delivery as it stands and records nothing; an id used for another delivery 422 `ID_IN_USE`. **Refusals:** 422 `DELIVERY_INVALID` with `REASON_UNKNOWN`, `REASON_NOT_ALLOWED`, `OCCURRED_BEFORE_DISPATCH`, `POSITION_INCOMPLETE` or `ROUTE_NOT_STARTED`; a finished or failed delivery 422 `INVALID_STATE_TRANSITION`; another driver's delivery 403. Audited.\n\nPermission: `del.delivery.update.assigned`. Ownership: deliveries assigned to the caller."
       x-permission: del.delivery.update.assigned
+      x-error-codes:
+        - DELIVERY_INVALID
       parameters:
         - name: id
           in: path
@@ -80378,6 +80457,193 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/routes/{id}/complete":
+    post:
+      operationId: completeRoute
+      tags:
+        - del
+      summary: "Close a route"
+      description: "Closes a started run (2.32.0, B11 continued 3; the owner, 2026-11-23): **only when nothing is left on the van and nothing is still held by the driver.** Every stop's goods must have left the van, delivered (`DELIVERED`) or returned to stock (`RETURNED`; a write-off with a reason joins them in a later version); a stop still assigned, on its way or failed with its goods aboard is refused 422 `ROUTE_INVALID` `GOODS_ON_VAN`, one detail per stop (`field` `/stops/{deliveryId}`). Every collection made on the run must have been handed in at a till shift (`handInDriverCash`); while any is held, 422 `ROUTE_INVALID` `CASH_NOT_HANDED_IN`. Closed, the run is `COMPLETED` and frozen, and its `handIns` name the till hand-ins that took its cash, recorded against it by the database (A-345 (g)). The database holds the same rule at commit. A planned or closed run is refused 422 `INVALID_STATE_TRANSITION`. The same key answers the first close. Audited.\n\nPermission: `del.route.manage`."
+      x-permission: del.route.manage
+      x-error-codes:
+        - ROUTE_INVALID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Route"
+              example:
+                id: "019a7b0a-04d3-7580-9ab9-60df274ad9bd"
+                driver:
+                  id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                  displayName: "Kwesi Appiah"
+                routeDate: "2026-11-13"
+                vehicle:
+                  id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+                  code: VAN-GT4521
+                  name: "Delivery van GT-4521-24"
+                  kind: VEHICLE
+                status: COMPLETED
+                stops:
+                  - stopNo: 1
+                    delivery:
+                      id: "019a7b08-15e3-7749-9c81-7d678c3af645"
+                      deliveryNo: DLN-2026-DDW-000191
+                      recipientName: "Royal Palm Hotel, kitchen"
+                      area: "Airport Residential"
+                      status: DELIVERED
+                      codDuePesewas: 0
+                      slotStartsAt: "10:00"
+                      slotEndsAt: "12:00"
+                  - stopNo: 2
+                    delivery:
+                      id: "019a7b08-53c1-7b10-b048-b9d67f9c32b4"
+                      deliveryNo: DLN-2026-DDW-000192
+                      recipientName: "Kofi Agyeman"
+                      area: "East Legon"
+                      status: DELIVERED
+                      codDuePesewas: 0
+                      slotStartsAt: "10:00"
+                      slotEndsAt: "12:00"
+                  - stopNo: 3
+                    delivery:
+                      id: "019a7b08-ee6c-7c81-81b9-d0ebe01149c9"
+                      deliveryNo: DLN-2026-DDW-000193
+                      recipientName: "Asantewaa Chop Bar"
+                      area: Adenta
+                      status: DELIVERED
+                      codDuePesewas: 24000
+                      slotStartsAt: "10:00"
+                      slotEndsAt: "12:00"
+                  - stopNo: 4
+                    delivery:
+                      id: "019a7b09-2c4a-7048-a580-0d5ad3738638"
+                      deliveryNo: DLN-2026-DDW-000194
+                      recipientName: "Grace Nyarko"
+                      area: "Tema Community 11"
+                      status: DELIVERED
+                      codDuePesewas: 130000
+                      slotStartsAt: "10:00"
+                      slotEndsAt: "12:00"
+                stopsOnVan: 0
+                codDueTotalPesewas: 154000
+                codCollectedPesewas: 154000
+                codHeldPesewas: 0
+                handIns:
+                  - id: "019a7b2c-5e10-7c3a-9d41-0b6f2e8a1c77"
+                startedAt: "2026-11-13T07:30:00Z"
+                completedAt: "2026-11-13T17:10:00Z"
+                currency: GHS
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                version: 3
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/drivers":
+    get:
+      operationId: listDrivers
+      tags:
+        - del
+      summary: "List the drivers of a branch"
+      description: "Who a delivery or a run at the branch may be given (2.32.0, B11 continued 3; CR-056 item 4), without `iam.user.read`: everyone who drives for the branch now, as dispatch and `createRoute` judge it (holds `del.proof.create` there; A-337 (d): the Driver role, and the Manager and the Owner, who hold the Driver's permissions), by id, with their display name only. A branch the caller does not manage 403.\n\nPermission: `del.route.manage`."
+      x-permission: del.route.manage
+      parameters:
+        - name: branchId
+          in: query
+          required: false
+          description: "The branch; every branch the caller manages whole when absent."
+          schema:
+            type: string
+            format: uuid
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PageLimit"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverPage"
+              examples:
+                default:
+                  value:
+                    data:
+                      - id: "019a7a87-0b51-7c2e-8a3d-5f1e2b9c4d10"
+                        displayName: "Abena Owusu"
+                      - id: "019a7a87-2c3e-7f41-9b2a-6d0e1f8a3c22"
+                        displayName: "Kwabena Asare"
+                      - id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                        displayName: "Kwesi Appiah"
+                      - id: "019a7a87-5d7f-7a60-8c4b-1e2f3a4b5c66"
+                        displayName: "Yaw Ofori-Atta"
+                      - id: "019a7a87-6e80-7b71-9d5c-2f3a4b5c6d77"
+                        displayName: "Kojo Nkansah"
+                    page:
+                      nextCursor: null
+                      limit: 25
+                      hasMore: false
+                empty:
+                  summary: "Nothing matches: no rows and no next page"
+                  value:
+                    data: []
+                    page:
+                      nextCursor: null
+                      limit: 25
+                      hasMore: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -103439,9 +103705,15 @@ components:
         codDuePesewas:
           $ref: "#/components/schemas/Pesewas"
         slotStartsAt:
-          $ref: "#/components/schemas/LocalTime"
+          description: "The booked slot's start; null until slot booking (2.32.0)."
+          oneOf:
+            - $ref: "#/components/schemas/LocalTime"
+            - type: "null"
         slotEndsAt:
-          $ref: "#/components/schemas/LocalTime"
+          description: "The booked slot's end; null until slot booking (2.32.0)."
+          oneOf:
+            - $ref: "#/components/schemas/LocalTime"
+            - type: "null"
       required:
         - id
         - deliveryNo
@@ -103474,8 +103746,37 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RouteStop"
+        stopsOnVan:
+          type: integer
+          minimum: 0
+          description: "Stops whose goods are still on the van: not delivered and not returned to stock (2.32.0). A run closes only at 0."
         codDueTotalPesewas:
           $ref: "#/components/schemas/Pesewas"
+        codCollectedPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        codHeldPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        handIns:
+          type: array
+          description: "The till hand-ins (`DriverCashReconciliation`) that took the cash collected on this run, recorded against it (2.32.0, A-345 (g))."
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                format: uuid
+            required:
+              - id
+        startedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
+        completedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
         currency:
           $ref: "#/components/schemas/Currency"
         branchId:
@@ -103490,7 +103791,13 @@ components:
         - vehicle
         - status
         - stops
+        - stopsOnVan
         - codDueTotalPesewas
+        - codCollectedPesewas
+        - codHeldPesewas
+        - handIns
+        - startedAt
+        - completedAt
         - currency
         - branchId
         - version
@@ -103532,6 +103839,19 @@ components:
         - version
         - deliveryIds
       additionalProperties: false
+    DriverPage:
+      type: object
+      description: "A page of the drivers of a branch (2.32.0, CR-056 item 4)."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PrincipalRef"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      required:
+        - data
+        - page
     RoutePage:
       type: object
       description: "A page of `Route` results."
@@ -107558,6 +107878,8 @@ components:
         - del.delivery.read.assigned
         - del.delivery.update.assigned
         - del.proof.create
+        - del.route.manage
+        - del.route.read
         - del.slot.manage
         - del.slot.read
         - doc.document.read
@@ -107831,6 +108153,8 @@ components:
         - del.delivery.read.assigned
         - del.delivery.update.assigned
         - del.proof.create
+        - del.route.manage
+        - del.route.read
         - del.slot.manage
         - del.slot.read
         - doc.document.read
