@@ -243,6 +243,7 @@ What was picked for an order line, with weight.
 | `weight_source` | `text` | NULL, CHECK in (`SCALE`, `MANUAL`, `ESTIMATE`) | |
 | `stock_movement_id` | `uuid` | NULL, UNIQUE, FK `inv.stock_movement`; written at dispatch, never on a withdrawn pick | Shop floor or cold room to vehicle or customer |
 | `pick_list_line_id` | `uuid` | NOT NULL, FK `ord.pick_list_line` (B11) | What the pick is against |
+| `line_no` | `integer` | NOT NULL, CHECK `> 0`, UNIQUE per pick list (B11) | The order it was recorded in; picks are answered in it, never by their client ids |
 | `qty_base` | `qty` | NOT NULL, CHECK `> 0` (B11) | In the product's base unit: a catch-weight pack's weighed kilograms |
 | `withdrawn_at`, `withdrawn_by` | | NULL; both or neither (B11) | A pick taken back (a pack swapped); kept, never counted again |
 | `recorded_at` | `timestamptz` | NOT NULL (B11) | From the application's clock |

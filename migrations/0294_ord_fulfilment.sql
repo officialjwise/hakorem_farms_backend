@@ -7,7 +7,7 @@
 --                           (ck_fulfilment_transition, HK004); what it is of never changes
 --   ord.pick_list_line      what a pick list asks of an order line; under the order line's row lock the pick lists not
 --                           cancelled never ask more of a line than it ordered (ck_pick_list_line_cap)
---   ord.fulfilment_line     each pick, its client id the key: its quantity in the line's unit, its quantity in the base
+--   ord.fulfilment_line     each pick, its client id the key, numbered in the order it was recorded: its quantity in the line's unit, its quantity in the base
 --                           unit, its weight with its source (ck_fulfilment_line_weight); never more picked of a pick
 --                           list line than it asks (ck_fulfilment_line_cap, under the pick list line's row lock); written
 --                           only while its pick list is open; afterwards only withdrawn, never changed or removed
@@ -77,6 +77,7 @@ CREATE TABLE ord.fulfilment_line (
   id                  uuid PRIMARY KEY,
   fulfilment_id       uuid NOT NULL CONSTRAINT fk_fulfilment_line_fulfilment REFERENCES ord.fulfilment (id) ON DELETE RESTRICT,
   pick_list_line_id   uuid NOT NULL CONSTRAINT fk_fulfilment_line_pick_list_line REFERENCES ord.pick_list_line (id) ON DELETE RESTRICT,
+  line_no             integer NOT NULL CONSTRAINT ck_fulfilment_line_no CHECK (line_no > 0),
   sales_order_line_id uuid NOT NULL CONSTRAINT fk_fulfilment_line_order_line REFERENCES ord.sales_order_line (id) ON DELETE RESTRICT,
   stock_unit_id       uuid NULL CONSTRAINT fk_fulfilment_line_stock_unit REFERENCES inv.stock_unit (id) ON DELETE RESTRICT,
   pack_barcode        text NULL CONSTRAINT ck_fulfilment_line_barcode CHECK (length(btrim(pack_barcode)) BETWEEN 1 AND 64),
@@ -93,6 +94,7 @@ CREATE TABLE ord.fulfilment_line (
   created_by          uuid NOT NULL CONSTRAINT fk_fulfilment_line_created_by REFERENCES iam.principal (id) ON DELETE RESTRICT,
   updated_at          timestamptz NOT NULL DEFAULT now(),
   updated_by          uuid NOT NULL CONSTRAINT fk_fulfilment_line_updated_by REFERENCES iam.principal (id) ON DELETE RESTRICT,
+  CONSTRAINT uq_fulfilment_line_no UNIQUE (fulfilment_id, line_no),
   CONSTRAINT ck_fulfilment_line_weight CHECK ((weight_kg IS NULL) = (weight_source IS NULL)),
   CONSTRAINT ck_fulfilment_line_withdrawn CHECK ((withdrawn_at IS NULL) = (withdrawn_by IS NULL) AND (withdrawn_at IS NULL OR stock_movement_id IS NULL))
 );

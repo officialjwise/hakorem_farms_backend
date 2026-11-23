@@ -68,7 +68,7 @@ const pick = (orderLineId: string, unit: string, weightKg: string, extra: object
 const historyOf = async (orderId: string) => (await admin().query<{ from_status: string | null; to_status: string }>('SELECT from_status, to_status FROM ord.order_status_history WHERE sales_order_id = $1 ORDER BY recorded_at, id', [orderId])).rows.map((r) => `${r.from_status ?? '-'}>${r.to_status}`);
 const outbox = async (type: string, subjectId: string) => Number((await admin().query<{ n: string }>('SELECT count(*)::text AS n FROM platform.outbox_message WHERE event_type = $1 AND subject_id = $2', [type, subjectId])).rows[0]!.n);
 const pickRows = async (fulfilmentId: string) =>
-  (await admin().query<{ weight: string | null; withdrawn: boolean }>('SELECT weight_kg::text AS weight, withdrawn_at IS NOT NULL AS withdrawn FROM ord.fulfilment_line WHERE fulfilment_id = $1 ORDER BY recorded_at, id', [fulfilmentId])).rows;
+  (await admin().query<{ weight: string | null; withdrawn: boolean }>('SELECT weight_kg::text AS weight, withdrawn_at IS NOT NULL AS withdrawn FROM ord.fulfilment_line WHERE fulfilment_id = $1 ORDER BY line_no', [fulfilmentId])).rows;
 const consents = async (orderId: string) =>
   (await admin().query<{ kind: string; status: string; method: string | null; weighed: number | null }>('SELECT kind, status, method, weighed_total_pesewas::int AS weighed FROM ord.order_consent WHERE sales_order_id = $1 ORDER BY asked_at, id', [orderId])).rows;
 
@@ -155,8 +155,12 @@ describe('a catch-weight order re-prices at pick and waits for consent beyond it
   });
 
   it('prices packs of 15.200 and 15.600 kg at 30.800 kg and 98,960, half-up once over the line, within its tolerance', async () => {
-    const a = pick(lineId, 'lot:MEAT-0005', '15.200');
-    const b = pick(lineId, 'lot:MEAT-0005', '15.600');
+    // The second pack's client id sorts before the first's (one generator, same millisecond, taken in reverse): the
+    // picks are answered in the order they were recorded, never by their client ids.
+    const ids = createUuidV7Generator(clock);
+    const later = ids();
+    const a = { ...pick(lineId, 'lot:MEAT-0005', '15.200'), id: ids() };
+    const b = { ...pick(lineId, 'lot:MEAT-0005', '15.600'), id: later };
     first.a = a.id;
     first.b = b.id;
     const key = randomUUID();
@@ -457,15 +461,15 @@ describe('the database holds the picking rules (migration 0294)', () => {
     const tooMuch = app.query("INSERT INTO ord.pick_list_line (id, fulfilment_id, sales_order_line_id, line_no, qty_to_pick, status, created_by, updated_by) VALUES ($1, $2, $3, 2, 1, 'OPEN', $4, $4)", [randomUUID(), made.id, line.id, actor]);
     expect(await sqlStateOf(tooMuch)).toBe('HK010');
     const overPick = app.query(
-      `INSERT INTO ord.fulfilment_line (id, fulfilment_id, pick_list_line_id, sales_order_line_id, stock_unit_id, qty, qty_base, recorded_at, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, 2, 60, now(), $6, $6)`,
+      `INSERT INTO ord.fulfilment_line (id, fulfilment_id, pick_list_line_id, sales_order_line_id, stock_unit_id, qty, qty_base, recorded_at, created_by, updated_by, line_no)
+       VALUES ($1, $2, $3, $4, $5, 2, 60, now(), $6, $6, 1)`,
       [randomUUID(), made.id, listLine, line.id, id('lot:EGG-0003'), actor],
     );
     expect(await sqlStateOf(overPick)).toBe('HK010');
     const pickId = randomUUID();
     await app.query(
-      `INSERT INTO ord.fulfilment_line (id, fulfilment_id, pick_list_line_id, sales_order_line_id, stock_unit_id, qty, qty_base, recorded_at, created_by, updated_by)
-       VALUES ($1, $2, $3, $4, $5, 1, 30, now(), $6, $6)`,
+      `INSERT INTO ord.fulfilment_line (id, fulfilment_id, pick_list_line_id, sales_order_line_id, stock_unit_id, qty, qty_base, recorded_at, created_by, updated_by, line_no)
+       VALUES ($1, $2, $3, $4, $5, 1, 30, now(), $6, $6, 1)`,
       [pickId, made.id, listLine, line.id, id('lot:EGG-0003'), actor],
     );
     expect(await sqlStateOf(app.query('UPDATE ord.fulfilment_line SET qty = 0.5 WHERE id = $1', [pickId]))).toBe('HK004');

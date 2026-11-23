@@ -121,7 +121,7 @@ export class PgFulfilmentStore implements FulfilmentStore {
       'SELECT id, fulfilment_id, sales_order_line_id, line_no, qty_to_pick::text AS qty_to_pick, status FROM ord.pick_list_line WHERE fulfilment_id = ANY($1::uuid[]) ORDER BY line_no',
       [ids],
     );
-    const { rows: picks } = await tx.query<Row>(`SELECT ${PICK} FROM ord.fulfilment_line WHERE fulfilment_id = ANY($1::uuid[]) ORDER BY recorded_at, id`, [ids]);
+    const { rows: picks } = await tx.query<Row>(`SELECT ${PICK} FROM ord.fulfilment_line WHERE fulfilment_id = ANY($1::uuid[]) ORDER BY fulfilment_id, line_no`, [ids]);
     const byId = new Map(rows.map((r) => [r['id'] as string, header(r)]));
     return ids.flatMap((id) => {
       const h = byId.get(id);
@@ -197,12 +197,14 @@ export class PgFulfilmentStore implements FulfilmentStore {
     return rows.map(pick);
   }
 
+  /** Each pick numbered after the pick list's last, in the order given (the caller holds the pick list's lock). */
   async insertPicks(tx: Transaction, picks: readonly PickRecord[]): Promise<void> {
     for (const p of picks) {
       await tx.query(
         `INSERT INTO ord.fulfilment_line (id, fulfilment_id, pick_list_line_id, sales_order_line_id, stock_unit_id, pack_barcode, qty, qty_base, weight_kg, weight_source,
-                                          recorded_at, created_by, updated_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12)`,
+                                          recorded_at, created_by, updated_by, line_no)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $12,
+                 (SELECT COALESCE(max(n.line_no), 0) + 1 FROM ord.fulfilment_line n WHERE n.fulfilment_id = $2))`,
         [p.id, p.fulfilmentId, p.pickListLineId, p.salesOrderLineId, p.stockUnitId, p.packBarcode, p.qty, p.qtyBase, p.weightKg, p.weightSource, p.recordedAt, p.createdBy],
       );
     }
@@ -218,7 +220,7 @@ export class PgFulfilmentStore implements FulfilmentStore {
       `SELECT ${pickColumns('l.')}
          FROM ord.fulfilment_line l JOIN ord.fulfilment f ON f.id = l.fulfilment_id
         WHERE f.sales_order_id = $1 AND f.status <> 'CANCELLED' AND l.withdrawn_at IS NULL
-        ORDER BY l.recorded_at, l.id`,
+        ORDER BY l.fulfilment_id, l.line_no`,
       [orderId],
     );
     return rows.map(pick);
