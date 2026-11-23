@@ -30,6 +30,7 @@ Phase, scope and gate, as confirmed at the start:
 - **ADR-0003:** the row `del.DriverCashRemitted` now reads Dr 1000 (the till that counted it), Cr 1020 (the driver), the short and over on 6900, as migration 0315 seeds it (rules 294 to 297 agree; `data-model/fin.md` names no rule for the event, so nothing there disagrees); a dated Amendments line replaces the "Applied in B11 continued 2" note; A-345 (d) no longer cites it.
 - **A-345 and A-346:** approved by the owner, 2026-11-23.
 - **B13's opener and ADR-0026 Amendments:** the owner's release review of the whole system before launch (B13 prepares it and does not deploy to production until the owner signs it off); branch protection on `main` after launch (B13 sets it up or writes the steps, and changes CLAUDE.md step 6 from then); no review per pull request during the build.
+- **A-331 approved** (the owner, 2026-11-23, after the merge, in its own `docs:` commit on a follow-up pull request): (a) the credit check counts the whole unpaid order; (b) the delivery fee once, on the first dispatch, a later dispatch completing a short or part order carrying none; added: an extra delivery the customer asks for is a separate, explicit fee line added by staff with its permission, never inferred from a second dispatch. Not built here (partial dispatch is B11 continued 4's); written into B11 continued 4's opener.
 - **BL-109 closed** by the owner's decision ("the till takes cash and mobile money only for now. No card at the till. Online card payment (B09c) stays."), with a dated line in A-287.
 
 ## Contract changes
@@ -179,7 +180,11 @@ again. The rest, in this order:
    credited for what came back, the cash due fixed again); the driver's offline sync (syncDriverEvents, idempotent by
    client id, CR-057 point 3: a DUPLICATE answers the first outcome). PAY's `Payment.driver` (BL-096). Partial
    fulfilment and backorders (FR-ORD-012) with the delivery fee once, on the first dispatch, never again (UAT scenario
-   2's rule, A-331 (b), steps 2.12 and 2.13, test with exact pesewas); an order on account dispatched with its due date
+   2's rule, A-331 (b), approved by the owner 2026-11-23, steps 2.12 and 2.13, test with exact pesewas): a later dispatch
+   the farm makes to complete a short or part order carries no fee. The owner, 2026-11-23: a delivery the customer asks
+   for as an extra is a separate, explicit fee line, added by staff who hold its permission (a new permission, granted
+   by migration, its wrong-role test), never inferred from a second dispatch; test-first with exact pesewas, on the
+   dispatch's document and its total; an order on account dispatched with its due date
    from the customer's terms (the owner, 2026-11-23: the credit check runs at dispatch, WHL's credit control through a
    port, ORD sitting below WHL, and the invoice is issued from the quantities actually dispatched; remove
    `CREDIT_DISPATCH_NOT_AVAILABLE` LOUD); collectFulfilment (a collection order handed over and paid at the till); the
