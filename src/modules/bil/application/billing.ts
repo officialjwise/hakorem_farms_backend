@@ -671,7 +671,9 @@ export class Billing {
       return draftHash(draft);
     },
     onApproved: async (tx: Transaction, request: ApprovalRecord) => {
-      await this.issueDraft(tx, request.subjectDocumentId, request.decidedBy ?? request.requestedBy, request.id);
+      // BL-093: the database's credit cap refused at approval (two approved at once, or one reaching an amount written
+      // off) is answered as the direct path answers it, 422 CREDIT_NOTE_EXCEEDS_ORIGINAL, never 500.
+      await translateRefusal(() => this.issueDraft(tx, request.subjectDocumentId, request.decidedBy ?? request.requestedBy, request.id));
     },
   };
 
