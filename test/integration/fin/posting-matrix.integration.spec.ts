@@ -410,10 +410,11 @@ describe('the boot assertion (ADR-0003 safeguard one, FR-FIN-005)', () => {
     await api.app.get(UnitOfWork).run({ isolation: 'read committed' }, (tx) => api.app.get(LedgerPostings).assertCatalogueIn(tx, events.declaredLedgerEvents()));
   });
 
-  it('declares exactly the posting events of the movement types, and the upkeep event', async () => {
+  it('declares exactly the posting events of the movement types, the upkeep event and the two of stock sold ahead of receipt', async () => {
     const { rows } = await fx.app.query<{ code: string }>('SELECT DISTINCT posting_event AS code FROM inv.movement_type WHERE posting_event IS NOT NULL ORDER BY 1');
     const declared = api.app.get(DomainEvents).declaredLedgerEvents().filter((t) => t.startsWith('inv.'));
-    expect(declared).toEqual([...rows.map((r) => r.code), 'inv.UpkeepExpensed'].sort());
+    // ADR-0081: the cost of what an offline sale took below zero, and its true-up on arrival, are INV's own events.
+    expect(declared).toEqual([...rows.map((r) => r.code), 'inv.UpkeepExpensed', 'inv.NegativeStockCosted', 'inv.NegativeStockTrueUp'].sort());
   });
 
   it('fails naming the event when a handler is removed', async () => {

@@ -72,9 +72,19 @@ describe('stock cannot go negative except where allowed (FR-INV-019)', () => {
     expect(await pool(fx, fx.eggs)).toEqual({ qty: '-2.000', value: '0' });
   });
 
-  it('refuses SALE_ISSUE_OFFLINE at a location that does not allow negative stock', async () => {
+  it('takes SALE_ISSUE_OFFLINE below zero even where the location does not allow it, and still refuses SALE_ISSUE there (ADR-0081)', async () => {
+    // The owner's decision 2 of 2026-11-18: an offline sale may take any location below zero; nothing else may.
     await receive(fx, fx.eggs, fx.store, '1.000', 3_500);
-    expect(await refusal(move(fx, { type: 'SALE_ISSUE_OFFLINE', productId: fx.eggs, from: fx.store, to: fx.virtual.CUSTOMER, qty: '2.000' }))).toBe('ck_stock_negative');
+    expect(await refusal(sell(fx, fx.eggs, fx.store, '2.000'))).toBe('ck_stock_negative');
+    const id = await move(fx, { type: 'SALE_ISSUE_OFFLINE', productId: fx.eggs, from: fx.store, to: fx.virtual.CUSTOMER, qty: '2.000' });
+    expect(await onHand(fx, fx.eggs, fx.store)).toBe('-1.000');
+    expect(await exceptions('NEGATIVE_STOCK', fx.store)).toEqual([{ qty: '1.000', movement_id: id }]);
+    // The pool was already short at the shop floor: nothing of these 2 was covered, and the cost row holds them at the
+    // last known cost (the earlier row's 3 at 10,500, so 2 x 3,500 = 7,000), written by the trigger.
+    const { rows } = await fx.app.query<{ uncovered: string; value: string }>('SELECT uncovered_qty::text AS uncovered, value_pesewas::text AS value FROM inv.negative_stock_cost WHERE movement_id = $1', [id]);
+    expect(rows).toEqual([{ uncovered: '2.000', value: '7000' }]);
+    // A receipt straight into the ledger (no Stock.postIn, so no true-up) that overfills, so later tests start positive.
+    await receive(fx, fx.eggs, fx.store, '10.000', 35_000);
   });
 
   it('never takes a serial unit negative, offline or not', async () => {

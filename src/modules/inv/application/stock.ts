@@ -1,7 +1,7 @@
 import { Money, createUuidV7Generator, type Clock, type Quantity, type Weight } from '@hakorem/kernel';
 import { databaseErrorOf, IsolationLevelError, type Transaction } from '../../../platform/database/unit-of-work';
 import type { DomainEvents } from '../../../platform/events/domain-events';
-import type { UpkeepExpensed } from '../events';
+import type { NegativeStockCosted, NegativeStockTrueUp, UpkeepExpensed } from '../events';
 import { translateStockRefusal } from './errors';
 import type { ConflictRow, CostElement, MovementRow, PostedRow, StockStore, WeightSource } from './stock-store';
 
@@ -83,7 +83,19 @@ export const INV_LEDGER_EVENTS = [
   'inv.StockWrittenOff',
   'inv.StockGainRecorded',
   'inv.SupplierReturnIssued',
+  'inv.NegativeStockCosted',
+  'inv.NegativeStockTrueUp',
 ] as const;
+
+/** The true-up of stock sold ahead of receipt (ADR-0081, migration 0286): a nil lift before the arrival, a valued issue after. */
+export const NEGATIVE_TRUE_UP_IN = 'NEGATIVE_TRUE_UP_IN';
+export const NEGATIVE_TRUE_UP = 'NEGATIVE_TRUE_UP';
+const NEGATIVE_STOCK_COSTED = 'inv.NegativeStockCosted';
+const NEGATIVE_STOCK_TRUE_UP = 'inv.NegativeStockTrueUp';
+/** Where a true-up's nil lift comes from and its issue goes: the branch's virtual adjustment location. */
+export interface AdjustmentLocations {
+  virtualLocationIn(tx: Transaction, branchId: string, kind: string): Promise<string | null>;
+}
 
 /** The kinds of stock exception an offline sale's stock may raise (ADR-0027 points 3 and 4, OFFLINE_SYNC 8). */
 export type OfflineConflictKind = ConflictRow['kind'];
@@ -131,6 +143,7 @@ export class Stock {
     private readonly events: DomainEvents,
     clock: Clock,
     private readonly watch: AvailabilityWatch,
+    private readonly locations: AdjustmentLocations,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -140,8 +153,68 @@ export class Stock {
       throw new IsolationLevelError(tx.isolation);
     }
     const row = this.rowOf(actorId, request);
+    const owed = row.movementType === SALE_ISSUE_OFFLINE || Number(row.qtyBase) <= 0 ? null : await this.store.arrivalOwed(tx, row);
+    if (owed !== null) return this.trueUpIn(tx, actorId, row, owed);
     const posted = await this.store.insertMovement(tx, row).catch(translateStockRefusal);
     return { id: row.id, value: await this.afterPosting(tx, actorId, row, posted) };
+  }
+
+  /**
+   * An arrival into a pool that owes stock sold ahead of receipt (the owner's decision 2 of 2026-11-18, ADR-0081, A-283):
+   * the owed quantity is lifted in at nil value from the branch's ADJUSTMENT location before the arrival, so the pool is
+   * never left with value and no quantity (ck_cost_pool_empty), and issued back out after it, valued by the pool's own
+   * rule (ADR-0018): exactly the arrival's cost of what it covers. The pair nets to nothing; the settlement takes the
+   * oldest uncovered rows first and never more than is uncovered; ◆ `inv.NegativeStockTrueUp` clears their last known
+   * cost from 1335 and takes the true cost out of inventory. Insert-only, in the arrival's own transaction.
+   */
+  private async trueUpIn(tx: Transaction, actorId: string, arrival: MovementRow, owed: { readonly toBranchId: string; readonly owedQty: string }): Promise<PostedMovement> {
+    const adjustment = await this.locations.virtualLocationIn(tx, owed.toBranchId, 'ADJUSTMENT');
+    if (adjustment === null) throw new Error(`branch ${owed.toBranchId} has no ADJUSTMENT location for a true-up`);
+    const pair = { productId: arrival.productId, stockUnitId: arrival.stockUnitId, branchId: owed.toBranchId, qtyBase: owed.owedQty, sourceDocumentId: arrival.sourceDocumentId, occurredAt: arrival.occurredAt };
+    const lift: MovementRow = { ...this.blankRow(actorId, pair), movementType: NEGATIVE_TRUE_UP_IN, fromLocationId: adjustment, toLocationId: arrival.toLocationId };
+    await this.store.insertMovement(tx, lift).catch(translateStockRefusal);
+    const posted = await this.store.insertMovement(tx, arrival).catch(translateStockRefusal);
+    const value = await this.afterPosting(tx, actorId, arrival, posted);
+    const issue: MovementRow = { ...this.blankRow(actorId, pair), movementType: NEGATIVE_TRUE_UP, fromLocationId: arrival.toLocationId, toLocationId: adjustment };
+    await this.store.insertMovement(tx, issue).catch(translateStockRefusal);
+    const settled = await this.store.settleNegativeStock(tx, lift.id, arrival.id, issue.id, actorId);
+    const payload: NegativeStockTrueUp = {
+      trueUpMovementId: issue.id,
+      liftMovementId: lift.id,
+      arrivalMovementId: arrival.id,
+      productId: arrival.productId,
+      stockUnitId: arrival.stockUnitId,
+      branchId: owed.toBranchId,
+      settledQty: settled.settledQty,
+      clearedPesewas: Money.ofPesewas(settled.clearedPesewas).toJsonInteger(),
+      trueUpPesewas: Money.ofPesewas(settled.trueUpPesewas).toJsonInteger(),
+      sourceDocumentId: arrival.sourceDocumentId,
+    };
+    await this.events.publish<NegativeStockTrueUp>(tx, { type: NEGATIVE_STOCK_TRUE_UP, subjectType: 'StockMovement', subjectId: issue.id, branchId: owed.toBranchId, occurredAt: arrival.occurredAt, payload });
+    return { id: arrival.id, value };
+  }
+
+  private blankRow(actorId: string, f: { readonly productId: string; readonly stockUnitId: string | null; readonly branchId: string; readonly qtyBase: string; readonly sourceDocumentId: string; readonly occurredAt: Date }): Omit<MovementRow, 'movementType' | 'fromLocationId' | 'toLocationId'> {
+    return {
+      id: this.nextId(),
+      productId: f.productId,
+      stockUnitId: f.stockUnitId,
+      branchId: f.branchId,
+      qtyBase: f.qtyBase,
+      weightKg: null,
+      weightSource: null,
+      packCount: null,
+      valuePesewas: 0n,
+      costElement: null,
+      reasonCode: null,
+      sourceDocumentId: f.sourceDocumentId,
+      sourceLineRef: null,
+      reservationId: null,
+      reversesMovementId: null,
+      returnsMovementId: null,
+      occurredAt: f.occurredAt,
+      actorId,
+    };
   }
 
   /**
@@ -180,7 +253,37 @@ export class Stock {
     await tx.query('RELEASE SAVEPOINT offline_issue');
     const value = await this.afterPosting(tx, actorId, row, posted);
     const raised = await this.store.exceptionsOfMovement(tx, row.id);
-    return { kind: 'MOVED', movement: { id: row.id, value }, exceptions: raised.map((e) => ({ ...e, fact: { movementId: row.id } })) };
+    // Beyond what the branch's pool held: costed at the last known cost by the database (ADR-0081), posted here.
+    const uncovered = await this.store.negativeCostOf(tx, row.id);
+    if (uncovered !== null) {
+      await this.events.publish<NegativeStockCosted>(tx, {
+        type: NEGATIVE_STOCK_COSTED,
+        subjectType: 'StockMovement',
+        subjectId: row.id,
+        branchId: uncovered.branchId,
+        occurredAt: row.occurredAt,
+        payload: {
+          negativeStockCostId: uncovered.id,
+          movementId: row.id,
+          productId: row.productId,
+          stockUnitId: row.stockUnitId,
+          branchId: uncovered.branchId,
+          locationId: uncovered.locationId,
+          uncoveredQty: uncovered.uncoveredQty,
+          costKnown: uncovered.costKnown,
+          valuePesewas: Money.ofPesewas(uncovered.valuePesewas).toJsonInteger(),
+          sourceDocumentId: row.sourceDocumentId,
+        },
+      });
+    }
+    const countTaskId = raised.some((e) => e.kind === 'NEGATIVE_STOCK') ? await this.store.openCountTask(tx, row.fromLocationId, row.productId, row.stockUnitId) : null;
+    const negativeFact = {
+      countTaskId,
+      uncoveredQty: uncovered?.uncoveredQty ?? null,
+      costKnown: uncovered === null ? true : uncovered.costKnown,
+      valuedAtLastKnownCostPesewas: uncovered === null ? null : Money.ofPesewas(uncovered.valuePesewas).toJsonInteger(),
+    };
+    return { kind: 'MOVED', movement: { id: row.id, value }, exceptions: raised.map((e) => ({ ...e, fact: e.kind === 'NEGATIVE_STOCK' ? { movementId: row.id, ...negativeFact } : { movementId: row.id } })) };
   }
 
   /**

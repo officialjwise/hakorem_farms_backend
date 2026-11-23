@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { ConflictRow, DriftRow, UnitStanding, LinkType, MovementRow, PostedRow, StockStore, UnitLink, UnitMovement } from '../application/stock-store';
+import type { ArrivalOwed, ConflictRow, DriftRow, UnitStanding, LinkType, MovementRow, NegativeStockCostRow, PostedRow, StockStore, UnitLink, UnitMovement } from '../application/stock-store';
 
 const LINEAGE_COLUMNS = `u.id AS unit_id, u.branch_id, u.identifier, u.product_id, u.tracking, u.status, u.supplier_id, u.source_document_id`;
 
@@ -21,6 +21,49 @@ export class PgStockStore implements StockStore {
       ],
     );
     return { valuePesewas: BigInt(rows[0]!.value_pesewas), postingEvent: rows[0]!.posting_event };
+  }
+
+  async arrivalOwed(tx: Transaction, m: MovementRow): Promise<ArrivalOwed | null> {
+    const { rows } = await tx.query<{ to_branch: string; pool_branch: string; owed: string }>(
+      `WITH f AS (SELECT is_virtual, branch_id FROM mdm.location_stock_facts($1)),
+            t AS (SELECT is_virtual, branch_id FROM mdm.location_stock_facts($2)),
+            p AS (SELECT t.branch_id AS to_branch, COALESCE((SELECT u.branch_id FROM inv.stock_unit u WHERE u.id = $4), t.branch_id) AS pool_branch,
+                         (NOT t.is_virtual AND (f.is_virtual OR ($4::uuid IS NULL AND f.branch_id <> t.branch_id))) AS raises
+                    FROM f, t)
+       SELECT p.to_branch, p.pool_branch,
+              (SELECT COALESCE(sum(c.uncovered_qty - COALESCE((SELECT sum(s.qty) FROM inv.negative_stock_settlement s WHERE s.cost_id = c.id), 0)), 0)
+                 FROM inv.negative_stock_cost c
+                WHERE c.product_id = $3 AND c.stock_unit_id IS NOT DISTINCT FROM $4::uuid AND c.branch_id = p.pool_branch)::text AS owed
+         FROM p WHERE p.raises`,
+      [m.fromLocationId, m.toLocationId, m.productId, m.stockUnitId],
+    );
+    const r = rows[0];
+    return r === undefined || Number(r.owed) <= 0 ? null : { toBranchId: r.to_branch, poolBranchId: r.pool_branch, owedQty: r.owed };
+  }
+
+  async settleNegativeStock(tx: Transaction, liftId: string, arrivalId: string, trueUpId: string, actorId: string): Promise<{ readonly settledQty: string; readonly clearedPesewas: bigint; readonly trueUpPesewas: bigint }> {
+    const { rows } = await tx.query<{ settled_qty: string; cleared_pesewas: string; true_up_pesewas: string }>(
+      'SELECT settled_qty::text, cleared_pesewas::text, true_up_pesewas::text FROM inv.settle_negative_stock($1, $2, $3, $4)',
+      [liftId, arrivalId, trueUpId, actorId],
+    );
+    return { settledQty: rows[0]!.settled_qty, clearedPesewas: BigInt(rows[0]!.cleared_pesewas), trueUpPesewas: BigInt(rows[0]!.true_up_pesewas) };
+  }
+
+  async negativeCostOf(tx: Transaction, movementId: string): Promise<NegativeStockCostRow | null> {
+    const { rows } = await tx.query<{ id: string; branch_id: string; location_id: string; uncovered: string; cost_known: boolean; value: string }>(
+      'SELECT id, branch_id, location_id, uncovered_qty::text AS uncovered, cost_known, value_pesewas::text AS value FROM inv.negative_stock_cost WHERE movement_id = $1',
+      [movementId],
+    );
+    const r = rows[0];
+    return r === undefined ? null : { id: r.id, branchId: r.branch_id, locationId: r.location_id, uncoveredQty: r.uncovered, costKnown: r.cost_known, valuePesewas: BigInt(r.value) };
+  }
+
+  async openCountTask(tx: Transaction, locationId: string, productId: string, stockUnitId: string | null): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>(
+      "SELECT id FROM inv.count_task WHERE location_id = $1 AND product_id = $2 AND stock_unit_id IS NOT DISTINCT FROM $3::uuid AND status = 'OPEN'",
+      [locationId, productId, stockUnitId],
+    );
+    return rows[0]?.id ?? null;
   }
 
   async poolValueByProduct(tx: Transaction): Promise<{ readonly productId: string; readonly valuePesewas: bigint }[]> {
