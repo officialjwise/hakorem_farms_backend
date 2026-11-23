@@ -151,9 +151,9 @@ import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
     { provide: RECEIPT_LINK_STORE, useClass: PgReceiptLinkStore },
     {
       provide: ReceiptLinks,
-      useFactory: (uow: UnitOfWork, store: ReceiptLinkStore, orders: Orders, billing: Billing, refs: MasterDataRefs, profiles: BusinessProfiles, clock: Clock) =>
-        new ReceiptLinks(uow, store, orders, billing, refs, profiles, clock, createUuidV7Generator(clock)),
-      inject: [UnitOfWork, RECEIPT_LINK_STORE, Orders, Billing, MasterDataRefs, BusinessProfiles, CLOCK],
+      useFactory: (uow: UnitOfWork, store: ReceiptLinkStore, orders: Orders, billing: Billing, refs: MasterDataRefs, profiles: BusinessProfiles, clock: Clock, authoriser: Authoriser, idempotency: Idempotency, audit: AuditTrail, principals: PrincipalNames) =>
+        new ReceiptLinks(uow, store, orders, billing, refs, profiles, clock, createUuidV7Generator(clock), authoriser, idempotency, audit, principals),
+      inject: [UnitOfWork, RECEIPT_LINK_STORE, Orders, Billing, MasterDataRefs, BusinessProfiles, CLOCK, Authoriser, Idempotency, AuditTrail, PRINCIPAL_NAMES],
     },
     {
       provide: Shifts,

@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { NewReceiptLink, ReceiptBindingRecord, NewReceiptTokenRefusal, ReceiptLinkRecord, ReceiptLinkStore, ReceiptTenderRecord } from '../application/receipt-link-store';
+import type { NewReceiptLink, NewReceiptLinkRevocation, ReceiptBindingRecord, NewReceiptTokenRefusal, ReceiptLinkOfSale, ReceiptLinkRecord, ReceiptLinkStore, ReceiptTenderRecord } from '../application/receipt-link-store';
 
 interface LinkRow {
   id: string;
@@ -46,5 +46,19 @@ export class PgReceiptLinkStore implements ReceiptLinkStore {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, $10)`,
       [r.orderDocumentId, r.tokenHash, r.reason, r.boundOrderDocumentId, r.branchId, r.shiftId, r.deviceId, r.cashierId, r.recordedAt, r.actorId],
     );
+  }
+
+  async linkOfSale(tx: Transaction, saleId: string): Promise<ReceiptLinkOfSale | null> {
+    const { rows } = await tx.query<{ id: string; branch_id: string; revoked: boolean }>(
+      `SELECT l.id, l.branch_id, EXISTS (SELECT 1 FROM pos.receipt_link_revocation r WHERE r.receipt_link_id = l.id) AS revoked
+         FROM pos.receipt_link l WHERE l.order_document_id = $1`,
+      [saleId],
+    );
+    const row = rows[0];
+    return row === undefined ? null : { id: row.id, branchId: row.branch_id, revoked: row.revoked };
+  }
+
+  async insertRevocation(tx: Transaction, r: NewReceiptLinkRevocation): Promise<void> {
+    await tx.query('INSERT INTO pos.receipt_link_revocation (receipt_link_id, reason, revoked_at, recorded_at, actor_id) VALUES ($1, $2, $3, $4, $5)', [r.receiptLinkId, r.reason, r.revokedAt, r.recordedAt, r.actorId]);
   }
 }

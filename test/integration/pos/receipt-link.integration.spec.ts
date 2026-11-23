@@ -93,6 +93,7 @@ beforeAll(async () => {
     ids.set(row.code, row.id);
   }
   const manager = await createUser(database, { name: 'Kwabena Owusu', grants: [{ role: 'MANAGER', branchId: id('branch') }] });
+  ids.set('manager', manager.principalId);
   sessions.set('manager', await enrolAndLogin(api.server, manager, () => clock.now()));
   const kwame = await createUser(database, { name: 'Kwame Asare', grants: [{ role: 'CASHIER', branchId: id('branch'), locationId: id('shop') }] });
   ids.set('kwame', kwame.principalId);
@@ -328,7 +329,7 @@ describe('a revoked or expired link reads nothing', () => {
     await sync([sale]);
     expect((await read(token)).status).toBe(200);
     const link = await one<{ id: string }>('SELECT id FROM pos.receipt_link WHERE order_document_id = $1', [sale.id]);
-    await admin().query('INSERT INTO pos.receipt_link_revocation (receipt_link_id, reason, revoked_at, recorded_at, actor_id) VALUES ($1, $2, $3, $3, $4)', [link.id, 'Sent to the wrong number', clock.now(), id('kwame')]);
+    await admin().query('INSERT INTO pos.receipt_link_revocation (receipt_link_id, reason, revoked_at, recorded_at, actor_id) VALUES ($1, $2, $3, $3, $4)', [link.id, 'Sent to the wrong number', clock.now(), id('manager')]);
     expect((await read(token)).status).toBe(404);
     await expect(admin().query('UPDATE pos.receipt_link_revocation SET reason = reason')).rejects.toThrow();
     await expect(admin().query('DELETE FROM pos.receipt_link_revocation')).rejects.toThrow();
