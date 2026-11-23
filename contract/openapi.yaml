@@ -107302,6 +107302,9 @@ components:
         - bil.proforma.create
         - del.delivery.assign
         - del.delivery.read
+        - del.delivery.read.assigned
+        - del.delivery.update.assigned
+        - del.proof.create
         - del.slot.manage
         - del.slot.read
         - doc.document.read
@@ -107463,6 +107466,7 @@ components:
         - platform.file.read.any
         - platform.file.upload
         - platform.file.upload.evidence
+        - platform.file.upload.proof
         - pos.cash.move
         - pos.device.enrol
         - pos.device.read

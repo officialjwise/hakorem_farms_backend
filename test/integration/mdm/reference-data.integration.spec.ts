@@ -101,10 +101,11 @@ describe('wrong roles are refused on every supplier, reference data, price list 
     expect((await count()) - before).toBe(refused.length);
   });
 
-  it('the Driver reads no supplier, payment method, zone or reason code; the Cashier reads methods and reason codes but no supplier', async () => {
-    for (const path of ['/suppliers', '/payment-methods', '/delivery-zones', '/reason-codes']) {
+  it('the Driver reads no supplier, payment method or zone, and reads the reason codes (CR-056 item 1, 0301); the Cashier reads methods and reason codes but no supplier', async () => {
+    for (const path of ['/suppliers', '/payment-methods', '/delivery-zones']) {
       expect((await get(driver, path)).status, path).toBe(403);
     }
+    expect((await get(driver, '/reason-codes')).status).toBe(200);
     expect((await get(cashier, '/payment-methods')).status).toBe(200);
     expect((await get(cashier, '/reason-codes')).status).toBe(200);
     expect((await get(cashier, '/suppliers')).status).toBe(403);
@@ -132,8 +133,9 @@ describe('reason codes are a fixed list (FR-MDM-011)', () => {
     // two PAYMENT_REVERSAL reasons, and B09a continued 2c's ORDER_CANCELLED (REFUND) and SALE_VOIDED (PAYMENT_REVERSAL);
     // B09e continued 2's six GOODS_RECEIPT_REJECTION reasons and the STOCK_ADJUSTMENT BREAKAGE and RODENT_DAMAGE (0220);
     // B9b's CASH_MOVEMENT SAFE_DROP for a drop to the safe (0225); B09b continued 3c's PAYMENT_REVERSAL
-    // MOBILE_MONEY_NOT_RECEIVED for an unverified tender the provider never paid (0283, A-282 (d)).
-    expect(seen).toHaveLength(65);
+    // MOBILE_MONEY_NOT_RECEIVED for an unverified tender the provider never paid (0283, A-282 (d)); B11 continued's REFUND
+    // WEIGHED_BELOW_PAID and its two COD_VARIANCE reasons (0302).
+    expect(seen).toHaveLength(68);
     expect(seen).toEqual(expect.arrayContaining(['ORDER_CANCELLED', 'SALE_VOIDED', 'ORDER_RETURNED', 'CRACKED', 'WRONG_ITEM_DELIVERED', 'BREAKAGE', 'SAFE_DROP', 'MOBILE_MONEY_NOT_RECEIVED']));
     expect([...seen].sort()).toEqual(seen);
     const mortality = await get(cashier, '/reason-codes?domain=MORTALITY');
