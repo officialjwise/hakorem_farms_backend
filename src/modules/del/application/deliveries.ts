@@ -16,9 +16,9 @@ import type { DriverCash } from '../../pay';
 import { codVariance, judgeProof, takesProof, type DeliveryStatus, type ProofFile, type VarianceReason } from '../domain/deliveries';
 import { nextAttemptNo, pageProbe } from '../domain/numbering';
 import { judgeFailure, judgeOnTheWay, takesFailure } from '../domain/routes';
-import type { CodCollected, DeliveryCompleted, DeliveryFailed, DeliveryOnTheWay } from '../events';
+import type { CodCollected, DeliveryCompleted, DeliveryFailed, DeliveryOnTheWay, DeliveryReturned, DeliveryWrittenOff } from '../events';
 import { DeliveryInvalidError } from './errors';
-import type { ContentsLine, DeliveryRecord, DeliveryStore, ProofRecord } from './delivery-store';
+import type { ContentsLine, DeliveryRecord, DeliveryStore, ProofRecord, WriteOffFacts, WrittenOffRecord } from './delivery-store';
 
 const READ = 'del.delivery.read';
 const READ_MINE = 'del.delivery.read.assigned';
@@ -29,6 +29,14 @@ export const DELIVERY_FAILED = 'del.DeliveryFailed';
 /** Who may drive a delivery: a holder of the driver's proof permission at the delivery's branch (CR-056 item 1). */
 const DRIVES = PROOF;
 export const DELIVERY_COMPLETED = 'del.DeliveryCompleted';
+export const DELIVERY_RETURNED = 'del.DeliveryReturned';
+export const DELIVERY_WRITTEN_OFF = 'del.DeliveryWrittenOff';
+/** The driver variance report's permission (B11 continued 2): its goods line reads under it too. */
+const VARIANCE_READ = 'del.cash_reconciliation.read';
+/** The write-off reasons that are the driver's variance: goods they cannot account for (migration 0321, A-360). */
+const DRIVER_VARIANCE_REASONS: readonly string[] = ['UNACCOUNTED_ON_VAN'];
+/** Abuse case 48: goods kept off the books on a van (docs/security/THREAT_MODEL.md). */
+const VAN_ABUSE_CASE = 48;
 export const COD_COLLECTED = 'del.CodCollected';
 /** DEL's ◆ events (ADR-0003), declared for the ledger's boot assertion. */
 export const DEL_LEDGER_EVENTS = [COD_COLLECTED, 'del.DriverCashRemitted'] as const;
@@ -156,6 +164,39 @@ export interface DeliverySummaryView {
   readonly slotDate: null;
   readonly slotStartsAt: null;
   readonly slotEndsAt: null;
+}
+
+/** What ORD's van returns read of a delivery before taking its goods off the van. */
+export interface VanDelivery {
+  readonly id: string;
+  readonly deliveryNo: string;
+  readonly status: DeliveryStatus;
+  readonly orderDocumentId: string;
+  readonly billingDocumentId: string;
+  readonly driverId: string | null;
+  readonly vehicleLocationId: string | null;
+  readonly branchId: string;
+}
+
+export interface GoodsVarianceQuery {
+  readonly driverId: string | null;
+  readonly from: string | null;
+  readonly to: string | null;
+}
+
+/** The contract's `DriverGoodsVariance`: goods written off a van as unaccounted for, the driver variance report's goods line. */
+export interface DriverGoodsVarianceView {
+  readonly delivery: { readonly id: string; readonly docType: 'DELIVERY'; readonly number: string };
+  readonly order: { readonly id: string; readonly docType: string; readonly number: string | null };
+  readonly driver: { readonly id: string; readonly displayName: string } | null;
+  readonly vehicle: (Ref & { readonly kind: string }) | null;
+  readonly routeId: string | null;
+  readonly reasonCode: string;
+  readonly valuePesewas: number;
+  readonly stockAdjustmentId: string;
+  readonly writtenOffAt: string;
+  readonly currency: 'GHS';
+  readonly branchId: string;
 }
 
 export interface Page<T> {
@@ -538,6 +579,124 @@ export class Deliveries {
     const after = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
     await this.audit.record(tx, { module: 'del', action: 'FAIL', entityType: 'Delivery', entityId: id, branchId: delivery.branchId, before: { ...before }, after: { ...after, failureReasonCode: body.failureReasonCode, nextAction: body.nextAction } });
     return { status: 200, body: after };
+  }
+
+  /** A delivery as ORD's van returns read it, under its row lock; null when there is none. It authorises nothing. */
+  async vanDeliveryIn(tx: Transaction, id: string): Promise<VanDelivery | null> {
+    const d = await this.store.lock(tx, id);
+    return d === null
+      ? null
+      : { id: d.id, deliveryNo: d.deliveryNo, status: d.status, orderDocumentId: d.orderDocumentId, billingDocumentId: d.billingDocumentId, driverId: d.driverId, vehicleLocationId: d.vehicleLocationId, branchId: d.branchId };
+  }
+
+  /**
+   * FAILED to RETURNED, posted (FR-DEL-011), in ORD's serializable transaction once it has moved the goods from the
+   * vehicle into the returns hold: the goods have left the van (`leftTheVan`, `ck_route_closed`). It authorises nothing:
+   * ORD's `returnDeliveryToStock` has.
+   */
+  async returnedIn(tx: Transaction, actorId: string, id: string, returnsLocationId: string, at: Date): Promise<DeliveryView> {
+    const d = await this.store.lock(tx, id);
+    if (d === null) throw new NotFoundError('no such delivery');
+    if (d.status !== 'FAILED') throw invalidState(`delivery ${id}`, d.status);
+    const before = (await this.viewsIn(tx, [d]))[0]!;
+    await this.store.markReturned(tx, id, { at, actorId });
+    const returned: DeliveryReturned = {
+      deliveryId: id,
+      deliveryNo: d.deliveryNo,
+      orderDocumentId: d.orderDocumentId,
+      branchId: d.branchId,
+      driverId: d.driverId,
+      vehicleLocationId: d.vehicleLocationId,
+      returnsLocationId,
+      returnedAt: at.toISOString(),
+    };
+    await this.events.publish<DeliveryReturned>(tx, { type: DELIVERY_RETURNED, subjectType: 'Delivery', subjectId: id, branchId: d.branchId, payload: returned, occurredAt: at });
+    const after = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
+    await this.audit.record(tx, { module: 'del', action: 'RETURN_TO_STOCK', entityType: 'Delivery', entityId: id, branchId: d.branchId, before: { ...before }, after: { ...after, returnsLocationId } });
+    return after;
+  }
+
+  /**
+   * FAILED to WRITTEN_OFF, posted, with its reason and value (FR-DEL-011, the owner's van rule of 2026-11-23), in the
+   * transaction in which INV's adjustment posted the goods' loss from the vehicle. Goods unaccounted for are the driver's
+   * variance (`del.DeliveryWrittenOff`, abuse case 48). It authorises nothing: ORD's `writeOffDelivery`, or the approval
+   * that let the adjustment post, has.
+   */
+  async writtenOffIn(tx: Transaction, actorId: string, id: string, facts: WriteOffFacts, at: Date): Promise<DeliveryView> {
+    const d = await this.store.lock(tx, id);
+    if (d === null) throw new NotFoundError('no such delivery');
+    if (d.status !== 'FAILED') throw invalidState(`delivery ${id}`, d.status);
+    const before = (await this.viewsIn(tx, [d]))[0]!;
+    await this.store.markWrittenOff(tx, id, { ...facts, at, actorId });
+    const unaccounted = DRIVER_VARIANCE_REASONS.includes(facts.reasonCode);
+    const writtenOff: DeliveryWrittenOff = {
+      deliveryId: id,
+      deliveryNo: d.deliveryNo,
+      orderDocumentId: d.orderDocumentId,
+      branchId: d.branchId,
+      driverId: d.driverId,
+      vehicleLocationId: d.vehicleLocationId,
+      reasonCode: facts.reasonCode,
+      valuePesewas: json(facts.valuePesewas),
+      stockAdjustmentId: facts.stockAdjustmentId,
+      unaccounted,
+      writtenOffAt: at.toISOString(),
+      abuseCases: unaccounted ? [VAN_ABUSE_CASE] : [],
+    };
+    await this.events.publish<DeliveryWrittenOff>(tx, { type: DELIVERY_WRITTEN_OFF, subjectType: 'Delivery', subjectId: id, branchId: d.branchId, payload: writtenOff, occurredAt: at });
+    const after = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
+    await this.audit.record(tx, {
+      module: 'del',
+      action: 'WRITE_OFF',
+      entityType: 'Delivery',
+      entityId: id,
+      branchId: d.branchId,
+      before: { ...before },
+      after: { ...after, reasonCode: facts.reasonCode, valuePesewas: json(facts.valuePesewas), stockAdjustmentId: facts.stockAdjustmentId, unaccounted },
+    });
+    return after;
+  }
+
+  /**
+   * listDriverGoodsVariances (the owner, 2026-11-23): the driver variance report's goods line, goods written off a van as
+   * unaccounted for, at the branches the caller reads whole, newest first, by driver and Africa/Accra date. Each row is
+   * the delivery's own figures at cost (the adjustment's value), never typed in.
+   */
+  goodsVariances(actor: Actor | undefined, query: GoodsVarianceQuery, cursor: string | undefined, limit: number): Promise<Page<DriverGoodsVarianceView>> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, VARIANCE_READ);
+      const branchIds = [...new Set((await this.authoriser.scopes(tx, actor!, VARIANCE_READ)).filter((s) => s.locationId === null).map((s) => s.branchId))].sort();
+      const binding = { operationId: 'listDriverGoodsVariances', principalId: actor!.principalId, filters: { ...query } };
+      const beforeId = cursor === undefined ? null : (this.cursors.decode(cursor, binding)['id'] ?? null);
+      const found = await this.store.writtenOff(tx, { branchIds, reasonCodes: DRIVER_VARIANCE_REASONS, ...query }, beforeId, pageProbe(limit));
+      const data = await this.varianceViewsIn(tx, found.slice(0, limit));
+      const hasMore = found.length > limit;
+      const last = data.at(-1);
+      return { data, page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { id: last.delivery.id }) : null, limit, hasMore } };
+    });
+  }
+
+  private async varianceViewsIn(tx: Transaction, records: readonly WrittenOffRecord[]): Promise<DriverGoodsVarianceView[]> {
+    if (records.length === 0) return [];
+    const vehicles = await this.refs.locationsIn(tx, records.flatMap((r) => (r.vehicleLocationId === null ? [] : [r.vehicleLocationId])));
+    const drivers = await this.principals.refs(tx, records.flatMap((r) => (r.driverId === null ? [] : [r.driverId])));
+    const orders = await this.documents.numberedRefs(tx, records.map((r) => r.orderDocumentId));
+    return records.map((r) => {
+      const vehicle = r.vehicleLocationId === null ? undefined : vehicles.get(r.vehicleLocationId);
+      return {
+        delivery: { id: r.deliveryId, docType: 'DELIVERY' as const, number: r.deliveryNo },
+        order: orders.get(r.orderDocumentId) ?? { id: r.orderDocumentId, docType: 'SALES_ORDER', number: null },
+        driver: r.driverId === null ? null : (drivers.get(r.driverId) ?? { id: r.driverId, displayName: r.driverId }),
+        vehicle: vehicle === undefined ? null : { id: vehicle.id, code: vehicle.code, name: vehicle.name, kind: vehicle.kind },
+        routeId: r.routeId,
+        reasonCode: r.reasonCode,
+        valuePesewas: json(r.valuePesewas),
+        stockAdjustmentId: r.stockAdjustmentId,
+        writtenOffAt: r.writtenOffAt.toISOString(),
+        currency: 'GHS' as const,
+        branchId: r.branchId,
+      };
+    });
   }
 
   /** A delivery on a run is acted on at the doorstep only once its run has started (422 ROUTE_NOT_STARTED); one on no run is not held back. */

@@ -61,11 +61,11 @@ describe('the route machine', () => {
 
 describe('closing a run (the owner, 2026-11-23): nothing left on the van and no cash still held', () => {
   it('counts only a delivered or returned stop as off the van', () => {
-    expect(['ASSIGNED', 'OUT_FOR_DELIVERY', 'FAILED', 'DELIVERED', 'RETURNED'].map((s) => leftTheVan(s as never))).toEqual([false, false, false, true, true]);
+    expect(['ASSIGNED', 'OUT_FOR_DELIVERY', 'FAILED', 'DELIVERED', 'RETURNED', 'WRITTEN_OFF'].map((s) => leftTheVan(s as never))).toEqual([false, false, false, true, true, true]);
   });
 
-  it('closes when every stop is delivered or returned and every collection was handed in', () => {
-    expect(judgeClose([{ deliveryId: 'a', status: 'DELIVERED' }, { deliveryId: 'b', status: 'RETURNED' }], 0n)).toEqual([]);
+  it('closes when every stop is delivered, returned or written off and every collection was handed in', () => {
+    expect(judgeClose([{ deliveryId: 'a', status: 'DELIVERED' }, { deliveryId: 'b', status: 'RETURNED' }, { deliveryId: 'c', status: 'WRITTEN_OFF' }], 0n)).toEqual([]);
   });
 
   it('refuses each stop still on the van, by its delivery', () => {

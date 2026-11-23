@@ -10,7 +10,7 @@ import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
 import { BilModule, Billing } from '../bil';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
-import { InvModule, Reservations, Stock, StockExceptions, StockMovements, StockQueries, StockUnits } from '../inv';
+import { InvModule, Reservations, Stock, StockAdjustments, StockExceptions, StockMovements, StockQueries, StockUnits } from '../inv';
 import { Deliveries, DelModule, DELIVERY_COMPLETED, DELIVERY_FAILED } from '../del';
 import { MasterDataRefs, MdmModule, PricingService, Storefront } from '../mdm';
 import { PayModule, Payments, ProviderPayments, Receipts, Refunds } from '../pay';
@@ -33,6 +33,10 @@ import { MyOrdersController, OrderTrackingController } from './interface/online-
 import { FulfilmentsController, MyOrderConsentController, OrderFulfilmentController } from './interface/fulfilments.controller';
 import { OrdersController } from './interface/orders.controller';
 import { ReturnsController } from './interface/returns.controller';
+import { VanReturnsController } from './interface/van-returns.controller';
+import { VAN_RETURN_STORE, type VanReturnStore } from './application/van-return-store';
+import { VanReturns } from './application/van-returns';
+import { PgVanReturnStore } from './infrastructure/pg-van-return-store';
 
 /**
  * ORD (layer 9): the one order record of every channel and the sale posting that issues stock, the billing document
@@ -42,11 +46,33 @@ import { ReturnsController } from './interface/returns.controller';
  */
 @Module({
   imports: [IamModule, MdmModule, InvModule, BilModule, PayModule, DelModule],
-  controllers: [OrdersController, ReturnsController, MyOrdersController, OrderTrackingController, FulfilmentsController, OrderFulfilmentController, MyOrderConsentController],
+  controllers: [OrdersController, ReturnsController, MyOrdersController, OrderTrackingController, FulfilmentsController, OrderFulfilmentController, MyOrderConsentController, VanReturnsController],
   providers: [
     { provide: ORDER_STORE, useClass: PgOrderStore },
     { provide: RETURN_STORE, useClass: PgReturnStore },
     { provide: FULFILMENT_STORE, useClass: PgFulfilmentStore },
+    { provide: VAN_RETURN_STORE, useClass: PgVanReturnStore },
+    {
+      provide: VanReturns,
+      useFactory: (
+        uow: UnitOfWork,
+        store: VanReturnStore,
+        orderStore: OrderStore,
+        fulfilments: FulfilmentStore,
+        refs: MasterDataRefs,
+        stock: Stock,
+        adjustments: StockAdjustments,
+        billing: Billing,
+        payments: Payments,
+        refunds: Refunds,
+        deliveries: Deliveries,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        authoriser: Authoriser,
+        clock: Clock,
+      ) => new VanReturns(uow, store, orderStore, fulfilments, refs, stock, adjustments, billing, payments, refunds, deliveries, idempotency, audit, authoriser, clock),
+      inject: [UnitOfWork, VAN_RETURN_STORE, ORDER_STORE, FULFILMENT_STORE, MasterDataRefs, Stock, StockAdjustments, Billing, Payments, Refunds, Deliveries, Idempotency, AuditTrail, Authoriser, CLOCK],
+    },
     // The OrderConfirmationPolicy port (MODULE_BOUNDARIES section 6): WHL adds its credit policy to this list when it loads (B10 continued).
     { provide: ORDER_CONFIRMATION_POLICIES, useValue: [] satisfies OrderConfirmationPolicy[] },
     {
@@ -342,6 +368,7 @@ export class OrdModule implements OnModuleInit {
     @Inject(OnlineOrders) private readonly online: OnlineOrders,
     @Inject(DomainEvents) private readonly events: DomainEvents,
     @Inject(Dispatches) private readonly dispatches: Dispatches,
+    @Inject(VanReturns) private readonly vanReturns: VanReturns,
   ) {}
 
   /**
@@ -357,6 +384,8 @@ export class OrdModule implements OnModuleInit {
     this.events.subscribeInTransaction('inv.ReservationReleased', (tx, event) => this.online.holdEndedIn(tx, event));
     this.events.subscribeInTransaction(DELIVERY_COMPLETED, (tx, event) => this.dispatches.deliveredIn(tx, event));
     this.events.subscribeInTransaction(DELIVERY_FAILED, (tx, event) => this.dispatches.failedIn(tx, event));
+    // A van write-off's stock approval, and a van return's credit note approval, carry its goods and money on (A-360).
+    this.events.subscribeInTransaction('iam.ApprovalDecided', (tx, event) => this.vanReturns.decidedIn(tx, event));
     this.approvals.registerHandler(SALE_VOID_KIND, this.reversals.approvalHandler);
     this.approvals.registerHandler(RETURN_KIND, this.returns.approvalHandler);
     this.approvals.registerHandler(PRICE_OVERRIDE_KIND, this.overrides.approvalHandler);

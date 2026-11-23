@@ -19,7 +19,7 @@ export const SlotUpdate = z.strictObject({ version: z.number().int().min(1), cap
 
 export const DeliverySlotPageQuery = z.object({ zoneId: z.uuid().optional(), from: CalendarDate.optional(), to: CalendarDate.optional(), cursor: Cursor, limit: Limit });
 
-const DeliveryStatus = z.enum(['SCHEDULED', 'ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED', 'CANCELLED']);
+const DeliveryStatus = z.enum(['SCHEDULED', 'ASSIGNED', 'OUT_FOR_DELIVERY', 'DELIVERED', 'FAILED', 'RETURNED', 'WRITTEN_OFF', 'CANCELLED']);
 const Coordinate = z.string().regex(/^-?[0-9]{1,3}\.[0-9]{1,6}$/);
 const Pesewas = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 
@@ -56,6 +56,14 @@ export const DriverCashReconciliationPageQuery = z.object({
   from: CalendarDate.optional(),
   to: CalendarDate.optional(),
   varianceOnly: BooleanQuery.optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+export const DriverGoodsVariancePageQuery = z.object({
+  driverId: z.uuid().optional(),
+  from: CalendarDate.optional(),
+  to: CalendarDate.optional(),
   cursor: Cursor,
   limit: Limit,
 });

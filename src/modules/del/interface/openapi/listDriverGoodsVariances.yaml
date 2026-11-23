@@ -1,0 +1,97 @@
+operationId: listDriverGoodsVariances
+tags:
+  - del
+summary: "List goods unaccounted for on the vans"
+description: "The driver variance report's goods line (2.33.0, B11 continued 4; the owner, 2026-11-23: anything unaccounted for goes on the driver variance report): each failed delivery whose goods were written off the van as `UNACCOUNTED_ON_VAN` (`writeOffDelivery`), at the branches the caller reads whole, newest first, by driver or by the Africa/Accra date written off (`from`, `to`, inclusive). Each row names the delivery, its order, the driver and the van, the run it was on, and the goods' value at cost from INV's posted adjustment (`stockAdjustmentId`), never typed in. Goods spoiled or damaged on the van are wastage and are not listed. It sits beside `listDriverCashReconciliations` (the cash line) under the same permission. Detection for abuse case 48.\n\nPermission: `del.cash_reconciliation.read`."
+x-permission: del.cash_reconciliation.read
+parameters:
+  - name: driverId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DriverGoodsVariancePage"
+        examples:
+          default:
+            value:
+              data:
+                - delivery:
+                    id: "019a7b09-2c4a-7048-a580-0d5ad3738638"
+                    docType: DELIVERY
+                    number: DLN-2026-DDW-000194
+                  order:
+                    id: "019a7b09-4b39-7a2c-bf64-ab924d242470"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004204
+                  driver:
+                    id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                    displayName: "Kwesi Appiah"
+                  vehicle:
+                    id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+                    code: VAN1
+                    name: "Delivery van GT-4521-24"
+                    kind: VEHICLE
+                  routeId: "019a7b0a-11c2-7d31-8e3a-5b7f1a0c9d42"
+                  reasonCode: UNACCOUNTED_ON_VAN
+                  valuePesewas: 4200
+                  stockAdjustmentId: "019a7ab9-e7da-7966-ae9e-9f32fde31810"
+                  writtenOffAt: "2026-11-13T18:05:00Z"
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

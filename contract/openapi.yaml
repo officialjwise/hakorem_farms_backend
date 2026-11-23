@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.32.0"
+  version: "2.33.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -66907,7 +66907,9 @@ paths:
       tags:
         - del
       summary: "Return a failed delivery's goods to stock"
-      description: "Permission: `del.delivery.return`."
+      description: "Takes a failed delivery's goods off the van and back into stock (2.33.0, B11 continued 4; FR-DEL-011; the owner, 2026-11-23: every item on a van is delivered, returned to stock or written off with a reason). Only a `FAILED` delivery, its order `DELIVERY_FAILED`; anything else 422 `INVALID_STATE_TRANSITION`. In one transaction: each dispatched pick moves from the vehicle into the named **returns hold** of the delivery's branch (`returnsLocationId`, a live `RETURNS_HOLD` location; otherwise 422 `DELIVERY_INVALID` `NOT_A_RETURNS_HOLD`), where it is **not sellable until inspected** (never promised online, never picked); the delivery is `RETURNED` and has left the van, so its run may close; the order is `RETURNED`. The customer is not charged for goods they never received: a credit note of the **whole document** (the goods and the delivery fee) is drafted against it with reason `DELIVERY_RETURNED` and waits for `bil.credit_note.approve` by someone other than the caller (BIL's `CREDIT_NOTE` approval, as `issueCreditNote`). Once it is issued, what the customer paid beyond what the document still asks is asked back through PAY's `REFUND` approval against that credit note, to the original method, or to store credit when `refundDestination` is `STORE_CREDIT`; the caller is that refund's maker, so cannot approve it. Nothing paid, nothing refunded. While a write-off of the same goods waits for its approval, 422 `DELIVERY_INVALID` `WRITE_OFF_PENDING`. The same key answers the first return. Audited.\n\nPermission: `del.delivery.return`."
+      x-error-codes:
+        - DELIVERY_INVALID
       x-permission: del.delivery.return
       x-owner-module: ord
       parameters:
@@ -80461,13 +80463,112 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/driver-goods-variances":
+    get:
+      operationId: listDriverGoodsVariances
+      tags:
+        - del
+      summary: "List goods unaccounted for on the vans"
+      description: "The driver variance report's goods line (2.33.0, B11 continued 4; the owner, 2026-11-23: anything unaccounted for goes on the driver variance report): each failed delivery whose goods were written off the van as `UNACCOUNTED_ON_VAN` (`writeOffDelivery`), at the branches the caller reads whole, newest first, by driver or by the Africa/Accra date written off (`from`, `to`, inclusive). Each row names the delivery, its order, the driver and the van, the run it was on, and the goods' value at cost from INV's posted adjustment (`stockAdjustmentId`), never typed in. Goods spoiled or damaged on the van are wastage and are not listed. It sits beside `listDriverCashReconciliations` (the cash line) under the same permission. Detection for abuse case 48.\n\nPermission: `del.cash_reconciliation.read`."
+      x-permission: del.cash_reconciliation.read
+      parameters:
+        - name: driverId
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/PageLimit"
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DriverGoodsVariancePage"
+              examples:
+                default:
+                  value:
+                    data:
+                      - delivery:
+                          id: "019a7b09-2c4a-7048-a580-0d5ad3738638"
+                          docType: DELIVERY
+                          number: DLN-2026-DDW-000194
+                        order:
+                          id: "019a7b09-4b39-7a2c-bf64-ab924d242470"
+                          docType: SALES_ORDER
+                          number: SO-2026-DDW-004204
+                        driver:
+                          id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                          displayName: "Kwesi Appiah"
+                        vehicle:
+                          id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+                          code: VAN1
+                          name: "Delivery van GT-4521-24"
+                          kind: VEHICLE
+                        routeId: "019a7b0a-11c2-7d31-8e3a-5b7f1a0c9d42"
+                        reasonCode: UNACCOUNTED_ON_VAN
+                        valuePesewas: 4200
+                        stockAdjustmentId: "019a7ab9-e7da-7966-ae9e-9f32fde31810"
+                        writtenOffAt: "2026-11-13T18:05:00Z"
+                        currency: GHS
+                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    page:
+                      nextCursor: null
+                      limit: 25
+                      hasMore: false
+                empty:
+                  summary: "Nothing matches: no rows and no next page"
+                  value:
+                    data: []
+                    page:
+                      nextCursor: null
+                      limit: 25
+                      hasMore: false
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
   "/routes/{id}/complete":
     post:
       operationId: completeRoute
       tags:
         - del
       summary: "Close a route"
-      description: "Closes a started run (2.32.0, B11 continued 3; the owner, 2026-11-23): **only when nothing is left on the van and nothing is still held by the driver.** Every stop's goods must have left the van, delivered (`DELIVERED`) or returned to stock (`RETURNED`; a write-off with a reason joins them in a later version); a stop still assigned, on its way or failed with its goods aboard is refused 422 `ROUTE_INVALID` `GOODS_ON_VAN`, one detail per stop (`field` `/stops/{deliveryId}`). Every collection made on the run must have been handed in at a till shift (`handInDriverCash`); while any is held, 422 `ROUTE_INVALID` `CASH_NOT_HANDED_IN`. Closed, the run is `COMPLETED` and frozen, and its `handIns` name the till hand-ins that took its cash, recorded against it by the database (A-345 (g)). The database holds the same rule at commit. A planned or closed run is refused 422 `INVALID_STATE_TRANSITION`. The same key answers the first close. Audited.\n\nPermission: `del.route.manage`."
+      description: "Closes a started run (2.32.0, B11 continued 3; the owner, 2026-11-23): **only when nothing is left on the van and nothing is still held by the driver.** Every stop's goods must have left the van, delivered (`DELIVERED`) or returned to stock (`RETURNED`) or written off with a reason (`WRITTEN_OFF`, 2.33.0); a stop still assigned, on its way or failed with its goods aboard is refused 422 `ROUTE_INVALID` `GOODS_ON_VAN`, one detail per stop (`field` `/stops/{deliveryId}`). Every collection made on the run must have been handed in at a till shift (`handInDriverCash`); while any is held, 422 `ROUTE_INVALID` `CASH_NOT_HANDED_IN`. Closed, the run is `COMPLETED` and frozen, and its `handIns` name the till hand-ins that took its cash, recorded against it by the database (A-345 (g)). The database holds the same rule at commit. A planned or closed run is refused 422 `INVALID_STATE_TRANSITION`. The same key answers the first close. Audited.\n\nPermission: `del.route.manage`."
       x-permission: del.route.manage
       x-error-codes:
         - ROUTE_INVALID
@@ -80920,6 +81021,139 @@ paths:
                     finalLineTotalPesewas: 45900
                     lineStatus: FULFILLED
                     stockException: null
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/deliveries/{id}/write-off":
+    post:
+      operationId: writeOffDelivery
+      tags:
+        - del
+      summary: "Write a failed delivery's goods off the van"
+      description: "Writes a failed delivery's goods off the van with a reason (2.33.0, B11 continued 4; FR-DEL-011; the owner, 2026-11-23: every item on a van is delivered, returned to stock or written off with a reason, and anything unaccounted for goes on the driver variance report). Only a `FAILED` delivery, its order `DELIVERY_FAILED`; anything else 422 `INVALID_STATE_TRANSITION`. The reason is `UNACCOUNTED_ON_VAN` (the driver cannot account for the goods; a note is needed; the row then appears on `listDriverGoodsVariances`) or one from the `WASTAGE` list (spoiled, damaged, expired, cold chain failure), with its note where the reason asks for one; otherwise 422 `DELIVERY_INVALID` `REASON_UNKNOWN`, `REASON_NOT_ALLOWED` or `NOTE_REQUIRED`. It goes through **INV's stock adjustment** at the vehicle (each dispatched pick a loss valued at cost, never a figure from the request) and its `STOCK_WRITE_OFF` approval: below the policy's threshold it posts at once and answers **200** with the delivery `WRITTEN_OFF`; at or above it, it answers **202** and the goods stay on the van until a different holder of `inv.adjustment.approve` approves, when the delivery is `WRITTEN_OFF` in that approval's transaction (refused, the goods are still aboard and the write-off may be asked again). A write-off never takes the van below zero (422 `INSUFFICIENT_STOCK`, nothing written), and a stock adjustment invalid at the vehicle 422 `STOCK_ADJUSTMENT_INVALID`. Written off, the goods have left the van, so its run may close; the order is `RETURNED`; the whole document is credited and what was paid asked back exactly as `returnDeliveryToStock` does (`CREDIT_NOTE`, then `REFUND`, the caller their maker). While one write-off waits, another or a return to stock is 422 `DELIVERY_INVALID` `WRITE_OFF_PENDING`. The same key answers the first write-off. Audited.\n\nPermission: `del.delivery.write_off`."
+      x-permission: del.delivery.write_off
+      x-owner-module: ord
+      x-error-codes:
+        - DELIVERY_INVALID
+        - INSUFFICIENT_STOCK
+        - STOCK_ADJUSTMENT_INVALID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeliveryWriteOff"
+            example:
+              reasonCode: UNACCOUNTED_ON_VAN
+              note: "Driver reports the crate missing after the Dodowa stop"
+              refundDestination: ORIGINAL_METHOD
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Delivery"
+              example:
+                id: "019a7b09-2c4a-7048-a580-0d5ad3738638"
+                deliveryNo: DLN-2026-DDW-000194
+                status: WRITTEN_OFF
+                order:
+                  id: "019a7b09-4b39-7a2c-bf64-ab924d242470"
+                  docType: SALES_ORDER
+                  number: SO-2026-DDW-004204
+                slot:
+                  id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
+                  date: "2026-11-14"
+                  startsAt: "10:00"
+                  endsAt: "12:00"
+                  available: true
+                  remaining: 4
+                deliveryZone:
+                  id: "019a7a93-7af8-70d7-860f-1649d4058f27"
+                  code: TEMA
+                  name: "Tema and Community 25"
+                recipientName: "Grace Nyarko"
+                recipientPhone: "+233249903118"
+                address:
+                  recipientName: "Grace Nyarko"
+                  recipientPhone: "+233249903118"
+                  line1: "Block C, Flat 4, Community 11"
+                  area: "Tema Community 11"
+                  city: Tema
+                  region: "Greater Accra"
+                  digitalAddress: GT-118-0942
+                  directions: null
+                latitude: "5.669810"
+                longitude: "-0.016735"
+                contents:
+                  - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+                    name: "Tomatoes, crate"
+                    quantity: "2.000"
+                    uom: CRATE
+                    weightKg: null
+                driver:
+                  id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+                  displayName: "Kwesi Appiah"
+                vehicle:
+                  id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+                  code: VAN-GT4521
+                  name: "Delivery van GT-4521-24"
+                  kind: VEHICLE
+                codDuePesewas: 130000
+                codCollectedPesewas: 0
+                attemptCount: 1
+                dispatchedAt: "2026-11-13T11:00:00Z"
+                deliveredAt: null
+                proof: null
+                deliveryNoteDocumentId: null
+                currency: GHS
+                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                version: 3
+        "202":
+          description: "Accepted for approval. The goods stay on the van until a different user approves the stock write-off."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApprovalPending"
+              example:
+                status: PENDING_APPROVAL
+                approvalRequestId: "019a7ab9-c8eb-7f82-94ba-00fb843279d9"
+                kind: STOCK_WRITE_OFF
+                subject:
+                  id: "019a7ab9-e7da-7966-ae9e-9f32fde31810"
+                  docType: STOCK_ADJUSTMENT
+                  number: null
+                summary: "Adjust stock at VAN1 (SPOILED): 1 line(s) valued 62000 pesewas"
+                requestedAt: "2026-11-13T15:12:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -103530,6 +103764,7 @@ components:
             - DELIVERED
             - FAILED
             - RETURNED
+            - WRITTEN_OFF
             - CANCELLED
         order:
           $ref: "#/components/schemas/DocumentRef"
@@ -103672,6 +103907,14 @@ components:
           format: uuid
         note:
           type: string
+          minLength: 1
+          maxLength: 500
+        refundDestination:
+          description: "Where what the customer paid goes once the credit note is issued: back to the original method (the default) or to their store credit (2.33.0)."
+          type: string
+          enum:
+            - ORIGINAL_METHOD
+            - STORE_CREDIT
       required:
         - returnsLocationId
         - note
@@ -104182,6 +104425,90 @@ components:
         - reconciliationDate
         - declaredPesewas
       additionalProperties: false
+    DeliveryWriteOff:
+      type: object
+      description: "A failed delivery's goods written off the van (2.33.0): `UNACCOUNTED_ON_VAN` or a `WASTAGE` reason, its note where the reason asks for one."
+      properties:
+        reasonCode:
+          type: string
+          minLength: 1
+          maxLength: 64
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+        refundDestination:
+          description: "Where what the customer paid goes once the credit note is issued: back to the original method (the default) or to their store credit."
+          type: string
+          enum:
+            - ORIGINAL_METHOD
+            - STORE_CREDIT
+      required:
+        - reasonCode
+      additionalProperties: false
+    DriverGoodsVariance:
+      type: object
+      description: "Goods written off a van as unaccounted for: the driver variance report's goods line (2.33.0)."
+      properties:
+        delivery:
+          $ref: "#/components/schemas/DocumentRef"
+        order:
+          $ref: "#/components/schemas/DocumentRef"
+        driver:
+          anyOf:
+            - $ref: "#/components/schemas/PrincipalRef"
+            - type: "null"
+        vehicle:
+          anyOf:
+            - $ref: "#/components/schemas/LocationRef"
+            - type: "null"
+        routeId:
+          description: "The run the delivery was on; null for a delivery on no run."
+          type:
+            - string
+            - "null"
+          format: uuid
+        reasonCode:
+          type: string
+        valuePesewas:
+          description: "The goods' value at cost, from INV's posted adjustment."
+          $ref: "#/components/schemas/Pesewas"
+        stockAdjustmentId:
+          type: string
+          format: uuid
+        writtenOffAt:
+          type: string
+          format: date-time
+        currency:
+          $ref: "#/components/schemas/Currency"
+        branchId:
+          type: string
+          format: uuid
+      required:
+        - delivery
+        - order
+        - driver
+        - vehicle
+        - routeId
+        - reasonCode
+        - valuePesewas
+        - stockAdjustmentId
+        - writtenOffAt
+        - currency
+        - branchId
+    DriverGoodsVariancePage:
+      type: object
+      description: "A page of `DriverGoodsVariance` results."
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DriverGoodsVariance"
+        page:
+          $ref: "#/components/schemas/PageInfo"
+      required:
+        - data
+        - page
     DriverCashReconciliationPage:
       type: object
       description: "A page of `DriverCashReconciliation` results."
@@ -107876,7 +108203,9 @@ components:
         - del.delivery.assign
         - del.delivery.read
         - del.delivery.read.assigned
+        - del.delivery.return
         - del.delivery.update.assigned
+        - del.delivery.write_off
         - del.proof.create
         - del.route.manage
         - del.route.read
@@ -108151,7 +108480,9 @@ components:
         - del.delivery.assign
         - del.delivery.read
         - del.delivery.read.assigned
+        - del.delivery.return
         - del.delivery.update.assigned
+        - del.delivery.write_off
         - del.proof.create
         - del.route.manage
         - del.route.read

@@ -120,6 +120,13 @@ export interface CreditNoteRequest {
   readonly lines: readonly { readonly lineId: string; readonly quantity?: string | undefined; readonly amountPesewas?: number | undefined }[];
 }
 
+/** A credit note a higher module asked for in its own transaction: drafted and waiting (`approvalRequestId`) or issued. */
+export interface RequestedCredit {
+  readonly creditNoteId: string;
+  readonly grossPesewas: bigint;
+  readonly approvalRequestId: string | null;
+}
+
 export interface DebitNoteRequest {
   readonly reasonCode: string;
   readonly note?: string | undefined;
@@ -583,6 +590,34 @@ export class Billing {
       if (!correctable(original)) throw new BillingDocumentInvalidError([{ field: null, rule: 'ORIGINAL_NOT_CORRECTABLE' }]);
       const { header } = await this.draftCreditIn(tx, original, body, actorId, IN_TRANSACTION_CREDIT_REASON_DOMAINS);
       return this.issueDraft(tx, header.id, actorId, approvalRequestId);
+    });
+  }
+
+  /**
+   * A credit note of every line of an issued invoice or receipt, asked for in the caller's serializable transaction by
+   * a higher module whose own command has authorised the correction (ORD's van returns: a failed delivery's goods back
+   * from the van, B11 continued 4, A-360). It follows `issueCreditNote`'s path and approval exactly: each line credited
+   * whole (a document already credited in part is refused as the cap refuses it), its levies by the original's scheme, drafted and waiting for a holder of
+   * `bil.credit_note.approve` other than its maker (`CREDIT_NOTE`), issued at once only if the policy lets it through.
+   * The caller declares `seriesLocksFor('CREDIT_NOTE', branch)`. It authorises nothing.
+   */
+  async requestWholeCreditIn(tx: Transaction, actor: Actor, originalId: string, body: { readonly reasonCode: string; readonly note?: string | undefined }): Promise<RequestedCredit> {
+    return translateRefusal(async () => {
+      const original = await this.documentOf(tx, originalId, true);
+      if (!correctable(original)) throw new BillingDocumentInvalidError([{ field: null, rule: 'ORIGINAL_NOT_CORRECTABLE' }]);
+      const lines = original.lines.map((l) => ({ lineId: l.id, quantity: l.qty }));
+      const { header, gross } = await this.draftCreditIn(tx, original, { ...body, lines }, actor.principalId, CREDIT_REASON_DOMAINS);
+      const judged = await this.approvals.judgeIn(tx, CREDIT_NOTE_KIND, original.branchId, gross);
+      if (!judged.required) {
+        await this.issueDraft(tx, header.id, actor.principalId, null);
+        return { creditNoteId: header.id, grossPesewas: gross, approvalRequestId: null };
+      }
+      const [draft] = await this.store.documents(tx, [header.id]);
+      const summary = `Credit ${gross} pesewas against ${original.documentNo} to ${original.customerName ?? 'a walk-in customer'} (${body.reasonCode})`;
+      const request = await this.approvals.request(tx, actor, { kind: CREDIT_NOTE_KIND, branchId: original.branchId, subjectDocumentId: header.id, payloadHash: draftHash(draft!), amountPesewas: gross, summary });
+      await this.store.markPending(tx, header.id, request.id, actor.principalId);
+      await this.audit.record(tx, { module: 'bil', action: 'SUBMIT', entityType: 'BillingDocument', entityId: header.id, branchId: original.branchId, before: null, after: { ...auditShape(draft!), approvalRequestId: request.id } });
+      return { creditNoteId: header.id, grossPesewas: gross, approvalRequestId: request.id };
     });
   }
 

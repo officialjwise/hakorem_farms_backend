@@ -76,11 +76,11 @@ export function judgeReorder(current: readonly string[], requested: readonly str
 }
 
 /**
- * A stop's goods have left the van: delivered to the customer, or returned to stock (the owner, 2026-11-23: "every item
- * is delivered, returned to stock or written off with a reason"; the write-off is B11 continued 4's and joins this list).
+ * A stop's goods have left the van: delivered to the customer, returned to stock or written off with a reason (the
+ * owner, 2026-11-23: "every item is delivered, returned to stock or written off with a reason"; B11 continued 4).
  */
 export function leftTheVan(status: DeliveryStatus): boolean {
-  return status === 'DELIVERED' || status === 'RETURNED';
+  return status === 'DELIVERED' || status === 'RETURNED' || status === 'WRITTEN_OFF';
 }
 
 /**

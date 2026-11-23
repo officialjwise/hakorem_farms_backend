@@ -1,0 +1,131 @@
+operationId: writeOffDelivery
+tags:
+  - del
+summary: "Write a failed delivery's goods off the van"
+description: "Writes a failed delivery's goods off the van with a reason (2.33.0, B11 continued 4; FR-DEL-011; the owner, 2026-11-23: every item on a van is delivered, returned to stock or written off with a reason, and anything unaccounted for goes on the driver variance report). Only a `FAILED` delivery, its order `DELIVERY_FAILED`; anything else 422 `INVALID_STATE_TRANSITION`. The reason is `UNACCOUNTED_ON_VAN` (the driver cannot account for the goods; a note is needed; the row then appears on `listDriverGoodsVariances`) or one from the `WASTAGE` list (spoiled, damaged, expired, cold chain failure), with its note where the reason asks for one; otherwise 422 `DELIVERY_INVALID` `REASON_UNKNOWN`, `REASON_NOT_ALLOWED` or `NOTE_REQUIRED`. It goes through **INV's stock adjustment** at the vehicle (each dispatched pick a loss valued at cost, never a figure from the request) and its `STOCK_WRITE_OFF` approval: below the policy's threshold it posts at once and answers **200** with the delivery `WRITTEN_OFF`; at or above it, it answers **202** and the goods stay on the van until a different holder of `inv.adjustment.approve` approves, when the delivery is `WRITTEN_OFF` in that approval's transaction (refused, the goods are still aboard and the write-off may be asked again). A write-off never takes the van below zero (422 `INSUFFICIENT_STOCK`, nothing written), and a stock adjustment invalid at the vehicle 422 `STOCK_ADJUSTMENT_INVALID`. Written off, the goods have left the van, so its run may close; the order is `RETURNED`; the whole document is credited and what was paid asked back exactly as `returnDeliveryToStock` does (`CREDIT_NOTE`, then `REFUND`, the caller their maker). While one write-off waits, another or a return to stock is 422 `DELIVERY_INVALID` `WRITE_OFF_PENDING`. The same key answers the first write-off. Audited.\n\nPermission: `del.delivery.write_off`."
+x-permission: del.delivery.write_off
+x-owner-module: ord
+x-error-codes:
+  - DELIVERY_INVALID
+  - INSUFFICIENT_STOCK
+  - STOCK_ADJUSTMENT_INVALID
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DeliveryWriteOff"
+      example:
+        reasonCode: UNACCOUNTED_ON_VAN
+        note: "Driver reports the crate missing after the Dodowa stop"
+        refundDestination: ORIGINAL_METHOD
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Delivery"
+        example:
+          id: "019a7b09-2c4a-7048-a580-0d5ad3738638"
+          deliveryNo: DLN-2026-DDW-000194
+          status: WRITTEN_OFF
+          order:
+            id: "019a7b09-4b39-7a2c-bf64-ab924d242470"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004204
+          slot:
+            id: "019a7afd-16ee-736d-a8a6-3faf4a4fb88d"
+            date: "2026-11-14"
+            startsAt: "10:00"
+            endsAt: "12:00"
+            available: true
+            remaining: 4
+          deliveryZone:
+            id: "019a7a93-7af8-70d7-860f-1649d4058f27"
+            code: TEMA
+            name: "Tema and Community 25"
+          recipientName: "Grace Nyarko"
+          recipientPhone: "+233249903118"
+          address:
+            recipientName: "Grace Nyarko"
+            recipientPhone: "+233249903118"
+            line1: "Block C, Flat 4, Community 11"
+            area: "Tema Community 11"
+            city: Tema
+            region: "Greater Accra"
+            digitalAddress: GT-118-0942
+            directions: null
+          latitude: "5.669810"
+          longitude: "-0.016735"
+          contents:
+            - orderLineId: "019a7b09-0d5b-7665-9b9d-6f2359c2e810"
+              name: "Tomatoes, crate"
+              quantity: "2.000"
+              uom: CRATE
+              weightKg: null
+          driver:
+            id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
+            displayName: "Kwesi Appiah"
+          vehicle:
+            id: "019a7a84-9e23-708d-95c5-11a25bfa8a80"
+            code: VAN-GT4521
+            name: "Delivery van GT-4521-24"
+            kind: VEHICLE
+          codDuePesewas: 130000
+          codCollectedPesewas: 0
+          attemptCount: 1
+          dispatchedAt: "2026-11-13T11:00:00Z"
+          deliveredAt: null
+          proof: null
+          deliveryNoteDocumentId: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+  "202":
+    description: "Accepted for approval. The goods stay on the van until a different user approves the stock write-off."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7ab9-c8eb-7f82-94ba-00fb843279d9"
+          kind: STOCK_WRITE_OFF
+          subject:
+            id: "019a7ab9-e7da-7966-ae9e-9f32fde31810"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          summary: "Adjust stock at VAN1 (SPOILED): 1 line(s) valued 62000 pesewas"
+          requestedAt: "2026-11-13T15:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

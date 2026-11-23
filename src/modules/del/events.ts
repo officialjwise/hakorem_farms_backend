@@ -111,3 +111,39 @@ export interface RouteCompleted {
   readonly reconciliationIds: readonly string[];
   readonly completedAt: string;
 }
+
+/**
+ * `del.DeliveryReturned` v1 (FR-DEL-011, B11 continued 4): a failed delivery's goods came off the van into the branch
+ * returns hold, not sellable until inspected; ORD moved the stock, credited the document and moved the order RETURNED in
+ * the same transaction.
+ */
+export interface DeliveryReturned {
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly orderDocumentId: string;
+  readonly branchId: string;
+  readonly driverId: string | null;
+  readonly vehicleLocationId: string | null;
+  readonly returnsLocationId: string;
+  readonly returnedAt: string;
+}
+
+/**
+ * `del.DeliveryWrittenOff` v1 (FR-DEL-011, the owner's van rule of 2026-11-23): a failed delivery's goods were written off
+ * the van through INV's adjustment, with its reason and its value at cost. `unaccounted` names the driver variance (goods
+ * the driver cannot account for, abuse case 48), which the daily exception report reads.
+ */
+export interface DeliveryWrittenOff {
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly orderDocumentId: string;
+  readonly branchId: string;
+  readonly driverId: string | null;
+  readonly vehicleLocationId: string | null;
+  readonly reasonCode: string;
+  readonly valuePesewas: number;
+  readonly stockAdjustmentId: string;
+  readonly unaccounted: boolean;
+  readonly writtenOffAt: string;
+  readonly abuseCases: readonly number[];
+}
