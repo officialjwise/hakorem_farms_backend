@@ -281,19 +281,20 @@ describe('B5 gate: stock cannot go negative outside the allowed movement types (
   const shopYam = async () =>
     (await admin().query<{ q: string }>('SELECT on_hand_qty::text AS q FROM inv.stock_balance WHERE product_id = $1 AND location_id = $2 AND stock_unit_id IS NULL', [id('product:PRD-0005'), id('location:SHOP')])).rows[0]!.q;
 
-  it('refuses a counter sale of 41 yams from the 40 on the shop floor, and an offline sale out of a location that does not allow it', async () => {
+  it('refuses a counter sale of 41 yams from the 40 on the shop floor: an online sale keeps the rule', async () => {
     expect(await sell('SALE_ISSUE', 'location:SHOP', '41.000')).toBe('INSUFFICIENT_STOCK');
-    expect(await sell('SALE_ISSUE_OFFLINE', 'location:PENS', '1.000')).toBe('INSUFFICIENT_STOCK');
     expect(await shopYam()).toBe('40.000');
   });
 
-  it('refuses the offline sale at the seeded shop floor too, which does not allow negative stock: both type and location must allow it', async () => {
-    // Where a location does allow it, the offline sale posts below zero with one NEGATIVE_STOCK exception
-    // (stock-invariants.integration.spec.ts, FR-INV-019's acceptance on a branch whose counter allows it).
-    expect(await sell('SALE_ISSUE_OFFLINE', 'location:SHOP', '41.000')).toBe('INSUFFICIENT_STOCK');
-    expect(await shopYam()).toBe('40.000');
-    const raised = await admin().query("SELECT 1 FROM inv.stock_exception WHERE kind = 'NEGATIVE_STOCK' AND product_id = $1", [id('product:PRD-0005')]);
-    expect(raised.rowCount).toBe(0);
+  it('takes the seeded shop floor below zero for an offline sale only (the owner, 2026-11-18, ADR-0081), with its exception, its count task and no drift', async () => {
+    // Before ADR-0081 both the type and the location had to allow it, and the seeded shop floor does not; now the
+    // offline sale's type may go below zero anywhere, and nothing else may.
+    expect(await sell('SALE_ISSUE_OFFLINE', 'location:SHOP', '41.000')).toMatch(/^[0-9a-f-]{36}$/);
+    expect(await shopYam()).toBe('-1.000');
+    const raised = await admin().query("SELECT 1 FROM inv.stock_exception WHERE kind = 'NEGATIVE_STOCK' AND product_id = $1 AND location_id = $2", [id('product:PRD-0005'), id('location:SHOP')]);
+    expect(raised.rowCount).toBe(1);
+    const task = await admin().query("SELECT 1 FROM inv.count_task WHERE product_id = $1 AND location_id = $2 AND status = 'OPEN'", [id('product:PRD-0005'), id('location:SHOP')]);
+    expect(task.rowCount).toBe(1);
     // The ledger and its projection still agree everywhere: the nightly recompute finds no drift.
     expect(await api.app.get(BalanceReconciliation).run(SYSTEM)).toEqual([]);
   });

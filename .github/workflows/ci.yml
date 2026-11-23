@@ -38,10 +38,16 @@ jobs:
         run: pnpm lint
       - run: pnpm typecheck
 
-  test:
-    name: unit and integration with the coverage gate (NFR-015)
+  # Unit and integration run in three shards in parallel (ADR-0082, NFR-016: the whole pipeline under 12 minutes);
+  # each records its coverage in a blob report, and the gate below merges them and judges today's thresholds once.
+  test-shard:
+    name: unit and integration, shard ${{ matrix.shard }} of 3
     runs-on: ubuntu-24.04
     timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -49,8 +55,40 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - run: corepack enable pnpm
       - run: pnpm install --frozen-lockfile
-      - name: unit and integration against PostgreSQL 17 and Redis 7 in Testcontainers, coverage merged
-        run: pnpm test:coverage
+      - name: unit and integration against PostgreSQL 17 and Redis 7 in Testcontainers, shard ${{ matrix.shard }} of 3
+        run: pnpm test:coverage:shard --shard=${{ matrix.shard }}/3
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vitest-blob-${{ matrix.shard }}
+          path: .vitest-reports/
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 1
+
+  test:
+    name: unit and integration with the coverage gate (NFR-015)
+    needs: test-shard
+    if: ${{ always() }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: every shard passed
+        run: test "${{ needs.test-shard.result }}" = success
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: corepack enable pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          pattern: vitest-blob-*
+          path: .vitest-reports
+          merge-multiple: true
+      - name: every shard's report is here, none missing
+        run: test "$(ls .vitest-reports/blob-*-3.json | wc -l)" -eq 3
+      - name: coverage merged from the three shards, today's thresholds and every 100 percent gate judged once
+        run: pnpm test:coverage:merge
 
   contract:
     name: contract (FR-API-001, FR-API-002)

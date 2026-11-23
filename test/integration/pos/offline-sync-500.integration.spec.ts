@@ -232,10 +232,12 @@ describe("UAT scenario 6's interrupted sync, as a dry run (docs/UAT.md section 1
       { outcome: 'APPLIED_WITH_EXCEPTION', n: 10 },
       { outcome: 'DUPLICATE', n: 70 },
     ]);
-    // Forty yams stood on the shop floor, which may not go below zero: the ten sales beyond them are recorded with
-    // their cash and a stock exception each, and the stock stays at 0 (UAT 6.13 expects the count below zero; A-278 (f)).
+    // Forty yams stood on the shop floor: the ten sales beyond them are recorded with their cash, their stock moves
+    // below zero (the owner's decision 2 of 2026-11-18, ADR-0081, replacing A-278 (f); UAT 6.13 expects the count below
+    // zero), each with its NEGATIVE_STOCK beside the movement, and one count of yams on the shop floor is raised.
     expect(await num('SELECT sum(amount_pesewas)::text AS n FROM pay.payment WHERE shift_document_id = $1', [shiftId])).toBe(100_000);
-    expect(await num("SELECT count(*)::text AS n FROM inv.stock_exception e JOIN ord.sales_order o ON o.id = e.source_document_id WHERE o.shift_document_id = $1 AND e.kind = 'NEGATIVE_STOCK' AND e.movement_id IS NULL", [shiftId])).toBe(10);
-    expect(await num('SELECT on_hand_qty::text AS n FROM inv.stock_balance WHERE product_id = $1 AND location_id = $2', [id('PRD-0005'), id('shop')])).toBe(0);
+    expect(await num("SELECT count(*)::text AS n FROM inv.stock_exception e JOIN ord.sales_order o ON o.id = e.source_document_id WHERE o.shift_document_id = $1 AND e.kind = 'NEGATIVE_STOCK' AND e.movement_id IS NOT NULL", [shiftId])).toBe(10);
+    expect(await num('SELECT on_hand_qty::text AS n FROM inv.stock_balance WHERE product_id = $1 AND location_id = $2', [id('PRD-0005'), id('shop')])).toBe(-10);
+    expect(await num("SELECT count(*)::text AS n FROM inv.count_task WHERE product_id = $1 AND location_id = $2 AND status = 'OPEN'", [id('PRD-0005'), id('shop')])).toBe(1);
   });
 });

@@ -191,7 +191,7 @@ export class Receipts {
       if (payment === undefined) throw new NotFoundError('no such payment');
       await this.authoriser.authorise(tx, actor, REVERSE, { branchId: payment.branchId });
       const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
-      const judged = judgeReversal(payment, reason === undefined ? null : { domain: reason.domain, code: body.reasonCode });
+      const judged = judgeReversal({ ...payment, verified: await this.store.tenderVerified(tx, payment.id) }, reason === undefined ? null : { domain: reason.domain, code: body.reasonCode });
       const broken: PaymentRule[] = judged.ok ? [] : judged.error.map((rule) => ({ field: rule.startsWith('REASON') ? '/reasonCode' : '', rule }));
       if (body.note === null) broken.push({ field: '/note', rule: 'NOTE_REQUIRED' });
       if ((await this.store.openReversalOf(tx, id))?.status === 'PENDING_APPROVAL') broken.push({ field: '', rule: 'REVERSAL_PENDING' });
@@ -291,7 +291,7 @@ export class Receipts {
   private async reverseIn(tx: Transaction, reversal: ReversalRecord, actorId: string, approvalRequestId: string): Promise<void> {
     const [payment] = await this.store.payments(tx, [reversal.paymentId], true);
     const reason = (await this.refs.reasonCodesIn(tx, [reversal.reasonCode])).get(reversal.reasonCode);
-    const judged = judgeReversal(payment!, reason === undefined ? null : { domain: reason.domain, code: reversal.reasonCode });
+    const judged = judgeReversal({ ...payment!, verified: await this.store.tenderVerified(tx, payment!.id) }, reason === undefined ? null : { domain: reason.domain, code: reversal.reasonCode });
     if (!judged.ok) throw new PaymentReversalInvalidError(judged.error.map((rule) => ({ field: '', rule })));
     // Cash given back out of a till leaves it through the shift it was taken in, which must still be open (ADR-0077): a
     // reversal never takes cash out of a closed, closing or force-closed shift, nor by someone who may not reach it.
@@ -310,7 +310,8 @@ export class Receipts {
       }
     }
     const bounced = judged.value.becomes === 'FAILED';
-    if (bounced) await this.store.markFailed(tx, payment!.id, `Cheque dishonoured: ${reversal.note}`.slice(0, 500), actorId);
+    const failure = payment!.methodKind === 'CHEQUE' ? 'Cheque dishonoured' : 'Mobile money not received';
+    if (bounced) await this.store.markFailed(tx, payment!.id, `${failure}: ${reversal.note}`.slice(0, 500), actorId);
     else await this.store.markReversed(tx, payment!.id, actorId);
 
     const reversingId = this.nextId();

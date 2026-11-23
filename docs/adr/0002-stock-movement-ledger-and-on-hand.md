@@ -75,3 +75,8 @@ In the same transaction as the movement, the trigger:
 - B5: integration tests for each rejection path: negative stock, double sale of a serial unit, sale under hold, serial unit moved from the wrong location, update and delete attempts.
 - B5 gate: on-hand derived from movements matches a hand count of the seeded farm.
 - B5: the nightly recompute detects a deliberately corrupted balance row and does not repair it.
+
+## Amendments
+
+- **2026-11-23, B09b continued 3c (the owner's decision 2 of 2026-11-18, ADR-0081).** Step 5's rule ("unless both the movement type and the location allow negative stock") gains one exception. A type with `negative_anywhere` (only `SALE_ISSUE_OFFLINE`) may go below zero at any physical location, raising the exception as before. A SERIAL unit never goes negative, and every other type keeps the rule. This is migration 0286, the only change to `inv.apply_movement`.
+

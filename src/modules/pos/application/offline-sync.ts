@@ -885,6 +885,9 @@ function unreadableLines(sale: OfflineSaleInput): string | null {
   return null;
 }
 
+/** An insider selling offline beyond stock to hide stock taken (THREAT_MODEL abuse case 36, ADR-0081). */
+const ABUSE_SOLD_BEYOND_STOCK = 36;
+
 /** A method the till takes at sync: cash only (PAY records a cash tender into its till; abuse case 4). */
 function takenAtSync(method: PaymentMethodFacts): boolean {
   return method.kind === 'CASH' && method.isLive && method.allowedOffline;
@@ -895,7 +898,11 @@ function flagOf(finding: Exclude<OfflineSaleFinding, { kind: 'PRICE_OVERRIDE' }>
     case 'STOCK_EXCEPTION': {
       // An animal sold twice, or one under a veterinary withdrawal, is URGENT; the rest are for review (OFFLINE_SYNC 8).
       const holds = (finding.fact['holds'] ?? []) as readonly { readonly kind: string }[];
-      const urgent = finding.stockExceptionKind === 'SERIAL_CONFLICT' || (finding.stockExceptionKind === 'HOLD_CONFLICT' && holds.some((h) => h.kind === 'WITHDRAWAL'));
+      // Stock sold below zero with no cost ever known for it is URGENT too: it is costed at nil until it arrives (A-283 (e)).
+      const urgent =
+        finding.stockExceptionKind === 'SERIAL_CONFLICT' ||
+        (finding.stockExceptionKind === 'HOLD_CONFLICT' && holds.some((h) => h.kind === 'WITHDRAWAL')) ||
+        (finding.stockExceptionKind === 'NEGATIVE_STOCK' && finding.fact['costKnown'] === false);
       const unit = finding.fact['stockUnit'] === undefined ? 'the stock ' : `${String(finding.fact['stockUnit'])} `;
       const summary =
         finding.stockExceptionKind === 'NEGATIVE_STOCK'
@@ -907,7 +914,9 @@ function flagOf(finding: Exclude<OfflineSaleFinding, { kind: 'PRICE_OVERRIDE' }>
             : finding.stockExceptionKind === 'RESERVATION_CONFLICT'
               ? `Line ${finding.lineNo}: ${unit}is reserved for another order`
               : `Line ${finding.lineNo}: ${unit}was already sold or is not at this till; no stock moved`;
-      return { kind: 'STOCK_EXCEPTION', severity: urgent ? 'URGENT' : 'REVIEW', summary, amountPesewas: grossPesewas, fact: { ...finding.fact, stockExceptionId: finding.stockExceptionId, stockExceptionKind: finding.stockExceptionKind, lineNo: finding.lineNo, moved: finding.moved }, abuseCases: [ABUSE_STOCK], toTill: true };
+      // Selling offline beyond stock may hide stock taken (abuse case 36): a NEGATIVE_STOCK that moved names it too.
+      const abuseCases = finding.stockExceptionKind === 'NEGATIVE_STOCK' && finding.moved ? [ABUSE_STOCK, ABUSE_SOLD_BEYOND_STOCK] : [ABUSE_STOCK];
+      return { kind: 'STOCK_EXCEPTION', severity: urgent ? 'URGENT' : 'REVIEW', summary, amountPesewas: grossPesewas, fact: { ...finding.fact, stockExceptionId: finding.stockExceptionId, stockExceptionKind: finding.stockExceptionKind, lineNo: finding.lineNo, moved: finding.moved }, abuseCases, toTill: true };
     }
     case 'NOT_PRICED_AT_SYNC':
       return { kind: 'NOT_PRICED_AT_SYNC', severity: 'REVIEW', summary: `Line ${finding.lineNo}: no price list prices this line now; the price the till agreed stands and a manager reviews it`, amountPesewas: finding.agreedUnitPricePesewas, fact: { ...finding }, abuseCases: [ABUSE_OVERRIDE], toTill: true };

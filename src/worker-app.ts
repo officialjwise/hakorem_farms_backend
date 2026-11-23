@@ -26,7 +26,7 @@ import { MortalityEvidenceReturns } from './modules/liv';
 import { QuoteExpiry } from './modules/quo';
 import { AccountHolds, Dunning, StandingOrders } from './modules/whl';
 import { CatalogueListing } from './modules/shp';
-import { ProviderPayments, Refunds } from './modules/pay';
+import { ProviderPayments, Refunds, UnverifiedOverdue } from './modules/pay';
 
 /** Milliseconds a storage call from the worker may take. */
 const STORAGE_TIMEOUT_MS = 10_000;
@@ -62,6 +62,8 @@ const LEDGER_RECONCILE_CRON = '15 2 * * *';
 const BILLING_NUMBERING_AUDIT_CRON = '20 2 * * *';
 /** Daily at 06:30, before the shop opens: low-stock and expiring-lot alerts (FR-INV-015, FR-INV-016). */
 const STOCK_ALERTS_CRON = '30 6 * * *';
+/** Hourly at :40: an unverified offline mobile money tender past its window is raised URGENT once (OFFLINE_SYNC 9.9, A-282 (e)). */
+const UNVERIFIED_OVERDUE_CRON = '40 * * * *';
 /** Daily, just after midnight in Accra (UTC): an account with an invoice past its overdue threshold is held (FR-WHL-008). */
 const ACCOUNT_HOLD_CRON = '5 0 * * *';
 /** Daily at 08:00 in Accra (UTC), after the overdue hold: each reminder level due reaches an invoice once (FR-WHL-011, A-318). */
@@ -126,6 +128,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const numberingAudit = app.get(BillingNumberingAudit);
   const providerPayments = app.get(ProviderPayments);
   const refunds = app.get(Refunds);
+  const unverifiedOverdue = app.get(UnverifiedOverdue);
   const quoteExpiry = app.get(QuoteExpiry);
   const accountHolds = app.get(AccountHolds);
   const dunning = app.get(Dunning);
@@ -154,6 +157,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
       },
     },
     { name: 'refund-dispatch', when: { everyMs: REFUND_DISPATCH_EVERY_MS }, run: async () => ({ ...(await refunds.dispatch()) }) },
+    { name: 'unverified-tender-overdue', when: { cron: UNVERIFIED_OVERDUE_CRON }, run: async (system) => ({ raised: (await unverifiedOverdue.run(system)).length }) },
     {
       name: 'stock-balance-recompute',
       when: { cron: STOCK_BALANCE_RECOMPUTE_CRON },

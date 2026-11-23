@@ -296,3 +296,24 @@ describe('resolving a break (FR-PAY-017: through a second person, never by itsel
     expect(judgeResolution({ ...unknownBankLine, line: { ...unknownBankLine.line, matched: true } }, 'UNIDENTIFIED_RECEIPT', 'x')).toEqual({ ok: false, error: ['LINE_ALREADY_MATCHED'] });
   });
 });
+
+describe('an unverified offline mobile money tender leaves 1115 only by verification or by its reversal (the owner, 2026-11-18, A-282)', () => {
+  const waiting = { status: 'OPEN' as const, kind: 'UNVERIFIED_PAYMENT', line: null, tender: { status: 'PENDING' as const, verified: false } };
+
+  it('verifies a tender still waiting, with a note', () => {
+    expect(judgeResolution(waiting, 'VERIFIED', 'MTN statement 2026-11-14 shows MP261113.1149.C41872 for GHS 200.00')).toEqual({ ok: true, value: undefined });
+  });
+
+  it('refuses a verification of a tender reversed, bounced or already verified, and on any other kind of break', () => {
+    expect(judgeResolution({ ...waiting, tender: { status: 'FAILED', verified: false } }, 'VERIFIED', 'x')).toEqual({ ok: false, error: ['TENDER_NOT_PENDING'] });
+    expect(judgeResolution({ ...waiting, tender: { status: 'PENDING', verified: true } }, 'VERIFIED', 'x')).toEqual({ ok: false, error: ['TENDER_NOT_PENDING'] });
+    expect(judgeResolution({ ...waiting, tender: null }, 'VERIFIED', 'x')).toEqual({ ok: false, error: ['TENDER_NOT_PENDING'] });
+    expect(judgeResolution({ status: 'OPEN', kind: 'SETTLEMENT_AMOUNT_DIFFERS', line: null }, 'VERIFIED', 'x')).toEqual({ ok: false, error: ['POSTING_NOT_FOR_BREAK'] });
+    expect(judgeResolution(waiting, 'UNIDENTIFIED_RECEIPT', 'x')).toEqual({ ok: false, error: ['POSTING_NOT_FOR_BREAK'] });
+  });
+
+  it('refuses to close a tender still waiting with no posting, so nothing is left in 1115 unseen; closes it once it was bounced', () => {
+    expect(judgeResolution(waiting, 'NONE', 'Seen')).toEqual({ ok: false, error: ['VERIFICATION_REQUIRED'] });
+    expect(judgeResolution({ ...waiting, tender: { status: 'FAILED', verified: false } }, 'NONE', 'Bounced as never received')).toEqual({ ok: true, value: undefined });
+  });
+});

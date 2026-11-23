@@ -2,6 +2,7 @@ import type { Transaction } from '../../../platform/database/unit-of-work';
 import type {
   BreakFilter,
   BreakRecord,
+  OverdueUnverifiedRecord,
   PayoutRecord,
   PendingTransferRecord,
   ProviderPaymentRecord,
@@ -14,6 +15,7 @@ import type {
   StatementLineRecord,
   StatementRecord,
   StatementStatus,
+  UnverifiedTenderRecord,
 } from '../application/reconciliation-store';
 import type { ResolutionPosting } from '../domain/reconciliation';
 
@@ -404,6 +406,51 @@ export class PgReconciliationStore implements ReconciliationStore {
       at,
       actorId,
     ]);
+  }
+
+  async unverifiedTender(tx: Transaction, paymentId: string, forUpdate: boolean): Promise<UnverifiedTenderRecord | null> {
+    const { rows } = await tx.query<{ id: string; status: UnverifiedTenderRecord['status']; amount: string; bank_account_id: string | null; branch_id: string; customer_id: string | null; verified: boolean }>(
+      `SELECT p.id, p.status, p.amount_pesewas::text AS amount, p.bank_account_id, p.branch_id, p.customer_id,
+              EXISTS (SELECT 1 FROM pay.unverified_verification v WHERE v.payment_id = p.id) AS verified
+         FROM pay.payment p
+        WHERE p.id = $1 AND p.method_kind = 'MOBILE_MONEY' AND p.verification = 'UNVERIFIED' AND p.reverses_payment_id IS NULL${forUpdate ? ' FOR UPDATE OF p' : ''}`,
+      [paymentId],
+    );
+    const r = rows[0];
+    return r === undefined ? null : { paymentId: r.id, status: r.status, amountPesewas: BigInt(r.amount), bankAccountId: r.bank_account_id, branchId: r.branch_id, customerId: r.customer_id, verified: r.verified };
+  }
+
+  async insertVerification(tx: Transaction, r: Parameters<ReconciliationStore['insertVerification']>[1]): Promise<void> {
+    await tx.query(
+      `INSERT INTO pay.unverified_verification (id, payment_id, break_id, resolution_id, branch_id, amount_pesewas, verified_on, recorded_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [r.id, r.paymentId, r.breakId, r.resolutionId, r.branchId, r.amountPesewas.toString(), r.verifiedOn, r.recordedAt, r.actorId],
+    );
+  }
+
+  async overdueUnverified(tx: Transaction, at: Date, limit: number): Promise<OverdueUnverifiedRecord[]> {
+    const { rows } = await tx.query<{ id: string; payment_id: string; branch_id: string; amount: string; urgent_from: Date; reference: string | null; details: Record<string, unknown> }>(
+      `SELECT b.id, b.payment_id, p.branch_id, p.amount_pesewas::text AS amount, (b.details->>'urgentFrom')::timestamptz AS urgent_from, b.reference, b.details
+         FROM pay.reconciliation_break b
+         JOIN pay.payment p ON p.id = b.payment_id
+        WHERE b.kind = 'UNVERIFIED_PAYMENT' AND b.status = 'OPEN' AND p.status = 'PENDING'
+          AND (b.details->>'urgentFrom')::timestamptz <= $1
+          AND NOT EXISTS (SELECT 1 FROM pay.unverified_overdue o WHERE o.break_id = b.id)
+          AND NOT EXISTS (SELECT 1 FROM pay.unverified_verification v WHERE v.payment_id = b.payment_id)
+        ORDER BY b.raised_at, b.id
+        LIMIT $2`,
+      [at, limit],
+    );
+    return rows.map((r) => ({ breakId: r.id, paymentId: r.payment_id, branchId: r.branch_id, amountPesewas: BigInt(r.amount), urgentFrom: r.urgent_from, reference: r.reference, details: r.details }));
+  }
+
+  async insertOverdue(tx: Transaction, r: Parameters<ReconciliationStore['insertOverdue']>[1]): Promise<boolean> {
+    const { rowCount } = await tx.query(
+      `INSERT INTO pay.unverified_overdue (id, break_id, payment_id, branch_id, amount_pesewas, urgent_from, recorded_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT ON CONSTRAINT uq_unverified_overdue_break DO NOTHING`,
+      [r.id, r.breakId, r.paymentId, r.branchId, r.amountPesewas.toString(), r.urgentFrom, r.recordedAt, r.actorId],
+    );
+    return rowCount === 1;
   }
 }
 

@@ -269,3 +269,14 @@ The exception queue. Reconciliation never corrects; it raises one of these.
 | `resolved_by` | `uuid` | NULL, FK `iam.principal` | |
 | `resolved_at` | `timestamptz` | NULL | |
 | `resolution_note` | `text` | NULL | |
+
+### `pay.unverified_verification` · LEDGER
+
+B09b continued 3c (migration 0284, A-282 (b), (c)): an unverified offline mobile money tender verified with the provider, through its break's approved `VERIFIED` resolution. It is the subject of ◆ `pay.UnverifiedPaymentVerified` (Dr 1110, Cr 1115, against the wallet). Columns: `id`, `payment_id` (UNIQUE), `break_id` (UNIQUE), `resolution_id` (UNIQUE), `branch_id`, `amount_pesewas` (`> 0`, the payment's whole amount), `verified_on`, `recorded_at`, `actor_id`. `trg_unverified_verification_guard` (`ck_unverified_verification`) requires a PENDING, UNVERIFIED mobile money payment that is not a reversal, the break's own approved `VERIFIED` resolution, and the payment's amount and branch. Insert-only. `trg_payment_a_unverified_bounce` (`ck_payment_verified_bounce`) refuses PENDING to FAILED for a verified tender.
+
+### `pay.unverified_overdue` · LEDGER
+
+B09b continued 3c (migration 0284, A-282 (e)): an open `UNVERIFIED_PAYMENT` break whose tender was still waiting when its window ended, raised URGENT once by the `unverified-tender-overdue` job. Columns: `id`, `break_id` (UNIQUE), `payment_id`, `branch_id`, `amount_pesewas`, `urgent_from`, `recorded_at` (`>= urgent_from`, `ck_unverified_overdue_due`), `actor_id`. `trg_unverified_overdue_guard` (`ck_unverified_overdue`) requires the break open, the payment PENDING and unverified, its amount, and no verification. Insert-only.
+
+`pay.break_resolution.posting` gains `VERIFIED` (migration 0284).
+

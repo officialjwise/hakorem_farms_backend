@@ -409,6 +409,12 @@ The sale is recorded in both cases; the cash count at close reconciles.
 
 **Follow-up.** The storekeeper counts the shop floor. If 3.000 crates arrived from the farm and were never booked, a goods receipt or a stock adjustment gain posts them; the correction of cost of sales (3.000 x 4,800 = 14,400) posts through the adjustment, and the exception resolves with it. If the crates were genuinely missing, the adjustment is a loss with a reason code, above the approval threshold if applicable.
 
+**As built in B09b continued 3c (the owner's decision 2 of 2026-11-18, ADR-0081, A-283), replacing A-278 (f).**
+- The movement posts at any location, not only one that allows negative. The rule is unchanged for a SERIAL unit, for online sales and for every other movement type.
+- The pool still gives what it holds, so in the example above the movement carries 24,000. The uncovered 3.000 crates are valued at the last known cost (5 crates at 24,000, so 3 x 4,800 = 14,400), not at zero: `inv.negative_stock_cost`, Dr 5020 14,400, Cr 1335 Stock sold ahead of receipt 14,400.
+- The follow-up is no longer an adjustment of cost of sales. When stock arrives, the true-up settles the 3.000 at the arrival's cost exactly: a nil lift before the arrival, a pool-valued issue after it, and the difference to 5020. 1335 returns to zero.
+- A count task is raised for eggs on the shop floor. The item carries abuse cases 11 and 36, and it is URGENT when no cost was ever known.
+
 ### 9.4 A sale dated in a locked period, or after a forced close
 
 **Rule.** If `occurred_at` falls in a period that is not `OPEN`, or the shift was closed before the sync, the sale posts on the first open date, is flagged, and keeps its original `occurred_at`. The database never lets a journal land in a locked period (`fin.assert_period_open`), so the posting date is chosen before the entry is written.
@@ -537,6 +543,11 @@ Two simultaneous requests carrying the same sale (two tabs, a double tap on a re
 | Ledger, cost of sales | 5 crates at 4,800 = 24,000: Dr 5020 / Cr 1330 |
 
 **Verification.** When the next provider settlement report or mobile money statement is imported, matching by reference and amount resolves the break (`resolveReconciliationBreak`, with the matched line as the resolution). The payment row itself stays `UNVERIFIED`: a cleared payment is immutable, and the break is the verification record. If no line matches within `pay.unverified_window_days` (default 3 days), the break is raised to URGENT. If the money never arrived, the manager requests a payment reversal (a pending approval, `PAYMENT_REVERSAL`); the reversal restores the receivable and the loss is dealt with as bad debt under the owner's decision. A tender method the pack did not permit but that arrives anyway (a modified client) is treated the same way, with severity URGENT and a note that the method was not permitted.
+
+**As built in B09b continued 3c (the owner's decision 3 of 2026-11-18, A-282), replacing the table's mobile money line.** The tender posts Dr 1115 Mobile money awaiting verification 20,000 against the wallet, Cr 1200 20,000, never 1110.
+- **Verified:** the break is resolved `VERIFIED` with the evidence and a second person's approval. It moves to 1110 exactly once (`pay.UnverifiedPaymentVerified`: Dr 1110, Cr 1115).
+- **Not verified in time:** past `pay.unverified_window_days` the `unverified-tender-overdue` job raises it URGENT once, and it stays in 1115.
+- **Never arrived:** the reversal (reason `MOBILE_MONEY_NOT_RECEIVED`) bounces it to `FAILED` and mirrors its receipt (Dr 1200, Cr 1115), so 1110 is never touched.
 
 ## 10. Cash movements and shift open
 

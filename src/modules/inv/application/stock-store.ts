@@ -78,8 +78,32 @@ export interface DriftRow {
   readonly ledgerValuePesewas: bigint | null;
 }
 
+/** What an arrival owes to stock sold ahead of receipt (A-283): the pool it raises, its location's branch, the quantity still uncovered. */
+export interface ArrivalOwed {
+  readonly toBranchId: string;
+  readonly poolBranchId: string;
+  readonly owedQty: string;
+}
+
+/** An offline sale's issue beyond what the pool held, as `trg_stock_movement_negative_cost` costed it. */
+export interface NegativeStockCostRow {
+  readonly id: string;
+  readonly branchId: string;
+  readonly locationId: string;
+  readonly uncoveredQty: string;
+  readonly costKnown: boolean;
+  readonly valuePesewas: bigint;
+}
+
 export interface StockStore {
   insertMovement(tx: Transaction, row: MovementRow): Promise<PostedRow>;
+  /** The open uncovered quantity of the pool this movement raises, or null when it raises none or none is owed. */
+  arrivalOwed(tx: Transaction, row: MovementRow): Promise<ArrivalOwed | null>;
+  /** `inv.settle_negative_stock`: oldest uncovered rows first, exact; what it settled, cleared and took out. */
+  settleNegativeStock(tx: Transaction, liftId: string, arrivalId: string, trueUpId: string, actorId: string): Promise<{ readonly settledQty: string; readonly clearedPesewas: bigint; readonly trueUpPesewas: bigint }>;
+  negativeCostOf(tx: Transaction, movementId: string): Promise<NegativeStockCostRow | null>;
+  /** The open count task of a product (and unit) at a location, raised with a NEGATIVE_STOCK exception. */
+  openCountTask(tx: Transaction, locationId: string, productId: string, stockUnitId: string | null): Promise<string | null>;
   insertLineage(tx: Transaction, childUnitId: string, parentUnitId: string, linkType: LinkType, sourceDocumentId: string, actorId: string): Promise<void>;
   unitExists(tx: Transaction, unitId: string): Promise<boolean>;
   /** The unit and every unit it came from (backward) or that came from it (forward), nearest first. */

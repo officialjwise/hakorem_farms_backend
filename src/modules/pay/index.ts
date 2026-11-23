@@ -14,6 +14,7 @@ export { Refunds } from './application/refunds';
 export { TillShiftRegistry, type TillCashAnswer, type TillCashDirection, type TillCashRefusal, type TillCashRequest, type TillShiftCheck } from './application/till-shifts';
 export { Receipts } from './application/receipts';
 export { UnverifiedTenders, type UnverifiedTenderRequest } from './application/unverified-tenders';
+export { UnverifiedOverdue } from './application/unverified-overdue';
 export { AllocationsAsAt } from './application/allocations-as-at';
 export { PaymentInvalidError, PaymentRequiresVerificationError } from './application/errors';
 export type { DepositAllocated, PaymentCleared, PaymentFailed, RefundPaid, RegisterRefPayload } from './events';

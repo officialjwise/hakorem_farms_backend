@@ -48,6 +48,11 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0287_fin_negative_stock_postings',
+      '0286_inv_negative_stock_offline',
+      '0285_fin_unverified_mobile_money_clearing',
+      '0284_pay_unverified_clearing',
+      '0283_mdm_mobile_money_not_received_reason',
       '0282_quo_quote_links_revoked_and_decided',
       '0281_fin_pos_late_entry_postings',
       '0280_pos_late_entry',

@@ -256,25 +256,32 @@ describe("ADR-0027's conflicts: the sale and its money are recorded, the stock c
     ]);
   });
 
-  it('countable stock gone negative where the location does not allow it: the sale and cash post, the eggs do not move, a NEGATIVE_STOCK stands in the movement (9.3, A-278 (f))', async () => {
+  it('countable stock gone negative where the location does not allow it: the sale and cash post, the eggs go below zero, the uncovered part at its last known cost (9.3, ADR-0081, replacing A-278 (f))', async () => {
     const before = await one<{ qty: string; value: string }>('SELECT qty::text AS qty, value_pesewas::text AS value FROM inv.cost_pool WHERE product_id = $1', [id('EGG-0003')]);
     const onHand = await num('SELECT on_hand_qty::text AS n FROM inv.stock_balance WHERE product_id = $1 AND location_id = $2', [id('EGG-0003'), id('SHOP')]);
     expect([Number(before.qty), onHand]).toEqual([900, 900]);
     const offline = sale('S1', 1, later(5), [{ productId: id('EGG-0003'), quantity: '31.000', uom: 'CRATE', agreedUnitPricePesewas: 6_000 }], [cash(186_000, 190_000)]);
     clock.advanceBy(20 * MINUTE);
     const synced = await sync('kofi', 'S1', [offline]);
-    expect(synced.body.results[0]).toMatchObject({ outcome: 'APPLIED_WITH_EXCEPTION', grossPesewas: 186_000, exceptions: [expect.objectContaining({ kind: 'NEGATIVE_STOCK' })] });
-    expect(await num('SELECT count(*)::text AS n FROM inv.stock_movement WHERE source_document_id = $1', [offline.id])).toBe(0);
-    const exception = await one<{ kind: string; qty: string; movement: string | null; details: { fact: { rule: string } } }>(
-      'SELECT e.kind, e.qty::text AS qty, e.movement_id AS movement, e.details FROM inv.stock_exception e JOIN ord.sales_order_line l ON l.stock_exception_id = e.id WHERE l.sales_order_id = $1',
-      [offline.id],
+    // NEGATIVE_STOCK, and the trigger's RESERVATION_CONFLICT beside it (on hand below the nil reserved, A-278 (f), BL-105).
+    expect(synced.body.results[0]).toMatchObject({ outcome: 'APPLIED_WITH_EXCEPTION', grossPesewas: 186_000 });
+    expect((synced.body.results[0].exceptions as { kind: string }[]).map((e) => e.kind)).toEqual(['NEGATIVE_STOCK', 'RESERVATION_CONFLICT']);
+    // The owner's decision 2 of 2026-11-18: the 930 eggs move, the shop floor goes to -30, the exception names the movement.
+    const issue = await one<{ id: string; qty: string; value: string }>("SELECT id, qty_base::text AS qty, value_pesewas::text AS value FROM inv.stock_movement WHERE source_document_id = $1 AND movement_type = 'SALE_ISSUE_OFFLINE'", [offline.id]);
+    expect([issue.qty, issue.value]).toEqual(['930.000', before.value]);
+    const exception = await one<{ kind: string; qty: string; movement: string | null }>(
+      'SELECT e.kind, e.qty::text AS qty, e.movement_id AS movement FROM inv.stock_exception e JOIN ord.sales_order_line l ON l.stock_movement_id = e.movement_id WHERE l.sales_order_id = $1 AND e.kind = $2',
+      [offline.id, 'NEGATIVE_STOCK'],
     );
-    expect([exception.kind, exception.qty, exception.movement, exception.details.fact.rule]).toEqual(['NEGATIVE_STOCK', '930.000', null, 'ck_stock_negative']);
-    expect(await num('SELECT on_hand_qty::text AS n FROM inv.stock_balance WHERE product_id = $1 AND location_id = $2', [id('EGG-0003'), id('SHOP')])).toBe(900);
+    expect([exception.kind, exception.qty, exception.movement]).toEqual(['NEGATIVE_STOCK', '30.000', issue.id]);
+    expect(await num('SELECT on_hand_qty::text AS n FROM inv.stock_balance WHERE product_id = $1 AND location_id = $2', [id('EGG-0003'), id('SHOP')])).toBe(-30);
+    // The 30 the lot did not hold, at its own average before the sale (V x 30 / 900, half-up once), to 5020 against 1335.
+    const uncovered = Math.floor((2 * Number(before.value) * 30 + 900) / (2 * 900));
     const documents = await documentsOf(offline.id);
     expect(await balance('4020', documents)).toBe(-186_000);
     expect(await balance('1000', documents)).toBe(186_000);
-    expect(await balance('5020', documents)).toBe(0);
+    expect(await balance('5020', documents)).toBe(Number(before.value) + uncovered);
+    expect(await balance('1335', documents)).toBe(-uncovered);
   });
 
   it('a missing device counter: counters 2 to 9 without 8 sync, 8 is answered missing and raised once, URGENT (9.5)', async () => {
@@ -305,8 +312,9 @@ describe('ADR-0077 offline as amended by the owner on 2026-11-18: cash from the 
     const synced = await sync('esi', 'F1', [before, after]);
     expect(synced.status, JSON.stringify(synced.body)).toBe(200);
     const [r1, r2] = synced.body.results as { outcome: string; grossPesewas: number; exceptions: { kind: string }[] }[];
-    expect([r1!.outcome, r1!.grossPesewas, r1!.exceptions.map((e) => e.kind).sort()]).toEqual(['APPLIED_WITH_EXCEPTION', 440, ['OFFLINE_LATE_CASH', 'OFFLINE_LATE_POSTING']]);
-    expect([r2!.outcome, r2!.grossPesewas, r2!.exceptions.map((e) => e.kind).sort()]).toEqual(['APPLIED_WITH_EXCEPTION', 220, ['OFFLINE_LATE_CASH', 'OFFLINE_LATE_POSTING']]);
+    // The eggs on the shop floor are below zero since the 9.3 sale above (ADR-0081), so these egg sales raise NEGATIVE_STOCK too.
+    expect([r1!.outcome, r1!.grossPesewas, r1!.exceptions.map((e) => e.kind).sort()]).toEqual(['APPLIED_WITH_EXCEPTION', 440, ['NEGATIVE_STOCK', 'OFFLINE_LATE_CASH', 'OFFLINE_LATE_POSTING']]);
+    expect([r2!.outcome, r2!.grossPesewas, r2!.exceptions.map((e) => e.kind).sort()]).toEqual(['APPLIED_WITH_EXCEPTION', 220, ['NEGATIVE_STOCK', 'OFFLINE_LATE_CASH', 'OFFLINE_LATE_POSTING']]);
     // The cash went onto the force-closed shift it happened in, marked late, and nowhere else; each receipt is settled.
     for (const [s, gross] of [
       [before, 440],
@@ -324,7 +332,10 @@ describe('ADR-0077 offline as amended by the owner on 2026-11-18: cash from the 
       { device_counter: 1, posted_late_reason: 'SHIFT_CLOSED' },
       { device_counter: 2, posted_late_reason: 'AFTER_FORCE_CLOSE' },
     ]);
-    const severities = async (s: TillSale) => (await outbox('pos.OfflineSaleFlagged', s.id)).map((r) => [r.payload['exceptionKind'], r.payload['severity'], r.payload['amountPesewas']]).sort();
+    // The eggs' NEGATIVE_STOCK (below zero since the 9.3 sale above, ADR-0081) is its own flag, checked apart.
+    const negative = async (s: TillSale) => (await outbox('pos.OfflineSaleFlagged', s.id)).filter((r) => r.payload['exceptionKind'] === 'STOCK_EXCEPTION').map((r) => (r.payload['fact'] as Record<string, unknown>)['stockExceptionKind']);
+    expect([await negative(before), await negative(after)]).toEqual([['NEGATIVE_STOCK'], ['NEGATIVE_STOCK']]);
+    const severities = async (s: TillSale) => (await outbox('pos.OfflineSaleFlagged', s.id)).filter((r) => r.payload['exceptionKind'] !== 'STOCK_EXCEPTION').map((r) => [r.payload['exceptionKind'], r.payload['severity'], r.payload['amountPesewas']]).sort();
     expect(await severities(before)).toEqual([
       ['OFFLINE_LATE_CASH', 'REVIEW', 440],
       ['OFFLINE_LATE_POSTING', 'REVIEW', 440],
@@ -354,7 +365,8 @@ describe('a price beyond the cashier limit or out of the band is re-checked at s
     const synced = await sync('yaw', 'V1', [offline]);
     expect(synced.status, JSON.stringify(synced.body)).toBe(200);
     expect(synced.body.results[0]).toMatchObject({ outcome: 'APPLIED_WITH_EXCEPTION', grossPesewas: 7_600 });
-    expect((synced.body.results[0].exceptions as { kind: string }[]).map((e) => e.kind)).toEqual(['PRICE_OVERRIDE', 'PRICE_OVERRIDE']);
+    // The crate of eggs takes the shop floor further below zero (since the 9.3 sale above, ADR-0081): NEGATIVE_STOCK beside the overrides.
+    expect((synced.body.results[0].exceptions as { kind: string }[]).map((e) => e.kind)).toEqual(['NEGATIVE_STOCK', 'PRICE_OVERRIDE', 'PRICE_OVERRIDE']);
     expect(
       await rows(
         'SELECT line_no, resolved_unit_price_pesewas::int AS resolved, floor_unit_price_pesewas::int AS floor, agreed_unit_price_pesewas::int AS agreed, variance_pesewas::int AS variance, variance_direction AS direction, variance_requires_approval AS approval FROM ord.sales_order_line WHERE sales_order_id = $1 ORDER BY line_no',
@@ -369,7 +381,8 @@ describe('a price beyond the cashier limit or out of the band is re-checked at s
     expect(await balance('4210', documents)).toBe(400);
     expect(await balance('1000', documents)).toBe(7_600);
     // Beyond the cashier's limit with no supervisor's PIN, and outside the band: each URGENT, outside the rules (the owner, 2026-11-18).
-    const flags = (await outbox('pos.OfflineSaleFlagged', offline.id)).map((r) => [r.payload['exceptionKind'], r.payload['severity'], r.payload['amountPesewas'], (r.payload['fact'] as Record<string, unknown>)['beyondCashier'], (r.payload['fact'] as Record<string, unknown>)['reason'], (r.payload['fact'] as Record<string, unknown>)['band']]);
+    // The crate's NEGATIVE_STOCK (the eggs below zero since the 9.3 sale above, ADR-0081) is not an override.
+    const flags = (await outbox('pos.OfflineSaleFlagged', offline.id)).filter((r) => r.payload['exceptionKind'] !== 'STOCK_EXCEPTION').map((r) => [r.payload['exceptionKind'], r.payload['severity'], r.payload['amountPesewas'], (r.payload['fact'] as Record<string, unknown>)['beyondCashier'], (r.payload['fact'] as Record<string, unknown>)['reason'], (r.payload['fact'] as Record<string, unknown>)['band']]);
     expect(flags).toEqual([
       ['PRICE_OVERRIDE', 'URGENT', 200, 'BEYOND_ROLE_LIMIT', 'NO_SUPERVISOR_PIN', { listPricePesewas: 1_000, floorPricePesewas: 800, ceilingPricePesewas: 1_200 }],
       ['PRICE_OVERRIDE', 'URGENT', 200, 'OUTSIDE_BAND', 'OUTSIDE_BAND', { listPricePesewas: 6_000, floorPricePesewas: 6_000, ceilingPricePesewas: 6_000 }],

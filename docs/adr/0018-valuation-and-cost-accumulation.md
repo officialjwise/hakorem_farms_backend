@@ -79,3 +79,8 @@ CST owns no cost of record. It reads inventory's published views and events and 
 - B6 gate: a processing order produces lots whose costs sum exactly to input cost plus direct processing cost.
 - B6: a feed allocation across a pen sums exactly to the feed value issued.
 - B8: nightly reconciliation of pool values against inventory accounts.
+
+## Amendments
+
+- **2026-11-23, B09b continued 3c (the owner's decision 2 of 2026-11-18, ADR-0081).** The rule "the uncovered quantity carries zero value" is amended. The movement still carries only what the pool holds, and the pool still never holds a negative value. The uncovered quantity of an offline sale is now valued at the last known cost in `inv.negative_stock_cost`, posted Dr cost of sales, Cr 1335. It is trued up exactly on arrival by a nil lift and a pool-valued issue around the arrival, settling oldest first. ADR-0081 also records a latent defect in this ADR's pool rule: an arrival that brings a pool from -U to exactly 0 meets `ck_cost_pool_empty`. The true-up keeps every owing pool clear of it; the CHECK itself is unchanged.
+

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { createUuidV7Generator, formatCedis, type Clock } from '@hakorem/kernel';
+import { createUuidV7Generator, formatCedis, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
 import type { Actor } from '../../../platform/context/request-context';
 import { canonicalJson } from '../../../platform/crypto/canonical-json';
@@ -13,9 +13,9 @@ import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalN
 import type { MasterDataRefs } from '../../mdm';
 import { judgeResolution, type ResolvableBreak, type ResolutionPosting } from '../domain/reconciliation';
 import { jsonPesewas as json } from '../domain/tender';
-import type { BreakResolutionRequested, UnidentifiedReceiptHeld } from '../events';
+import type { BreakResolutionRequested, UnidentifiedReceiptHeld, UnverifiedPaymentVerified } from '../events';
 import { ReconciliationInvalidError } from './errors';
-import { UNIDENTIFIED_RECEIPT_HELD, type Page } from './payments';
+import { UNIDENTIFIED_RECEIPT_HELD, UNVERIFIED_PAYMENT_VERIFIED, type Page } from './payments';
 import type { BreakRecord, ReconciliationStore, ResolutionRecord } from './reconciliation-store';
 import type { ApprovalPendingView } from './refunds';
 
@@ -120,7 +120,7 @@ export class BreakQueue {
       await this.documents.register(tx, { id: resolutionId, docType: 'BREAK_RESOLUTION', ownerModule: 'pay', branchId, actorId: actor!.principalId });
       await this.store.insertResolution(tx, { id: resolutionId, breakId: id, posting: body.posting, note, branchId, createdBy: actor!.principalId });
       const resolution = (await this.store.openResolutionOf(tx, id))!;
-      const summary = `Resolve ${found.kind.toLowerCase().replaceAll('_', ' ')}${found.amountPesewas === null ? '' : ` of ${formatCedis(found.amountPesewas)}`}${body.posting === 'UNIDENTIFIED_RECEIPT' ? ', held in suspense' : ''}`;
+      const summary = `Resolve ${found.kind.toLowerCase().replaceAll('_', ' ')}${found.amountPesewas === null ? '' : ` of ${formatCedis(found.amountPesewas)}`}${body.posting === 'UNIDENTIFIED_RECEIPT' ? ', held in suspense' : body.posting === 'VERIFIED' ? ', verified with the provider' : ''}`;
       const approval = await this.approvals.request(tx, actor, { kind: RECONCILIATION_BREAK_KIND, branchId, subjectDocumentId: resolutionId, payloadHash: resolutionHash(found, resolution), amountPesewas: found.amountPesewas ?? 0n, summary });
       await this.store.updateResolution(tx, resolutionId, { approvalRequestId: approval.id }, actor!.principalId);
       const requested: BreakResolutionRequested = {
@@ -156,11 +156,12 @@ export class BreakQueue {
       const resolution = await this.store.resolutionByApproval(tx, request.id);
       if (resolution?.status !== 'PENDING_APPROVAL') throw new NotFoundError('no such break resolution');
       const found = (await this.store.break(tx, resolution.breakId, true))!;
-      const judged = judgeResolution(await this.resolvable(tx, found), resolution.posting, resolution.note);
+      const judged = judgeResolution(await this.resolvable(tx, found, true), resolution.posting, resolution.note);
       if (!judged.ok) throw new ReconciliationInvalidError(judged.error.map((rule) => ({ field: '', rule })));
       const decider = request.decidedBy ?? SYSTEM_ACTOR_ID;
       await this.store.updateResolution(tx, resolution.id, { status: 'APPROVED' }, decider);
       if (resolution.posting === 'UNIDENTIFIED_RECEIPT') await this.holdInSuspense(tx, found, resolution, request.id);
+      if (resolution.posting === 'VERIFIED') await this.verify(tx, found, resolution, request.id, decider);
       await this.store.resolveBreak(tx, found.id, resolution.note, this.clock.now(), decider);
       await this.audit.record(tx, { module: 'pay', action: 'RESOLVE', entityType: 'ReconciliationBreak', entityId: found.id, branchId: resolution.branchId, before: { status: 'OPEN' }, after: { status: 'RESOLVED', posting: resolution.posting, note: resolution.note, approvalRequestId: request.id } });
     },
@@ -184,12 +185,39 @@ export class BreakQueue {
     await this.publishHeld(tx, { breakId: found.id, lineId: line.id, sourceDocumentId: line.bankStatementId, branchId: resolution.branchId, bankAccountId: line.bankAccountId, amountPesewas: json(line.amountPesewas), feePesewas: 0, approvalRequestId });
   }
 
+  /**
+   * ◆ `pay.UnverifiedPaymentVerified` (A-282): the tender confirmed with the provider moves from 1115 to the wallet, once.
+   * The verification row is the subject, unique per payment, break and resolution, so a second approval posts nothing.
+   */
+  private async verify(tx: Transaction, found: BreakRecord, resolution: ResolutionRecord, approvalRequestId: string, decider: string): Promise<void> {
+    const tender = (await this.store.unverifiedTender(tx, found.paymentId!, true))!;
+    const now = this.clock.now();
+    const verificationId = this.nextId();
+    const verifiedOn = toBusinessDate(now);
+    await this.store.insertVerification(tx, { id: verificationId, paymentId: tender.paymentId, breakId: found.id, resolutionId: resolution.id, branchId: tender.branchId, amountPesewas: tender.amountPesewas, verifiedOn, recordedAt: now, actorId: decider });
+    const payload: UnverifiedPaymentVerified = {
+      verificationId,
+      paymentId: tender.paymentId,
+      breakId: found.id,
+      branchId: tender.branchId,
+      bankAccountId: tender.bankAccountId!,
+      amountPesewas: json(tender.amountPesewas),
+      verifiedOn,
+      approvalRequestId,
+    };
+    await this.events.publish(tx, { type: UNVERIFIED_PAYMENT_VERIFIED, subjectType: 'Payment', subjectId: tender.paymentId, branchId: tender.branchId, payload });
+  }
+
   private async publishHeld(tx: Transaction, payload: UnidentifiedReceiptHeld): Promise<void> {
     await this.events.publish(tx, { type: UNIDENTIFIED_RECEIPT_HELD, subjectType: 'ReconciliationBreak', subjectId: payload.breakId, branchId: payload.branchId, payload });
   }
 
   /** A break with the line it was raised for, as its resolution is judged on. */
-  private async resolvable(tx: Transaction, b: BreakRecord): Promise<ResolvableBreak> {
+  private async resolvable(tx: Transaction, b: BreakRecord, forUpdate = false): Promise<ResolvableBreak> {
+    if (b.kind === 'UNVERIFIED_PAYMENT') {
+      const tender = b.paymentId === null ? null : await this.store.unverifiedTender(tx, b.paymentId, forUpdate);
+      return { status: b.status, kind: b.kind, line: null, tender: tender === null ? null : { status: tender.status, verified: tender.verified } };
+    }
     if (b.settlementLineId !== null) {
       const line = (await this.store.settlementLine(tx, b.settlementLineId))!;
       return { status: b.status, kind: b.kind, line: { source: 'SETTLEMENT', reason: line.matchReason, direction: 'IN', matched: line.matchStatus === 'MATCHED' } };

@@ -166,8 +166,8 @@ import { StockAlertsController } from './interface/stock-alerts.controller';
     },
     {
       provide: Stock,
-      useFactory: (store: StockStore, events: DomainEvents, clock: Clock, alerts: StockAlerts) => new Stock(store, events, clock, alerts),
-      inject: [STOCK_STORE, DomainEvents, CLOCK, StockAlerts],
+      useFactory: (store: StockStore, events: DomainEvents, clock: Clock, alerts: StockAlerts, refs: MasterDataRefs) => new Stock(store, events, clock, alerts, refs),
+      inject: [STOCK_STORE, DomainEvents, CLOCK, StockAlerts, MasterDataRefs],
     },
     { provide: STOCK_UNIT_STORE, useClass: PgStockUnitStore },
     {

@@ -26,6 +26,8 @@
     "test:smoke": "tsx scripts/test-smoke.ts",
     "test:sandbox": "PAYSTACK_SANDBOX=1 NODE_USE_ENV_PROXY=1 vitest run --project sandbox",
     "test:coverage": "vitest run --project unit --project integration --coverage",
+    "test:coverage:shard": "HK_COVERAGE_SHARD=1 vitest run --project unit --project integration --coverage --reporter=blob --reporter=default",
+    "test:coverage:merge": "vitest --merge-reports --coverage",
     "contract:generate": "tsx scripts/contract/generate.ts"
   },
   "devDependencies": {

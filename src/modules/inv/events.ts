@@ -89,3 +89,39 @@ export interface GoodsReceiptPosted {
     readonly rejectionReasonCode: string | null;
   }[];
 }
+
+/**
+ * ◆ `inv.NegativeStockCosted` v1 (the owner's decision 2 of 2026-11-18, ADR-0081, A-283): an offline sale took stock
+ * below what the branch's cost pool held; the uncovered quantity is costed at the last known cost (Dr cost of sales by
+ * the product's GL group, Cr 1335 Stock sold ahead of receipt). Zero, and raised URGENT, when no cost was ever known.
+ */
+export interface NegativeStockCosted {
+  readonly negativeStockCostId: string;
+  readonly movementId: string;
+  readonly productId: string;
+  readonly stockUnitId: string | null;
+  readonly branchId: string;
+  readonly locationId: string;
+  readonly uncoveredQty: string;
+  readonly costKnown: boolean;
+  readonly valuePesewas: number;
+  readonly sourceDocumentId: string;
+}
+
+/**
+ * ◆ `inv.NegativeStockTrueUp` v1 (ADR-0081, A-283): stock arrived into a pool that owed stock sold ahead of receipt;
+ * the settled quantity's last known cost leaves 1335 (`clearedPesewas`, Dr 1335, Cr cost of sales) and its cost as it
+ * arrived leaves the pool (`trueUpPesewas`, Dr cost of sales, Cr inventory), so cost of sales moves by the difference.
+ */
+export interface NegativeStockTrueUp {
+  readonly trueUpMovementId: string;
+  readonly liftMovementId: string;
+  readonly arrivalMovementId: string;
+  readonly productId: string;
+  readonly stockUnitId: string | null;
+  readonly branchId: string;
+  readonly settledQty: string;
+  readonly clearedPesewas: number;
+  readonly trueUpPesewas: number;
+  readonly sourceDocumentId: string;
+}

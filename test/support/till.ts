@@ -21,7 +21,9 @@ export async function openTestShift(admin: Executor, cashierId: string, branchId
   const location = await admin.query<{ id: string }>("SELECT id FROM mdm.location WHERE branch_id = $1 AND NOT is_virtual ORDER BY (code = 'SHOP') DESC, code LIMIT 1", [branchId]);
   const registerId = register?.id ?? randomUUID();
   const shiftId = randomUUID();
-  const code = `X${randomUUID().replace(/[^0-9]/g, '').slice(0, 3)}`;
+  // The first X000 to X999 no live till of the branch holds: a random three digits collided about one run in a
+  // thousand with the spec's other test till (uq_register_code, price-override's pull_request run 45106049807).
+  const code = await freeTillCode(admin, branchId);
   const at = new Date();
   const exists = await admin.query('SELECT 1 FROM pos.register WHERE id = $1', [registerId]);
   if (exists.rows.length === 0) {
@@ -47,3 +49,16 @@ export async function openTestShift(admin: Executor, cashierId: string, branchId
 export function tillOf(request: { readonly tenders: readonly { readonly register: { readonly id: string; readonly code: string } | null }[] }): { readonly id: string; readonly code: string } | null {
   return request.tenders.find((t) => t.register !== null)?.register ?? null;
 }
+
+/** The first test till code from X000 to X999 that no live till of the branch holds (`uq_register_code`). */
+async function freeTillCode(admin: Executor, branchId: string): Promise<string> {
+  const free = await admin.query<{ code: string }>(
+    `SELECT 'X' || lpad(n::text, 3, '0') AS code FROM generate_series(0, 999) n
+      WHERE NOT EXISTS (SELECT 1 FROM pos.register r WHERE r.branch_id = $1 AND r.deleted_at IS NULL AND r.code = 'X' || lpad(n::text, 3, '0'))
+      ORDER BY n LIMIT 1`,
+    [branchId],
+  );
+  if (free.rows[0] === undefined) throw new Error(`branch ${branchId} has no free test till code left`);
+  return free.rows[0].code;
+}
+

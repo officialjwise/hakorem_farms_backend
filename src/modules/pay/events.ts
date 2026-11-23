@@ -237,13 +237,48 @@ export interface UnidentifiedReceiptHeld {
   readonly approvalRequestId: string;
 }
 
+/**
+ * ◆ `pay.UnverifiedPaymentVerified` v1 (ADR-0003 Amendments, A-282, the owner's decision 3 of 2026-11-18): an unverified
+ * offline mobile money tender confirmed with the provider, through its break's approved `VERIFIED` resolution, moves
+ * from 1115 Mobile money awaiting verification to 1110 Mobile money wallets, both against the wallet, exactly once.
+ */
+export interface UnverifiedPaymentVerified {
+  readonly verificationId: string;
+  readonly paymentId: string;
+  readonly breakId: string;
+  readonly branchId: string;
+  readonly bankAccountId: string;
+  readonly amountPesewas: number;
+  /** The business date of the approval, the entry's posting date. */
+  readonly verifiedOn: string;
+  readonly approvalRequestId: string;
+}
+
+/**
+ * `pay.UnverifiedPaymentOverdue` v1 (A-282 (e), OFFLINE_SYNC 9.9, abuse case 4): an unverified tender still waiting in
+ * 1115 when its `pay.unverified_window_days` ran out, raised URGENT once for the daily exception report's source
+ * (`UNMATCHED_PAYMENT`). It stays in clearing; nothing posts.
+ */
+export interface UnverifiedPaymentOverdue {
+  readonly breakId: string;
+  readonly paymentId: string;
+  readonly branchId: string;
+  readonly amountPesewas: number;
+  readonly reference: string | null;
+  readonly urgentFrom: string;
+  readonly exceptionKind: 'UNMATCHED_PAYMENT';
+  readonly severity: 'URGENT';
+  readonly abuseCases: readonly number[];
+  readonly details: Readonly<Record<string, unknown>>;
+}
+
 /** `pay.BreakResolutionRequested` v1: a break's resolution waits for a different person's approval (the daily report's `RECONCILIATION_BREAK`). */
 export interface BreakResolutionRequested {
   readonly resolutionId: string;
   readonly breakId: string;
   readonly kind: string;
   readonly branchId: string;
-  readonly posting: 'NONE' | 'UNIDENTIFIED_RECEIPT';
+  readonly posting: 'NONE' | 'UNIDENTIFIED_RECEIPT' | 'VERIFIED';
   readonly amountPesewas: number | null;
   readonly approvalRequestId: string;
   readonly requestedBy: string;

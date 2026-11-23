@@ -12,6 +12,9 @@ import {
   debitNoteIssuedAmounts,
   depositAllocatedAmounts,
   chequeClearedAmounts,
+  unverifiedVerifiedAmounts,
+  negativeStockCostedAmounts,
+  negativeStockTrueUpAmounts,
   refundPaidAmounts,
   invoiceIssuedAmounts,
   paymentClearedAmounts,
@@ -126,6 +129,8 @@ export class LedgerPostings {
     this.translators = new Map<string, Translator>([
       ...STOCK_POSTING_EVENTS.map((code) => [code, stock] as const),
       ['inv.UpkeepExpensed', async (_tx, event) => this.upkeep(event.payload as unknown as UpkeepPosting)],
+      ['inv.NegativeStockCosted', (tx, event) => this.negativeStock(tx, event.payload as unknown as NegativeStockPosting, 'costed')],
+      ['inv.NegativeStockTrueUp', (tx, event) => this.negativeStock(tx, event.payload as unknown as NegativeStockPosting, 'trueUp')],
       ['prc.DirectCostIncurred', async (_tx, event) => this.directCost(event.payload as unknown as DirectCostPosting)],
       ['prc.ProcessingOrderReversed', async (_tx, event) => this.processingReversed(event.payload as unknown as ProcessingReversedPosting)],
       ['pur.SupplierInvoiceMatched', invoice],
@@ -139,6 +144,7 @@ export class LedgerPostings {
       ['pay.DepositAllocated', (tx, event) => this.depositAllocated(tx, event.payload as unknown as DepositAllocatedPosting)],
       ['pay.RefundPaid', (tx, event) => this.refundPaid(tx, event.payload as unknown as RefundPaidPosting)],
       ['pay.ChequeCleared', (tx, event) => this.chequeCleared(tx, event.payload as unknown as ChequeClearedPosting)],
+      ['pay.UnverifiedPaymentVerified', (tx, event) => this.unverifiedVerified(tx, event.payload as unknown as UnverifiedVerifiedPosting)],
       ['pay.PaymentReversed', async (_tx, event) => this.paymentReversed(event.payload as unknown as PaymentReversedPosting)],
       ['pay.ProviderSettled', (tx, event) => this.providerSettled(tx, event.payload as unknown as ProviderSettledPosting)],
       ['pay.UnidentifiedReceiptHeld', (tx, event) => this.unidentifiedReceipt(tx, event.payload as unknown as UnidentifiedReceiptPosting)],
@@ -212,6 +218,20 @@ export class LedgerPostings {
       eventSubjectId: payload.movementId,
       reversesSubjectId: payload.reversesMovementId,
     };
+  }
+
+  /** INV's ◆ events for stock sold ahead of receipt (ADR-0081): by the product's GL group, once per subject. */
+  private async negativeStock(tx: Transaction, payload: NegativeStockPosting, kind: 'costed' | 'trueUp'): Promise<Translated> {
+    const product = (await this.refs.productsIn(tx, [payload.productId])).get(payload.productId);
+    if (product === undefined) throw new Error(`negative stock ${payload.movementId ?? payload.trueUpMovementId}: product ${payload.productId} does not exist`);
+    return kind === 'costed'
+      ? { amounts: negativeStockCostedAmounts({ valuePesewas: payload.valuePesewas!, stockUnitId: payload.stockUnitId }, product.glGroup), sourceDocumentId: payload.sourceDocumentId, eventSubjectId: payload.movementId!, branchId: payload.branchId }
+      : {
+          amounts: negativeStockTrueUpAmounts({ clearedPesewas: payload.clearedPesewas!, trueUpPesewas: payload.trueUpPesewas!, stockUnitId: payload.stockUnitId }, product.glGroup),
+          sourceDocumentId: payload.sourceDocumentId,
+          eventSubjectId: payload.trueUpMovementId!,
+          branchId: payload.branchId,
+        };
   }
 
   /** `whl.BadDebtWrittenOff` (ADR-0003, ADR-0090): Dr 6940 the amount; Cr 1200 against the customer. */
@@ -367,6 +387,20 @@ export class LedgerPostings {
   }
 
   /**
+   * PAY's ◆ event (ADR-0003 Amendments, A-282): an unverified tender the provider confirmed, out of 1115 into the wallet
+   * 1110 it was expected in, on the day it was verified; once per verification.
+   */
+  private async unverifiedVerified(tx: Transaction, payload: UnverifiedVerifiedPosting): Promise<Translated> {
+    return {
+      amounts: unverifiedVerifiedAmounts(payload, await this.bankAccounts.subledgerRefIn(tx, payload.bankAccountId)),
+      sourceDocumentId: payload.paymentId,
+      eventSubjectId: payload.verificationId,
+      branchId: payload.branchId,
+      postingDate: payload.verifiedOn,
+    };
+  }
+
+  /**
    * PAY's ◆ event (ADR-0003 "Reverse of the original", ADR-0056, ADR-0064): the mirror of the entry its subject names,
    * nothing recomputed. The amount is the original's, so an entry that is missing refuses the reversal.
    */
@@ -492,6 +526,29 @@ interface ChequeClearedPosting {
   readonly bankAccountId: string;
   readonly amountPesewas: number;
   readonly clearedOn: string;
+}
+
+/** The fields of INV's `inv.NegativeStockCosted` and `inv.NegativeStockTrueUp` FIN reads. */
+interface NegativeStockPosting {
+  readonly movementId?: string;
+  readonly trueUpMovementId?: string;
+  readonly productId: string;
+  readonly stockUnitId: string | null;
+  readonly branchId: string;
+  readonly valuePesewas?: number;
+  readonly clearedPesewas?: number;
+  readonly trueUpPesewas?: number;
+  readonly sourceDocumentId: string;
+}
+
+/** The fields of PAY's `pay.UnverifiedPaymentVerified` FIN reads. */
+interface UnverifiedVerifiedPosting {
+  readonly verificationId: string;
+  readonly paymentId: string;
+  readonly branchId: string;
+  readonly bankAccountId: string;
+  readonly amountPesewas: number;
+  readonly verifiedOn: string;
 }
 
 /** The fields of PAY's `pay.PaymentReversed` FIN reads. */
