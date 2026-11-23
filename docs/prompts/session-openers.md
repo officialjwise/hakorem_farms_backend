@@ -3170,7 +3170,7 @@ Stop at the gate and write docs/sessions/B10c4-quote-pipeline.md.
 
 ## B10 continued 5 — The quote's document, the pipeline, subject to stock and UAT scenario 2
 
-Branch `b10c5-quote-document-pipeline`. Report `docs/sessions/B10c5-quote-document-pipeline.md`. Gate: an issued quote version is rendered and archived once and `PublicQuote.documentUrl` opens it; the pipeline reconciles to listQuotes; a quote for stock not on hand is issued subject to stock with exact quantities and reserves only what is on hand; UAT scenario 2's dry run is recorded with every difference; every write refuses the wrong role.
+Branch `b10c5-quote-document-pipeline`. Report `docs/sessions/B10c5-quote-document-pipeline.md`. **Built (A-328 to A-331, contract 2.23.0): the quote's document, getQuotePipeline, subject to stock and UAT scenario 2's dry run to step 2.11 (2.12 onwards needs B11's dispatch).** Gate: an issued quote version is rendered and archived once and `PublicQuote.documentUrl` opens it; the pipeline reconciles to listQuotes; a quote for stock not on hand is issued subject to stock with exact quantities and reserves only what is on hand; UAT scenario 2's dry run is recorded with every difference; every write refuses the wrong role.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md, and "Two lanes" below.
@@ -3272,6 +3272,9 @@ The owner, 2026-11-19 (from the frontend's F11; the numbers checked on the front
 - CR-054: a proper short-pick shape with the customer's consent, instead of a same-product substitution.
 - CR-055: recording a part delivery.
 - The part-crate return rule above stands.
+UAT scenario 2's rule for a partial dispatch (B10 continued 5, A-331 (b), open with the owner): a delivery fee is charged
+once, on the first dispatch of an order, never again on a later one; test it with exact pesewas (steps 2.12 and 2.13),
+and finish scenario 2's dry run from step 2.12, recording every difference.
 Stop at the gate and write docs/sessions/B11-fulfilment-delivery.md.
 ```
 
