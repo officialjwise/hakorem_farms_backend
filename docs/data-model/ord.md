@@ -291,3 +291,22 @@ The lines and quantities being returned.
 
 - UNIQUE (`order_return_id`, `sales_order_line_id`).
 - Trigger (`ck_order_return_line_cap`): what returns not `REJECTED` hold of a sold line never exceeds its `qty_fulfilled`, under the sold line's row lock; the line is of the return's own sale; lines are written while the return is `REQUESTED`, and afterwards only `refund_pesewas` and `stock_movement_id`, while it is open.
+
+## As built (B11 continued 4, migration 0323; FR-DEL-011, the owner's van rule of 2026-11-23, A-360)
+
+### `ord.delivery_return` · DOCUMENT
+
+One way a failed delivery's goods left the van other than by delivery, and what the customer was credited and refunded
+for them. Columns: `id`; `delivery_id` (FK `del.delivery`); `sales_order_id` (FK `ord.sales_order`);
+`original_billing_document_id` (FK `bil.billing_document`, the delivery's document); `way_out` (`RETURN_TO_STOCK`,
+`WRITE_OFF`); `returns_location_id` (FK `mdm.location`, exactly for a return); `reason_code` (FK `mdm.reason_code`) and
+`stock_adjustment_id` (FK `platform.business_document`, unique), exactly for a write-off; `note`; `refund_destination`
+(`ORIGINAL_METHOD`, `STORE_CREDIT`); `status` (`PENDING_APPROVAL` for a write-off waiting for its stock approval only,
+`POSTED`, `REJECTED`); `credit_note_id` (FK `bil.billing_document`, unique, exactly when `POSTED`); `refund_id` (FK
+`pay.refund`, unique, only after the credit note); the DOCUMENT standard columns with `posted_*`.
+
+- `ck_delivery_return_way_out`, `ck_delivery_return_posted`, `ck_delivery_return_refund`; `uq_delivery_return_live` (one
+  way out per delivery that was not refused).
+- The guard `ck_delivery_return_transition` (HK004): what was asked never changes; `PENDING_APPROVAL` moves once to
+  `POSTED` or `REJECTED`; a `REJECTED` row is frozen; the credit note, the refund and the posting are each set once.
+  `hk_app` has no DELETE.
