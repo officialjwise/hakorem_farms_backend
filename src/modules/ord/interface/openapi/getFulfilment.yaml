@@ -1,0 +1,98 @@
+operationId: getFulfilment
+tags:
+  - ord
+summary: "Get a fulfilment"
+description: "One pick list: what it asks of each order line, the picks not withdrawn with their weights, and each catch-weight line's tolerance. Another branch's pick list is 403.\n\nPermission: `ord.fulfilment.read`."
+x-permission: ord.fulfilment.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Fulfilment"
+        example:
+          id: "019a7af3-0f71-7eae-b3e6-f3b2d5ec6c90"
+          fulfilmentNo: PCK-2026-DDW-000411
+          order:
+            id: "019a7af0-2909-715a-b693-1e7f6d54975d"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004216
+          status: PICKING
+          pickLocation:
+            id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+            code: COLD-1
+            name: "Cold room"
+            kind: COLD_ROOM
+          picker:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          pickList:
+            - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-0001
+                name: "Full chicken, 15 kg pack"
+              qtyToPick: "1.000"
+              uom: PACK
+              estimatedWeightKg: "15.000"
+              suggestedStockUnits:
+                - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                  identifier: MEAT-CHK-261106-02
+                  tracking: LOT
+              status: OPEN
+              pickedQty: "0.000"
+              pickedWeightKg: null
+              minimumWeightKg: "13.500"
+              maximumWeightKg: "16.500"
+              toleranceState: null
+          lines:
+            - id: "019a7af3-2e60-7891-8dc9-91ea4f9d0ac8"
+              orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-0001
+                name: "Full chicken, 15 kg pack"
+              stockUnit:
+                id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                identifier: MEAT-CHK-261106-02
+                tracking: LOT
+              packBarcode: "226110602014650"
+              qty: "1.000"
+              weightKg: "14.650"
+              weightSource: SCALE
+              linePricePesewas: 29300
+          weighedTotalPesewas: 44300
+          withinTolerance: true
+          pickedAt: "2026-11-13T10:00:00Z"
+          packedAt: null
+          dispatchedAt: null
+          packageCount: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

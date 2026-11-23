@@ -16,6 +16,7 @@ registerMessages({
   'ord.credit_limit_exceeded': 'This order would take the customer over their credit limit.',
   'ord.credit_terms_exceeded': 'This customer is past their payment terms.',
   'ord.account_on_hold': 'This customer’s account is on hold.',
+  'ord.fulfilment_invalid': 'This pick list cannot be changed like this.',
 });
 
 /** A registered message with its `{name}` placeholders filled (the values are numbers, never user text). */
@@ -163,5 +164,26 @@ export class CreditRefusedError extends BusinessRuleError {
     );
     this.code = CREDIT_CODES[first][0];
     this.messageKey = CREDIT_CODES[first][1];
+  }
+}
+
+/**
+ * 422 FULFILMENT_INVALID (B11, FR-ORD-008 to FR-ORD-013, CR-054): every rule a pick list, a pick, a pack or a question
+ * to the customer breaks, each in `details[].code`: `NOT_A_PICK_LOCATION`, `NOTHING_TO_PICK`, `LINE_NOT_ON_ORDER`,
+ * `LINE_NOT_OPEN`, `LINE_REPEATED`, `QUANTITY_ABOVE_REMAINING`, `CATCH_WEIGHT_LINE_WHOLE`, `LINE_NOT_ON_PICK_LIST`,
+ * `PICK_OVER`, `PICK_ID_REUSED`, `PICK_NOT_FOUND`, `WEIGHT_REQUIRED`, `WEIGHT_SOURCE_REQUIRED`, `STOCK_UNIT_REQUIRED`,
+ * `STOCK_UNIT_OTHER_ANIMAL`, `STOCK_UNIT_OTHER_PRODUCT`, `STOCK_UNIT_NOT_TRACKED`, `ONE_ANIMAL_PER_LINE`, `INEXACT_QUANTITY`,
+ * `STOCK_SHORT`, `NOTHING_PICKED`, `SHORT_PICK_NOT_AGREED`, `TOLERANCE_EXCEEDED`, `CONSENT_PENDING`, `NO_CONSENT_PENDING`,
+ * `CONSENT_KIND_MISMATCH`, `CONSENT_ASKER_CANNOT_ANSWER`, `SAME_PRODUCT`, `PRODUCT_NOT_ACTIVE`, `PRODUCT_NOT_STOCKED`,
+ * `UNIT_NOT_SOLD`, `NO_PRICE`, `CATCH_WEIGHT_NOT_AVAILABLE`, `CATCH_WEIGHT_GOES_BY_WEIGHT`, `SHORT_NOT_LESS`.
+ */
+export class FulfilmentInvalidError extends BusinessRuleError {
+  readonly code = 'FULFILMENT_INVALID';
+  readonly messageKey = 'ord.fulfilment_invalid';
+  constructor(rules: readonly SaleRule[]) {
+    super(
+      `fulfilment breaks ${rules.map((r) => r.rule).join(', ')}`,
+      rules.map((r) => ({ field: r.field, code: r.rule, message: translate('ord.fulfilment_invalid') })),
+    );
   }
 }

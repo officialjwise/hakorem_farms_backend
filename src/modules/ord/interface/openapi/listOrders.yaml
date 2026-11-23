@@ -104,6 +104,8 @@ responses:
                   notes: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 3
+                  fulfilments: []
+                  pendingConsent: null
                   orderNo: SO-2026-DDW-004211
                   channel: POS
                   status: COMPLETED
@@ -268,6 +270,8 @@ responses:
                   notes: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 3
+                  fulfilments: []
+                  pendingConsent: null
                   orderNo: SO-2026-DDW-004216
                   channel: ONLINE
                   status: PICKING
@@ -384,6 +388,8 @@ responses:
                   notes: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 3
+                  fulfilments: []
+                  pendingConsent: null
                   orderNo: SO-2026-DDW-004198
                   channel: WHOLESALE
                   status: CONFIRMED
@@ -503,6 +509,8 @@ responses:
                   notes: "Funeral at Kasoa on 12 December; deliver on the 11th, morning"
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 3
+                  fulfilments: []
+                  pendingConsent: null
                   orderNo: SO-2026-DDW-004213
                   channel: QUOTE
                   status: CONFIRMED
@@ -614,6 +622,8 @@ responses:
                   notes: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 3
+                  fulfilments: []
+                  pendingConsent: null
                   orderNo: SO-2026-DDW-004207
                   channel: POS
                   status: COMPLETED
@@ -724,6 +734,8 @@ responses:
                   notes: "Customer cancelled by phone"
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 3
+                  fulfilments: []
+                  pendingConsent: null
                   orderNo: SO-2026-DDW-004198-1
                   channel: WHOLESALE
                   status: CANCELLED

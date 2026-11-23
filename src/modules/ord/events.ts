@@ -62,7 +62,8 @@ export interface OrderCancelled {
   readonly orderNo: string;
   readonly branchId: string;
   readonly customerId: string | null;
-  readonly fromStatus: 'PLACED' | 'CONFIRMED';
+  /** PICKING and AWAITING_CUSTOMER from B11, when a cancellation also ends the order's pick lists. */
+  readonly fromStatus: 'PLACED' | 'CONFIRMED' | 'PICKING' | 'AWAITING_CUSTOMER';
   readonly reasonCode: string;
   readonly releasedReservationIds: readonly string[];
   readonly releasedChargePaymentIds: readonly string[];
@@ -183,4 +184,49 @@ export interface PriceOverrideApproved {
   readonly variancePesewas: number;
   readonly approvedAt: string;
   readonly abuseCases: readonly number[];
+}
+
+/**
+ * `ord.CustomerConsentRequested` v1 (B11, FR-ORD-010, FR-ORD-013, CR-054): an order asks its customer for a higher total
+ * (the weighed total past the tolerance), a substitute or a smaller quantity, and waits AWAITING_CUSTOMER. NTF's message
+ * to the customer reads it; it carries no price record beyond what the customer is asked to pay.
+ */
+export interface CustomerConsentRequested {
+  readonly consentId: string;
+  readonly orderId: string;
+  readonly orderNo: string;
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly kind: 'HIGHER_TOTAL' | 'SUBSTITUTION' | 'SHORT_PICK';
+  readonly lineNo: number;
+  readonly proposedProductId: string | null;
+  readonly proposedQty: string | null;
+  readonly proposedUom: string | null;
+  readonly proposedTotalPesewas: number | null;
+  readonly askedAt: string;
+}
+
+/** `ord.CustomerConsentAnswered` v1 (B11): the customer's answer, as they gave it or as staff who did not ask recorded it. */
+export interface CustomerConsentAnswered {
+  readonly consentId: string;
+  readonly orderId: string;
+  readonly orderNo: string;
+  readonly branchId: string;
+  readonly kind: 'HIGHER_TOTAL' | 'SUBSTITUTION' | 'SHORT_PICK';
+  readonly accepted: boolean;
+  readonly method: 'PHONE' | 'IN_PERSON' | 'WHATSAPP' | 'SIGNED_LINK' | 'CUSTOMER_ACCOUNT';
+  readonly answeredBy: string;
+  readonly answeredAt: string;
+}
+
+/** `ord.FulfilmentPacked` v1 (B11, FR-ORD-011): a pick list packed, its picks sealed; dispatch follows (B11 continued). */
+export interface FulfilmentPacked {
+  readonly fulfilmentId: string;
+  readonly fulfilmentNo: string;
+  readonly orderId: string;
+  readonly orderNo: string;
+  readonly branchId: string;
+  readonly packageCount: number;
+  readonly weighedTotalPesewas: number;
+  readonly packedAt: string;
 }

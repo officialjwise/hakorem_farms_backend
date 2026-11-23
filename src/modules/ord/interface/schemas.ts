@@ -96,3 +96,62 @@ export const ReturnCreateBody = z.strictObject({
 
 /** A tracking token as the link carries it (`trk_` and base64url); the handler looks it up by its hash (ADR-0074). */
 export const TrackingTokenParam = z.string().min(1).max(100);
+
+const Uom = z.string().regex(/^[A-Z][A-Z0-9_]{0,19}$/);
+const Positive = Quantity.refine((q) => !/^0\.000$/.test(q), { message: 'must be above zero' });
+
+/** B11: the pick lists, picks and the customer's answers (FR-ORD-008 to FR-ORD-013, CR-053, CR-054). */
+export const FulfilmentPageQuery = z.object({
+  orderId: z.uuid().optional(),
+  status: z.enum(['PICK_LIST', 'PICKING', 'PACKED', 'DISPATCHED', 'COLLECTED', 'CANCELLED']).optional(),
+  pickLocationId: z.uuid().optional(),
+  date: z.iso.date().optional(),
+  cursor: Cursor,
+  limit: Limit,
+});
+
+export const FulfilmentCreateBody = z.strictObject({
+  pickLocationId: z.uuid(),
+  lines: z.array(z.strictObject({ orderLineId: z.uuid(), quantity: Positive })).min(1).max(200).optional(),
+});
+
+export const PickRecordBody = z.strictObject({
+  picks: z
+    .array(
+      z.strictObject({
+        id: z.uuid(),
+        orderLineId: z.uuid(),
+        stockUnitId: z.uuid().optional(),
+        packBarcode: z.string().min(1).max(64).optional(),
+        qty: Positive,
+        weightKg: Kilograms.optional(),
+        weightSource: z.enum(['SCALE', 'MANUAL', 'ESTIMATE']).optional(),
+      }),
+    )
+    .max(200),
+  withdraw: z.array(z.uuid()).max(200).optional(),
+});
+
+export const PackRecordBody = z.strictObject({ packageCount: z.number().int().min(1).max(999) });
+
+export const FulfilmentReasonBody = z.strictObject({ reason: Text(500) });
+
+export const SubstitutionCreateBody = z.strictObject({
+  lineId: z.uuid(),
+  productId: z.uuid(),
+  stockUnitId: z.uuid().optional(),
+  quantity: Positive,
+  uom: Uom.optional(),
+  note: Text(500),
+});
+
+export const ShortPickCreateBody = z.strictObject({ lineId: z.uuid(), quantity: Quantity, note: Text(500) });
+
+export const ConsentRecordBody = z.strictObject({
+  kind: z.enum(['HIGHER_TOTAL', 'SUBSTITUTION', 'SHORT_PICK']),
+  accepted: z.boolean(),
+  method: z.enum(['PHONE', 'IN_PERSON', 'WHATSAPP', 'SIGNED_LINK']),
+  note: Text(500).optional(),
+});
+
+export const MyConsentBody = z.strictObject({ accepted: z.boolean() });

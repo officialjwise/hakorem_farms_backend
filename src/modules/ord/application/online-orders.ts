@@ -22,6 +22,8 @@ import type { OrderReversals } from './order-reversals';
 import type { NewOrderLine, OrderStore } from './order-store';
 import { TrackingTokens } from './tracking-token';
 import { ORDER_CONFIRMED, ORDER_PLACED, type Orders, type Page, type SalesOrderView } from './orders';
+import type { Fulfilments } from './fulfilments';
+import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 
 registerMessages({
   'ord.track.PLACED': 'Order placed',
@@ -126,7 +128,8 @@ export interface CustomerOrderView {
   readonly paidPesewas: number;
   readonly currency: 'GHS';
   readonly documents: readonly { readonly id: string; readonly docType: string; readonly documentNo: string; readonly issuedAt: string; readonly grossPesewas: number | null; readonly currency: 'GHS' }[];
-  readonly pendingConsent: null;
+  /** What the order waits for the customer to answer (B11), or null: never a price record beyond what they are asked to pay. */
+  readonly pendingConsent: { readonly kind: 'HIGHER_TOTAL' | 'SUBSTITUTION' | 'SHORT_PICK'; readonly detail: string; readonly proposedTotalPesewas: number | null } | null;
 }
 
 const json = (pesewas: bigint) => Money.ofPesewas(pesewas).toJsonInteger();
@@ -165,6 +168,8 @@ export class OnlineOrders {
     private readonly audit: AuditTrail,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly fulfilments: Fulfilments,
+    private readonly idempotency: Idempotency,
   ) {
     this.nextId = createUuidV7Generator(clock);
     this.tokens = new TrackingTokens(store, clock);
@@ -422,6 +427,24 @@ export class OnlineOrders {
     });
   }
 
+  /**
+   * answerMyOrderConsent (FR-ORD-013, B11): the signed-in customer answers what their own order waits for; another
+   * customer's order is "no such order". Idempotent by its key.
+   */
+  answerMine(actor: Actor | undefined, id: string, body: { readonly accepted: boolean }, key: string): Promise<StoredResponse<CustomerOrderView>> {
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      const customerId = await this.customerOf(tx, actor);
+      const claim = await this.idempotency.claim(tx, { operationId: 'answerMyOrderConsent', principalId: actor!.principalId, key, request: { id, ...body } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<CustomerOrderView>;
+      const [order] = await this.store.orders(tx, [id]);
+      if (order === undefined || order.customerId !== customerId) throw new NotFoundError('no such order');
+      await this.fulfilments.answerMineIn(tx, actor!, id, body.accepted);
+      const response = { status: 200, body: this.customerView(await this.orders.viewOf(tx, id)) };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
+
   /** The customer a customer-realm session belongs to (as `getMyStoreCredit`); a staff session never reaches here. */
   private async customerOf(tx: Transaction, actor: Actor | undefined): Promise<string> {
     if (actor === undefined) throw new UnauthenticatedError('sign in to see your orders');
@@ -459,8 +482,18 @@ export class OnlineOrders {
         view.billingDocument === null || view.billingDocument.number === null || view.completedAt === null
           ? []
           : [{ id: view.billingDocument.id, docType: view.billingDocument.docType, documentNo: view.billingDocument.number, issuedAt: view.completedAt, grossPesewas: view.finalTotalPesewas, currency: 'GHS' }],
-      pendingConsent: null,
+      pendingConsent: view.pendingConsent === null ? null : customerConsentOf(view),
     };
   }
+}
+
+/** What the customer is asked, in words, with the total they would pay for the line (FR-ORD-013, CR-053). */
+function customerConsentOf(view: SalesOrderView): NonNullable<CustomerOrderView['pendingConsent']> {
+  const c = view.pendingConsent!;
+  const line = view.lines.find((l) => l.id === c.lineId);
+  const name = line?.product.name ?? '';
+  if (c.kind === 'HIGHER_TOTAL') return { kind: c.kind, detail: `${name}: weighed at ${line?.fulfilledWeightKg ?? ''} kg, above what you were shown`, proposedTotalPesewas: c.weighedTotalPesewas };
+  if (c.kind === 'SUBSTITUTION') return { kind: c.kind, detail: `${name}: we can send ${c.proposed!.quantity} ${c.proposed!.uom} of ${c.proposed!.productName} instead`, proposedTotalPesewas: c.proposedTotalPesewas };
+  return { kind: c.kind, detail: `${name}: we can send ${c.proposed!.quantity} ${c.proposed!.uom} of the ${line?.qtyOrdered ?? ''} you ordered`, proposedTotalPesewas: null };
 }
 

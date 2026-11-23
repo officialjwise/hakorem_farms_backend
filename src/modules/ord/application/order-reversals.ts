@@ -18,6 +18,7 @@ import { judgeCancellation, judgeVoid, judgeVoidApprover, planCancellationMoney 
 import { PRICE_OVERRIDE_KIND } from '../domain/price-override';
 import type { OrderCancelled, OrderVoided, SaleVoidRequested } from '../events';
 import { OrderInvalidError, VoidApproverIsCashierError, type SaleRule } from './errors';
+import type { FulfilmentStore } from './fulfilment-store';
 import type { OrderHeaderRecord, OrderStore, OrderVoidRecord } from './order-store';
 import type { Orders, SalesOrderView } from './orders';
 
@@ -90,6 +91,7 @@ export class OrderReversals {
     private readonly events: DomainEvents,
     private readonly audit: AuditTrail,
     private readonly clock: Clock,
+    private readonly fulfilments: FulfilmentStore,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -127,6 +129,17 @@ export class OrderReversals {
   }
 
   /**
+   * An order whose customer refused what it could send (FR-ORD-013: a substitute or a smaller quantity refused, the last
+   * open line cancelled), cancelled in the caller's transaction with the refund of what was paid asked for, as the person
+   * who recorded the answer (or the customer). The caller has authorised the answer and holds the order's lock.
+   */
+  async cancelForCustomerIn(tx: Transaction, orderId: string, actor: Actor, reasonCode: string, note: string): Promise<SalesOrderView> {
+    const header = await this.lockOrder(tx, orderId);
+    if (!judgeCancellation(header.status).ok) throw invalidState(orderId, header.status);
+    return this.cancelIn(tx, header, { reasonCode, note }, actor, false);
+  }
+
+  /**
    * The cancellation itself (FR-ORD-014), the order locked and judged by the caller. An online order still PLACED from
    * its checkout also gives the checkout's stock back when `releaseSource` (a cancellation by staff or a failed charge),
    * after the order is CANCELLED, so the checkout's own reaction (it ends and gives the cart back) finds the order ended.
@@ -158,6 +171,11 @@ export class OrderReversals {
     }
 
     const at = this.clock.now();
+    // B11: a question to the customer still waiting is withdrawn, and every pick list not yet packed is cancelled with its
+    // picks withdrawn (a pick moved no stock, A-332).
+    const waiting = await this.fulfilments.pendingConsent(tx, id);
+    if (waiting !== null) await this.fulfilments.answerConsent(tx, waiting.id, { status: 'WITHDRAWN', answeredBy: actorId, at, method: 'SYSTEM', note: 'The order was cancelled' });
+    const pickLists = await this.fulfilments.cancelOpenOfOrder(tx, id, { reason: `Order cancelled (${body.reasonCode})`, at, actorId });
     await this.store.cancel(tx, id, { reasonCode: body.reasonCode, at, actorId });
     await this.store.recordStatus(tx, id, { id: this.nextId(), fromStatus: header.status, toStatus: 'CANCELLED', reason: reasonText(body), occurredAt: at, actorId });
     if (releaseSource && header.sourceDocumentId !== null) {
@@ -169,7 +187,7 @@ export class OrderReversals {
       orderNo: header.orderNo!,
       branchId: header.branchId,
       customerId: header.customerId,
-      fromStatus: header.status as 'PLACED' | 'CONFIRMED',
+      fromStatus: header.status as OrderCancelled['fromStatus'],
       reasonCode: body.reasonCode,
       releasedReservationIds: released.map((r) => r.id),
       releasedChargePaymentIds: money.releases,
@@ -178,7 +196,7 @@ export class OrderReversals {
       cancelledAt: at.toISOString(),
     };
     await this.events.publish(tx, { type: ORDER_CANCELLED, subjectType: 'SalesOrder', subjectId: id, branchId: header.branchId, payload: cancelled, occurredAt: at });
-    await this.audit.record(tx, { module: 'ord', action: 'CANCEL', entityType: 'SalesOrder', entityId: id, branchId: header.branchId, before: { ...before }, after: { ...view, refundIds } });
+    await this.audit.record(tx, { module: 'ord', action: 'CANCEL', entityType: 'SalesOrder', entityId: id, branchId: header.branchId, before: { ...before }, after: { ...view, refundIds, pickLists } });
     return view;
   }
 
