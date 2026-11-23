@@ -106,14 +106,14 @@ Phase, scope and gate, as confirmed at the start:
 
 ## Tests (this machine)
 
-The table is filled from the run on the head commit before the report; see CI below for the runs on the pushed commits.
+Run on commit `2213929` (the code of the final head; the commits above it change only this report), with Docker's Testcontainers; see CI below for the runs on the pushed commits.
 
 | Layer | Result |
 | --- | --- |
-| Unit and integration (`pnpm test:coverage`) | (filled before push) |
+| Unit and integration (`pnpm test:coverage`) | **3,935 passed, 329 files, none skipped, exit 0** (955 s). Coverage, whole: statements 94.02, branches 83.62, functions 97.84, lines 97.06 (each gate 80). **Every one of the 52 full-coverage gates holds at 100 percent**, among them `ord/domain/**` (with the new `dispatch.ts`); the new `del/domain/deliveries.ts` and `numbering.ts` are also at 100 on all four measures, though DEL's domain has no gate of its own |
 | Unit alone | 1,888 passed, 161 files |
-| Contract (`pnpm test:contract`) | 136 passed, 55 files, after the counts and the request-schema check were given the new operations |
-| Lint (module boundaries, fixtures, placement, schema names), typecheck, Redocly (no errors, no warnings), `contract:generate` | Clean |
+| Contract (`pnpm test:contract`) | 137 passed, 55 files, after the counts and the request-schema check were given the new operations |
+| Lint (module boundaries, fixtures, placement, schema names), typecheck, Redocly (no errors, no warnings), `contract:generate` | Clean (`contract:generate` unchanged: 523 operations from code, 134 planned) |
 
 ## Deferred
 
