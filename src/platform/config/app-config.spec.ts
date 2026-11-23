@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ConfigError, loadConfig, publicMediaBaseUrl } from './app-config';
+import { ConfigError, loadConfig, publicMediaBaseUrl, receiptLinkTemplate } from './app-config';
 
 const VALID = {
   NODE_ENV: 'development',
@@ -173,5 +173,17 @@ describe('typed configuration', () => {
 
   it('writes a message that lists each problem', () => {
     expect(new ConfigError(['REDIS_URL is missing']).message).toBe('configuration is invalid:\n  - REDIS_URL is missing');
+  });
+});
+
+describe('receiptLinkTemplate (CR-033, ADR-0083)', () => {
+  it('is the shop address with /r/{token}, or null when unset', () => {
+    expect(receiptLinkTemplate({ RECEIPT_LINK_BASE_URL: 'https://shop.hakorem.test/' })).toBe('https://shop.hakorem.test/r/{token}');
+    expect(receiptLinkTemplate({ RECEIPT_LINK_BASE_URL: 'https://shop.hakorem.test' })).toBe('https://shop.hakorem.test/r/{token}');
+    expect(receiptLinkTemplate({ RECEIPT_LINK_BASE_URL: undefined })).toBeNull();
+  });
+
+  it('refuses an address that is not https', () => {
+    expect(() => loadConfig({ ...VALID, RECEIPT_LINK_BASE_URL: 'http://shop.hakorem.test' }, '0.1.0')).toThrow(/RECEIPT_LINK_BASE_URL/);
   });
 });

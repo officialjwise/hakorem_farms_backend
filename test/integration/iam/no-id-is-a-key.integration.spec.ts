@@ -76,6 +76,7 @@ const PUBLIC_WITH_IDENTIFIER: Readonly<Record<string, string>> = {
   viewQuoteByLink: 'quo/quotes: a replaced, expired or guessed token, the quote id and its number open nothing (CR-047, ADR-0074)',
   acceptQuoteByLink: 'quo/quotes: a replaced, expired or guessed token, the quote id and its number accept nothing (CR-047)',
   declineQuoteByLink: 'quo/quotes: only the live version’s own token declines it (CR-047)',
+  getPublicReceipt: 'pos/receipt-link: a guessed, altered, expired, revoked or reused token, the sale id, its numbers and a SKU open nothing (CR-033, ADR-0083)',
 };
 
 /**

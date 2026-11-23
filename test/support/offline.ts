@@ -32,6 +32,8 @@ export interface TillSale {
   readonly occurredAt: string;
   readonly lines: readonly TillLine[];
   readonly tenders: readonly TillTender[];
+  /** The receipt link's token the till made for the sale (CR-033, ADR-0083), when it has the pack's template. */
+  readonly receiptToken?: string;
   readonly payloadHash: string;
 }
 
@@ -55,7 +57,7 @@ export function tillHash(sale: Omit<TillSale, 'payloadHash'>): string {
  * A sale the till makes with no network: its id a UUIDv7 stamped at the till's time, its provisional reference
  * `P-<till>-<shift seq>-<counter>`, its hash over everything else. Nothing is sent.
  */
-export function tillSale(f: { readonly till: string; readonly shiftSeq: number; readonly counter: number; readonly at: Date; readonly lines: readonly TillLine[]; readonly tenders: readonly TillTender[]; readonly id?: string; readonly provisionalRef?: string }): TillSale {
+export function tillSale(f: { readonly till: string; readonly shiftSeq: number; readonly counter: number; readonly at: Date; readonly lines: readonly TillLine[]; readonly tenders: readonly TillTender[]; readonly id?: string; readonly provisionalRef?: string; readonly receiptToken?: string }): TillSale {
   const id = f.id ?? createUuidV7Generator(new ManualClock(f.at))();
   const content = {
     id,
@@ -64,6 +66,7 @@ export function tillSale(f: { readonly till: string; readonly shiftSeq: number; 
     occurredAt: f.at.toISOString(),
     lines: f.lines,
     tenders: f.tenders,
+    ...(f.receiptToken === undefined ? {} : { receiptToken: f.receiptToken }),
   };
   return { ...content, payloadHash: tillHash(content) };
 }

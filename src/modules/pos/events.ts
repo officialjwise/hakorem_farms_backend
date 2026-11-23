@@ -158,7 +158,8 @@ export interface OfflineSaleFlagged extends OfflineSaleSource {
     | 'OFFLINE_LATE_POSTING'
     | 'TILL_CLOCK_OUT_OF_TOLERANCE'
     | 'OFFLINE_SALE_TOO_OLD'
-    | 'AUTHORISATION_FAILURE';
+    | 'AUTHORISATION_FAILURE'
+    | 'RECEIPT_TOKEN_REFUSED';
   readonly severity: 'URGENT' | 'REVIEW';
   readonly summary: string;
   readonly amountPesewas: number;
