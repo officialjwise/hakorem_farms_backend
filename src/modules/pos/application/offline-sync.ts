@@ -10,6 +10,7 @@ import { IdempotencyKeyReusedError } from '../../../platform/idempotency/idempot
 import type { Settings } from '../../../platform/settings/settings';
 import type { Ledger } from '../../fin';
 import type { Authoriser } from '../../iam';
+import { buyerVerdict, maskTin } from '../../bil';
 import { defaultLineUom, type MasterDataRefs, type PaymentMethodFacts, type PricingService } from '../../mdm';
 import { SaleInvalidError, type OfflineSaleFinding, type Orders, type SalePosting, type SaleTenderRequest } from '../../ord';
 import type { Payments, UnverifiedTenders } from '../../pay';
@@ -97,6 +98,8 @@ export interface OfflineSaleInput {
   readonly provisionalRef: string;
   readonly occurredAt: string;
   readonly customerPhone?: string | undefined;
+  /** A business buyer named on the receipt without a customer account (A-285 (c)); judged at sync, never refusing the sale. */
+  readonly buyer?: { readonly name: string; readonly tin: string } | undefined;
   readonly lines: readonly OfflineSaleLineInput[];
   readonly tenders: readonly OfflineTenderInput[];
   /** The receipt link's token the till made for this sale (CR-033, ADR-0083): kept only as its hash, never stored or logged. */
@@ -433,6 +436,21 @@ export class OfflineSync {
     const limit = await this.authoriser.limitIn(tx, cashier, 'PRICE_OVERRIDE_PER_SHIFT', register.branchId);
     const used = (await this.orders.shiftSalesIn(tx, shift.id)).overridesPesewas;
     const expected = provisionalRef(register.code, shift.shiftSeq, sale.deviceCounter);
+    // A business buyer's name and TIN (A-285 (c), (e)): printed when both are of a form that may be printed. Otherwise the
+    // sale is recorded and its receipt issued with neither, never with details the server could not accept, and a
+    // supervisor reviews it; the TIN the till sent is never echoed whole (DC-25).
+    const buyer = sale.buyer === undefined ? null : buyerVerdict(sale.buyer);
+    if (buyer !== null && !buyer.ok) {
+      flags.push({
+        kind: 'BUYER_DETAILS_REFUSED',
+        severity: 'REVIEW',
+        summary: "The business buyer's name or TIN is not in a form that may be printed; the receipt was issued without them",
+        amountPesewas: null,
+        fact: { rules: buyer.rules.map((r) => r.rule), tinMasked: maskTin(sale.buyer!.tin.trim().toUpperCase()) },
+        abuseCases: [],
+        toTill: true,
+      });
+    }
 
     await tx.query('SAVEPOINT offline_sale');
     let posted: Awaited<ReturnType<SalePosting['postOfflineIn']>>;
@@ -443,6 +461,7 @@ export class OfflineSync {
         branchId: register.branchId,
         customerId: null,
         contactPhone: sale.customerPhone ?? null,
+        ...(buyer !== null && buyer.ok ? { buyer: buyer.value } : {}),
         fulfilmentMode: 'COUNTER',
         // Counter prices are shown with their tax in (A-274 (g), A-278 (i)).
         taxInclusive: true,
@@ -892,9 +911,10 @@ export function payloadHashOf(sale: OfflineSaleInput): Buffer {
 }
 
 /** The sale as evidence, without its receipt token: a token is never written to an event, an audit row or a log (ADR-0074). */
-function withoutReceiptToken(sale: OfflineSaleInput): Omit<OfflineSaleInput, 'receiptToken'> & { readonly receiptLinkSent: boolean } {
-  const { receiptToken, ...rest } = sale;
-  return { ...rest, receiptLinkSent: receiptToken !== undefined };
+function withoutReceiptToken(sale: OfflineSaleInput): Omit<OfflineSaleInput, 'receiptToken' | 'buyer'> & { readonly receiptLinkSent: boolean; readonly buyer?: { readonly name: string; readonly tinMasked: string | null } } {
+  const { receiptToken, buyer, ...rest } = sale;
+  // A buyer's TIN is Restricted (DC-25): the evidence carries it masked, as an audit row may show it.
+  return { ...rest, receiptLinkSent: receiptToken !== undefined, ...(buyer === undefined ? {} : { buyer: { name: buyer.name, tinMasked: maskTin(buyer.tin) } }) };
 }
 
 /**

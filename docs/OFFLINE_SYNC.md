@@ -114,6 +114,11 @@ Every sale produces a digital receipt, and a printer is optional (the owner, 202
 - **At sync** the server stores only the token's SHA-256 (`pos.receipt_link`, unique), one link per sale, in the sale's own transaction after its log row. The link reads for twelve months from the sale's time unless it is revoked.
 - **A token already bound to another sale, or shaped like a UUID,** refuses only that sale's link. The sale is recorded as always. Its result names `RECEIPT_TOKEN_REFUSED`, the refusal is kept once (`pos.receipt_token_refusal`), and it is raised URGENT to the daily exception report's source (abuse case 37) with the device, the shift, the cashier and both sales. The sale is marked as needing a fresh server-made link, which B11's receipt SMS sends (A-284 (h): with no phone, the counter reprints the official receipt on request). A replayed sync is a `DUPLICATE` and adds nothing.
 - **The public read** (`getPublicReceipt`) takes the token and nothing else, and is rate-limited per address.
+- **Revoked** (B09b continued 4b, A-285 (b)): a supervisor of the sale's branch revokes a link with a reason (`revokeReceiptLink`); it then reads nothing, as a guessed token. The customer's fresh link is B11's server-made one.
+
+### 4.6 A business buyer's name and TIN (B09b continued 4b, A-285 (c), (e))
+
+A queued sale may carry `buyer` (`name`, `tin`), covered by `payloadHash`, for a business buyer who reclaims the input tax. At sync it is judged by BIL's `buyerVerdict`: printed on the receipt when both may be printed, and creating no customer. Otherwise the sale is recorded as always, its receipt issued without them (never printed unverified), and its result names `BUYER_DETAILS_REFUSED` (REVIEW), raised once with the rules broken and the TIN masked. A refused sale's evidence carries the TIN masked.
 
 ## 5. The offline session
 
@@ -332,6 +337,7 @@ The order's `placed_at` is `occurredAt`, its `recorded_at` is the server's time,
 | Sale posted on a later date because of a locked period or a closed shift | Flag on the order (added, see 13) | `OFFLINE_LATE_POSTING` (added, see 13) | REVIEW; URGENT if the sale is dated after a force close |
 | Shift over or short after a force close | None | `SHIFT_OVER_SHORT` | REVIEW |
 | Grant revoked while offline | None | `AUTHORISATION_FAILURE` | URGENT |
+| A business buyer's name or TIN that may not be printed (B09b continued 4b) | None (the receipt is issued without them) | `BUYER_DETAILS_REFUSED` (added) | REVIEW |
 
 Each item carries the actor (the cashier), the register, the shift, the sale, the amount and the two conflicting facts in `details`. `inv.stock_exception.details` always has the shape `{"claim": {...}, "fact": {...}}`: what the device said was true when the sale was made, and what the server holds.
 

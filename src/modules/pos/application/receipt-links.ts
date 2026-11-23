@@ -1,13 +1,31 @@
 import { Money, type Clock } from '@hakorem/kernel';
+import type { AuditTrail } from '../../../platform/audit/audit-trail';
+import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import { NotFoundError } from '../../../platform/errors/api-error';
+import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { BusinessProfiles } from '../../aud';
 import type { Billing } from '../../bil';
+import type { Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
 import type { Orders } from '../../ord';
 import { receiptTokenHash, receiptTokenVerdict, type ReceiptTokenVerdict } from '../domain/receipt-link';
 import { changeDue, type TenderKind } from '../domain/till';
+import { ReceiptLinkInvalidError } from './errors';
 import type { ReceiptBindingRecord, ReceiptLinkStore, ReceiptTenderRecord } from './receipt-link-store';
+
+/** Who revokes a link: a supervisor of the sale's branch, the permission that signs off a count (A-284 (f)). */
+const REVOKE = 'pos.shift.close.approve';
+/** A sale with no link, and an id that names no sale, are answered alike. */
+const NO_LINK = 'no receipt link for this sale';
+
+/** The contract's `ReceiptLinkRevocation`. */
+export interface ReceiptLinkRevocationView {
+  readonly saleId: string;
+  readonly reason: string;
+  readonly revokedAt: string;
+  readonly revokedBy: PrincipalRef;
+}
 
 /** One answer for every token that opens nothing: never sent, mistyped, guessed, altered, expired, revoked or an id. */
 const NO_RECEIPT = 'no receipt answers this link';
@@ -66,7 +84,36 @@ export class ReceiptLinks {
     private readonly profiles: BusinessProfiles,
     private readonly clock: Clock,
     private readonly nextId: () => string,
+    private readonly authoriser: Authoriser,
+    private readonly idempotency: Idempotency,
+    private readonly audit: AuditTrail,
+    private readonly principals: PrincipalNames,
   ) {}
+
+  /**
+   * `revokeReceiptLink` (ADR-0074 Amendments, A-284 (f), A-285): a holder of `pos.shift.close.approve` at the sale's
+   * branch (with its step-up) revokes the link a till made for the sale, with a reason, once and audited. From then the
+   * link reads nothing, answered exactly as a guessed token; the customer's fresh link is B11's server-made one. The
+   * database holds who may (`ck_receipt_link_revocation_supervisor`). The token is never read, shown or audited.
+   */
+  revoke(actor: Actor | undefined, saleId: string, body: { readonly reason: string }, idempotencyKey: string): Promise<StoredResponse<ReceiptLinkRevocationView>> {
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      const link = await this.store.linkOfSale(tx, saleId);
+      await this.authoriser.authorise(tx, actor, REVOKE, link === null ? {} : { branchId: link.branchId });
+      if (link === null) throw new NotFoundError(NO_LINK);
+      const claim = await this.idempotency.claim(tx, { operationId: 'revokeReceiptLink', principalId: actor!.principalId, key: idempotencyKey, request: { saleId, ...body } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<ReceiptLinkRevocationView>;
+      if (link.revoked) throw new ReceiptLinkInvalidError([{ field: '', rule: 'RECEIPT_LINK_ALREADY_REVOKED' }]);
+      const now = this.clock.now();
+      await this.store.insertRevocation(tx, { receiptLinkId: link.id, reason: body.reason, revokedAt: now, recordedAt: now, actorId: actor!.principalId });
+      const names = await this.principals.refs(tx, [actor!.principalId]);
+      const view: ReceiptLinkRevocationView = { saleId, reason: body.reason, revokedAt: now.toISOString(), revokedBy: names.get(actor!.principalId) ?? { id: actor!.principalId, displayName: 'Unknown' } };
+      await this.audit.record(tx, { module: 'pos', action: 'REVOKE', entityType: 'ReceiptLink', entityId: link.id, branchId: link.branchId, before: { saleId, revoked: false }, after: { saleId, revoked: true, reason: body.reason } });
+      const response: StoredResponse<ReceiptLinkRevocationView> = { status: 200, body: view };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
 
   /** What the server does with a till's token for this sale, read in the sale's transaction before it is logged. */
   async judgeIn(tx: Transaction, token: string, saleId: string): Promise<ReceiptJudgement> {

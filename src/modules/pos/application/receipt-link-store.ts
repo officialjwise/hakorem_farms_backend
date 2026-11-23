@@ -57,6 +57,21 @@ export interface NewReceiptTokenRefusal {
   readonly actorId: string;
 }
 
+/** A sale's link as a revocation reads it: its branch for the authorisation, and whether it is already revoked. */
+export interface ReceiptLinkOfSale {
+  readonly id: string;
+  readonly branchId: string;
+  readonly revoked: boolean;
+}
+
+export interface NewReceiptLinkRevocation {
+  readonly receiptLinkId: string;
+  readonly reason: string;
+  readonly revokedAt: Date;
+  readonly recordedAt: Date;
+  readonly actorId: string;
+}
+
 /** POS's receipt links (`pos.receipt_link`, `pos.receipt_link_revocation`, `pos.receipt_token_refusal`). */
 export interface ReceiptLinkStore {
   /** The link a token's hash is bound to, whatever its expiry or revocation; null when none. */
@@ -65,4 +80,8 @@ export interface ReceiptLinkStore {
   liveLink(tx: Transaction, tokenHash: Buffer, at: Date): Promise<ReceiptLinkRecord | null>;
   insertLink(tx: Transaction, link: NewReceiptLink): Promise<void>;
   insertRefusal(tx: Transaction, refusal: NewReceiptTokenRefusal): Promise<void>;
+  /** The link a sale holds, revoked or not; null when the sale holds none. */
+  linkOfSale(tx: Transaction, saleId: string): Promise<ReceiptLinkOfSale | null>;
+  /** Once per link (its primary key); `pos.receipt_link_revocation_guard` holds who may. */
+  insertRevocation(tx: Transaction, revocation: NewReceiptLinkRevocation): Promise<void>;
 }

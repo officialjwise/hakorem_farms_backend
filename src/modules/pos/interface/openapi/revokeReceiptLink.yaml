@@ -1,0 +1,63 @@
+operationId: revokeReceiptLink
+tags:
+  - pos
+summary: "Revoke a counter sale's receipt link"
+description: "A supervisor of the sale's branch revokes the receipt link a till made for a counter sale, with a reason (2.26.0, ADR-0074 Amendments, ADR-0083, A-284 (f), A-285): a link sent to the wrong number, shown to the wrong customer or reprinted for another. Revoked once and audited with the reason; from `revokedAt` `getPublicReceipt` answers the link 404 `NOT_FOUND`, exactly as a guessed token. A revoked link never reads again; the customer's fresh link is a server-made one sent by SMS (B11). The token itself is never read, shown or audited. Refusals: 422 `RECEIPT_LINK_INVALID` with `RECEIPT_LINK_ALREADY_REVOKED`; 404 for a sale that holds no link (an online counter sale, a sale whose token was refused, one that never synced) and for an id that names no sale, with one answer; 403 for anyone who does not hold the permission at the sale's branch, the cashier who sold it among them. The database holds who may (`ck_receipt_link_revocation_supervisor`).\n\nPermission: `pos.shift.close.approve`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: pos.shift.close.approve
+x-requires-step-up: true
+x-error-codes:
+  - RECEIPT_LINK_INVALID
+parameters:
+  - name: id
+    in: path
+    required: true
+    description: "The counter sale's id (its order)."
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ReasonRequest"
+      example:
+        reason: "Link sent to the wrong number"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ReceiptLinkRevocation"
+        example:
+          saleId: "019a7c1e-2b40-7c11-8a3e-5d0b6f1e2a77"
+          reason: "Link sent to the wrong number"
+          revokedAt: "2026-11-13T15:42:00Z"
+          revokedBy:
+            id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+            displayName: "Kwabena Owusu"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

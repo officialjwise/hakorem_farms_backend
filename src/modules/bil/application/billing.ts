@@ -31,6 +31,7 @@ import {
   type LinePricing,
   creditRefundableOf,
 } from '../domain/billing';
+import { buyerVerdict, isGhanaTin, maskTin } from '../domain/buyer';
 import { lineNumber, pageProbe } from '../domain/line-numbers';
 import { renderDataOf } from '../domain/render-data';
 import type { BillingDocumentPayload, CreditNoteIssued, DebitNoteIssued } from '../events';
@@ -88,7 +89,14 @@ export interface IssueRequest {
   readonly kind: 'INVOICE' | 'RECEIPT' | 'PROFORMA';
   readonly branchId: string;
   readonly customerId?: string | null;
+  /** A Ghana TIN (`isGhanaTin`), trimmed and upper-cased as printed; refused in any other form (`BUYER_TIN_INVALID`). */
   readonly customerTin?: string | null;
+  /**
+   * A business buyer named on the document without a customer account (the owner's addition (2) to A-200, B09b
+   * continued 4b, A-285 (c)): printed as the customer's name, with `customerTin`, which it requires. Never with a
+   * `customerId` (`BUYER_WITH_CUSTOMER`): naming a buyer creates no customer. Left out, nothing changes.
+   */
+  readonly buyerName?: string | null;
   readonly billingAddress?: string | null;
   readonly orderDocumentId?: string | null;
   readonly dueDate?: string | null;
@@ -300,6 +308,7 @@ export class Billing {
     if (customerId !== null && customer === undefined) missing.push('/customerId');
     else if (customer !== undefined && !customer.isLive) broken.push({ field: '/customerId', rule: 'CUSTOMER_NOT_ACTIVE' });
     if ((await this.refs.branchesIn(tx, [request.branchId])).size === 0) missing.push('/branchId');
+    const printed = this.printedBuyer(request, customerId, broken);
     const productIds = request.lines.flatMap((l) => (l.productId === undefined || l.productId === null ? [] : [l.productId]));
     const products = await this.refs.productsIn(tx, productIds);
     const priced: PricedLine[] = [];
@@ -365,8 +374,8 @@ export class Billing {
       branchId: request.branchId,
       provisionalRef: request.provisionalRef ?? null,
       customerId,
-      customerName: customer?.name ?? null,
-      customerTin: request.customerTin ?? null,
+      customerName: customer?.name ?? printed.name,
+      customerTin: printed.tin,
       billingAddress: request.billingAddress ?? null,
       orderDocumentId: request.orderDocumentId ?? null,
       originalDocumentId: null,
@@ -813,6 +822,27 @@ export class Billing {
     });
   }
 
+  /**
+   * The buyer's name and TIN as the document prints them (A-285 (c)): a named buyer only without a customer, its name and
+   * TIN each in a form that may be printed; a TIN alone in a Ghana form. A broken rule is added to `broken`.
+   */
+  private printedBuyer(request: IssueRequest, customerId: string | null, broken: BrokenRule[]): { readonly name: string | null; readonly tin: string | null } {
+    const tin = request.customerTin ?? null;
+    if (request.buyerName === undefined || request.buyerName === null) {
+      if (tin === null) return { name: null, tin: null };
+      const normalised = tin.trim().toUpperCase();
+      if (!isGhanaTin(normalised)) broken.push({ field: '/customerTin', rule: 'BUYER_TIN_INVALID' });
+      return { name: null, tin: normalised };
+    }
+    if (customerId !== null) broken.push({ field: '/buyerName', rule: 'BUYER_WITH_CUSTOMER' });
+    const verdict = buyerVerdict({ name: request.buyerName, tin: tin ?? '' });
+    if (!verdict.ok) {
+      for (const r of verdict.rules) broken.push({ field: r.field === 'name' ? '/buyerName' : '/customerTin', rule: r.rule });
+      return { name: null, tin: null };
+    }
+    return verdict.value;
+  }
+
   /** What the document's template renders: the issued document as printed (FR-BIL-004). */
   private async renderData(tx: Transaction, record: DocumentRecord, view: BillingDocumentView): Promise<Record<string, unknown>> {
     const branch = (await this.refs.branchesIn(tx, [record.branchId])).get(record.branchId)!;
@@ -1014,7 +1044,8 @@ export class Billing {
     const [view] = await this.views(tx, [issued!]);
     // Rendered and archived by DOC's worker after this transaction commits (FR-DOC-003): never inside it.
     await this.archive.requestRenderIn(tx, { businessDocumentId: id, docType: draft.kind, documentNo, branchId: draft.branchId, renderData: await this.renderData(tx, issued!, view!) });
-    await this.audit.record(tx, { module: 'bil', action: 'ISSUE', entityType: 'BillingDocument', entityId: id, branchId: draft.branchId, before: null, after: { ...view!, approvalRequestId } });
+    // A TIN is Restricted (DC-25, E-1): printed on the document, audited only masked.
+    await this.audit.record(tx, { module: 'bil', action: 'ISSUE', entityType: 'BillingDocument', entityId: id, branchId: draft.branchId, before: null, after: { ...view!, customerTin: maskTin(view!.customerTin), approvalRequestId } });
     return view!;
   }
 

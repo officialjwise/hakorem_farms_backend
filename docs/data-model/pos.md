@@ -40,6 +40,10 @@ Owner: POS module. Registers, device enrolment, shifts, cash movements, held sal
 - **`pos.receipt_token_refusal`** · LEDGER (new): a synced sale whose token was refused, once (PK `order_document_id`): `token_hash`, `reason` (`TOKEN_ALREADY_BOUND` naming `bound_order_document_id`, or `TOKEN_IS_AN_IDENTIFIER`, `ck_receipt_token_refusal_fields`), `branch_id`, `shift_id`, `device_id`, `cashier_id`, `needs_server_link` (always true: B11's receipt SMS sends a fresh server-made link), `recorded_at`, `actor_id`. `pos.receipt_token_refusal_guard` (HK010): the cashier's shift on the device's till (`ck_receipt_token_refusal_device_shift`), the sale applied on it (`ck_receipt_token_refusal_synced`), the bound sale holding a link of that hash (`ck_receipt_token_refusal_bound`), the refused sale holding none (`ck_receipt_token_refusal_unlinked`). Insert only.
 - Data category: the token hashes DC-43 (Restricted, as every token verifier), the tenders and change DC-22 (Confidential); no customer detail.
 
+**Built in B09b continued 4b (migration 0297, A-285):**
+- **`pos.receipt_link_revocation_guard`** (HK010) on `pos.receipt_link_revocation`: the actor holds `pos.shift.close.approve` at the link's branch at the application clock's instant (`ck_receipt_link_revocation_supervisor`). Written by `revokeReceiptLink`. No table or column changes.
+- An invoice paid at the till (`payInvoiceAtTill`) writes no POS table: it is a PAY payment on the shift (`pay.payment.shift_document_id`), counted by `Payments.shiftTotalsIn` at the close. A business buyer's name and TIN are BIL's (`bil.billing_document`); POS stores neither.
+
 ---
 
 ### `pos.register` · MASTER

@@ -10,6 +10,8 @@ Posted statuses: `ISSUED`. An issued document is immutable; it is corrected by a
 
 **Built in B09b continued 2b (migration 0257, A-278 (d)):** `synced_from_offline` (boolean, NOT NULL, default false): a receipt for a sale an offline till synced later, issued at the till's time (`issued_at` is its `occurred_at`), dated the day it happened or the first open date (`issue_date`). `ck_billing_document_offline`: only a RECEIPT with its `occurred_at`. Frozen with the rest of an issued document.
 
+**Built in B09b continued 4b (migration 0298, A-285 (c)):** `customer_name` and `customer_tin` also hold a business buyer named at the counter on a receipt whose `customer_id` is null (`Billing.issueIn`'s `buyerName` with `customerTin`; never with a customer). `ck_billing_document_customer_tin_format`: a TIN is a GRA TIN (`[PCGQV]` and ten digits) or a Ghana Card PIN (`GHA-`, nine digits, `-`, a check digit). Data category DC-25 (E-1): BIL's ISSUE audit row carries the TIN masked to its last four characters.
+
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK, FK `platform.business_document` | |

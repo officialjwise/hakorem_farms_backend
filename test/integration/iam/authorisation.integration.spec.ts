@@ -137,7 +137,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listStandingOrderRuns', 'writeOffBadDebt',
         'revokeQuoteLink', 'listMyQuotes',
         'getQuotePipeline',
-        'getPublicReceipt',
+        'getPublicReceipt', 'revokeReceiptLink', 'payInvoiceAtTill',
         'listFulfilments', 'createFulfilment', 'getFulfilment', 'recordPicks', 'packFulfilment', 'cancelFulfilment',
         'proposeSubstitution', 'proposeShortPick', 'recordCustomerConsent', 'answerMyOrderConsent',
       ].sort(),

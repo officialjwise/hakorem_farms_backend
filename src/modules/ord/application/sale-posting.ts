@@ -74,6 +74,12 @@ export interface SaleRequest {
   readonly customerId?: string | null;
   readonly contactName?: string | null;
   readonly contactPhone?: string | null;
+  /**
+   * A business buyer named on the receipt without a customer account (the owner's addition (2) to A-200, B09b continued
+   * 4b, A-285 (c)): passed to BIL's `Billing.issueIn` as the printed name and TIN, in the form the selling module has
+   * checked. Never with `customerId`; it creates no customer and the order stays a walk-in's. Left out, nothing changes.
+   */
+  readonly buyer?: { readonly name: string; readonly tin: string } | null;
   readonly fulfilmentMode: 'COUNTER' | 'COLLECTION' | 'DELIVERY';
   /** The checkout or other document the sale came from, which may hold its reservations. */
   readonly sourceDocumentId?: string | null;
@@ -334,6 +340,7 @@ export class SalePosting {
       kind: 'RECEIPT',
       branchId: request.branchId,
       customerId,
+      ...(request.buyer === undefined || request.buyer === null ? {} : { buyerName: request.buyer.name, customerTin: request.buyer.tin }),
       orderDocumentId: request.orderId,
       taxInclusive: request.taxInclusive,
       occurredAt,
@@ -543,6 +550,7 @@ export class SalePosting {
       kind: 'RECEIPT',
       branchId: request.branchId,
       customerId,
+      ...(request.buyer === undefined || request.buyer === null ? {} : { buyerName: request.buyer.name, customerTin: request.buyer.tin }),
       orderDocumentId: request.orderId,
       taxInclusive: request.taxInclusive,
       occurredAt,

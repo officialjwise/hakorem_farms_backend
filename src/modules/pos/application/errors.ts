@@ -17,6 +17,8 @@ registerMessages({
   'pos.device_revoked': 'This device was revoked by a manager. Ask a manager to enrol it again.',
   'pos.device_credential_shown_once': 'This device was enrolled and its credential was shown once. Revoke it and enrol it again.',
   'pos.till_pin_invalid': 'This till PIN cannot be set like this. The till must derive it again.',
+  'pos.till_invoice_payment_invalid': 'This invoice cannot be paid at the till like this.',
+  'pos.receipt_link_invalid': 'This receipt link cannot be revoked like this.',
   'pos.sync_batch_too_large': 'A sync sends at most 500 sales. Send the rest in another batch.',
 });
 
@@ -118,6 +120,27 @@ export class DeviceInvalidError extends BusinessRuleError {
   readonly messageKey = 'pos.device_invalid';
   constructor(rules: readonly TillRule[]) {
     super('the device breaks a rule', details(rules));
+  }
+}
+
+/**
+ * 422 TILL_INVOICE_PAYMENT_INVALID (A-285 (g)): `AMOUNT_NOT_POSITIVE`, `NOT_AN_INVOICE`, `INVOICE_NOT_ISSUED`,
+ * `INVOICE_OTHER_BRANCH`, `INVOICE_SETTLED`, `AMOUNT_EXCEEDS_OUTSTANDING`, `TENDERED_BELOW_AMOUNT`.
+ */
+export class TillInvoicePaymentInvalidError extends BusinessRuleError {
+  readonly code = 'TILL_INVOICE_PAYMENT_INVALID';
+  readonly messageKey = 'pos.till_invoice_payment_invalid';
+  constructor(rules: readonly TillRule[]) {
+    super('the invoice payment breaks a rule', details(rules));
+  }
+}
+
+/** 422 RECEIPT_LINK_INVALID (A-284 (f), A-285): `RECEIPT_LINK_ALREADY_REVOKED`. */
+export class ReceiptLinkInvalidError extends BusinessRuleError {
+  readonly code = 'RECEIPT_LINK_INVALID';
+  readonly messageKey = 'pos.receipt_link_invalid';
+  constructor(rules: readonly TillRule[]) {
+    super('the receipt link breaks a rule', details(rules));
   }
 }
 
