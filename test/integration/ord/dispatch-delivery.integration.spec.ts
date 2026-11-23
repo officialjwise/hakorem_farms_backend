@@ -286,6 +286,9 @@ describe('dispatch issues the invoice on the weighed quantity and fixes the cash
       expect(theirs.status).toBe(403);
       for (const who of ['manager', 'storekeeper', 'cashier']) expect((await post(who, `/driver/deliveries/${deliveryA}/proof`, proof({ codCollectedPesewas: 2_570 }))).status, who).toBe(403);
       expect((await get('manager', `/deliveries/${deliveryA}`)).body).toMatchObject({ status: 'ASSIGNED', proof: null });
+      // The amount due is the server's from dispatch: nobody changes it while the delivery is out, whoever writes.
+      expect(await sqlStateOf(database.pool('app').query('UPDATE del.delivery SET cod_due_pesewas = 0, version = version + 1 WHERE id = $1', [deliveryA]))).toBe(SQLSTATE.documentFrozen);
+      expect(await sqlStateOf(admin().query('UPDATE del.delivery SET cod_due_pesewas = 0, version = version + 1 WHERE id = $1', [deliveryA]))).toBe(SQLSTATE.documentFrozen);
     });
   });
 
