@@ -124,6 +124,7 @@ Each item says why it is parked and what would bring it back.
 | BL-103 | A void or return of the very offline sale that went below zero reverses its uncovered cost row at its last known cost, instead of being trued up as an arrival at the pool's cost | The reversal or return is an arrival; the books still reconcile (A-283 (d)) | A void after a sale below zero is common | A-283 (d) |
 | BL-104 | `listCountTasks` and closing a count task by the stock take that counts it | The task is raised and named in the exception's fact; the stock take is the count (A-283 (f)) | The storekeeper's screen lists the counts to do | A-283 (f) |
 | BL-105 | An offline sale below zero raises no `RESERVATION_CONFLICT` when nothing is reserved | The trigger raises one beside `NEGATIVE_STOCK` whenever on hand falls below the reserved quantity, nil included (A-278 (f)); its text is part of `inv.apply_movement`, kept byte for byte by ADR-0081, and the till reads "reserved for another order" | A change to `inv.apply_movement` with the parent session's leave | A-283 (g), ADR-0081 |
+| BL-106 | The thermal counter receipt prints the business buyer's name and TIN | The A4 receipt prints them (its hash is the document's content hash); the built-in 80 mm template shows no customer, so a buyer reclaiming input tax asks for the A4 copy or an administrator adds the lines with a new template version (A-285 (d)) | The owner says whether the default thermal template should print them | A-285 (d) |
 
 ## Parked in B09u
 

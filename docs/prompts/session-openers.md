@@ -89,7 +89,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B09b continued 3b | `B09b4b-pos-late-cash-negative-stock.md` | `b09b4b-pos-late-cash-negative-stock` | B4 to B12 | Split (A-281 (a)): late cash on a closed or force-closed shift recorded on that shift as a late entry, its over or short moved by a post-close adjustment, never another shift's, exact pesewas by SQL over the journal lines (built) |
 | B09b continued 3c | `B09b4c-pos-negative-stock-clearing.md` | `b09b4c-pos-negative-stock-clearing` | B4 to B12 | An offline sale below zero valued at the last known cost and trued up when stock arrives, with a count task, online sales unchanged; the unverified mobile money tender in its own clearing account until verified, then moved to 1110 once; each with exact pesewas and quantities by SQL |
 | B09b continued 4 | `B09b5-pos-receipts.md` | `b09b5-pos-receipts` | B4 to B12 | The receipt link by its token alone (CR-033 points 1 and 2); a reused token recorded and refused once per sale (split, A-284 (a)) |
-| B09b continued 4b | `B09b5b-pos-tin-invoice-animal-price.md` | `b09b5b-pos-tin-invoice-animal-price` | B4 to B12 | The business buyer's TIN on the VAT invoice; an invoice paid at the till inside the shift; each sellable animal priced in the offline pack from its own latest weight and grade (CR-052); the receipt link's revoke |
+| B09b continued 4b | `B09b5b-pos-tin-invoice-animal-price.md` | `b09b5b-pos-tin-invoice-animal-price` | B4 to B12 | The business buyer's TIN on the VAT invoice; an invoice paid at the till inside the shift; the receipt link's revoke (split: CR-052 moved to B09b continued 4c, A-285 (a)) |
+| B09b continued 4c | `B09b5c-pos-animal-price.md` | `b09b5c-pos-animal-price` | B4 to B12 | Each sellable animal priced in the offline pack from its own latest weight and grade (CR-052); a weight changed since the pack posts the price charged and is flagged, REVIEW within the cashier's limit and URGENT beyond it |
 | B09c | `B09c-card-payment.md` | `b09c-card-payment` | B4 to B12 | Card payment online through the provider port with every payment edge case, no card details on our servers, and the card cases run against the real sandbox |
 | B08 continued 2d | `B08c2d-customer-statements.md` | `b08c2d-customer-statements` | B4 to B12 | A customer statement for a period ties to the customer's documents and the ledger's 1200 for that customer and period, opening plus movements equal to closing to the pesewa, and is rendered after commit and archived once; every statement write refuses the wrong role |
 | B09u | `B09u-units-supplier-account.md` | `b09u-units-supplier-account` | B4 to B12 | Every unit has a singular and a plural name and the seeded eggs are counted in a unit named egg, figures unchanged; a receipt line against an order line is valued by the server unless typed (CR-040); a Manager approves a supplier credit note the Owner raised and the Accountant drafted; the supplier balance (CR-042); invoice approval refuses its maker (CR-043); CR-044's descriptions; every write refuses the wrong role |
@@ -2801,7 +2802,7 @@ Stop at the gate and write docs/sessions/B09b5-pos-receipts.md.
 
 ## B09b continued 4b — The business buyer's TIN, an invoice paid at the till and the animal's price in the pack
 
-Branch `b09b5b-pos-tin-invoice-animal-price`, from `main`. Report `docs/sessions/B09b5b-pos-tin-invoice-animal-price.md`. Inserted by B09b continued 4's split (A-284 (a), ADR-0026 Amendments), before B09c. Lane A. Gate: the buyer's name and TIN on the VAT invoice, never creating a customer; an invoice paid in cash at the till inside the shift and counted at close, and cash outside an open shift refused; each sellable animal priced in the pack from its own latest weight and grade, with a weight changed since the pack posting the price charged and flagged; the receipt link revoked by a supervisor and then reading nothing.
+Branch `b09b5b-pos-tin-invoice-animal-price`, from `main`. Report `docs/sessions/B09b5b-pos-tin-invoice-animal-price.md`. Inserted by B09b continued 4's split (A-284 (a), ADR-0026 Amendments), before B09c. Lane A. **Split by its session (A-285 (a), ADR-0026 Amendments): it built the revoke, the buyer's name and TIN and the invoice paid at the till; CR-052 moved to B09b continued 4c, below.** Gate as built: the buyer's name and TIN on the VAT invoice, never creating a customer; an invoice paid in cash at the till inside the shift and counted at close, and cash outside an open shift refused; the receipt link revoked by a supervisor and then reading nothing. Original gate: the buyer's name and TIN on the VAT invoice, never creating a customer; an invoice paid in cash at the till inside the shift and counted at close, and cash outside an open shift refused; each sellable animal priced in the pack from its own latest weight and grade, with a weight changed since the pack posting the price charged and flagged; the receipt link revoked by a supervisor and then reading nothing.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
@@ -2839,14 +2840,43 @@ revoked link then reads nothing (pos.receipt_link_revocation is built), and its 
 Stop at the gate and write docs/sessions/B09b5b-pos-tin-invoice-animal-price.md.
 ```
 
+## B09b continued 4c — The animal's price in the pack
+
+Branch `b09b5c-pos-animal-price`, from `main`. Report `docs/sessions/B09b5c-pos-animal-price.md`. Inserted by B09b continued 4b's split (A-285 (a), ADR-0026 Amendments), before B09c. Lane A. Gate: each sellable animal priced in the offline pack from its own latest weight and grade by the pricing engine, with the weight's date and source; an animal with no weight or no grade priceless and answered as such; a weight changed since the pack posting the price charged, the server's price from the latest weight worked out only to compare, and the difference flagged REVIEW within the cashier's limit and URGENT beyond it, in exact pesewas by SQL over the order line and the journal lines.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md (the B9b row).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b5b-pos-tin-invoice-animal-price.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the POS requirement block of docs/SRS.md (nothing else from the SRS),
+docs/data-model/pos.md, the POS card in docs/MODULE_BOUNDARIES.md, docs/OFFLINE_SYNC.md, ADR-0004 (the pricing walk),
+A-277, A-278 (h) and A-285, and the abuse cases 3 and 11 in docs/security/THREAT_MODEL.md.
+Read the hakorem-offline and hakorem-pricing skills. Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B09b continued 4c only, on branch b09b5c-pos-animal-price, branched from main.
+CR-052 (the owner, 2026-11-18, from the frontend's F10l; low priority, BL-080 scheduled here, A-277 (f)): the offline
+pack gives each sellable animal priced by grade or weight its price, so the till can sell it: the price is resolved
+by the pricing engine from that animal's own latest weight and grade, never derived; it carries the weight's date and
+source; the server re-prices at sync, as every synced sale is; an animal with no weight or no grade stays priceless and
+is answered as such; exact pesewas tests. The owner's clarification on prices (2026-11-18) with it: an animal whose
+weight changed between the pack and the sale posts the price charged, the server's price from the latest weight is
+worked out only to compare, and the difference is flagged (REVIEW within the cashier's limit, URGENT beyond it), with
+exact pesewas by SQL over the order line and the journal lines. Say in syncOfflineSales how an animal re-weighed at
+the sale is priced if its weight moved it to another band (CR-052's question).
+Stop at the gate and write docs/sessions/B09b5c-pos-animal-price.md.
+```
+
 ## B09c — Card payment
 
 Branch `b09c-card-payment`, from `main`. Report `docs/sessions/B09c-card-payment.md`. Inserted by the owner on 2026-11-17 right after B9b and before B10 (ADR-0026 Amendments). Gate: an online order can be paid by card through the Paystack provider port with every edge case B09a continued proved for mobile money (timeout after charge, webhook before response, duplicate webhook, unknown reference, amount mismatch on re-verification, late webhook, refund, and the refund idempotency the sandbox exposed, A-218), a card payment's card details never touch our servers or logs, and the on-demand sandbox suite (`pnpm test:sandbox`) runs the card cases against the real Paystack sandbox with the owner's test key, reporting any difference from the documentation.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B09b5b-pos-tin-invoice-animal-price.md, the last of B9b's
-splits, A-273 (a)).
+List docs/sessions/ and read only the most recent report (docs/sessions/B09b5c-pos-animal-price.md, the last of B9b's
+splits, A-273 (a), A-285 (a)).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md).
 For this phase, read the PAY requirement block of docs/SRS.md, docs/data-model/pay.md, ADR-0063, A-210 and A-218, and
 the reports of B09a continued and B09a continued 2 (the sandbox run). Load hakorem-money, hakorem-ledger,

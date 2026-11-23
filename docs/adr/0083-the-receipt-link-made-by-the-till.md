@@ -38,6 +38,10 @@ Option 2, with the till's tenders kept with the link.
 - Forbidden: a receipt read by anything but the token; storing a receipt token in clear; a link for a sale that was not applied.
 - Binds `docs/data-model/pos.md`, `docs/OFFLINE_SYNC.md`, `docs/security/THREAT_MODEL.md` (abuse case 37), `docs/API.md` (POS), the POS card, B09b continued 4b (revocation) and B11 (the receipt SMS and the fresh link for a refused sale).
 
+## Amendments
+
+- **2026-11-23, B09b continued 4b (A-285 (b)): the revoke is built.** `revokeReceiptLink`: a holder of `pos.shift.close.approve` at the sale's branch, with its step-up, revokes a sale's link with a reason, once and audited; the link then reads nothing, answered exactly as a guessed token. The database holds who may (`ck_receipt_link_revocation_supervisor`, migration 0297). Tested in `test/integration/pos/receipt-link-revoke.integration.spec.ts`, the wrong role refused. The decision above is unchanged.
+
 ## Verification
 
 - `src/modules/pos/domain/receipt-link.spec.ts` (100 percent gate): the form, the hash, each verdict and the template.
