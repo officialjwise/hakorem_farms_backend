@@ -48,6 +48,7 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0292_pos_receipt_link',
       '0291_doc_quote_template',
       '0290_iam_grant_quo_report_permission',
       '0289_iam_seed_quo_report_permission',
