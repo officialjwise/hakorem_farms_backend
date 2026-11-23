@@ -91,7 +91,7 @@ Thresholds and limits are settings, not constants (shared brief, hard rule on co
 | SA-03 | Webhook timestamp window | 5 minutes either side of server time |
 | SA-04 | Signed URL life for private files | 5 minutes |
 | SA-05 | Overdue account hold | An invoice more than 30 days past due |
-| SA-06 | Quote validity and margin floor | 14 days; margin floor 10 percent over cost |
+| SA-06 | Quote validity and margin floor | 14 days; margin floor 10 percent margin over the selling price (the owner, 2026-11-23; over cost until then, A-342) |
 | SA-07 | Yield variance flag | Actual yield differing from expected by more than 5 percent of the expected yield |
 | SA-08 | Three-way match tolerance | Price 1 percent, quantity zero beyond the receipt |
 | SA-09 | Quiet hours | 21:00 to 07:00 Africa/Accra |
@@ -1368,8 +1368,8 @@ Default session: B10. Brief bullets: public form and internal creation (001 to 0
 - Actor: Sales
 - Trigger: `createQuote`
 - Rule: A quote has lines of catalogue products (priced by the engine or set manually) and free-text requirement lines for live animals (for example "20 goats, 25 to 30 kg, grade A"), quantities, validity, terms and a delivery estimate. A manual price below the engine floor needs approval (FR-QUO-005).
-- Outcome: Totals, tax breakdown and margin over cost are computed by the server.
-- Acceptance: A quote of 20 goats at 85,000 is 1,700,000 with margin over cost (cost 71,400 each) of 19.0 percent; a free-text line carries no price until a user prices it.
+- Outcome: Totals, tax breakdown, the margin and the markup are computed by the server. Margin is (price less cost) over price; anything worked over cost is markup and is named markup (the owner, 2026-11-23, A-342).
+- Acceptance: A quote of 20 goats at 85,000 is 1,700,000; at a cost of 71,400 each (1,428,000) its margin is 16.00 percent and its markup 19.05 percent; UAT scenario 2's 1,906,000 over 1,320,000 is a margin of 30.75 percent; a free-text line carries no price until a user prices it.
 - Test: `test/unit/quo/quote-totals.unit.spec.ts › computes totals tax and margin on the server`
 
 **FR-QUO-004** Validity, terms and delivery estimate
@@ -1383,9 +1383,9 @@ Default session: B10. Brief bullets: public form and internal creation (001 to 0
 **FR-QUO-005** Margin floor approval
 - Actor: Sales (maker), Manager (checker)
 - Trigger: `issueQuoteVersion`
-- Rule: A version whose margin over cost is below the floor (seed 10 percent) needs approval by a different user before issue; the database refuses issue without it.
+- Rule: A version whose margin over the selling price, on its product lines without the delivery fee, is below the floor (seed 10 percent; read over cost until 2026-11-23, A-342) needs approval by a different user before issue; the database refuses issue without it.
 - Outcome: Below the floor the call returns 202 `ApprovalPending` (`QUOTE_BELOW_MARGIN`).
-- Acceptance: Cost 1,428,000: a quote of 1,560,000 (margin 9.24 percent) returns 202; 1,570,800 (10.00 percent) issues directly; the author approving is refused.
+- Acceptance: Cost 1,428,000: a quote of 1,586,666 (margin 9.99996 percent) returns 202 and 1,586,667 issues directly; 1,570,800 (markup 10.00 percent, margin 9.09 percent), which cleared the old floor over cost, now returns 202; the author approving is refused.
 - Test: `test/int/quo/quote-margin-floor.int.spec.ts › needs approval below the floor`
 
 **FR-QUO-006** Versioning with revision history
@@ -3769,7 +3769,7 @@ These fill gaps the shared brief and the existing documents leave open. Each is 
 | SA-03 | Webhook timestamp window of 5 minutes either side | FR-PAY-004, SEC-005 | Backend lead |
 | SA-04 | Signed URLs for private files live 15 minutes for confidential files and 5 minutes for restricted ones (`docs/security/DATA_CLASSIFICATION.md`, A-050) | FR-DOC-007 | Backend lead |
 | SA-05 | An account goes on hold when any invoice is more than 30 days past due | FR-WHL-008 | Owner |
-| SA-06 | Quote validity 14 days; margin floor 10 percent over cost | FR-QUO-004, FR-QUO-005 | Owner |
+| SA-06 | Quote validity 14 days; margin floor 10 percent margin over the selling price (the owner, 2026-11-23, A-342) | FR-QUO-004, FR-QUO-005 | Owner |
 | SA-07 | Yield variance flag when actual differs from expected by more than 5 percent of expected | FR-PRC-005 | Owner |
 | SA-08 | Three-way match tolerance: price 1 percent, quantity zero beyond the receipt | FR-PUR-009 | Accountant |
 | SA-09 | Quiet hours 21:00 to 07:00 Africa/Accra; security codes and delivery-day messages exempt | FR-NTF-006 | Owner |

@@ -1,6 +1,6 @@
 import { Quantity } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { canMoveQuote, canMoveVersion, judgeMargin, linkState, lineCost, lineNet, marginPercent, planHold, unitCost, versionFigures } from './quote';
+import { canMoveQuote, canMoveVersion, judgeMargin, linkState, lineCost, lineNet, marginPercent, markupPercent, planHold, unitCost, versionFigures } from './quote';
 
 const q = (text: string) => Quantity.parse(text);
 
@@ -19,47 +19,98 @@ describe('a quote line is extended once, half-up (FR-QUO-003, ADR-0001)', () => 
   });
 });
 
-describe('margin over cost (FR-QUO-003, FR-QUO-005)', () => {
+describe('markup is worked over cost and named markup (the owner, 2026-11-23)', () => {
   it('is 19.05 percent on 1,700,000 over a cost of 1,428,000', () => {
-    expect(marginPercent(1_700_000n, 1_428_000n)).toBe('19.05');
-  });
-  it('is 9.24 percent on 1,560,000 and exactly 10.00 on 1,570,800', () => {
-    expect([marginPercent(1_560_000n, 1_428_000n), marginPercent(1_570_800n, 1_428_000n)]).toEqual(['9.24', '10.00']);
+    expect(markupPercent(1_700_000n, 1_428_000n)).toBe('19.05');
   });
   it('rounds half away from zero: 1 over 8 is 12.50, 1 under 8 is -12.50, 1 over 3 is 33.33', () => {
-    expect([marginPercent(9n, 8n), marginPercent(7n, 8n), marginPercent(4n, 3n)]).toEqual(['12.50', '-12.50', '33.33']);
+    expect([markupPercent(9n, 8n), markupPercent(7n, 8n), markupPercent(4n, 3n)]).toEqual(['12.50', '-12.50', '33.33']);
   });
   it('is above 100 when the price is more than twice the cost, and null with no cost or a nil cost', () => {
-    expect([marginPercent(6_000n, 1_750n), marginPercent(100n, null), marginPercent(100n, 0n)]).toEqual(['242.86', null, null]);
+    expect([markupPercent(6_000n, 1_750n), markupPercent(100n, null), markupPercent(100n, 0n)]).toEqual(['242.86', null, null]);
   });
-  it('is below a 10 percent floor at 1,570,799 and not at 1,570,800, compared exactly, never on the rounded figure', () => {
-    expect([judgeMargin(1_570_799n, 1_428_000n, 1_000), judgeMargin(1_570_800n, 1_428_000n, 1_000)]).toEqual([true, false]);
+});
+
+describe('margin is worked over the selling price: (price less cost) over price (the owner, 2026-11-23, FR-QUO-003)', () => {
+  it("is UAT scenario 2's 30.75 percent on a net of 1,906,000 over a cost of 1,320,000 (step 2.2)", () => {
+    expect(marginPercent(1_906_000n, 1_320_000n)).toBe('30.75');
   });
-  it('is below the floor when the cost is unknown, and never below it on a nil cost', () => {
-    expect([judgeMargin(100n, null, 1_000), judgeMargin(100n, 0n, 1_000)]).toEqual([true, false]);
+  it("is UAT scenario 2's 30.77 percent on a net of 1,716,000 over a cost of 1,188,000 (step 2.5)", () => {
+    expect(marginPercent(1_716_000n, 1_188_000n)).toBe('30.77');
+  });
+  it('is 16.00 percent on 1,700,000 over a cost of 1,428,000, where the markup is 19.05', () => {
+    expect(marginPercent(1_700_000n, 1_428_000n)).toBe('16.00');
+  });
+  it('rounds an exact half hundredth up once: 1 over 8 is 12.50, 1 over 800 is 0.13, 1 over 801 is 0.12', () => {
+    // 1/800 = 0.125 percent exactly, half-up 0.13; 1/801 = 0.12484... percent, 0.12
+    expect([marginPercent(8n, 7n), marginPercent(800n, 799n), marginPercent(801n, 800n)]).toEqual(['12.50', '0.13', '0.12']);
+  });
+  it('is negative below cost, rounded half away from zero: 7 over a cost of 8 is -14.29, 800 over 801 is -0.13', () => {
+    expect([marginPercent(7n, 8n), marginPercent(800n, 801n)]).toEqual(['-14.29', '-0.13']);
+  });
+  it('is 100.00 on a nil cost, never above 100, and null with no cost known or no price', () => {
+    expect([marginPercent(100n, 0n), marginPercent(100n, null), marginPercent(0n, 0n), marginPercent(0n, 5n)]).toEqual(['100.00', null, null, null]);
+  });
+  it('is exact at the largest amount: 9,007,199,254,740,991 over a cost of 1 is 100.00', () => {
+    expect(marginPercent(9_007_199_254_740_991n, 1n)).toBe('100.00');
+  });
+});
+
+describe('the margin floor is a margin over the selling price, compared exactly (the owner, 2026-11-23, FR-QUO-005)', () => {
+  it('needs approval at 1,586,666 over a cost of 1,428,000 and not at 1,586,667, at a 10 percent floor', () => {
+    expect([judgeMargin(1_586_666n, 1_428_000n, 1_000), judgeMargin(1_586_667n, 1_428_000n, 1_000)]).toEqual([true, false]);
+  });
+  it('needs approval for 1,570,800, which cleared the old floor over cost at exactly 10.00 percent markup', () => {
+    expect(judgeMargin(1_570_800n, 1_428_000n, 1_000)).toBe(true);
+  });
+  it('is at the floor exactly when (price less cost) x 10,000 equals floor x price: 1,000 over 900 at 1,000 bp', () => {
+    expect([judgeMargin(1_000n, 900n, 1_000), judgeMargin(999n, 900n, 1_000)]).toEqual([false, true]);
+  });
+  it('is below the floor when the cost is unknown, and never below a floor short of 100 percent on a nil cost', () => {
+    expect([judgeMargin(100n, null, 1_000), judgeMargin(100n, 0n, 1_000), judgeMargin(100n, 0n, 9_999)]).toEqual([true, false, false]);
+  });
+  it('is below the floor with no price and a cost, and below a zero floor only when sold below cost', () => {
+    expect([judgeMargin(0n, 5n, 1_000), judgeMargin(99n, 100n, 0), judgeMargin(100n, 100n, 0)]).toEqual([true, true, false]);
   });
 });
 
 describe("a version's figures (FR-QUO-003)", () => {
   const goats = { qty: q('20.000'), unitPricePesewas: 85_000n, unitCostPesewas: 71_400n, belowEngineFloor: false };
-  it('adds the delivery fee and the tax to the net, and judges the margin on the lines alone', () => {
+  it('adds the delivery fee and the tax to the net, shows the margin over that net and the markup over cost on the lines', () => {
     const f = versionFigures([goats], { deliveryFeePesewas: 6_000n, taxPesewas: 0n, floorBasisPoints: 1_000 });
-    expect(f).toEqual({ netPesewas: 1_706_000n, taxPesewas: 0n, grossPesewas: 1_706_000n, estimatedCostPesewas: 1_428_000n, marginPercent: '19.05', belowMarginFloor: false, lineNets: [1_700_000n] });
+    // margin (1,706,000 - 1,428,000) / 1,706,000 = 16.295..., markup (1,700,000 - 1,428,000) / 1,428,000 = 19.047...
+    expect(f).toEqual({ netPesewas: 1_706_000n, taxPesewas: 0n, grossPesewas: 1_706_000n, estimatedCostPesewas: 1_428_000n, marginPercent: '16.30', markupPercent: '19.05', belowMarginFloor: false, lineNets: [1_700_000n] });
+  });
+  it("is UAT scenario 2's version 1: 20 goats at 95,000 and a fee of 6,000 over 1,320,000 is a margin of 30.75 percent, clearing a 20 percent floor", () => {
+    const uat = { qty: q('20.000'), unitPricePesewas: 95_000n, unitCostPesewas: 66_000n, belowEngineFloor: false };
+    const f = versionFigures([uat], { deliveryFeePesewas: 6_000n, taxPesewas: 1_200n, floorBasisPoints: 2_000 });
+    expect([f.netPesewas, f.grossPesewas, f.estimatedCostPesewas, f.marginPercent, f.belowMarginFloor]).toEqual([1_906_000n, 1_907_200n, 1_320_000n, '30.75', false]);
+  });
+  it("is UAT scenario 2's version 2: 18 goats and the fee over 1,188,000 is 30.77 percent", () => {
+    const uat = { qty: q('18.000'), unitPricePesewas: 95_000n, unitCostPesewas: 66_000n, belowEngineFloor: false };
+    expect(versionFigures([uat], { deliveryFeePesewas: 6_000n, taxPesewas: 1_200n, floorBasisPoints: 2_000 }).marginPercent).toBe('30.77');
+  });
+  it('judges the floor on the lines alone, so a delivery fee never lifts a version over it (A-342)', () => {
+    // lines 1,586,666 over 1,428,000 are below 10 percent; with a fee of 100,000 the net's margin is 15.34 percent
+    const lines = { qty: q('1.000'), unitPricePesewas: 1_586_666n, unitCostPesewas: 1_428_000n, belowEngineFloor: false };
+    const f = versionFigures([lines], { deliveryFeePesewas: 100_000n, taxPesewas: 0n, floorBasisPoints: 1_000 });
+    expect([f.marginPercent, f.belowMarginFloor]).toEqual(['15.34', true]);
+    expect(versionFigures([{ ...lines, unitPricePesewas: 1_586_667n }], { deliveryFeePesewas: 100_000n, taxPesewas: 0n, floorBasisPoints: 1_000 }).belowMarginFloor).toBe(false);
   });
   it('needs approval for one line below the engine floor even when the margin clears the floor', () => {
     expect(versionFigures([{ ...goats, belowEngineFloor: true }], { deliveryFeePesewas: 0n, taxPesewas: 0n, floorBasisPoints: 1_000 }).belowMarginFloor).toBe(true);
   });
   it('has no cost and needs approval when one line has no cost', () => {
     const f = versionFigures([goats, { qty: q('1.000'), unitPricePesewas: 5_000n, unitCostPesewas: null, belowEngineFloor: false }], { deliveryFeePesewas: 0n, taxPesewas: 0n, floorBasisPoints: 1_000 });
-    expect([f.estimatedCostPesewas, f.marginPercent, f.belowMarginFloor, f.netPesewas]).toEqual([null, null, true, 1_705_000n]);
+    expect([f.estimatedCostPesewas, f.marginPercent, f.markupPercent, f.belowMarginFloor, f.netPesewas]).toEqual([null, null, null, true, 1_705_000n]);
   });
   it('adds the tax on top of a tax-exclusive net: 18,000 with 2,700 tax is 20,700 gross', () => {
     const f = versionFigures([{ qty: q('3.000'), unitPricePesewas: 6_000n, unitCostPesewas: 3_500n, belowEngineFloor: false }], { deliveryFeePesewas: 0n, taxPesewas: 2_700n, floorBasisPoints: 1_000 });
-    expect([f.netPesewas, f.taxPesewas, f.grossPesewas, f.marginPercent]).toEqual([18_000n, 2_700n, 20_700n, '71.43']);
+    expect([f.netPesewas, f.taxPesewas, f.grossPesewas, f.marginPercent, f.markupPercent]).toEqual([18_000n, 2_700n, 20_700n, '41.67', '71.43']);
   });
   it('takes the tax out of tax-inclusive lines: 20,700 with 2,700 tax is a net of 18,000, judged on 18,000', () => {
     const f = versionFigures([{ qty: q('3.000'), unitPricePesewas: 6_900n, unitCostPesewas: 3_500n, belowEngineFloor: false }], { deliveryFeePesewas: 500n, taxPesewas: 2_700n, floorBasisPoints: 1_000, taxInclusive: true });
-    expect([f.lineNets, f.netPesewas, f.taxPesewas, f.grossPesewas, f.marginPercent]).toEqual([[20_700n], 18_500n, 2_700n, 21_200n, '71.43']);
+    expect([f.lineNets, f.netPesewas, f.taxPesewas, f.grossPesewas, f.marginPercent, f.markupPercent]).toEqual([[20_700n], 18_500n, 2_700n, 21_200n, '43.24', '71.43']);
   });
 });
 

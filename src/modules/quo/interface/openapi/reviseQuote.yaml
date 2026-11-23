@@ -61,7 +61,9 @@ responses:
           taxPesewas: 1200
           grossPesewas: 1717200
           estimatedCostPesewas: 1188000
-          marginPercent: "30.77"
+          marginPercent: "43.94"
+          markupPercent: "43.94"
+          marginOverPricePercent: "30.77"
           belowMarginFloor: false
           subjectToStock: false
           approvalRequestId: null

@@ -34233,7 +34233,20 @@ components:
             - type: string
               pattern: "^-?[0-9]{1,7}\\.[0-9]{2}$"
             - type: "null"
-          description: "Margin over cost, (net less cost) over cost, as a percentage to two places rounded half away from zero (FR-QUO-003): 19.05 for 1,700,000 over 1,428,000. It may be negative (sold below cost) or above 100, so it is not a `Percent`. Null when the cost is unknown or nil. The floor is judged exactly on the amounts, never on this rounded figure."
+          deprecated: true
+          description: "**Deprecated (2.29.0, LOUD): this figure is markup, not margin** (the owner, 2026-11-23: margin is over the selling price, and anything worked over cost is markup and is named markup). It is unchanged: (lines' net less cost) over cost, as a percentage to two places rounded half away from zero, 19.05 for 1,700,000 over 1,428,000, and always equal to `markupPercent`. Kept under its old name for one release; read `markupPercent` for this figure and `marginOverPricePercent` for the margin. Never compared with the floor."
+        markupPercent:
+          anyOf:
+            - type: string
+              pattern: "^-?[0-9]{1,18}\\.[0-9]{2}$"
+            - type: "null"
+          description: "2.29.0 (the owner, 2026-11-23): markup over cost, (the product lines' net less cost) over cost, as a percentage to two places rounded half away from zero: 19.05 for 1,700,000 over 1,428,000. It may be negative (sold below cost) or above 100, so it is not a `Percent`. Null when the cost is unknown or nil. Not the margin, and never compared with the floor."
+        marginOverPricePercent:
+          anyOf:
+            - type: string
+              pattern: "^-?[0-9]{1,18}\\.[0-9]{2}$"
+            - type: "null"
+          description: "2.29.0 (the owner, 2026-11-23, A-342): the margin, over the selling price: (net less cost) over net, the net being the lines and the delivery fee before tax, as a percentage to two places rounded half away from zero. UAT scenario 2: 30.75 for 1,906,000 over a cost of 1,320,000, 30.77 for 1,716,000 over 1,188,000. Never above 100 (a nil cost is 100.00), negative when sold below cost; null when the cost is unknown or the net is nil. The floor (`belowMarginFloor`) is a margin over price too, but judged exactly on the amounts of the product lines alone, without the delivery fee, so a fee never lifts a version over it."
         belowMarginFloor:
           type: boolean
         subjectToStock:
@@ -34312,6 +34325,8 @@ components:
         - grossPesewas
         - estimatedCostPesewas
         - marginPercent
+        - markupPercent
+        - marginOverPricePercent
         - belowMarginFloor
         - subjectToStock
         - approvalRequestId
@@ -37539,6 +37554,7 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Percent"
             - type: "null"
+          description: "The margin over revenue, gross margin over revenue (the owner, 2026-11-23: margin is over the selling price, never over cost): 30.88 for 2,730,000 over 8,840,000. Null when there is no revenue."
         priceVariancePesewas:
           $ref: "#/components/schemas/Pesewas"
         priceVarianceIsNegative:

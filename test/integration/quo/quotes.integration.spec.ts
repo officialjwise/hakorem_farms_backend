@@ -98,7 +98,7 @@ afterAll(async () => {
 });
 
 describe('a quote is made of versions; an issued one never changes (FR-QUO-006, the gate)', () => {
-  it('keeps version 1 at 280,000 when version 2 is issued at 264,000, lists both with author and totals, and marks only 2 current', async () => {
+  it('keeps version 1 at 280,000 when version 2 is issued at 266,668, lists both with author and totals, and marks only 2 current', async () => {
     const made = await draft('sales', [goatLine(70_000)]);
     expect(made.status, JSON.stringify(made.body)).toBe(201);
     const quote = made.body;
@@ -111,7 +111,9 @@ describe('a quote is made of versions; an issued one never changes (FR-QUO-006, 
     );
     expect([pools['v'], pools['q']]).toEqual(['240000', '4.000']);
     const v1 = quote.currentVersion;
-    expect([v1.netPesewas, v1.taxPesewas, v1.grossPesewas, v1.estimatedCostPesewas, v1.marginPercent, v1.belowMarginFloor]).toEqual([280_000, 0, 280_000, 240_000, '16.67', false]);
+    // Margin over the price (the owner, 2026-11-23): 40,000 over 280,000 is 14.29; the markup over cost is 16.67, also under
+    // its deprecated old name.
+    expect([v1.netPesewas, v1.taxPesewas, v1.grossPesewas, v1.estimatedCostPesewas, v1.marginOverPricePercent, v1.markupPercent, v1.marginPercent, v1.belowMarginFloor]).toEqual([280_000, 0, 280_000, 240_000, '14.29', '16.67', '16.67', false]);
     expect(v1.lines.map((l: Record<string, unknown>) => [l['quantity'], l['uom'], l['unitPricePesewas'], l['lineNetPesewas'], l['estimatedUnitCostPesewas']])).toEqual([['4.000', 'HEAD', 70_000, 280_000, 60_000]]);
 
     const issued = await issue('sales', v1.id);
@@ -123,10 +125,10 @@ describe('a quote is made of versions; an issued one never changes (FR-QUO-006, 
     const revised = await post('sales', `/quotes/${quote.id}/versions`, { changeNote: 'Buyer asked for a better price per head' });
     expect(revised.status, JSON.stringify(revised.body)).toBe(201);
     expect([revised.body.versionNo, revised.body.status, revised.body.changeNote, revised.body.netPesewas]).toEqual([2, 'DRAFT', 'Buyer asked for a better price per head', 280_000]);
-    const edited = await put('sales', `/quote-versions/${revised.body.id}`, { version: revised.body.version ?? 1, lines: [goatLine(66_000)] });
+    const edited = await put('sales', `/quote-versions/${revised.body.id}`, { version: revised.body.version ?? 1, lines: [goatLine(66_667)] });
     expect(edited.status, JSON.stringify(edited.body)).toBe(200);
-    // 264,000 over 240,000 is exactly 10.00 percent: at the floor, not below it, so it issues without approval (FR-QUO-005).
-    expect([edited.body.netPesewas, edited.body.marginPercent, edited.body.belowMarginFloor]).toEqual([264_000, '10.00', false]);
+    // 266,668 over a cost of 240,000 is a margin of 10.0004 percent over the price, shown 10.00: clear of the floor (FR-QUO-005).
+    expect([edited.body.netPesewas, edited.body.marginOverPricePercent, edited.body.markupPercent, edited.body.belowMarginFloor]).toEqual([266_668, '10.00', '11.11', false]);
     const second = await issue('sales', revised.body.id);
     expect(second.status, JSON.stringify(second.body)).toBe(200);
     ids.set('v2', revised.body.id);
@@ -136,11 +138,11 @@ describe('a quote is made of versions; an issued one never changes (FR-QUO-006, 
     expect(versions.status).toBe(200);
     const salesId = users.get('sales')!.principalId;
     expect(versions.body.data.map((v: Record<string, Record<string, unknown>>) => [v['versionNo'], v['status'], v['grossPesewas'], v['createdBy']!['id'], typeof v['createdAt']])).toEqual([
-      [2, 'ISSUED', 264_000, salesId, 'string'],
+      [2, 'ISSUED', 266_668, salesId, 'string'],
       [1, 'SUPERSEDED', 280_000, salesId, 'string'],
     ]);
     const now = await get('sales', `/quotes/${quote.id}`);
-    expect([now.body.status, now.body.versionCount, now.body.currentVersion.versionNo, now.body.currentVersion.grossPesewas]).toEqual(['ISSUED', 2, 2, 264_000]);
+    expect([now.body.status, now.body.versionCount, now.body.currentVersion.versionNo, now.body.currentVersion.grossPesewas]).toEqual(['ISSUED', 2, 2, 266_668]);
     const stored = await one('SELECT net_pesewas::text AS net, status FROM quo.quote_version WHERE id = $1', [v1.id]);
     expect([stored['net'], stored['status']]).toEqual(['280000', 'SUPERSEDED']);
   });
@@ -156,12 +158,28 @@ describe('a quote is made of versions; an issued one never changes (FR-QUO-006, 
   });
 });
 
-describe('below the margin floor a version waits for a different person (FR-QUO-005, the gate)', () => {
-  it('answers 202 at 263,996 (9.998 percent, shown as 10.00, compared exactly), refuses its author and the wrong role; the Owner\'s approval only approves, and the salesperson issues it and sees the link once (the owner, 2026-11-19)', async () => {
-    const made = await draft('manager', [goatLine(65_999)]);
+describe('the margin floor is a margin over the selling price (the owner, 2026-11-23, A-342)', () => {
+  it('makes a version at 10 percent markup, which cleared the old floor over cost, wait for approval: 264,000 over 240,000 is a margin of 9.09', async () => {
+    const made = await draft('manager', [goatLine(66_000)]);
     expect(made.status, JSON.stringify(made.body)).toBe(201);
     const v = made.body.currentVersion;
-    expect([v.netPesewas, v.marginPercent, v.belowMarginFloor]).toEqual([263_996, '10.00', true]);
+    expect([v.netPesewas, v.estimatedCostPesewas, v.marginOverPricePercent, v.markupPercent, v.marginPercent, v.belowMarginFloor]).toEqual([264_000, 240_000, '9.09', '10.00', '10.00', true]);
+    const asked = await issue('manager', v.id);
+    expect([asked.status, asked.body.kind], JSON.stringify(asked.body)).toEqual([202, 'QUOTE_BELOW_MARGIN']);
+    const stored = await one('SELECT margin_percent::text AS markup, below_margin_floor AS below FROM quo.quote_version WHERE id = $1', [v.id]);
+    expect([stored['markup'], stored['below']]).toEqual(['10.00', true]);
+    const named = await one("SELECT col_description('quo.quote_version'::regclass, attnum) AS comment FROM pg_attribute WHERE attrelid = 'quo.quote_version'::regclass AND attname = 'margin_percent'");
+    expect(named['comment']).toMatch(/^Markup over cost, not margin/);
+    expect((await post('manager', `/quotes/${made.body.id}/cancel`, { reason: 'Superseded by a better price (TEST)' })).status).toBe(200);
+  });
+});
+
+describe('below the margin floor a version waits for a different person (FR-QUO-005, the gate)', () => {
+  it('answers 202 at 266,664 (9.9985 percent over the price, shown as 10.00, compared exactly), refuses its author and the wrong role; the Owner\'s approval only approves, and the salesperson issues it and sees the link once (the owner, 2026-11-19)', async () => {
+    const made = await draft('manager', [goatLine(66_666)]);
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    const v = made.body.currentVersion;
+    expect([v.netPesewas, v.marginOverPricePercent, v.belowMarginFloor]).toEqual([266_664, '10.00', true]);
     const asked = await issue('manager', v.id);
     expect(asked.status, JSON.stringify(asked.body)).toBe(202);
     expect([asked.body.kind, asked.body.subject.id, asked.body.status]).toEqual(['QUOTE_BELOW_MARGIN', made.body.id, 'PENDING_APPROVAL']);
@@ -190,7 +208,7 @@ describe('below the margin floor a version waits for a different person (FR-QUO-
     expect(await links()).toBe(0);
     // The salesperson issues it: the figures approved stand, the stock is held, one message, the link answered once.
     const issued = await issue('manager', v.id);
-    expect([issued.status, issued.body.status, issued.body.netPesewas, issued.body.acceptanceLinkToken], JSON.stringify(issued.body)).toEqual([200, 'ISSUED', 263_996, expect.stringMatching(/^quo_/)]);
+    expect([issued.status, issued.body.status, issued.body.netPesewas, issued.body.acceptanceLinkToken], JSON.stringify(issued.body)).toEqual([200, 'ISSUED', 266_664, expect.stringMatching(/^quo_/)]);
     expect([await links(), await sent()]).toEqual([1, 1]);
     const read = await get('manager', `/quotes/${made.body.id}`);
     expect([read.body.status, read.body.currentVersion.status, read.body.currentVersion.issuedBy.id, read.body.currentVersion.acceptanceLinkToken]).toEqual(['ISSUED', 'ISSUED', users.get('manager')!.principalId, null]);
@@ -300,7 +318,7 @@ describe('the acceptance link is a random token, stored only as its hash, openin
   it('opens the live version; a replaced version, a guessed token, the quote id and its number open nothing', async () => {
     const live = await publicGet(`/shop/quotes/${id('v2Token')}`);
     expect(live.status, JSON.stringify(live.body)).toBe(200);
-    expect([live.body.versionNo, live.body.status, live.body.grossPesewas, live.body.lines[0].lineNetPesewas]).toEqual([2, 'ISSUED', 264_000, 264_000]);
+    expect([live.body.versionNo, live.body.status, live.body.grossPesewas, live.body.lines[0].lineNetPesewas]).toEqual([2, 'ISSUED', 266_668, 266_668]);
     expect(Object.keys(live.body.lines[0]).sort()).toEqual(['description', 'lineNetPesewas', 'priceBasis', 'quantity', 'subjectToStock', 'unitPricePesewas', 'uom']);
     const replaced = await publicGet(`/shop/quotes/${id('v1Token')}`);
     expect([replaced.status, replaced.body.error?.code, replaced.body.error?.details?.[0]?.code, replaced.body.lines]).toEqual([422, 'QUOTE_LINK_CLOSED', 'REPLACED', undefined]);
@@ -354,9 +372,9 @@ describe('an accepted quote converts to exactly one order that keeps every link 
     expect(converted.status, JSON.stringify(converted.body)).toBe(201);
     const order = converted.body;
     const quoteLine = accepted.body.currentVersion.lines[0].id;
-    expect([order.channel, order.status, order.source.id, order.estimatedTotalPesewas]).toEqual(['QUOTE', 'PLACED', id('goatQuote'), 264_000]);
+    expect([order.channel, order.status, order.source.id, order.estimatedTotalPesewas]).toEqual(['QUOTE', 'PLACED', id('goatQuote'), 266_668]);
     expect(order.lines.map((l: Record<string, Record<string, unknown>>) => [l['stockUnit']!['id'], l['qtyOrdered'], l['priceSource'], l['quoteLineId'], l['agreedUnitPricePesewas'], l['estimatedLineTotalPesewas']])).toEqual(
-      goats.map((g) => [g, '1.000', 'QUOTE', quoteLine, 66_000, 66_000]),
+      goats.map((g) => [g, '1.000', 'QUOTE', quoteLine, 66_667, 66_667]),
     );
     const replay = await post('sales', `/quotes/${id('goatQuote')}/convert`, { fulfilmentMode: 'COLLECTION', paymentTerms: 'COD', stockUnitIds: goats }, key);
     expect([replay.status, replay.body.id]).toEqual([201, order.id]);

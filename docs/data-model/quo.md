@@ -71,7 +71,7 @@ One revision. Immutable once issued; a change is a new version. Posted statuses:
 | `tax_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Estimate from the tax calculator |
 | `gross_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | |
 | `estimated_cost_pesewas` | `pesewas` | NULL | For margin |
-| `margin_percent` | `numeric(9,2)` | NULL | Margin over cost; may be negative or above 100, so not `percent` (A-309 (c)) |
+| `margin_percent` | `numeric(9,2)` | NULL | **Markup over cost, not margin** (the owner, 2026-11-23, migration 0307's comment): (the lines' net less cost) over cost; may be negative or above 100, so not `percent` (A-309 (c)). Answered as `markupPercent` and, deprecated, `marginPercent`; to be renamed `markup_percent` in the next release (BL-098). The margin over price is derived from `net_pesewas` and `estimated_cost_pesewas` on read, never stored (A-342) |
 | `below_margin_floor` | `boolean` | NOT NULL DEFAULT `false` | |
 | `approval_request_id` | `uuid` | NULL, FK `iam.approval_request`; required to issue when `below_margin_floor` | |
 | `approved_by`, `approved_at` | `uuid`, `timestamptz` | NULL, together; never the author nor the issuer (`ck_quote_version_margin_approved`) | B10, FR-QUO-005 |

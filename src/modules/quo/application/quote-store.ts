@@ -65,7 +65,8 @@ export interface VersionRecord {
   readonly taxPesewas: bigint;
   readonly grossPesewas: bigint;
   readonly estimatedCostPesewas: bigint | null;
-  readonly marginPercent: string | null;
+  /** Markup over cost, stored in `margin_percent` (a name kept for one release, A-342). */
+  readonly markupPercent: string | null;
   readonly belowMarginFloor: boolean;
   readonly approvalRequestId: string | null;
   readonly approvedBy: string | null;
@@ -119,7 +120,8 @@ export interface VersionFiguresPatch {
   readonly taxPesewas: bigint;
   readonly grossPesewas: bigint;
   readonly estimatedCostPesewas: bigint | null;
-  readonly marginPercent: string | null;
+  /** Markup over cost, stored in `margin_percent` (a name kept for one release, A-342). */
+  readonly markupPercent: string | null;
   readonly belowMarginFloor: boolean;
 }
 

@@ -32,6 +32,7 @@ import { pageProbe } from '../domain/paging';
 import {
   DEFAULT_MARGIN_FLOOR_BASIS_POINTS,
   linkState,
+  marginPercent,
   lineNet,
   planHold,
   unitCost,
@@ -74,7 +75,7 @@ export interface LinkBrowser {
   /** The staff realm's access cookie, when the browser sent one. */
   readonly staffAccessToken?: string | undefined;
 }
-/** The setting holding the margin floor in basis points of cost (FR-QUO-005, seed 10 percent). */
+/** The setting holding the margin floor in basis points of the selling price (FR-QUO-005, seed 10 percent; over cost until 2.29.0, A-342). */
 export const MARGIN_FLOOR_SETTING = 'quo.margin_floor_basis_points';
 const TOKEN_PREFIX = 'quo_';
 const EXPIRY_BATCH = 100;
@@ -179,7 +180,12 @@ export interface QuoteVersionView {
   readonly taxPesewas: number;
   readonly grossPesewas: number;
   readonly estimatedCostPesewas: number | null;
+  /** Deprecated (2.29.0, LOUD): the markup over cost under its old name, kept for one release; read `markupPercent`. */
   readonly marginPercent: string | null;
+  /** Markup over cost on the product lines (the owner, 2026-11-23: anything over cost is markup). */
+  readonly markupPercent: string | null;
+  /** Margin over the selling price: (net less cost) over net, the net with the delivery fee and before tax (A-342). */
+  readonly marginOverPricePercent: string | null;
   readonly belowMarginFloor: boolean;
   /** A line was not wholly on hand when the version was issued: the quote is subject to stock (A-328). */
   readonly subjectToStock: boolean;
@@ -331,7 +337,7 @@ export function marginHash(version: VersionRecord, lines: readonly LineRecord[])
  * across immutable versions: a draft is edited, an issued version never changes (migration 0251), a change is a new
  * version that supersedes the live one when it is issued. Every line is priced by the engine for the record (in its own
  * unit, never derived from another unit's price, CR-045) at the quoted price the salesperson sets, extended once, with
- * its cost estimated from the cost pools it may be promised from; a version below the margin floor over cost, or with a
+ * its cost estimated from the cost pools it may be promised from; a version below the margin floor over price, or with a
  * line below the engine's floor, is issued only once a holder of `quo.quote_margin.approve` who neither drafted it nor
  * asked to issue it approves it (`QUOTE_BELOW_MARGIN`, also held by the database). Issuing reserves every product line
  * in the base unit for the validity (a named animal, or lots oldest first; an unnamed animal is chosen at conversion),
@@ -625,7 +631,7 @@ export class Quotes {
           subjectDocumentId: quote.id,
           payloadHash: marginHash(judged, priced.lines),
           amountPesewas: judged.netPesewas,
-          summary: `Quote ${quote.quoteNo} version ${judged.versionNo}: ${formatCedis(judged.netPesewas)} at a margin of ${judged.marginPercent ?? 'unknown'} percent over cost, below the floor or the engine's floor`,
+          summary: `Quote ${quote.quoteNo} version ${judged.versionNo}: ${formatCedis(judged.netPesewas)} at a margin of ${marginPercent(judged.netPesewas, judged.estimatedCostPesewas) ?? 'unknown'} percent over the price, below the floor or the engine's floor`,
         });
         await this.store.setVersionStatus(tx, versionId, { status: 'PENDING_APPROVAL', approvalRequestId: approval.id }, actor!.principalId, at);
         if (quote.status === 'DRAFT') await this.store.updateQuote(tx, quote.id, { status: 'PENDING_APPROVAL' }, actor!.principalId, at);
@@ -1441,7 +1447,7 @@ export class Quotes {
       })),
       { deliveryFeePesewas: o.deliveryFeePesewas, taxPesewas: tax, floorBasisPoints: floor, taxInclusive: o.taxInclusive },
     );
-    return { netPesewas: f.netPesewas, taxPesewas: f.taxPesewas, grossPesewas: f.grossPesewas, estimatedCostPesewas: f.estimatedCostPesewas, marginPercent: f.marginPercent, belowMarginFloor: f.belowMarginFloor };
+    return { netPesewas: f.netPesewas, taxPesewas: f.taxPesewas, grossPesewas: f.grossPesewas, estimatedCostPesewas: f.estimatedCostPesewas, markupPercent: f.markupPercent, belowMarginFloor: f.belowMarginFloor };
   }
 
   /** The product line the quote is reported under (FR-QUO-013): its first product's category, by its code. */
@@ -1551,7 +1557,9 @@ export class Quotes {
         taxPesewas: json(v.taxPesewas),
         grossPesewas: json(v.grossPesewas),
         estimatedCostPesewas: jsonOrNull(v.estimatedCostPesewas),
-        marginPercent: v.marginPercent,
+        marginPercent: v.markupPercent,
+        markupPercent: v.markupPercent,
+        marginOverPricePercent: marginPercent(v.netPesewas, v.estimatedCostPesewas),
         belowMarginFloor: v.belowMarginFloor,
         subjectToStock: own.some((l) => isSubjectToStock(l, stock)),
         approvalRequestId: v.approvalRequestId,

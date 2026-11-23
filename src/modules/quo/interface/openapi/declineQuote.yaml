@@ -75,6 +75,8 @@ responses:
             grossPesewas: 285000
             estimatedCostPesewas: null
             marginPercent: null
+            markupPercent: null
+            marginOverPricePercent: null
             belowMarginFloor: false
             subjectToStock: false
             approvalRequestId: null

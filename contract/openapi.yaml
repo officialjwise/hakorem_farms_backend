@@ -60647,7 +60647,9 @@ paths:
                           taxPesewas: 1200
                           grossPesewas: 1717200
                           estimatedCostPesewas: 1188000
-                          marginPercent: "30.77"
+                          marginPercent: "43.94"
+                          markupPercent: "43.94"
+                          marginOverPricePercent: "30.77"
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -60729,6 +60731,8 @@ paths:
                           grossPesewas: 1185000
                           estimatedCostPesewas: null
                           marginPercent: null
+                          markupPercent: null
+                          marginOverPricePercent: null
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -60787,6 +60791,8 @@ paths:
                           grossPesewas: 726800
                           estimatedCostPesewas: null
                           marginPercent: null
+                          markupPercent: null
+                          marginOverPricePercent: null
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -60842,6 +60848,8 @@ paths:
                           grossPesewas: 285000
                           estimatedCostPesewas: null
                           marginPercent: null
+                          markupPercent: null
+                          marginOverPricePercent: null
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -60897,6 +60905,8 @@ paths:
                           grossPesewas: 228000
                           estimatedCostPesewas: null
                           marginPercent: null
+                          markupPercent: null
+                          marginOverPricePercent: null
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -60952,6 +60962,8 @@ paths:
                           grossPesewas: 380000
                           estimatedCostPesewas: null
                           marginPercent: null
+                          markupPercent: null
+                          marginOverPricePercent: null
                           belowMarginFloor: false
                           subjectToStock: false
                           approvalRequestId: null
@@ -61006,7 +61018,7 @@ paths:
       tags:
         - quo
       summary: "Draft a quote"
-      description: "Drafts a quote (FR-QUO-003) at the one branch the caller drafts quotes for, or its request's branch (422 `QUOTE_INVALID` `BRANCH_REQUIRED`), numbered now (`QUO-2026-DDW-000088`, kept by every version); version 1 is a `DRAFT`. Each line is priced by the salesperson (`unitPricePesewas`) and extended once, half-up; a product line is in its own unit (CR-045 as the owner worded it: a crate or a single egg, `uom`, never derived from another unit's price), converted to the base unit exactly (`NO_CONVERSION`, `INEXACT_QUANTITY`), and the engine's price for that unit is kept beside it (`resolvedUnitPricePesewas`). The cost is estimated from the cost pools of the named animal or of the product's live stock at the branch, and the margin over cost is (net less cost) over cost. A free-text line (no product) has no cost. Other refusals: `CUSTOMER_NOT_ACTIVE`, `RFQ_UNKNOWN`, `RFQ_CLOSED`, `PRODUCT_NOT_ACTIVE`, `STOCK_UNIT_OTHER_PRODUCT`, `STOCK_UNIT_NOT_AVAILABLE`, `ONE_ANIMAL_PER_LINE`, `PRICE_BASIS_MISMATCH`, `VALIDITY_PASSED`. A request it is made from becomes `QUOTED`.\n\nPermission: `quo.quote.create`."
+      description: "Drafts a quote (FR-QUO-003) at the one branch the caller drafts quotes for, or its request's branch (422 `QUOTE_INVALID` `BRANCH_REQUIRED`), numbered now (`QUO-2026-DDW-000088`, kept by every version); version 1 is a `DRAFT`. Each line is priced by the salesperson (`unitPricePesewas`) and extended once, half-up; a product line is in its own unit (CR-045 as the owner worded it: a crate or a single egg, `uom`, never derived from another unit's price), converted to the base unit exactly (`NO_CONVERSION`, `INEXACT_QUANTITY`), and the engine's price for that unit is kept beside it (`resolvedUnitPricePesewas`). The cost is estimated from the cost pools of the named animal or of the product's live stock at the branch, and the margin is over the selling price, (net less cost) over net (`marginOverPricePercent`, 2.29.0, the owner, 2026-11-23), beside the markup over cost (`markupPercent`; `marginPercent` is that markup under its old, deprecated name). A free-text line (no product) has no cost. Other refusals: `CUSTOMER_NOT_ACTIVE`, `RFQ_UNKNOWN`, `RFQ_CLOSED`, `PRODUCT_NOT_ACTIVE`, `STOCK_UNIT_OTHER_PRODUCT`, `STOCK_UNIT_NOT_AVAILABLE`, `ONE_ANIMAL_PER_LINE`, `PRICE_BASIS_MISMATCH`, `VALIDITY_PASSED`. A request it is made from becomes `QUOTED`.\n\nPermission: `quo.quote.create`."
       x-permission: quo.quote.create
       x-error-codes:
         - VALIDATION_FAILED
@@ -61087,6 +61099,8 @@ paths:
                   grossPesewas: 380000
                   estimatedCostPesewas: null
                   marginPercent: null
+                  markupPercent: null
+                  marginOverPricePercent: null
                   belowMarginFloor: false
                   subjectToStock: false
                   approvalRequestId: null
@@ -61191,7 +61205,9 @@ paths:
                   taxPesewas: 1200
                   grossPesewas: 1717200
                   estimatedCostPesewas: 1188000
-                  marginPercent: "30.77"
+                  marginPercent: "43.94"
+                  markupPercent: "43.94"
+                  marginOverPricePercent: "30.77"
                   belowMarginFloor: false
                   subjectToStock: false
                   approvalRequestId: null
@@ -61318,7 +61334,9 @@ paths:
                         taxPesewas: 1200
                         grossPesewas: 1717200
                         estimatedCostPesewas: 1188000
-                        marginPercent: "30.77"
+                        marginPercent: "43.94"
+                        markupPercent: "43.94"
+                        marginOverPricePercent: "30.77"
                         belowMarginFloor: false
                         subjectToStock: false
                         approvalRequestId: null
@@ -61377,7 +61395,9 @@ paths:
                         taxPesewas: 1200
                         grossPesewas: 1907200
                         estimatedCostPesewas: 1320000
-                        marginPercent: "30.75"
+                        marginPercent: "43.94"
+                        markupPercent: "43.94"
+                        marginOverPricePercent: "30.75"
                         belowMarginFloor: false
                         subjectToStock: false
                         approvalRequestId: null
@@ -61436,7 +61456,9 @@ paths:
                         taxPesewas: 1200
                         grossPesewas: 1717200
                         estimatedCostPesewas: 1188000
-                        marginPercent: "30.77"
+                        marginPercent: "43.94"
+                        markupPercent: "43.94"
+                        marginOverPricePercent: "30.77"
                         belowMarginFloor: false
                         subjectToStock: false
                         approvalRequestId: null
@@ -61495,7 +61517,9 @@ paths:
                         taxPesewas: 1200
                         grossPesewas: 1907200
                         estimatedCostPesewas: 1320000
-                        marginPercent: "30.75"
+                        marginPercent: "43.94"
+                        markupPercent: "43.94"
+                        marginOverPricePercent: "30.75"
                         belowMarginFloor: false
                         subjectToStock: false
                         approvalRequestId: null
@@ -61554,7 +61578,9 @@ paths:
                         taxPesewas: 1200
                         grossPesewas: 1717200
                         estimatedCostPesewas: 1188000
-                        marginPercent: "30.77"
+                        marginPercent: "43.94"
+                        markupPercent: "43.94"
+                        marginOverPricePercent: "30.77"
                         belowMarginFloor: false
                         subjectToStock: false
                         approvalRequestId: null
@@ -61689,7 +61715,9 @@ paths:
                 taxPesewas: 1200
                 grossPesewas: 1717200
                 estimatedCostPesewas: 1188000
-                marginPercent: "30.77"
+                marginPercent: "43.94"
+                markupPercent: "43.94"
+                marginOverPricePercent: "30.77"
                 belowMarginFloor: false
                 subjectToStock: false
                 approvalRequestId: null
@@ -61822,7 +61850,9 @@ paths:
                 taxPesewas: 1200
                 grossPesewas: 1717200
                 estimatedCostPesewas: 1188000
-                marginPercent: "30.77"
+                marginPercent: "43.94"
+                markupPercent: "43.94"
+                marginOverPricePercent: "30.77"
                 belowMarginFloor: false
                 subjectToStock: false
                 approvalRequestId: null
@@ -61891,7 +61921,7 @@ paths:
       tags:
         - quo
       summary: "Issue a quote version and send the acceptance link"
-      description: "Issues a draft (FR-QUO-004, FR-QUO-005, FR-QUO-007, FR-QUO-012), priced and judged again as things are now. Below the margin floor over cost (seed 10 percent, compared exactly: 264,000 over a cost of 240,000 is at the floor; 263,996 is below it), with any line below the engine's floor, or with a cost unknown, it waits: 202 `ApprovalPending` of kind `QUOTE_BELOW_MARGIN`, decided by a holder of `quo.quote_margin.approve` with step-up who is neither the version's author (`QUOTE_AUTHOR_CANNOT_APPROVE`) nor the person who asked (`MAKER_CANNOT_CHECK`); **approving only approves (the owner, 2026-11-19; 2.19.0, LOUD: until then approval issued the version)**: the version becomes `APPROVED`, holds no stock, sends nothing and has no link; calling this again, by anyone but its approver (`APPROVER_CANNOT_ISSUE`), issues it as below at the figures approved and answers its link once. The database refuses an issued version below the floor without that approval, and an approver who issues it. Otherwise every product line is reserved for the validity in the base unit, a named animal itself, lots oldest first (an unnamed animal is chosen at conversion), as much as is on hand and never more. **Stock not on hand is no longer refused (the owner, 2026-11-18; 2.23.0, LOUD: until then it was 422 `QUOTE_INVALID` `STOCK_SHORT`)**: the version is issued `subjectToStock`, each line showing what was there (`availableQuantity`) and what it holds (`heldQuantity`); `STOCK_SHORT` now answers only a balance that changed under a concurrent issue. The version is rendered and archived once as its own revision of the quote's document (`documentId`, FR-QUO-007). The live version, if any, is superseded and its hold released, and `quo.QuoteIssued` is queued once for the link to be sent (B11). The answer carries `acceptanceLinkToken`, made now; asking again for an issued version answers a fresh token and sends nothing again. Other refusals: `NO_LINES`, `LINE_NOT_PRICED`, `VALIDITY_PASSED`, `APPROVER_CANNOT_ISSUE`.\n\nPermission: `quo.quote.issue`."
+      description: "Issues a draft (FR-QUO-004, FR-QUO-005, FR-QUO-007, FR-QUO-012), priced and judged again as things are now. Below the margin floor, **a margin over the selling price since 2.29.0 (the owner, 2026-11-23; LOUD: until then the same setting was read over cost, so a version at 10 percent markup, 264,000 over a cost of 240,000, now waits)** (seed 10 percent, compared exactly on the product lines' net without the delivery fee: (net less cost) x 10,000 against the floor x net; 266,668 over a cost of 240,000 clears it, 266,664 is below it though both show 10.00), with any line below the engine's floor, or with a cost unknown, it waits: 202 `ApprovalPending` of kind `QUOTE_BELOW_MARGIN`, decided by a holder of `quo.quote_margin.approve` with step-up who is neither the version's author (`QUOTE_AUTHOR_CANNOT_APPROVE`) nor the person who asked (`MAKER_CANNOT_CHECK`); **approving only approves (the owner, 2026-11-19; 2.19.0, LOUD: until then approval issued the version)**: the version becomes `APPROVED`, holds no stock, sends nothing and has no link; calling this again, by anyone but its approver (`APPROVER_CANNOT_ISSUE`), issues it as below at the figures approved and answers its link once. The database refuses an issued version below the floor without that approval, and an approver who issues it. Otherwise every product line is reserved for the validity in the base unit, a named animal itself, lots oldest first (an unnamed animal is chosen at conversion), as much as is on hand and never more. **Stock not on hand is no longer refused (the owner, 2026-11-18; 2.23.0, LOUD: until then it was 422 `QUOTE_INVALID` `STOCK_SHORT`)**: the version is issued `subjectToStock`, each line showing what was there (`availableQuantity`) and what it holds (`heldQuantity`); `STOCK_SHORT` now answers only a balance that changed under a concurrent issue. The version is rendered and archived once as its own revision of the quote's document (`documentId`, FR-QUO-007). The live version, if any, is superseded and its hold released, and `quo.QuoteIssued` is queued once for the link to be sent (B11). The answer carries `acceptanceLinkToken`, made now; asking again for an issued version answers a fresh token and sends nothing again. Other refusals: `NO_LINES`, `LINE_NOT_PRICED`, `VALIDITY_PASSED`, `APPROVER_CANNOT_ISSUE`.\n\nPermission: `quo.quote.issue`."
       x-permission: quo.quote.issue
       x-error-codes:
         - VALIDATION_FAILED
@@ -61951,7 +61981,9 @@ paths:
                 taxPesewas: 1200
                 grossPesewas: 1717200
                 estimatedCostPesewas: 1188000
-                marginPercent: "30.77"
+                marginPercent: "43.94"
+                markupPercent: "43.94"
+                marginOverPricePercent: "30.77"
                 belowMarginFloor: false
                 subjectToStock: false
                 approvalRequestId: null
@@ -62113,6 +62145,8 @@ paths:
                   grossPesewas: 726800
                   estimatedCostPesewas: null
                   marginPercent: null
+                  markupPercent: null
+                  marginOverPricePercent: null
                   belowMarginFloor: false
                   subjectToStock: false
                   approvalRequestId: null
@@ -62235,6 +62269,8 @@ paths:
                   grossPesewas: 285000
                   estimatedCostPesewas: null
                   marginPercent: null
+                  markupPercent: null
+                  marginOverPricePercent: null
                   belowMarginFloor: false
                   subjectToStock: false
                   approvalRequestId: null
@@ -62356,7 +62392,9 @@ paths:
                   taxPesewas: 1200
                   grossPesewas: 1717200
                   estimatedCostPesewas: 1188000
-                  marginPercent: "30.77"
+                  marginPercent: "43.94"
+                  markupPercent: "43.94"
+                  marginOverPricePercent: "30.77"
                   belowMarginFloor: false
                   subjectToStock: false
                   approvalRequestId: null
@@ -62692,7 +62730,9 @@ paths:
                 taxPesewas: 1200
                 grossPesewas: 1717200
                 estimatedCostPesewas: 1188000
-                marginPercent: "30.77"
+                marginPercent: "43.94"
+                markupPercent: "43.94"
+                marginOverPricePercent: "30.77"
                 belowMarginFloor: false
                 subjectToStock: false
                 approvalRequestId: null
@@ -101165,7 +101205,20 @@ components:
             - type: string
               pattern: "^-?[0-9]{1,7}\\.[0-9]{2}$"
             - type: "null"
-          description: "Margin over cost, (net less cost) over cost, as a percentage to two places rounded half away from zero (FR-QUO-003): 19.05 for 1,700,000 over 1,428,000. It may be negative (sold below cost) or above 100, so it is not a `Percent`. Null when the cost is unknown or nil. The floor is judged exactly on the amounts, never on this rounded figure."
+          deprecated: true
+          description: "**Deprecated (2.29.0, LOUD): this figure is markup, not margin** (the owner, 2026-11-23: margin is over the selling price, and anything worked over cost is markup and is named markup). It is unchanged: (lines' net less cost) over cost, as a percentage to two places rounded half away from zero, 19.05 for 1,700,000 over 1,428,000, and always equal to `markupPercent`. Kept under its old name for one release; read `markupPercent` for this figure and `marginOverPricePercent` for the margin. Never compared with the floor."
+        markupPercent:
+          anyOf:
+            - type: string
+              pattern: "^-?[0-9]{1,18}\\.[0-9]{2}$"
+            - type: "null"
+          description: "2.29.0 (the owner, 2026-11-23): markup over cost, (the product lines' net less cost) over cost, as a percentage to two places rounded half away from zero: 19.05 for 1,700,000 over 1,428,000. It may be negative (sold below cost) or above 100, so it is not a `Percent`. Null when the cost is unknown or nil. Not the margin, and never compared with the floor."
+        marginOverPricePercent:
+          anyOf:
+            - type: string
+              pattern: "^-?[0-9]{1,18}\\.[0-9]{2}$"
+            - type: "null"
+          description: "2.29.0 (the owner, 2026-11-23, A-342): the margin, over the selling price: (net less cost) over net, the net being the lines and the delivery fee before tax, as a percentage to two places rounded half away from zero. UAT scenario 2: 30.75 for 1,906,000 over a cost of 1,320,000, 30.77 for 1,716,000 over 1,188,000. Never above 100 (a nil cost is 100.00), negative when sold below cost; null when the cost is unknown or the net is nil. The floor (`belowMarginFloor`) is a margin over price too, but judged exactly on the amounts of the product lines alone, without the delivery fee, so a fee never lifts a version over it."
         belowMarginFloor:
           type: boolean
         subjectToStock:
@@ -101244,6 +101297,8 @@ components:
         - grossPesewas
         - estimatedCostPesewas
         - marginPercent
+        - markupPercent
+        - marginOverPricePercent
         - belowMarginFloor
         - subjectToStock
         - approvalRequestId
@@ -104471,6 +104526,7 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Percent"
             - type: "null"
+          description: "The margin over revenue, gross margin over revenue (the owner, 2026-11-23: margin is over the selling price, never over cost): 30.88 for 2,730,000 over 8,840,000. Null when there is no revenue."
         priceVariancePesewas:
           $ref: "#/components/schemas/Pesewas"
         priceVarianceIsNegative:

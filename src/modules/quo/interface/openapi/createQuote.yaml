@@ -2,7 +2,7 @@ operationId: createQuote
 tags:
   - quo
 summary: "Draft a quote"
-description: "Drafts a quote (FR-QUO-003) at the one branch the caller drafts quotes for, or its request's branch (422 `QUOTE_INVALID` `BRANCH_REQUIRED`), numbered now (`QUO-2026-DDW-000088`, kept by every version); version 1 is a `DRAFT`. Each line is priced by the salesperson (`unitPricePesewas`) and extended once, half-up; a product line is in its own unit (CR-045 as the owner worded it: a crate or a single egg, `uom`, never derived from another unit's price), converted to the base unit exactly (`NO_CONVERSION`, `INEXACT_QUANTITY`), and the engine's price for that unit is kept beside it (`resolvedUnitPricePesewas`). The cost is estimated from the cost pools of the named animal or of the product's live stock at the branch, and the margin over cost is (net less cost) over cost. A free-text line (no product) has no cost. Other refusals: `CUSTOMER_NOT_ACTIVE`, `RFQ_UNKNOWN`, `RFQ_CLOSED`, `PRODUCT_NOT_ACTIVE`, `STOCK_UNIT_OTHER_PRODUCT`, `STOCK_UNIT_NOT_AVAILABLE`, `ONE_ANIMAL_PER_LINE`, `PRICE_BASIS_MISMATCH`, `VALIDITY_PASSED`. A request it is made from becomes `QUOTED`.\n\nPermission: `quo.quote.create`."
+description: "Drafts a quote (FR-QUO-003) at the one branch the caller drafts quotes for, or its request's branch (422 `QUOTE_INVALID` `BRANCH_REQUIRED`), numbered now (`QUO-2026-DDW-000088`, kept by every version); version 1 is a `DRAFT`. Each line is priced by the salesperson (`unitPricePesewas`) and extended once, half-up; a product line is in its own unit (CR-045 as the owner worded it: a crate or a single egg, `uom`, never derived from another unit's price), converted to the base unit exactly (`NO_CONVERSION`, `INEXACT_QUANTITY`), and the engine's price for that unit is kept beside it (`resolvedUnitPricePesewas`). The cost is estimated from the cost pools of the named animal or of the product's live stock at the branch, and the margin is over the selling price, (net less cost) over net (`marginOverPricePercent`, 2.29.0, the owner, 2026-11-23), beside the markup over cost (`markupPercent`; `marginPercent` is that markup under its old, deprecated name). A free-text line (no product) has no cost. Other refusals: `CUSTOMER_NOT_ACTIVE`, `RFQ_UNKNOWN`, `RFQ_CLOSED`, `PRODUCT_NOT_ACTIVE`, `STOCK_UNIT_OTHER_PRODUCT`, `STOCK_UNIT_NOT_AVAILABLE`, `ONE_ANIMAL_PER_LINE`, `PRICE_BASIS_MISMATCH`, `VALIDITY_PASSED`. A request it is made from becomes `QUOTED`.\n\nPermission: `quo.quote.create`."
 x-permission: quo.quote.create
 x-error-codes:
   - VALIDATION_FAILED
@@ -83,6 +83,8 @@ responses:
             grossPesewas: 380000
             estimatedCostPesewas: null
             marginPercent: null
+            markupPercent: null
+            marginOverPricePercent: null
             belowMarginFloor: false
             subjectToStock: false
             approvalRequestId: null
