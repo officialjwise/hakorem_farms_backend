@@ -1,13 +1,14 @@
 import { err, Money, ok, type Result } from '@hakorem/kernel';
 import type { OrderStatus } from './order';
 
-/** The statuses an order may be cancelled from in this build: nothing is picked before B11's fulfilment exists. */
-const CANCELLABLE: ReadonlySet<OrderStatus> = new Set(['PLACED', 'CONFIRMED']);
+/** The statuses an order may be cancelled from: before it is packed (B11 adds PICKING and AWAITING_CUSTOMER). */
+const CANCELLABLE: ReadonlySet<OrderStatus> = new Set(['PLACED', 'CONFIRMED', 'PICKING', 'AWAITING_CUSTOMER']);
 
 /**
- * Whether an order may be cancelled (FR-ORD-014, A-226): placed or confirmed, before any stock is picked. A cancel after
- * dispatch is never allowed (a delivery return instead); picking, awaiting the customer and packed orders arrive with
- * fulfilment (B11), which returns picked stock in the same transaction.
+ * Whether an order may be cancelled (FR-ORD-014, A-226, B11): placed, confirmed, being picked or waiting for its
+ * customer. A pick moves no stock (A-332), so a cancellation while picking withdraws the picks and cancels the pick lists
+ * and nothing goes back. A packed order is not cancelled (the machine has no such edge), and a cancel after dispatch is
+ * never allowed (a delivery return instead).
  */
 export function judgeCancellation(status: OrderStatus): Result<null, 'INVALID_STATE_TRANSITION'> {
   return CANCELLABLE.has(status) ? ok(null) : err('INVALID_STATE_TRANSITION');

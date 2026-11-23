@@ -14,10 +14,9 @@ const sale = (over: Partial<VoidFacts> = {}): VoidFacts => ({
 });
 
 describe('cancellation (FR-ORD-014)', () => {
-  it('cancels an order that is placed or confirmed, and refuses one in any other status', () => {
-    expect(judgeCancellation('PLACED')).toEqual({ ok: true, value: null });
-    expect(judgeCancellation('CONFIRMED')).toEqual({ ok: true, value: null });
-    for (const status of ['PICKING', 'AWAITING_CUSTOMER', 'PACKED', 'READY_FOR_COLLECTION', 'DISPATCHED', 'DELIVERED', 'DELIVERY_FAILED', 'RETURNED', 'COMPLETED', 'CANCELLED', 'VOIDED'] as const) {
+  it('cancels an order that is placed, confirmed, being picked or waiting for its customer (B11), and refuses one in any other status', () => {
+    for (const status of ['PLACED', 'CONFIRMED', 'PICKING', 'AWAITING_CUSTOMER'] as const) expect(judgeCancellation(status), status).toEqual({ ok: true, value: null });
+    for (const status of ['PACKED', 'READY_FOR_COLLECTION', 'DISPATCHED', 'DELIVERED', 'DELIVERY_FAILED', 'RETURNED', 'COMPLETED', 'CANCELLED', 'VOIDED'] as const) {
       expect(judgeCancellation(status), status).toEqual({ ok: false, error: 'INVALID_STATE_TRANSITION' });
     }
   });
