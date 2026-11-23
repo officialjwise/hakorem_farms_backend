@@ -140,6 +140,8 @@ responses:
           notes: "Collecting Friday morning for the hotel kitchen"
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 2
+          fulfilments: []
+          pendingConsent: null
   "202":
     description: "Accepted for approval. Nothing has taken effect yet."
     content:

@@ -13,6 +13,8 @@ import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames 
 import { InvModule, Reservations, Stock, StockExceptions, StockMovements, StockQueries, StockUnits } from '../inv';
 import { MasterDataRefs, MdmModule, PricingService } from '../mdm';
 import { PayModule, Payments, ProviderPayments, Receipts, Refunds } from '../pay';
+import { FULFILMENT_STORE, type FulfilmentStore } from './application/fulfilment-store';
+import { Fulfilments } from './application/fulfilments';
 import { OnlineOrders } from './application/online-orders';
 import { ORDER_CONFIRMATION_POLICIES, type OrderConfirmationPolicy } from './application/order-confirmation-policy';
 import { OrderReversals, SALE_VOID_KIND } from './application/order-reversals';
@@ -22,9 +24,11 @@ import { RETURN_STORE, type ReturnStore } from './application/return-store';
 import { RETURN_KIND, Returns } from './application/returns';
 import { PRICE_OVERRIDE_KIND, PriceOverrides } from './application/price-overrides';
 import { SalePosting } from './application/sale-posting';
+import { PgFulfilmentStore } from './infrastructure/pg-fulfilment-store';
 import { PgOrderStore } from './infrastructure/pg-order-store';
 import { PgReturnStore } from './infrastructure/pg-return-store';
 import { MyOrdersController, OrderTrackingController } from './interface/online-orders.controller';
+import { FulfilmentsController, MyOrderConsentController, OrderFulfilmentController } from './interface/fulfilments.controller';
 import { OrdersController } from './interface/orders.controller';
 import { ReturnsController } from './interface/returns.controller';
 
@@ -36,10 +40,11 @@ import { ReturnsController } from './interface/returns.controller';
  */
 @Module({
   imports: [IamModule, MdmModule, InvModule, BilModule, PayModule],
-  controllers: [OrdersController, ReturnsController, MyOrdersController, OrderTrackingController],
+  controllers: [OrdersController, ReturnsController, MyOrdersController, OrderTrackingController, FulfilmentsController, OrderFulfilmentController, MyOrderConsentController],
   providers: [
     { provide: ORDER_STORE, useClass: PgOrderStore },
     { provide: RETURN_STORE, useClass: PgReturnStore },
+    { provide: FULFILMENT_STORE, useClass: PgFulfilmentStore },
     // The OrderConfirmationPolicy port (MODULE_BOUNDARIES section 6): WHL adds its credit policy to this list when it loads (B10 continued).
     { provide: ORDER_CONFIRMATION_POLICIES, useValue: [] satisfies OrderConfirmationPolicy[] },
     {
@@ -72,6 +77,7 @@ import { ReturnsController } from './interface/returns.controller';
         cursors: Cursors,
         clock: Clock,
         overrides: PriceOverrides,
+        fulfilmentStore: FulfilmentStore,
       ) =>
         new Orders(
           uow,
@@ -95,6 +101,7 @@ import { ReturnsController } from './interface/returns.controller';
           cursors,
           clock,
           overrides,
+          fulfilmentStore,
         ),
       inject: [
         UnitOfWork,
@@ -118,6 +125,7 @@ import { ReturnsController } from './interface/returns.controller';
         Cursors,
         CLOCK,
         PriceOverrides,
+        FULFILMENT_STORE,
       ],
     },
     {
@@ -140,7 +148,8 @@ import { ReturnsController } from './interface/returns.controller';
         events: DomainEvents,
         audit: AuditTrail,
         clock: Clock,
-      ) => new OrderReversals(uow, store, orders, refs, reservations, movements, billing, payments, providerPayments, refunds, receipts, approvals, authoriser, idempotency, events, audit, clock),
+        fulfilments: FulfilmentStore,
+      ) => new OrderReversals(uow, store, orders, refs, reservations, movements, billing, payments, providerPayments, refunds, receipts, approvals, authoriser, idempotency, events, audit, clock, fulfilments),
       inject: [
         UnitOfWork,
         ORDER_STORE,
@@ -158,6 +167,52 @@ import { ReturnsController } from './interface/returns.controller';
         Idempotency,
         DomainEvents,
         AuditTrail,
+        CLOCK,
+        FULFILMENT_STORE,
+      ],
+    },
+    {
+      provide: Fulfilments,
+      useFactory: (
+        uow: UnitOfWork,
+        store: FulfilmentStore,
+        orderStore: OrderStore,
+        orders: Orders,
+        reversals: OrderReversals,
+        refs: MasterDataRefs,
+        pricing: PricingService,
+        units: StockUnits,
+        queries: StockQueries,
+        reservations: Reservations,
+        numbers: NumberSeries,
+        documents: DocumentRegistry,
+        events: DomainEvents,
+        idempotency: Idempotency,
+        audit: AuditTrail,
+        authoriser: Authoriser,
+        principals: PrincipalNames,
+        cursors: Cursors,
+        clock: Clock,
+      ) => new Fulfilments(uow, store, orderStore, orders, reversals, refs, pricing, units, queries, reservations, numbers, documents, events, idempotency, audit, authoriser, principals, cursors, clock),
+      inject: [
+        UnitOfWork,
+        FULFILMENT_STORE,
+        ORDER_STORE,
+        Orders,
+        OrderReversals,
+        MasterDataRefs,
+        PricingService,
+        StockUnits,
+        StockQueries,
+        Reservations,
+        NumberSeries,
+        DocumentRegistry,
+        DomainEvents,
+        Idempotency,
+        AuditTrail,
+        Authoriser,
+        PRINCIPAL_NAMES,
+        Cursors,
         CLOCK,
       ],
     },
@@ -178,8 +233,10 @@ import { ReturnsController } from './interface/returns.controller';
         audit: AuditTrail,
         cursors: Cursors,
         clock: Clock,
-      ) => new OnlineOrders(uow, store, orders, reversals, refs, pricing, reservations, payments, numbers, documents, events, audit, cursors, clock),
-      inject: [UnitOfWork, ORDER_STORE, Orders, OrderReversals, MasterDataRefs, PricingService, Reservations, Payments, NumberSeries, DocumentRegistry, DomainEvents, AuditTrail, Cursors, CLOCK],
+        fulfilments: Fulfilments,
+        idempotency: Idempotency,
+      ) => new OnlineOrders(uow, store, orders, reversals, refs, pricing, reservations, payments, numbers, documents, events, audit, cursors, clock, fulfilments, idempotency),
+      inject: [UnitOfWork, ORDER_STORE, Orders, OrderReversals, MasterDataRefs, PricingService, Reservations, Payments, NumberSeries, DocumentRegistry, DomainEvents, AuditTrail, Cursors, CLOCK, Fulfilments, Idempotency],
     },
     {
       provide: Returns,
@@ -245,7 +302,7 @@ import { ReturnsController } from './interface/returns.controller';
       inject: [ORDER_STORE, MasterDataRefs, PricingService, Stock, StockUnits, Reservations, Billing, Payments, NumberSeries, DocumentRegistry, DomainEvents, Idempotency, AuditTrail, CLOCK, PriceOverrides, StockQueries],
     },
   ],
-  exports: [SalePosting, Orders, OrderReversals, Returns, OnlineOrders, ORDER_CONFIRMATION_POLICIES],
+  exports: [SalePosting, Orders, OrderReversals, Returns, OnlineOrders, Fulfilments, ORDER_CONFIRMATION_POLICIES],
 })
 export class OrdModule implements OnModuleInit {
   constructor(

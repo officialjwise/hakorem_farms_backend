@@ -35,6 +35,8 @@ import { CreditRefusedError, OrderInvalidError, OrderStockShortError, PriceOverr
 import type { CreditOrder, CreditOverridePending, CreditPolicyAnswer, OrderConfirmationPolicy } from './order-confirmation-policy';
 import type { ApprovalPendingView } from './order-reversals';
 import type { FlaggedLine, PriceOverrides } from './price-overrides';
+import type { FulfilmentStore } from './fulfilment-store';
+import { orderFulfilmentExtrasIn, type OrderFulfilmentExtras } from './order-extras';
 import type { NewOrderLine, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, ShiftSalesSummary } from './order-store';
 
 const READ = 'ord.order.read';
@@ -184,6 +186,10 @@ export interface SalesOrderView {
   readonly notes: string | null;
   readonly branchId: string;
   readonly version: number;
+  /** The order's pick lists, oldest first (CR-053 point 1). */
+  readonly fulfilments: OrderFulfilmentExtras['fulfilments'];
+  /** What the order waits for its customer to answer, or null (CR-053 point 2). */
+  readonly pendingConsent: OrderFulfilmentExtras['pendingConsent'];
 }
 
 /** The contract's `OrderStatusChange`. */
@@ -234,6 +240,7 @@ export class Orders {
     private readonly cursors: Cursors,
     private readonly clock: Clock,
     private readonly overrides: PriceOverrides,
+    private readonly fulfilmentStore: FulfilmentStore,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -979,6 +986,7 @@ export class Orders {
       tx,
       orders.flatMap((o) => (o.billingDocumentId === null ? [] : [o.billingDocumentId])),
     );
+    const extras = await orderFulfilmentExtrasIn(tx, this.fulfilmentStore, this.refs, orders);
     const views: SalesOrderView[] = [];
     for (const o of orders) {
       const customer = o.customerId === null ? undefined : customers.get(o.customerId);
@@ -1055,6 +1063,8 @@ export class Orders {
         notes: o.notes,
         branchId: o.branchId,
         version: o.version,
+        fulfilments: extras.get(o.id)!.fulfilments,
+        pendingConsent: extras.get(o.id)!.pendingConsent,
       });
     }
     return views;

@@ -1,0 +1,99 @@
+operationId: answerMyOrderConsent
+tags:
+  - shp
+summary: "Accept or refuse a substitution or a higher total"
+x-owner-module: ord
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - customerSession: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/MyConsent"
+      example:
+        accepted: true
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CustomerOrder"
+        example:
+          id: "019a7af0-2909-715a-b693-1e7f6d54975d"
+          orderNo: SO-2026-DDW-004216
+          status: AWAITING_CUSTOMER
+          paymentStatus: DEPOSIT_HELD
+          placedAt: "2026-11-13T07:41:00Z"
+          fulfilmentMode: DELIVERY
+          deliveryAddress:
+            recipientName: "Ama Serwaa Ofori"
+            recipientPhone: "+233244512876"
+            line1: "House 14, Ashaley Botwe Road, near the Methodist church"
+            area: Madina
+            city: Accra
+            region: "Greater Accra"
+            digitalAddress: GM-091-4471
+            directions: "Blue gate opposite Sika Pharmacy"
+          delivery:
+            slotDate: "2026-11-14"
+            slotStartsAt: "10:00"
+            slotEndsAt: "12:00"
+            status: SCHEDULED
+            driverFirstName: null
+            etaMinutes: null
+          lines:
+            - name: "Full chicken, 15 kg pack"
+              quantity: "1.000"
+              uom: PACK
+              weightKg: "14.650"
+              unitPricePesewas: 2000
+              lineTotalPesewas: 29300
+              status: FULFILLED
+            - name: "Eggs, big, crate of 30"
+              quantity: "2.000"
+              uom: CRATE
+              weightKg: null
+              unitPricePesewas: 6000
+              lineTotalPesewas: 12000
+              status: SUBSTITUTED
+          deliveryFeePesewas: 3000
+          estimatedTotalPesewas: 45000
+          finalTotalPesewas: null
+          paidPesewas: 45000
+          currency: GHS
+          documents: []
+          pendingConsent:
+            kind: SUBSTITUTION
+            detail: "Big eggs are sold out. May we send two crates of small eggs at GHS 45.00 each instead? Your total falls by GHS 30.00."
+            proposedTotalPesewas: 41300
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
+description: "The signed-in customer answers what their own order waits for, with the same effects as `recordCustomerConsent` (recorded as `CUSTOMER_ACCOUNT`). Another customer's order is 404; nothing waiting is 422 `FULFILMENT_INVALID` `NO_CONSENT_PENDING`. Answers the order as the customer sees it, `pendingConsent` saying what is asked next, if anything.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result."

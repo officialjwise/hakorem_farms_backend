@@ -48,6 +48,10 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0296_iam_grant_ord_fulfilment_permissions',
+      '0295_iam_seed_ord_fulfilment_permissions',
+      '0294_ord_fulfilment',
+      '0293_platform_add_fulfilment_document',
       '0292_pos_receipt_link',
       '0291_doc_quote_template',
       '0290_iam_grant_quo_report_permission',

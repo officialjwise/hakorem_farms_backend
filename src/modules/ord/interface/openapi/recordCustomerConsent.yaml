@@ -1,0 +1,204 @@
+operationId: recordCustomerConsent
+tags:
+  - ord
+summary: "Record the customer's consent to a higher total or a substitution"
+description: "The customer's answer to what the order waits for (`pendingConsent`), as staff took it (`PHONE`, `IN_PERSON`, `WHATSAPP`, `SIGNED_LINK`), never by the person who asked (422 `FULFILMENT_INVALID` `CONSENT_ASKER_CANNOT_ANSWER`, A-334); `kind` must be what was asked (`CONSENT_KIND_MISMATCH`); nothing waiting `NO_CONSENT_PENDING`. A higher total accepted lets the line pack at that weighed total; refused, the picker swaps packs or the order is cancelled. A substitute accepted replaces the line (the original `SUBSTITUTED`, its picks withdrawn and its stock released; the substitute at its proposed price with stock reserved for it, 422 `STOCK_UNAVAILABLE` and nothing changed when there is none, and put on the original's open pick list). A smaller quantity accepted packs the line at exactly it. A substitute or a smaller quantity refused, or a smaller quantity of nothing accepted, cancels the line; the last line cancelled cancels the order (`OUT_OF_STOCK`) and asks back what was paid. The order then picks on (`PICKING`) or asks the next question. Publishes `ord.CustomerConsentAnswered`.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.order.update`."
+x-permission: ord.order.update
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ConsentRecord"
+      example:
+        kind: SUBSTITUTION
+        accepted: true
+        method: PHONE
+        note: "Spoke to Ama at 10:12"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SalesOrder"
+        example:
+          id: "019a7aac-216c-721a-8753-2a7ecd11a35c"
+          customer: null
+          contactName: null
+          contactPhone: null
+          source: null
+          parentOrderId: null
+          shiftId: "019a7a93-f6b4-7865-8d9d-8f27bac90805"
+          salesperson:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          deliveryAddress: null
+          deliveryZone: null
+          deliveryFeePesewas: 0
+          delivery: null
+          taxInclusive: true
+          finalTotalPesewas: 137900
+          billingDocument:
+            id: "019a7ae2-fd46-7b80-a0b9-c0e09cf739be"
+            docType: RECEIPT
+            number: RCP-2026-DDW-T1-018834
+          creditCheck: NOT_REQUIRED
+          isOffline: false
+          completedAt: "2026-11-13T09:12:00Z"
+          adjustments: []
+          notes: null
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+          fulfilments: []
+          pendingConsent: null
+          orderNo: SO-2026-DDW-004211
+          channel: POS
+          status: COMPLETED
+          paymentStatus: PAID
+          paymentTerms: IMMEDIATE
+          fulfilmentMode: COUNTER
+          estimatedTotalPesewas: 137900
+          maximumTotalPesewas: 137900
+          paidPesewas: 137900
+          outstandingPesewas: 0
+          currency: GHS
+          placedAt: "2026-11-13T09:04:00Z"
+          recordedAt: "2026-11-13T09:12:00Z"
+          lines:
+            - id: "019a7aef-cc3c-73b0-88e8-43d90041bcb6"
+              lineNo: 1
+              product:
+                id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                sku: LIV-0004
+                name: Goat
+              stockUnit:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                identifier: G-0142
+                tracking: SERIAL
+              qtyOrdered: "1.000"
+              uom: HEAD
+              estimatedWeightKg: null
+              tolerancePercent: null
+              qtyFulfilled: "1.000"
+              fulfilledWeightKg: "26.400"
+              weightSource: SCALE
+              qtyBackordered: "0.000"
+              priceSource: ENGINE
+              priceBasis: PER_HEAD
+              priceListEntryId: "019a7aa6-16be-73ad-a8e5-43a9087fbc86"
+              quoteLineId: null
+              resolvedUnitPricePesewas: 85000
+              floorUnitPricePesewas: 70000
+              ceilingUnitPricePesewas: 98000
+              agreedUnitPricePesewas: 80000
+              variancePesewas: 5000
+              varianceDirection: BELOW
+              varianceReasonCode: REGULAR_CUSTOMER
+              varianceApprovalRequestId: null
+              discountPesewas: 0
+              estimatedLineTotalPesewas: 80000
+              finalLineTotalPesewas: 80000
+              lineStatus: FULFILLED
+              stockException: null
+            - id: "019a7aef-eb2b-7d93-92cc-e21079f25aee"
+              lineNo: 2
+              product:
+                id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                sku: EGG-0003
+                name: "Eggs, big, crate of 30"
+              stockUnit:
+                id: "019a7a91-6d19-78bc-bdf4-949abf440d78"
+                identifier: EGG-261112-L1
+                tracking: LOT
+              qtyOrdered: "2.000"
+              uom: CRATE
+              estimatedWeightKg: null
+              tolerancePercent: null
+              qtyFulfilled: "2.000"
+              fulfilledWeightKg: null
+              weightSource: null
+              qtyBackordered: "0.000"
+              priceSource: ENGINE
+              priceBasis: PER_UNIT
+              priceListEntryId: "019a7aa6-927a-7b3b-a073-bc86ef433564"
+              quoteLineId: null
+              resolvedUnitPricePesewas: 6000
+              floorUnitPricePesewas: 6000
+              ceilingUnitPricePesewas: 6000
+              agreedUnitPricePesewas: 6000
+              variancePesewas: 0
+              varianceDirection: null
+              varianceReasonCode: null
+              varianceApprovalRequestId: null
+              discountPesewas: 0
+              estimatedLineTotalPesewas: 12000
+              finalLineTotalPesewas: 12000
+              lineStatus: FULFILLED
+              stockException: null
+            - id: "019a7af0-0a1a-7777-acaf-8047f3a3f925"
+              lineNo: 3
+              product:
+                id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                sku: MEAT-0005
+                name: "Beef, 15 kg pack"
+              stockUnit:
+                id: "019a7a91-2f3b-74f5-9a2d-582bcbe2d109"
+                identifier: MEAT-BEEF-261104-01
+                tracking: LOT
+              qtyOrdered: "15.300"
+              uom: KG
+              estimatedWeightKg: "15.300"
+              tolerancePercent: "10.00"
+              qtyFulfilled: "15.300"
+              fulfilledWeightKg: "15.300"
+              weightSource: SCALE
+              qtyBackordered: "0.000"
+              priceSource: ENGINE
+              priceBasis: PER_KG
+              priceListEntryId: "019a7aa6-b169-751e-ba57-5abe68f4d39c"
+              quoteLineId: null
+              resolvedUnitPricePesewas: 3000
+              floorUnitPricePesewas: 2200
+              ceilingUnitPricePesewas: 4333
+              agreedUnitPricePesewas: 3000
+              variancePesewas: 0
+              varianceDirection: null
+              varianceReasonCode: null
+              varianceApprovalRequestId: null
+              discountPesewas: 0
+              estimatedLineTotalPesewas: 45900
+              finalLineTotalPesewas: 45900
+              lineStatus: FULFILLED
+              stockException: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

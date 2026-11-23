@@ -278,6 +278,15 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   updateRole: { version: 1, name: 'Shop supervisor' },
   rejectRequest: { reason: 'Not a mortality' },
   cancelApprovalRequest: { reason: 'Counted twice' },
+  // B11: picking, packing and the customer's answers.
+  createFulfilment: { pickLocationId: randomUUID() },
+  recordPicks: { picks: [] },
+  packFulfilment: { packageCount: 1 },
+  cancelFulfilment: { reason: 'Picked from the wrong shelf' },
+  proposeSubstitution: { lineId: randomUUID(), productId: randomUUID(), quantity: '1.000', note: 'Out of big eggs' },
+  proposeShortPick: { lineId: randomUUID(), quantity: '1.000', note: 'One crate cracked' },
+  recordCustomerConsent: { kind: 'SHORT_PICK', accepted: true, method: 'PHONE' },
+  answerMyOrderConsent: { accepted: true },
 };
 
 /** Reads whose query has a required parameter: without it the request is refused as invalid before it is authorised. */

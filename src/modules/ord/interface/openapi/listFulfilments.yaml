@@ -1,0 +1,426 @@
+operationId: listFulfilments
+tags:
+  - ord
+summary: "List pick lists and fulfilments"
+description: "The pick lists at the branches the caller reads whole, newest first, filtered by `orderId` (an order's own pick lists, CR-053), `status`, `pickLocationId` and `date` (the Africa/Accra day the pick list was made).\n\nPermission: `ord.fulfilment.read`."
+x-permission: ord.fulfilment.read
+parameters:
+  - name: orderId
+    in: query
+    required: false
+    description: "An order's own pick lists (CR-053)."
+    schema:
+      type: string
+      format: uuid
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+      enum:
+        - PICK_LIST
+        - PICKING
+        - PACKED
+        - DISPATCHED
+        - COLLECTED
+        - CANCELLED
+  - name: pickLocationId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: date
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/FulfilmentPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7af3-0f71-7eae-b3e6-f3b2d5ec6c90"
+                  fulfilmentNo: PCK-2026-DDW-000411
+                  order:
+                    id: "019a7af0-2909-715a-b693-1e7f6d54975d"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004216
+                  status: PICKING
+                  pickLocation:
+                    id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                    code: COLD-1
+                    name: "Cold room"
+                    kind: COLD_ROOM
+                  picker:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  pickList:
+                    - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      qtyToPick: "1.000"
+                      uom: PACK
+                      estimatedWeightKg: "15.000"
+                      suggestedStockUnits:
+                        - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                          identifier: MEAT-CHK-261106-02
+                          tracking: LOT
+                      status: OPEN
+                      pickedQty: "0.000"
+                      pickedWeightKg: null
+                      minimumWeightKg: "13.500"
+                      maximumWeightKg: "16.500"
+                      toleranceState: null
+                  lines:
+                    - id: "019a7af3-2e60-7891-8dc9-91ea4f9d0ac8"
+                      orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      stockUnit:
+                        id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                        identifier: MEAT-CHK-261106-02
+                        tracking: LOT
+                      packBarcode: "226110602014650"
+                      qty: "1.000"
+                      weightKg: "14.650"
+                      weightSource: SCALE
+                      linePricePesewas: 29300
+                  weighedTotalPesewas: 44300
+                  withinTolerance: true
+                  pickedAt: "2026-11-13T10:00:00Z"
+                  packedAt: null
+                  dispatchedAt: null
+                  packageCount: null
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                - id: "019a7af3-4d4f-7275-97ad-3021c94ea8ff"
+                  fulfilmentNo: PCK-2026-DDW-000412
+                  order:
+                    id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004198
+                  status: PACKED
+                  pickLocation:
+                    id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                    code: COLD-1
+                    name: "Cold room"
+                    kind: COLD_ROOM
+                  picker:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  pickList:
+                    - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      qtyToPick: "1.000"
+                      uom: PACK
+                      estimatedWeightKg: "15.000"
+                      suggestedStockUnits:
+                        - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                          identifier: MEAT-CHK-261106-02
+                          tracking: LOT
+                      status: OPEN
+                      pickedQty: "0.000"
+                      pickedWeightKg: null
+                      minimumWeightKg: "13.500"
+                      maximumWeightKg: "16.500"
+                      toleranceState: null
+                  lines:
+                    - id: "019a7af3-6c3e-7c58-a190-ce5942ff4737"
+                      orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      stockUnit:
+                        id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                        identifier: MEAT-CHK-261106-02
+                        tracking: LOT
+                      packBarcode: "226110602014650"
+                      qty: "1.000"
+                      weightKg: "14.650"
+                      weightSource: SCALE
+                      linePricePesewas: 29300
+                  weighedTotalPesewas: 44300
+                  withinTolerance: true
+                  pickedAt: "2026-11-13T10:01:00Z"
+                  packedAt: "2026-11-13T10:20:00Z"
+                  dispatchedAt: null
+                  packageCount: 2
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                - id: "019a7af3-8b2d-763b-bb74-6c90bcb0e56e"
+                  fulfilmentNo: PCK-2026-DDW-000413
+                  order:
+                    id: "019a7af1-3f70-7a5a-8f92-ae72b48d2750"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004213
+                  status: PICK_LIST
+                  pickLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  picker:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  pickList:
+                    - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      qtyToPick: "1.000"
+                      uom: PACK
+                      estimatedWeightKg: "15.000"
+                      suggestedStockUnits:
+                        - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                          identifier: MEAT-CHK-261106-02
+                          tracking: LOT
+                      status: OPEN
+                      pickedQty: "0.000"
+                      pickedWeightKg: null
+                      minimumWeightKg: "13.500"
+                      maximumWeightKg: "16.500"
+                      toleranceState: null
+                  lines: []
+                  weighedTotalPesewas: null
+                  withinTolerance: null
+                  pickedAt: null
+                  packedAt: null
+                  dispatchedAt: null
+                  packageCount: null
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                - id: "019a7af3-aa1c-701f-8557-0ac8366183a6"
+                  fulfilmentNo: PCK-2026-DDW-000414
+                  order:
+                    id: "019a7af0-2909-715a-b693-1e7f6d54975d"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004216
+                  status: DISPATCHED
+                  pickLocation:
+                    id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                    code: COLD-1
+                    name: "Cold room"
+                    kind: COLD_ROOM
+                  picker:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  pickList:
+                    - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      qtyToPick: "1.000"
+                      uom: PACK
+                      estimatedWeightKg: "15.000"
+                      suggestedStockUnits:
+                        - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                          identifier: MEAT-CHK-261106-02
+                          tracking: LOT
+                      status: OPEN
+                      pickedQty: "0.000"
+                      pickedWeightKg: null
+                      minimumWeightKg: "13.500"
+                      maximumWeightKg: "16.500"
+                      toleranceState: null
+                  lines:
+                    - id: "019a7af3-c90b-7a02-9f3b-a8ffb01221dd"
+                      orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      stockUnit:
+                        id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                        identifier: MEAT-CHK-261106-02
+                        tracking: LOT
+                      packBarcode: "226110602014650"
+                      qty: "1.000"
+                      weightKg: "14.650"
+                      weightSource: SCALE
+                      linePricePesewas: 29300
+                  weighedTotalPesewas: 44300
+                  withinTolerance: true
+                  pickedAt: "2026-11-13T10:03:00Z"
+                  packedAt: "2026-11-13T10:20:00Z"
+                  dispatchedAt: "2026-11-13T11:00:00Z"
+                  packageCount: 2
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                - id: "019a7af3-e7fa-73e6-a91e-473729c3c015"
+                  fulfilmentNo: PCK-2026-DDW-000415
+                  order:
+                    id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004198
+                  status: COLLECTED
+                  pickLocation:
+                    id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+                    code: COLD-1
+                    name: "Cold room"
+                    kind: COLD_ROOM
+                  picker:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  pickList:
+                    - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      qtyToPick: "1.000"
+                      uom: PACK
+                      estimatedWeightKg: "15.000"
+                      suggestedStockUnits:
+                        - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                          identifier: MEAT-CHK-261106-02
+                          tracking: LOT
+                      status: OPEN
+                      pickedQty: "0.000"
+                      pickedWeightKg: null
+                      minimumWeightKg: "13.500"
+                      maximumWeightKg: "16.500"
+                      toleranceState: null
+                  lines:
+                    - id: "019a7af4-06e9-7dc9-b302-e56ea3745e4c"
+                      orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      stockUnit:
+                        id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                        identifier: MEAT-CHK-261106-02
+                        tracking: LOT
+                      packBarcode: "226110602014650"
+                      qty: "1.000"
+                      weightKg: "14.650"
+                      weightSource: SCALE
+                      linePricePesewas: 29300
+                  weighedTotalPesewas: 44300
+                  withinTolerance: true
+                  pickedAt: "2026-11-13T10:04:00Z"
+                  packedAt: "2026-11-13T10:20:00Z"
+                  dispatchedAt: null
+                  packageCount: 2
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+                - id: "019a7af4-25d8-77ad-8ce5-83a61d25fc84"
+                  fulfilmentNo: PCK-2026-DDW-000416
+                  order:
+                    id: "019a7af1-3f70-7a5a-8f92-ae72b48d2750"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004213
+                  status: CANCELLED
+                  pickLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  picker:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Yaw Boateng"
+                  pickList:
+                    - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      qtyToPick: "1.000"
+                      uom: PACK
+                      estimatedWeightKg: "15.000"
+                      suggestedStockUnits:
+                        - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                          identifier: MEAT-CHK-261106-02
+                          tracking: LOT
+                      status: OPEN
+                      pickedQty: "0.000"
+                      pickedWeightKg: null
+                      minimumWeightKg: "13.500"
+                      maximumWeightKg: "16.500"
+                      toleranceState: null
+                  lines:
+                    - id: "019a7af4-44c7-7190-96c9-21dd96d69abb"
+                      orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+                      product:
+                        id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                        sku: MEAT-0001
+                        name: "Full chicken, 15 kg pack"
+                      stockUnit:
+                        id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                        identifier: MEAT-CHK-261106-02
+                        tracking: LOT
+                      packBarcode: "226110602014650"
+                      qty: "1.000"
+                      weightKg: "14.650"
+                      weightSource: SCALE
+                      linePricePesewas: 29300
+                  weighedTotalPesewas: 44300
+                  withinTolerance: true
+                  pickedAt: "2026-11-13T10:05:00Z"
+                  packedAt: "2026-11-13T10:20:00Z"
+                  dispatchedAt: null
+                  packageCount: 2
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 2
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

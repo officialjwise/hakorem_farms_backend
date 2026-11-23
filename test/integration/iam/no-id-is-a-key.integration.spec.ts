@@ -323,7 +323,7 @@ describe('no identifier is a key: the walk covers every operation that takes one
     expect(publicOnes.filter((o) => !(o in PUBLIC_WITH_IDENTIFIER)), 'public, unlisted').toEqual([]);
     expect(publicOnes).toEqual(Object.keys(PUBLIC_WITH_IDENTIFIER).sort());
     const others = routes.filter((r) => r.spec!.access === 'SESSION' && !r.spec!.realms.includes('STAFF') && identifiersOf(r).length > 0).map((r) => r.spec!.operationId);
-    expect(others.sort()).toEqual(['getMyOrder']);
+    expect(others.sort()).toEqual(['answerMyOrderConsent', 'getMyOrder']);
     expect(staffRoutes().length).toBeGreaterThanOrEqual(340);
   });
 
@@ -459,6 +459,14 @@ describe('a customer’s own reads answer 404 for another customer’s record (S
       expectNothingIn(refused, 'getMyOrder, not a customer', [theirs.body.id as string]);
       expect(refused.status).toBe(401);
     }
+    // B11: the customer's answer to what an order asks reaches only their own order, by its id alone nothing more.
+    const answer = routes.find((r) => r.spec!.operationId === 'answerMyOrderConsent')!;
+    const theirsAnswered = await send(answer, `/v1/me/orders/${theirs.body.id as string}/consent`, customer, { accepted: true });
+    const madeUp = await send(answer, `/v1/me/orders/${randomUUID()}/consent`, customer, { accepted: true });
+    expectNothingIn(theirsAnswered, 'answerMyOrderConsent, another customer’s', [theirs.body.id as string, theirs.body.orderNo as string]);
+    expect([theirsAnswered.status, theirsAnswered.body.error.code]).toEqual([404, 'NOT_FOUND']);
+    expect([madeUp.status, madeUp.body.error.code]).toEqual([404, 'NOT_FOUND']);
+    for (const caller of [null, owner]) expect((await send(answer, `/v1/me/orders/${theirs.body.id as string}/consent`, caller, { accepted: true })).status).toBe(401);
   });
 });
 

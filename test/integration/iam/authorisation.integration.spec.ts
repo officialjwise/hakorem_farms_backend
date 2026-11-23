@@ -138,13 +138,15 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'revokeQuoteLink', 'listMyQuotes',
         'getQuotePipeline',
         'getPublicReceipt',
+        'listFulfilments', 'createFulfilment', 'getFulfilment', 'recordPicks', 'packFulfilment', 'cancelFulfilment',
+        'proposeSubstitution', 'proposeShortPick', 'recordCustomerConsent', 'answerMyOrderConsent',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
   });
 
   it('declares a permission on every staff operation that is not on the caller\'s own account or public', () => {
-    const own = new Set(['logout', 'getCurrentSession', 'changePassword', 'startTotpEnrolment', 'confirmTotpEnrolment', 'stepUp', 'getMyStoreCredit', 'listMyOrders', 'getMyOrder', 'listMyQuotes']);
+    const own = new Set(['logout', 'getCurrentSession', 'changePassword', 'startTotpEnrolment', 'confirmTotpEnrolment', 'stepUp', 'getMyStoreCredit', 'listMyOrders', 'getMyOrder', 'listMyQuotes', 'answerMyOrderConsent']);
     for (const route of routes) {
       const spec = route.spec!;
       if (spec.access === 'PUBLIC' || own.has(spec.operationId) || spec.permissionByPolicy === true) {

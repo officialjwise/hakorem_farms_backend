@@ -1,0 +1,119 @@
+operationId: recordPicks
+tags:
+  - ord
+summary: "Record picked packs or animals with their weights"
+description: "Each pick by its client id (UUIDv7): a resubmitted pick with the same figures is stored once, an id used for another pick is 422 `FULFILMENT_INVALID` `PICK_ID_REUSED`. A pick is of an open line of this pick list (`LINE_NOT_ON_PICK_LIST`), in the line's unit, and the picks never come to more than the pick list asks (`PICK_OVER`; the database holds the cap). A lot is named (`STOCK_UNIT_REQUIRED`, `STOCK_UNIT_OTHER_PRODUCT`), an animal is the line's own (`STOCK_UNIT_OTHER_ANIMAL`, `ONE_ANIMAL_PER_LINE`), an untracked product names none (`STOCK_UNIT_NOT_TRACKED`). A catch-weight pick carries its weight and source (`WEIGHT_REQUIRED`, `WEIGHT_SOURCE_REQUIRED`) and takes its weighed kilograms of stock. A pick never takes more than the pick location holds that nobody else is promised, the order's own reservations counted as its own (`STOCK_SHORT`): a balance below zero offers nothing. `withdraw` takes picks of this pick list back first (a pack swapped).\n\nThe line is re-priced at its weighed quantity, `half_up(price per kg x weighed kg)` once over the line (FR-ORD-009): its `fulfilledWeightKg`, `weightSource` (the least trusted pack's) and `finalLineTotalPesewas`. A catch-weight line above the estimate plus its tolerance, or above the most the customer was shown, makes the order ask the customer (`HIGHER_TOTAL`, the order `AWAITING_CUSTOMER`, `withinTolerance` false); a swap that brings it back within withdraws the question. Below the estimate less the tolerance the line shows `toleranceState` `BELOW`, the prompt to add a pack; it may still be packed at the lower total. Only a `PICK_LIST` or `PICKING` pick list of a `PICKING` or `AWAITING_CUSTOMER` order (else 422 `INVALID_STATE_TRANSITION`).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`.\n\nAccepted from an offline queue: the client supplies the pick id (UUIDv7), and a resubmission with the same id stores nothing twice."
+x-permission: ord.fulfilment.pick
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/PickRecord"
+      example:
+        picks:
+          - id: "019a7af4-63b6-7b74-a0ac-c015108738f2"
+            orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+            stockUnitId: "019a7a91-104c-7b12-804a-b9f4523132d2"
+            packBarcode: "226110602014650"
+            qty: "1.000"
+            weightKg: "14.650"
+            weightSource: SCALE
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Fulfilment"
+        example:
+          id: "019a7af3-0f71-7eae-b3e6-f3b2d5ec6c90"
+          fulfilmentNo: PCK-2026-DDW-000411
+          order:
+            id: "019a7af0-2909-715a-b693-1e7f6d54975d"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004216
+          status: PICKING
+          pickLocation:
+            id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
+            code: COLD-1
+            name: "Cold room"
+            kind: COLD_ROOM
+          picker:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Yaw Boateng"
+          pickList:
+            - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-0001
+                name: "Full chicken, 15 kg pack"
+              qtyToPick: "1.000"
+              uom: PACK
+              estimatedWeightKg: "15.000"
+              suggestedStockUnits:
+                - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                  identifier: MEAT-CHK-261106-02
+                  tracking: LOT
+              status: OPEN
+              pickedQty: "0.000"
+              pickedWeightKg: null
+              minimumWeightKg: "13.500"
+              maximumWeightKg: "16.500"
+              toleranceState: null
+          lines:
+            - id: "019a7af3-2e60-7891-8dc9-91ea4f9d0ac8"
+              orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
+              product:
+                id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                sku: MEAT-0001
+                name: "Full chicken, 15 kg pack"
+              stockUnit:
+                id: "019a7a91-104c-7b12-804a-b9f4523132d2"
+                identifier: MEAT-CHK-261106-02
+                tracking: LOT
+              packBarcode: "226110602014650"
+              qty: "1.000"
+              weightKg: "14.650"
+              weightSource: SCALE
+              linePricePesewas: 29300
+          weighedTotalPesewas: 44300
+          withinTolerance: true
+          pickedAt: "2026-11-13T10:00:00Z"
+          packedAt: null
+          dispatchedAt: null
+          packageCount: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
