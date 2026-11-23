@@ -40,7 +40,7 @@ The baseline. A category in section 4 may add to these rules, never weaken them.
 
 | Data | Rule | Enforced by |
 | --- | --- | --- |
-| Card number, expiry date, security code, magnetic stripe or PIN block | Never stored, logged, cached or passed through the server. Payment uses the provider's hosted page or tokenised flow | No column exists for it. `pay.webhook_event.payload` is scrubbed before storage. Log scrubbing test (ADR-0022). Webhook payload fixtures are reviewed |
+| Card number, expiry date, security code, magnetic stripe or PIN block | Never stored, logged, cached or passed through the server. Payment uses the provider's hosted page or tokenised flow | No column exists for it. `pay.webhook_event.payload` is scrubbed before storage. Log scrubbing test (ADR-0022). Webhook payload fixtures are reviewed. As built in B09c (A-287): a card is typed only into Paystack's hosted page; the bin, last four, expiry and authorisation code Paystack's webhook carries are kept nowhere (proved by SQL over the webhook log, the outbox, the audit, the stored answers and the log lines in `card-payments`); the fake makes them up at random, never a real or published test card |
 | Plaintext password, one-time code, refresh token, API key, session token | Shown once or transient; only a verifier is stored | `password_hash`, `token_hash`, `key_hash`, `code_hash`, `credential_hash`, `csrf_token_hash` |
 | Key material (key-encryption key, data keys, HMAC key, signing keys) | Outside the database or wrapped | Secrets file; `platform.subject_key.wrapped_key` |
 | Secrets in `platform.setting`, outbox payloads, job payloads, audit payloads, example environment files | Forbidden | Review rule, secret scanning, the audit writer's redaction |
