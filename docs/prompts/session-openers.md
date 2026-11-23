@@ -3310,6 +3310,9 @@ The owner, 2026-11-19 (from the frontend's F11; the numbers checked on the front
   and each collection is handed in exactly once. Test it with exact pesewas, including a short hand-in. POS is lane
   A's: the parent session gives B11 leave for this one additive POS operation and its tests, keeping lane A's till-cash
   rules unchanged.
+- CR-053 (placed here by the parent session, 2026-11-23): `listFulfilments` takes `orderId`, `SalesOrder.fulfilments`
+  names the order's pick lists, and `SalesOrder.pendingConsent` says what the order waits for (the kind, the line, the
+  proposal and the weighed total) or is null.
 - CR-054: a proper short-pick shape with the customer's consent, instead of a same-product substitution.
 - CR-055: recording a part delivery.
 - The part-crate return rule above stands.
