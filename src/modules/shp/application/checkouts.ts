@@ -73,7 +73,7 @@ export interface PlaceOrderView {
   readonly orderId: string;
   readonly orderNo: string;
   readonly trackingToken: string;
-  readonly payment: { readonly paymentId: string; readonly status: 'PENDING' | 'CLEARED' | 'FAILED'; readonly redirectUrl: null; readonly instructions: string | null } | null;
+  readonly payment: { readonly paymentId: string; readonly status: 'PENDING' | 'CLEARED' | 'FAILED'; readonly redirectUrl: string | null; readonly instructions: string | null } | null;
   readonly checkout: CheckoutView;
 }
 
@@ -263,9 +263,12 @@ export class Checkouts {
    * placeOrder (FR-SHP-005, FR-PAY-003, A-232): the guest's open checkout becomes an ONLINE order through ORD, in one
    * serializable transaction with the checkout awaiting payment. Prepaid by mobile money, a charge for the estimate is
    * written PENDING with the order and sent through PAY's provider port only after the transaction commits (ADR-0010);
-   * the order is confirmed when that payment clears for it. Cash on delivery is confirmed at once. A card, a coupon or
-   * promotion (no order adjustment exists yet), a method that is not the checkout's terms and a lapsed hold are
-   * refused, and nothing is placed. Replayed by its Idempotency-Key, bound to the guest's token.
+   * the order is confirmed when that payment clears for it. By card (B09c, A-287), the payment is written PENDING the
+   * same way, and Paystack's hosted page is opened only after the transaction commits, its address handed back as
+   * `redirectUrl` (a replay hands back the same page; a page that cannot be opened answers 503 and the order waits).
+   * Cash on delivery is confirmed at once. A coupon or promotion (no order adjustment exists yet), a method that is not
+   * the checkout's terms and a lapsed hold are refused, and nothing is placed. Replayed by its Idempotency-Key, bound
+   * to the guest's token.
    */
   async place(token: GuestToken, id: string, body: PlaceOrderRequest, key: string): Promise<StoredResponse<PlaceOrderView>> {
     const locks = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
@@ -288,7 +291,6 @@ export class Checkouts {
       const broken: { field: string | null; rule: string }[] = [];
       const cod = checkout.paymentTerms === 'COD';
       if ((body.paymentMethod === 'COD') !== cod) broken.push({ field: '/paymentMethod', rule: 'PAYMENT_METHOD_MISMATCH' });
-      else if (body.paymentMethod === 'CARD') broken.push({ field: '/paymentMethod', rule: 'CARD_NOT_AVAILABLE' });
       const phone = body.payerPhone === undefined ? null : this.storefront.normalisePhone(body.payerPhone);
       if (broken.length === 0 && body.paymentMethod === 'MOBILE_MONEY') {
         if (body.payerPhone === undefined) broken.push({ field: '/payerPhone', rule: 'PAYER_PHONE_REQUIRED' });
@@ -328,6 +330,9 @@ export class Checkouts {
       let payment: PlaceOrderView['payment'] = null;
       if (cod) {
         await this.online.confirmFromCheckoutIn(tx, placed.orderId, STOREFRONT_ACTOR.principalId);
+      } else if (body.paymentMethod === 'CARD') {
+        const charged = await this.providerPayments.cardChargeIn(tx, STOREFRONT_ACTOR.principalId, { id: this.nextId(), amountPesewas: checkout.estimatedTotalPesewas, orderId: placed.orderId, customerId: null });
+        payment = { paymentId: charged.id, status: 'PENDING', redirectUrl: null, instructions: null };
       } else {
         const charged = await this.providerPayments.chargeIn(tx, STOREFRONT_ACTOR.principalId, {
           id: this.nextId(),
@@ -346,6 +351,11 @@ export class Checkouts {
       return { status: 201, body: { ...kept, trackingToken } };
     });
     // Outside any transaction: the charge is sent, or sent again on a replay after a timeout, with the same reference.
+    if (body.paymentMethod === 'CARD' && stored.body.payment !== null) {
+      // The card's hosted page, opened after the order committed, or the page a replay already opened (A-287 (d)).
+      const page = await this.providerPayments.openCardPage(stored.body.payment.paymentId);
+      return { status: stored.status, body: { ...stored.body, payment: { ...stored.body.payment, status: page.payment.status as 'PENDING' | 'CLEARED' | 'FAILED', redirectUrl: page.redirectUrl } } };
+    }
     if (stored.body.payment !== null && body.payerPhone !== undefined) await this.providerPayments.sendCharge(stored.body.payment.paymentId, this.storefront.normalisePhone(body.payerPhone)!);
     return stored;
   }

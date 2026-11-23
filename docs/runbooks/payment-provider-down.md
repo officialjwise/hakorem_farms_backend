@@ -25,6 +25,8 @@ Last reviewed: 2026-11-16 (B09a continued: updated to the jobs, routes and log l
 | Offline counter, cash only (and the manager-approved unverified mobile money tender if the setting allows it) | Refunds to mobile money (they queue and appear as `FAILED` or pending in the break queue) |
 | Everything that does not need the provider | Automatic confirmation of online orders |
 
+**A card order whose page could not be opened (B09c, A-287 (d)):** `placeOrder` answered 503 with the order PLACED and its payment PENDING, and the log line `card page not opened; the payment stays pending` (or `CARD_PAGE_REFUSED`, when Paystack answered a page off `checkout.paystack.com`: treat that as a security event and tell the owner). The shop replays the placement with the same key once the provider is back and the same page is opened; nothing is done by hand. A page nobody was handed ends with the order's hold and the payment fails 30 minutes after its window.
+
 A payment that the customer made but we could not confirm is **never** marked paid by hand. `recordPayment` refuses mobile money and card (`PAYMENT_METHOD_REQUIRES_VERIFICATION`). The payment stays `PENDING` and the status poll or the webhook clears it when the provider is back.
 
 ## Diagnosis

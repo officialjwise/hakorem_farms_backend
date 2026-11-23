@@ -21,6 +21,13 @@ import type { ApprovalPendingView } from './order-reversals';
 import type { NewOrderLine, OrderRecord, OrderStore, WeightSource } from './order-store';
 import { overrideHash, type FlaggedLine, type PriceOverrides } from './price-overrides';
 
+
+/**
+ * Price override reasons only the server records, never a seller (BL-107, A-286 (f)): `OFFLINE_PACK_PRICE` names a
+ * difference found at sync between what an offline pack priced and the server's price (migration 0306), so a sale made
+ * online that names it is refused as an invalid reason. Named here because ORD reads no POS code.
+ */
+const SERVER_ONLY_REASONS: ReadonlySet<string> = new Set(['OFFLINE_PACK_PRICE']);
 export const ORDER_COMPLETED = 'ord.OrderCompleted';
 /** The operation a sale's idempotency key is scoped to (ADR-0014): the order's own client id is the key. */
 export const POST_SALE_OPERATION = 'ord.postSale';
@@ -835,6 +842,7 @@ export class SalePosting {
         const reason = reasonCode === null ? undefined : reasons.get(reasonCode);
         if (reasonCode === null) broken.push({ field: field(c.index, 'varianceReasonCode'), rule: 'VARIANCE_REASON_REQUIRED' });
         else if (reason === undefined || reason.domain !== 'PRICE_OVERRIDE') broken.push({ field: field(c.index, 'varianceReasonCode'), rule: 'VARIANCE_REASON_INVALID' });
+        else if (!offline && SERVER_ONLY_REASONS.has(reason.code)) broken.push({ field: field(c.index, 'varianceReasonCode'), rule: 'VARIANCE_REASON_INVALID' });
         else if (reason.requiresNote) broken.push({ field: field(c.index, 'varianceReasonCode'), rule: 'VARIANCE_NOTE_REQUIRED' });
       }
       const measure = { quantity: c.soldQty, weight: c.weight?.kg ?? null };

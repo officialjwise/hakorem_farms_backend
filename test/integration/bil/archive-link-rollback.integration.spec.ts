@@ -48,6 +48,7 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0311_pay_card_hosted_page',
       '0310_iam_grant_ord_order_read_fulfilment',
       '0309_iam_seed_ord_order_read_fulfilment',
       '0308_quo_quote_link_staff_match',

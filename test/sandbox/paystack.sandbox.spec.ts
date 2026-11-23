@@ -2,7 +2,8 @@ import { appendFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { PaymentProviderError, PaystackPaymentProvider } from '../../src/platform/payments/payment-provider';
+import { cardPageUrl, judgeCardAnswer } from '../../src/modules/pay/domain/card';
+import { PaymentProviderError, PaystackPaymentProvider, refundNoteOf } from '../../src/platform/payments/payment-provider';
 
 /**
  * The real Paystack sandbox run (A-064, owner 2026-11-16): the adapter against Paystack's test mode, never in CI.
@@ -221,3 +222,69 @@ describe('Paystack test mode, through the real adapter (A-064)', () => {
     }
   });
 });
+
+/**
+ * Card on Paystack's hosted page (B09c, A-287 (h)), never in CI. No card number is ever sent from here: a card is typed
+ * only into Paystack's own page. So the cases that need a paid card run only when a person has paid a page this suite
+ * opened, by hand, with one of Paystack's test cards, and names its reference in PAYSTACK_SANDBOX_CARD_REFERENCE.
+ */
+describe('Paystack test mode, a card on the hosted page (B09c)', () => {
+  const page = `${RUN}-card`;
+
+  it('opens a card-only page for GH₵55.00 sent as 5,500 pesewas, on Paystack’s checkout host, and reads it back as 5,500 in GHS', async () => {
+    const opened = await adapter('initiate(card)', provider.initiate({ reference: page, amountPesewas: 5_500n, email: EMAIL, channels: ['card'] }));
+    expect(cardPageUrl(opened.authorizationUrl), opened.authorizationUrl).toBe(opened.authorizationUrl);
+    const verified = await raw('GET', `/transaction/verify/${page}`);
+    const data = verified.json['data'] as Record<string, unknown>;
+    expect(data['domain'], 'refusing to go on: Paystack did not answer from its test domain').toBe('test');
+    expect([data['amount'], data['currency'], data['channel'], data['requested_amount']]).toEqual([5_500, 'GHS', 'card', 5_500]);
+    record('card page to pay by hand', { reference: page, url: opened.authorizationUrl });
+  });
+
+  it('answers the unpaid page as abandoned at once, which the card rule waits on while the page is open', async () => {
+    const found = await adapter('lookup(card unpaid)', provider.lookup(page));
+    expect(found).toMatchObject({ reference: page, status: 'ABANDONED', amountPesewas: 5_500n, currency: 'GHS', paidAt: null });
+    const now = new Date();
+    expect(judgeCardAnswer({ requestedPesewas: 5_500n, createdAt: now, awaitedUntil: new Date(now.getTime() + 900_000), releasedAt: null }, { status: found.status, amountPesewas: found.amountPesewas, currency: found.currency, paidAt: found.paidAt }, now)).toEqual({ kind: 'WAIT' });
+  });
+
+  it('refuses a second page under the same reference as a duplicate, so a replay can never open another', async () => {
+    const refused = await refusal(provider.initiate({ reference: page, amountPesewas: 5_500n, email: EMAIL, channels: ['card'] }));
+    expect([refused.retryable, refused.providerMessage]).toEqual([false, 'Duplicate Transaction Reference']);
+  });
+
+  it('refuses a refund of the unpaid card page', async () => {
+    const refused = await refusal(provider.refund({ reference: page, amountPesewas: 5_500n, idempotencyKey: randomKey() }));
+    expect(refused.retryable).toBe(false);
+  });
+
+  it('reads the Disputes API: the list, and NOT_FOUND for a dispute that does not exist', async () => {
+    const list = await raw('GET', '/dispute?perPage=5&page=1');
+    expect([list.json['status'], Array.isArray(list.json['data'])]).toEqual([true, true]);
+    const missing = await refusal(provider.lookupDispute('1'));
+    expect(missing.kind).toBe('NOT_FOUND');
+  });
+});
+
+const PAID_CARD = process.env['PAYSTACK_SANDBOX_CARD_REFERENCE'];
+if (PAID_CARD !== undefined) {
+  describe('Paystack test mode, a card a person paid on the hosted page (B09c)', () => {
+    it('verifies the paid card for exactly its amount in GHS, with no card detail read by the adapter', async () => {
+      const found = await adapter('lookup(card paid)', provider.lookup(PAID_CARD));
+      expect([found.status, found.currency]).toEqual(['SUCCESS', 'GHS']);
+      expect(Object.keys(found).sort()).toEqual(['amountPesewas', 'currency', 'paidAt', 'providerTransactionId', 'reference', 'status']);
+    });
+
+    it('refunds part of the paid card once per idempotency key, found again by its note', async () => {
+      const key = randomKey();
+      const first = await adapter('refund(card)', provider.refund({ reference: PAID_CARD, amountPesewas: 100n, idempotencyKey: key }));
+      const again = await adapter('refund(card) again', provider.refund({ reference: PAID_CARD, amountPesewas: 100n, idempotencyKey: key }));
+      expect(again.refundId).toBe(first.refundId);
+      record('card refund note', refundNoteOf(key));
+    });
+  });
+}
+
+function randomKey(): string {
+  return `${RUN}-${Math.random().toString(36).slice(2, 10)}`;
+}

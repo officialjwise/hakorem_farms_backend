@@ -11,6 +11,7 @@ import { PaymentProviderError, type ProviderTransaction } from '../../../platfor
 import type { ResilientPaymentProvider } from '../../../platform/payments/resilient-provider';
 import type { Authoriser } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
+import { cardPageUrl, judgeCardAnswer, paidAfterFailure } from '../domain/card';
 import { judgeMissingCharge, judgeProviderAnswer, maskPhone, type ChargeDecision, type ProviderAnswer } from '../domain/charge';
 import { addMs } from '../domain/time';
 import { jsonPesewas as json } from '../domain/tender';
@@ -45,6 +46,26 @@ export interface MobileMoneyRequest {
   readonly shiftId: string | null;
   readonly customerId: string | null;
 }
+
+/** A card payment for an order, paid on Paystack's hosted page (B09c): no card detail is ever part of it. */
+export interface CardChargeRequest {
+  readonly id: string;
+  readonly amountPesewas: bigint;
+  readonly orderId: string;
+  readonly customerId: string | null;
+}
+
+/** A card payment and its hosted page: the page's address while the payment still waits for it, else null. */
+export interface CardPage {
+  readonly payment: PaymentDocumentView;
+  readonly redirectUrl: string | null;
+}
+
+/** Abuse case 45: card money moved outside the order's flow (paid after failing, or disputed) (B09c). */
+export const CARD_MONEY_ABUSE_CASE = 45;
+
+/** The tender a charge is written for: mobile money by its phone and network, or a card on the hosted page. */
+type ChargeTender = { readonly kind: 'MOBILE_MONEY'; readonly phone: string; readonly network: MobileMoneyRequest['network'] } | { readonly kind: 'CARD' };
 
 export interface SweepReport {
   readonly from: Date;
@@ -86,6 +107,7 @@ export class ProviderPayments {
     private readonly payerEmail: string | null,
     private readonly clock: Clock,
     private readonly logger: Logger,
+    private readonly cardCallbackUrl: string | null = null,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -101,7 +123,7 @@ export class ProviderPayments {
       // A charge at a till is authorised where the till sells, which a cashier's grant to the shop floor reaches.
       const till = body.shiftId === null ? null : await this.payments.tillCashIn(tx, { shiftDocumentId: body.shiftId, registerId: null, branchId, actorId: actor!.principalId, direction: 'IN' }, '/shiftId');
       await this.authoriser.authorise(tx, actor, INITIATE, till === null ? { branchId } : { branchId, locationId: till.locationId });
-      const view = await this.writeChargeIn(tx, actor!.principalId, branchId, body);
+      const view = await this.writeChargeIn(tx, actor!.principalId, branchId, body, { kind: 'MOBILE_MONEY', phone: body.payerPhone, network: body.network });
       const response = { status: 201, body: view };
       await this.idempotency.complete(tx, claim.id, response);
       return { replay: false as const, response };
@@ -123,7 +145,63 @@ export class ProviderPayments {
     if (body.orderId === null) throw new PaymentInvalidError([{ field: '/orderId', rule: 'ORDER_UNKNOWN' }]);
     const branchId = await this.documents.branchOf(tx, body.orderId);
     if (branchId === null) throw new PaymentInvalidError([{ field: '/orderId', rule: 'ORDER_UNKNOWN' }]);
-    return this.writeChargeIn(tx, actorId, branchId, body);
+    return this.writeChargeIn(tx, actorId, branchId, body, { kind: 'MOBILE_MONEY', phone: body.payerPhone, network: body.network });
+  }
+
+  /**
+   * A card payment for an order (B09c, A-287), written PENDING with our reference in the caller's serializable
+   * transaction (SHP's placeOrder), exactly as `chargeIn` writes a mobile money charge; the caller opens its hosted page
+   * with `openCardPage` once the transaction has committed, never inside it (ADR-0010). The amount is the caller's, from
+   * the order on the server. No card number, expiry or security code is part of it: the card is typed into Paystack's
+   * page. It authorises nothing: the caller's command has. 503 while the provider cannot take a payment.
+   */
+  async cardChargeIn(tx: Transaction, actorId: string, body: CardChargeRequest): Promise<PaymentDocumentView> {
+    if (!this.provider.available() || this.payerEmail === null) throw new PaymentProviderUnavailableError('the payment provider cannot take a card payment now');
+    const branchId = await this.documents.branchOf(tx, body.orderId);
+    if (branchId === null) throw new PaymentInvalidError([{ field: '/orderId', rule: 'ORDER_UNKNOWN' }]);
+    return this.writeChargeIn(tx, actorId, branchId, { ...body, shiftId: null }, { kind: 'CARD' });
+  }
+
+  /**
+   * Opens a card payment's hosted page after the transaction that wrote it committed (B09c, A-287 (d)): Paystack's
+   * `transaction/initialize` for our reference, the server's amount in GHS, channels card only, the farm's mailbox and
+   * the configured return address. The page's address must be Paystack's checkout host (never an open redirect) and is
+   * kept on the charge once, so a replay answers the same page and never opens a second one under a new reference. A
+   * page already opened, or a payment no longer waiting, is answered as it is. A provider that cannot be reached, or
+   * an answer that is not Paystack's checkout, leaves the payment PENDING and answers 503; a replay tries again, and a
+   * page nobody was handed ends with its charge (the order's hold, then the page's grace).
+   */
+  async openCardPage(paymentId: string): Promise<CardPage> {
+    const charge = await this.uow.run({ isolation: 'read committed' }, (tx) => this.store.chargeOfPayment(tx, paymentId));
+    const open = charge !== null && charge.channel === 'CARD' && (charge.status === 'INITIATED' || charge.status === 'PENDING');
+    if (open && charge.pageUrl === null) {
+      let answered: string;
+      try {
+        answered = (await this.provider.initiate({ reference: charge.reference, amountPesewas: charge.requestedPesewas, email: this.payerEmail!, channels: ['card'], ...(this.cardCallbackUrl === null ? {} : { callbackUrl: this.cardCallbackUrl }) })).authorizationUrl;
+      } catch (error) {
+        if (!(error instanceof PaymentProviderError)) throw error;
+        this.logger.warn({ paymentId, kind: error.kind }, 'card page not opened; the payment stays pending');
+        throw new PaymentProviderUnavailableError('the payment provider cannot open the card page now', [], { cause: error });
+      }
+      const pageUrl = cardPageUrl(answered);
+      if (pageUrl === null) {
+        this.logger.warn({ paymentId, alert: 'CARD_PAGE_REFUSED' }, 'the provider answered a card page off its checkout host; not handed out');
+        throw new PaymentProviderUnavailableError('the payment provider cannot open the card page now');
+      }
+      await this.uow.run({ isolation: 'serializable' }, async (tx) => {
+        const locked = await this.store.chargeByReference(tx, PROVIDER, charge.reference, true);
+        // A webhook may have settled it while the page was opened (FR-PAY-008): then the page is not kept.
+        if (locked === null || locked.pageUrl !== null || (locked.status !== 'INITIATED' && locked.status !== 'PENDING')) return;
+        await this.store.updateCharge(tx, locked.id, { status: 'PENDING', providerStatus: 'page_opened', pageUrl }, SYSTEM_ACTOR_ID);
+        await this.audit.record(tx, { module: 'pay', action: 'OPEN_CARD_PAGE', entityType: 'Payment', entityId: paymentId, branchId: locked.branchId, before: { pageOpened: false }, after: { pageOpened: true } });
+      });
+    }
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const [view] = await this.payments.documentViewsIn(tx, [paymentId]);
+      const now = await this.store.chargeOfPayment(tx, paymentId);
+      const waiting = view!.status === 'PENDING' && now !== null && (now.status === 'INITIATED' || now.status === 'PENDING');
+      return { payment: view!, redirectUrl: waiting ? now.pageUrl : null };
+    });
   }
 
   /** Sends a payment's charge after the transaction that wrote it committed (`chargeIn`); a replay sends nothing new. */
@@ -132,8 +210,15 @@ export class ProviderPayments {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => (await this.payments.documentViewsIn(tx, [paymentId]))[0]!);
   }
 
-  private async writeChargeIn(tx: Transaction, actorId: string, branchId: string, body: MobileMoneyRequest): Promise<PaymentDocumentView> {
-    const method = (await this.refs.paymentMethodsByCodeIn(tx, ['MOMO'])).get('MOMO');
+  private async writeChargeIn(
+    tx: Transaction,
+    actorId: string,
+    branchId: string,
+    body: Pick<MobileMoneyRequest, 'id' | 'amountPesewas' | 'orderId' | 'shiftId' | 'customerId'>,
+    tender: ChargeTender,
+  ): Promise<PaymentDocumentView> {
+    const code = tender.kind === 'CARD' ? 'CARD' : 'MOMO';
+    const method = (await this.refs.paymentMethodsByCodeIn(tx, [code])).get(code);
     const broken: PaymentRule[] = [];
     if (method === undefined || !method.isLive) broken.push({ field: '', rule: 'METHOD_DISABLED' });
     if (body.amountPesewas <= 0n) broken.push({ field: '/amountPesewas', rule: 'AMOUNT_NOT_POSITIVE' });
@@ -148,7 +233,7 @@ export class ProviderPayments {
     await this.store.insert(tx, {
       id: body.id,
       paymentMethodId: method!.id,
-      methodKind: 'MOBILE_MONEY',
+      methodKind: tender.kind,
       amountPesewas: body.amountPesewas,
       customerId: body.customerId,
       orderDocumentId: body.orderId,
@@ -156,7 +241,7 @@ export class ProviderPayments {
       register: null,
       provider: PROVIDER,
       providerReference: reference,
-      payerPhoneMasked: maskPhone(body.payerPhone),
+      payerPhoneMasked: tender.kind === 'CARD' ? null : maskPhone(tender.phone),
       verification: 'UNVERIFIED',
       status: 'PENDING',
       receivedAt: now,
@@ -169,15 +254,15 @@ export class ProviderPayments {
       paymentId: body.id,
       provider: PROVIDER,
       reference,
-      channel: 'MOBILE_MONEY',
-      network: body.network,
+      channel: tender.kind,
+      network: tender.kind === 'CARD' ? null : tender.network,
       requestedPesewas: body.amountPesewas,
       awaitedUntil: addMs(now, CHARGE_WINDOW_MS),
       createdAt: now,
       branchId,
       actorId,
     });
-    const payload: PaymentInitiated = { paymentId: body.id, branchId, methodKind: 'MOBILE_MONEY', amountPesewas: json(body.amountPesewas), orderDocumentId: body.orderId, provider: PROVIDER };
+    const payload: PaymentInitiated = { paymentId: body.id, branchId, methodKind: tender.kind, amountPesewas: json(body.amountPesewas), orderDocumentId: body.orderId, provider: PROVIDER };
     await this.events.publish(tx, { type: PAYMENT_INITIATED, subjectType: 'Payment', subjectId: body.id, branchId, payload });
     const [view] = await this.payments.documentViewsIn(tx, [body.id]);
     await this.audit.record(tx, { module: 'pay', action: 'INITIATE', entityType: 'Payment', entityId: body.id, branchId, before: null, after: { ...view! } });
@@ -213,9 +298,13 @@ export class ProviderPayments {
     const charge = await this.store.chargeByReference(tx, PROVIDER, reference, true);
     if (charge === null) return null;
     const [payment] = await this.store.payments(tx, [charge.paymentId], true);
+    if (payment !== undefined && charge.channel === 'CARD' && paidAfterFailure(payment.status, answer)) {
+      await this.paidAfterFailureIn(tx, charge, payment.id, payment.branchId, answer, actorId);
+      return null;
+    }
     if (payment === undefined || payment.status !== 'PENDING' || (charge.status !== 'INITIATED' && charge.status !== 'PENDING')) return null;
     const now = this.clock.now();
-    const decision = judgeProviderAnswer({ requestedPesewas: charge.requestedPesewas, createdAt: charge.createdAt, awaitedUntil: charge.awaitedUntil, releasedAt: charge.releasedAt }, answer, now);
+    const decision = (charge.channel === 'CARD' ? judgeCardAnswer : judgeProviderAnswer)({ requestedPesewas: charge.requestedPesewas, createdAt: charge.createdAt, awaitedUntil: charge.awaitedUntil, releasedAt: charge.releasedAt }, answer, now);
     const [before] = await this.payments.documentViewsIn(tx, [payment.id]);
     switch (decision.kind) {
       case 'WAIT':
@@ -278,6 +367,30 @@ export class ProviderPayments {
     const [after] = await this.payments.documentViewsIn(tx, [payment.id]);
     await this.audit.record(tx, { module: 'pay', action: decision.kind === 'CLEAR' ? 'CLEAR' : decision.kind === 'FAIL' ? 'FAIL' : 'HOLD', entityType: 'Payment', entityId: payment.id, branchId: payment.branchId, before: { ...before! }, after: { ...after!, verification } });
     return decision;
+  }
+
+  /**
+   * A card the provider says was paid after its payment had failed (B09c, abuse case 45): the customer paid on a page
+   * after its grace ended. The payment stays FAILED and nothing is posted; the money is raised once, URGENT, for a
+   * person to refund through the provider, and reaches the daily exception report.
+   */
+  private async paidAfterFailureIn(tx: Transaction, charge: ChargeRecord, paymentId: string, branchId: string, answer: ProviderAnswer, actorId: string): Promise<void> {
+    const raised = await this.breaks.raiseIn(
+      tx,
+      actorId,
+      {
+        kind: 'PROVIDER_PAID_AFTER_FAILURE',
+        branchId,
+        paymentId,
+        refundId: null,
+        provider: PROVIDER,
+        reference: charge.reference,
+        amountPesewas: answer.amountPesewas,
+        details: { requestedPesewas: json(charge.requestedPesewas), confirmedPesewas: json(answer.amountPesewas), currency: answer.currency, paidAt: answer.paidAt?.toISOString() ?? null, chargeStatus: charge.status },
+      },
+      { severity: 'URGENT', abuseCases: [CARD_MONEY_ABUSE_CASE] },
+    );
+    if (raised) await this.audit.record(tx, { module: 'pay', action: 'HOLD', entityType: 'Payment', entityId: paymentId, branchId, before: { status: 'FAILED' }, after: { status: 'FAILED', paidAfterFailure: true } });
   }
 
   /**

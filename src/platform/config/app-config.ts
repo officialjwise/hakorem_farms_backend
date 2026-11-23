@@ -129,6 +129,9 @@ const environmentSchema = z
       .email()
       .refine((email) => !RESERVED_EMAIL_DOMAIN.test(email), 'must not be on a reserved domain: Paystack refuses it')
       .optional(),
+    // Where Paystack's hosted card page sends the customer back once paid (B09c, A-287 (b)): the shop's own https
+    // address, from configuration only and never from a request. Unset, Paystack uses the account's default.
+    PAYSTACK_CARD_CALLBACK_URL: z.string().url().regex(/^https:\/\/[^/?#@]+(\/[^?#]*)?$/, 'must be an https URL with no query').optional(),
     // The worker (docs/OPERATIONS.md section 3.8).
     WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(50).default(5),
     SCHEDULER_ENABLED: booleanFlag.default(true),

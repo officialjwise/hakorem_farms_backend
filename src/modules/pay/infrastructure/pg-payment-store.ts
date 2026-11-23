@@ -100,10 +100,11 @@ interface ChargeRow {
   released_at: Date | null;
   created_at: Date;
   branch_id: string;
+  page_url: string | null;
 }
 
 const CHARGE_COLUMNS = `id, payment_id, provider, reference, channel, network, requested_pesewas::text, confirmed_pesewas::text, status, awaited_until,
-  released_at, created_at, branch_id`;
+  released_at, created_at, branch_id, page_url`;
 
 function toCharge(row: ChargeRow): ChargeRecord {
   return {
@@ -120,6 +121,7 @@ function toCharge(row: ChargeRow): ChargeRecord {
     releasedAt: row.released_at,
     createdAt: row.created_at,
     branchId: row.branch_id,
+    pageUrl: row.page_url,
   };
 }
 
@@ -430,7 +432,7 @@ export class PgPaymentStore implements PaymentStore {
     return rows.map((r) => ({ id: r.id, customerId: r.customer_id, direction: r.direction, amountPesewas: BigInt(r.amount), sourceDocumentId: r.source_document_id, branchId: r.branch_id, recordedAt: r.recorded_at }));
   }
 
-  async insertCharge(tx: Transaction, c: Omit<ChargeRecord, 'confirmedPesewas' | 'status' | 'releasedAt'> & { readonly actorId: string }): Promise<void> {
+  async insertCharge(tx: Transaction, c: Omit<ChargeRecord, 'confirmedPesewas' | 'status' | 'releasedAt' | 'pageUrl'> & { readonly actorId: string }): Promise<void> {
     await tx.query(
       `INSERT INTO pay.provider_transaction (id, payment_id, provider, reference, kind, channel, network, requested_pesewas, status, awaited_until, branch_id, created_by, updated_by, created_at)
        VALUES ($1, $2, $3, $4, 'CHARGE', $5, $6, $7, 'INITIATED', $8, $9, $10, $10, $11)`,
@@ -453,9 +455,9 @@ export class PgPaymentStore implements PaymentStore {
       `UPDATE pay.provider_transaction
           SET status = COALESCE($2, status), provider_status = COALESCE($3, provider_status), confirmed_pesewas = COALESCE($4::bigint, confirmed_pesewas),
               verified_at = COALESCE($5, verified_at), last_checked_at = COALESCE($6, last_checked_at), released_at = COALESCE($7, released_at),
-              updated_by = $8, version = version + 1
+              page_url = COALESCE($9, page_url), updated_by = $8, version = version + 1
         WHERE id = $1`,
-      [id, change.status ?? null, change.providerStatus ?? null, change.confirmedPesewas?.toString() ?? null, change.verifiedAt ?? null, change.lastCheckedAt ?? null, change.releasedAt ?? null, actorId],
+      [id, change.status ?? null, change.providerStatus ?? null, change.confirmedPesewas?.toString() ?? null, change.verifiedAt ?? null, change.lastCheckedAt ?? null, change.releasedAt ?? null, actorId, change.pageUrl ?? null],
     );
   }
 
