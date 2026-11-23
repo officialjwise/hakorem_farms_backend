@@ -198,6 +198,8 @@ export interface QuoteStore {
   link(tx: Transaction, id: string): Promise<LinkRecord | null>;
   insertLinkRevocation(tx: Transaction, revocation: { readonly id: string; readonly linkTokenId: string; readonly reason: string }, actorId: string, at: Date): Promise<void>;
   insertLinkDecision(tx: Transaction, decision: LinkDecisionRecord, actorId: string, at: Date): Promise<void>;
+  /** The staff sessions matched to a link decision by its address (abuse case 40, A-343), one row each. */
+  insertStaffMatches(tx: Transaction, rows: readonly StaffMatchRecord[], actorId: string, at: Date): Promise<void>;
   linkDecisionsOf(tx: Transaction, versionIds: readonly string[]): Promise<LinkDecisionRecord[]>;
   /** What a product line found on hand and held at issue (quo.quote_line_stock, migration 0288), once per line. */
   insertLineStock(tx: Transaction, row: LineStockRecord, actorId: string, at: Date): Promise<void>;
@@ -247,6 +249,16 @@ export interface LinkRecord {
 }
 
 /** The device and session behind a decision made through a link (quo.quote_link_decision, abuse case 40). */
+export interface StaffMatchRecord {
+  readonly id: string;
+  readonly linkDecisionId: string;
+  readonly staffPrincipalId: string;
+  readonly staffSessionId: string;
+  readonly sameBrowser: boolean;
+  readonly sessionLastSeenAt: Date;
+  readonly windowHours: number;
+}
+
 export interface LinkDecisionRecord {
   readonly id: string;
   readonly linkTokenId: string;
@@ -254,6 +266,7 @@ export interface LinkDecisionRecord {
   readonly decision: 'ACCEPTED' | 'DECLINED';
   readonly ip: string | null;
   readonly userAgent: string | null;
+  /** Only on a decision B10 continued 4 recorded from the staff cookie (A-325 (c), withdrawn); null on every later one. */
   readonly staffPrincipalId: string | null;
   readonly staffSessionId: string | null;
   readonly decidedAt: Date;

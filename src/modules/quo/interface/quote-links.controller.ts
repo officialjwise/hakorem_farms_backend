@@ -1,12 +1,11 @@
-import { Body, Controller, Get, Inject, Param, Post, Req, Res } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import { Body, Controller, Get, Inject, Param, Post, Res } from '@nestjs/common';
+import type { Response } from 'express';
 import type { z } from 'zod';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import { Quotes, type PublicQuoteView, type QuoteDecisionView } from '../application/quotes';
 import { STOREFRONT_ACTOR } from '../application/public-actor';
 import { Rfqs } from '../application/rfqs';
-import { staffAccessTokenOf } from './staff-cookie';
 import { LinkTokenParam, PublicQuoteRequest, QuoteAcceptByLink, QuoteDeclineByLink } from './schemas';
 
 const READ = { access: 'PUBLIC', realms: [], permission: null, idempotent: false, csrf: false, rateLimit: 'public' } as const;
@@ -41,10 +40,9 @@ export class QuoteLinksController {
     @Param('token', zodPipe(LinkTokenParam)) token: string,
     @Body(zodPipe(QuoteAcceptByLink)) body: z.infer<typeof QuoteAcceptByLink>,
     @IdempotencyKeyHeader() key: string,
-    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<QuoteDecisionView> {
-    const response = await this.quotes.acceptByLink(token, body, key, { staffAccessToken: staffAccessTokenOf(req) });
+    const response = await this.quotes.acceptByLink(token, body, key);
     res.status(response.status);
     return response.body;
   }
@@ -55,10 +53,9 @@ export class QuoteLinksController {
     @Param('token', zodPipe(LinkTokenParam)) token: string,
     @Body(zodPipe(QuoteDeclineByLink)) body: z.infer<typeof QuoteDeclineByLink>,
     @IdempotencyKeyHeader() key: string,
-    @Req() req: Request,
     @Res({ passthrough: true }) res: Response,
   ): Promise<QuoteDecisionView> {
-    const response = await this.quotes.declineByLink(token, body, key, { staffAccessToken: staffAccessTokenOf(req) });
+    const response = await this.quotes.declineByLink(token, body, key);
     res.status(response.status);
     return response.body;
   }

@@ -43,12 +43,15 @@ export interface QuoteDecided {
 }
 
 /**
- * `quo.QuoteLinkDecidedInStaffBrowser` v1 (B10 continued 4, abuse case 40): a quote accepted or declined through its
- * link from a browser that also held a signed-in staff session, naming that staff member, for the exception report's
- * source (`QUOTE_ACCEPTED_BY_STAFF`, B12). Raised for review; the decision itself is never blocked. No address, user
- * agent or token: those stay in `quo.quote_link_decision`.
+ * `quo.QuoteLinkDecidedFromStaffAddress` v1 (B10 continued 6, the owner, 2026-11-23, A-343, abuse case 40): a possible
+ * staff acceptance. A quote was accepted or declined through its link from the address of staff sessions active in the
+ * 24 hours before, by the application clock; each staff member is named with whether one of their sessions had the
+ * decision's browser. Found by address and browser, never by a staff cookie; raised for review, never blocking the
+ * decision. For the exception report's source (`QUOTE_ACCEPTED_BY_STAFF`, B12). No address, user agent, session id or
+ * token: those stay in `quo.quote_link_decision` and `quo.quote_link_staff_match`. It replaces
+ * `quo.QuoteLinkDecidedInStaffBrowser` (B10 continued 4, read from the staff cookie), which is no longer published.
  */
-export interface QuoteLinkDecidedInStaffBrowser {
+export interface QuoteLinkDecidedFromStaffAddress {
   readonly quoteId: string;
   readonly quoteNo: string;
   readonly versionId: string;
@@ -56,8 +59,12 @@ export interface QuoteLinkDecidedInStaffBrowser {
   readonly branchId: string;
   readonly salespersonId: string;
   readonly linkId: string;
+  readonly linkDecisionId: string;
   readonly decision: 'ACCEPTED' | 'DECLINED';
-  readonly staffPrincipalId: string;
+  readonly staff: readonly { readonly principalId: string; readonly sameBrowser: boolean }[];
+  /** Any matched session had the decision's browser: the stronger sign (A-343 (c)). */
+  readonly sameBrowser: boolean;
+  readonly windowHours: 24;
   readonly grossPesewas: number;
   readonly abuseCase: 40;
   readonly at: string;

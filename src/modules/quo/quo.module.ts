@@ -1,5 +1,4 @@
 import { Inject, Module, type OnModuleInit } from '@nestjs/common';
-import { ModuleRef } from '@nestjs/core';
 import type { Clock } from '@hakorem/kernel';
 import { AuditTrail } from '../../platform/audit/audit-trail';
 import { APP_CONFIG, type AppConfig } from '../../platform/config/app-config';
@@ -13,14 +12,13 @@ import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
 import { Settings } from '../../platform/settings/settings';
 import { DocModule, Documents } from '../doc';
-import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
+import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, STAFF_SESSIONS_SEEN, type PrincipalNames, type StaffSessionsSeen } from '../iam';
 import { InvModule, Reservations, StockQueries, StockUnits } from '../inv';
 import { MasterDataRefs, MdmModule, PartiesAdmin, PricingService, TaxService } from '../mdm';
 import { OrdModule, Orders } from '../ord';
 import { QUOTE_STORE, type QuoteStore } from './application/quote-store';
 import { QUOTE_BELOW_MARGIN_KIND, QuoteExpiry, Quotes } from './application/quotes';
 import { Rfqs } from './application/rfqs';
-import { IamStaffSessions } from './infrastructure/iam-staff-sessions';
 import { PgQuoteStore } from './infrastructure/pg-quote-store';
 import { QuoteLinksController } from './interface/quote-links.controller';
 import { MyQuotesController, QuotesController, RfqsController } from './interface/quotes.controller';
@@ -58,10 +56,10 @@ import { MyQuotesController, QuotesController, RfqsController } from './interfac
         settings: Settings,
         cursors: Cursors,
         clock: Clock,
-        modules: ModuleRef,
+        staffSessions: StaffSessionsSeen,
         documents: Documents,
-      ) => new Quotes(uow, store, refs, pricing, tax, units, stock, reservations, orders, approvals, authoriser, principals, idempotency, audit, events, registry, numbers, settings, cursors, clock, new IamStaffSessions(modules), documents),
-      inject: [UnitOfWork, QUOTE_STORE, MasterDataRefs, PricingService, TaxService, StockUnits, StockQueries, Reservations, Orders, Approvals, Authoriser, PRINCIPAL_NAMES, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, Settings, Cursors, CLOCK, ModuleRef, Documents],
+      ) => new Quotes(uow, store, refs, pricing, tax, units, stock, reservations, orders, approvals, authoriser, principals, idempotency, audit, events, registry, numbers, settings, cursors, clock, staffSessions, documents),
+      inject: [UnitOfWork, QUOTE_STORE, MasterDataRefs, PricingService, TaxService, StockUnits, StockQueries, Reservations, Orders, Approvals, Authoriser, PRINCIPAL_NAMES, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, Settings, Cursors, CLOCK, STAFF_SESSIONS_SEEN, Documents],
     },
     {
       provide: Rfqs,

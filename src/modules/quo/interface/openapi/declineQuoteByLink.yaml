@@ -2,7 +2,7 @@ operationId: declineQuoteByLink
 tags:
   - quo
 summary: "Decline a quote by its signed link"
-description: "Declines the live version by its token (FR-QUO-009), with a reason or none; the quote's hold on stock is released. A second use is 409 `QUOTE_ALREADY_DECIDED`; a closed link 422 `QUOTE_LINK_CLOSED`; anything else 404."
+description: "Declines the live version by its token (FR-QUO-009), with a reason or none; the quote's hold on stock is released. A second use is 409 `QUOTE_ALREADY_DECIDED`; a closed link 422 `QUOTE_LINK_CLOSED`; anything else 404. From 2.29.0 (the owner, 2026-11-23, abuse case 40) a decision made from the address of a staff session active in the 24 hours before is flagged for review as a possible staff acceptance, naming the staff and whether the browser matched; it is never refused, and no cookie the browser holds is read."
 x-error-codes:
   - VALIDATION_FAILED
   - IDEMPOTENCY_KEY_REQUIRED

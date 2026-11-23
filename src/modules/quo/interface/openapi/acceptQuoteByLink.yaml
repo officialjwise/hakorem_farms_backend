@@ -2,7 +2,7 @@ operationId: acceptQuoteByLink
 tags:
   - quo
 summary: "Accept a quote by its signed link"
-description: "Accepts the live version by its token, once (FR-QUO-008, CR-047): records the name given, the time and the address and user agent of the request. A second use is 409 `QUOTE_ALREADY_DECIDED` (also after a decline); a token whose version was replaced, has expired or was withdrawn is 422 `QUOTE_LINK_CLOSED` with its state; anything else 404. Accepted, the quote's hold on stock lasts until it is converted or withdrawn (A-310)."
+description: "Accepts the live version by its token, once (FR-QUO-008, CR-047): records the name given, the time and the address and user agent of the request. A second use is 409 `QUOTE_ALREADY_DECIDED` (also after a decline); a token whose version was replaced, has expired or was withdrawn is 422 `QUOTE_LINK_CLOSED` with its state; anything else 404. Accepted, the quote's hold on stock lasts until it is converted or withdrawn (A-310). From 2.29.0 (the owner, 2026-11-23, abuse case 40) a decision made from the address of a staff session active in the 24 hours before is flagged for review as a possible staff acceptance, naming the staff and whether the browser matched; it is never refused, and no cookie the browser holds is read."
 x-error-codes:
   - VALIDATION_FAILED
   - IDEMPOTENCY_KEY_REQUIRED

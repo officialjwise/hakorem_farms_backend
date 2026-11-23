@@ -2,6 +2,7 @@ import type { Transaction } from '../../../platform/database/unit-of-work';
 import type {
   AcceptanceRecord,
   LinkDecisionRecord,
+  StaffMatchRecord,
   LinkRecord,
   LineStockRecord,
   PipelineCell,
@@ -339,6 +340,16 @@ export class PgQuoteStore implements QuoteStore {
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
       [d.id, d.linkTokenId, d.quoteVersionId, d.decision, d.ip, d.userAgent, d.staffPrincipalId, d.staffSessionId, d.decidedAt, at, actorId],
     );
+  }
+
+  async insertStaffMatches(tx: Transaction, rows: readonly StaffMatchRecord[], actorId: string, at: Date): Promise<void> {
+    for (const m of rows) {
+      await tx.query(
+        `INSERT INTO quo.quote_link_staff_match (id, link_decision_id, staff_principal_id, staff_session_id, same_browser, session_last_seen_at, window_hours, recorded_at, actor_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [m.id, m.linkDecisionId, m.staffPrincipalId, m.staffSessionId, m.sameBrowser, m.sessionLastSeenAt, m.windowHours, at, actorId],
+      );
+    }
   }
 
   async linkDecisionsOf(tx: Transaction, versionIds: readonly string[]): Promise<LinkDecisionRecord[]> {

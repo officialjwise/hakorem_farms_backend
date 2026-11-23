@@ -48,6 +48,7 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0308_quo_quote_link_staff_match',
       '0307_quo_margin_percent_is_markup',
       '0306_mdm_offline_pack_price_reason',
       '0305_fin_cod_collected_postings',

@@ -14,9 +14,8 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
  * 40) and the customer's own quotes (FR-QUO-013 `listMyQuotes`, CR-047 point 2):
  * - several links of one version live at once, each revoked on its own while the others keep working; the quote is
  *   accepted once across all of them; every link closes when the version is replaced, accepted or expires;
- * - every acceptance and decline through a link records the address, the user agent and whose staff session the
- *   browser also held, and a decision from a browser with a staff session is raised for the exception report naming
- *   that staff member, never blocked;
+ * - every acceptance and decline through a link records the address and the user agent, and never reads a staff
+ *   cookie the browser also holds (the owner, 2026-11-23; the match by address is possible-staff-acceptance's);
  * - a link's token is answered once and no read returns it;
  * - a customer lists only the quotes issued to them.
  */
@@ -63,7 +62,7 @@ async function anotherLink(versionId: string): Promise<{ token: string; linkId: 
 
 const linkStates = async (quoteId: string) => ((await get('sales', `/quotes/${quoteId}`)).body.currentVersion.links as { id: string; state: string }[]).map((l) => [l.id, l.state]);
 const decisions = (versionId: string) => admin().query('SELECT link_token_id, decision, host(ip) AS ip, user_agent, staff_principal_id, staff_session_id FROM quo.quote_link_decision WHERE quote_version_id = $1', [versionId]);
-const flags = (quoteId: string) => admin().query("SELECT payload FROM platform.outbox_message WHERE event_type = 'quo.QuoteLinkDecidedInStaffBrowser' AND subject_id = $1", [quoteId]);
+const flags = (quoteId: string) => admin().query("SELECT payload FROM platform.outbox_message WHERE event_type = 'quo.QuoteLinkDecidedFromStaffAddress' AND subject_id = $1", [quoteId]);
 
 beforeAll(async () => {
   database = await createTestDatabase();
@@ -177,7 +176,7 @@ describe('several live links per version (the owner, 2026-11-18, item 2)', () =>
   });
 });
 
-describe('the device and session behind a decision through the link (the owner, 2026-11-18, item 4; abuse case 40)', () => {
+describe('the device behind a decision through the link (the owner, 2026-11-18, item 4, as amended 2026-11-23; abuse case 40)', () => {
   it('records an acceptance with no staff session, and does not flag it', async () => {
     const q = await issued();
     const accepted = await linkPost(q.token, 'accept', { acceptedName: 'Ama Owusu' });
@@ -186,35 +185,20 @@ describe('the device and session behind a decision through the link (the owner, 
     expect((await flags(q.quoteId)).rows).toEqual([]);
   });
 
-  it('flags an acceptance from a browser holding a signed-in staff session, naming that staff member, and never blocks it', async () => {
+  it('reads no staff cookie: a browser holding a live staff session records no staff and raises no flag (the owner, 2026-11-23, A-343)', async () => {
+    // The staff signed in from the test's own address, never from the buyer's: by address there is no match either.
     const q = await issued();
     const accepted = await linkPost(q.token, 'accept', { acceptedName: 'Ama Owusu' }, as('sales').jar.header());
     expect([accepted.status, accepted.body.status]).toEqual([200, 'ACCEPTED']);
-    expect((await get('sales', `/quotes/${q.quoteId}`)).body.status).toBe('ACCEPTED');
-    expect((await decisions(q.versionId)).rows).toEqual([
-      { link_token_id: q.linkId, decision: 'ACCEPTED', ip: '198.51.100.23', user_agent: UA, staff_principal_id: users.get('sales')!.principalId, staff_session_id: as('sales').sessionId },
-    ]);
-    const raised = (await flags(q.quoteId)).rows.map((r) => r['payload']);
-    expect(raised).toEqual([
-      expect.objectContaining({ quoteId: q.quoteId, versionId: q.versionId, linkId: q.linkId, decision: 'ACCEPTED', staffPrincipalId: users.get('sales')!.principalId, branchId, abuseCase: 40, grossPesewas: 6_000 }),
-    ]);
-    // The flag carries no address, user agent or token: those stay in QUO's own table.
-    expect(JSON.stringify(raised)).not.toMatch(/198\.51|Mozilla|quo_/);
-  });
-
-  it('flags a decline from a browser holding a staff session too, and ignores a staff cookie that is no live session', async () => {
-    const q = await issued();
-    const declined = await linkPost(q.token, 'decline', { reason: 'Found eggs nearer home' }, as('manager').jar.header());
+    expect((await decisions(q.versionId)).rows).toEqual([{ link_token_id: q.linkId, decision: 'ACCEPTED', ip: '198.51.100.23', user_agent: UA, staff_principal_id: null, staff_session_id: null }]);
+    const declinedQuote = await issued();
+    const declined = await linkPost(declinedQuote.token, 'decline', { reason: 'Found eggs nearer home' }, as('manager').jar.header());
     expect([declined.status, declined.body.status]).toEqual([200, 'DECLINED']);
-    expect((await decisions(q.versionId)).rows.map((r) => [r['decision'], r['staff_principal_id'], r['staff_session_id']])).toEqual([['DECLINED', users.get('manager')!.principalId, as('manager').sessionId]]);
-    expect((await flags(q.quoteId)).rows.map((r) => [r['payload']['decision'], r['payload']['staffPrincipalId']])).toEqual([['DECLINED', users.get('manager')!.principalId]]);
-    const shown = await view(q.token);
+    expect((await decisions(declinedQuote.versionId)).rows.map((r) => [r['decision'], r['staff_principal_id'], r['staff_session_id']])).toEqual([['DECLINED', null, null]]);
+    const shown = await view(declinedQuote.token);
     expect([shown.body.status, shown.body.acceptedName, shown.body.decidedAt]).toEqual(['DECLINED', null, clock.now().toISOString()]);
-
-    const forged = await issued();
-    expect((await linkPost(forged.token, 'accept', { acceptedName: 'Ama Owusu' }, '__Host-hk_s_at=not-a-session-token')).status).toBe(200);
-    expect((await decisions(forged.versionId)).rows.map((r) => r['staff_principal_id'])).toEqual([null]);
-    expect((await flags(forged.quoteId)).rows).toEqual([]);
+    for (const quoteId of [q.quoteId, declinedQuote.quoteId]) expect((await flags(quoteId)).rows).toEqual([]);
+    expect((await admin().query("SELECT count(*)::int AS n FROM platform.outbox_message WHERE event_type = 'quo.QuoteLinkDecidedInStaffBrowser'")).rows[0]!['n']).toBe(0);
   });
 
   it('holds the decision rules in the database', async () => {
