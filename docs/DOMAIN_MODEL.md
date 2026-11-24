@@ -475,6 +475,8 @@ A counter sale is not a POS aggregate. It is a sales order on channel `POS`, pla
 | Amounts paid against a distribution line do not exceed net payable | DB (trigger) |
 | A capital withdrawal is approved by a different user | DB (approval constraint) |
 
+**Built in B12 (ADR-0100):** ◆`cap.CapitalContributed`, ◆`cap.CapitalWithdrawn`, ◆`cap.DistributionDeclared` and ◆`cap.DistributionPaid` (payloads in `src/modules/cap/events.ts`); the rest are B12 continued's.
+
 **Events:** `cap.InvestorRegistered`, ◆`cap.CapitalContributed`, ◆`cap.CapitalWithdrawn`, `cap.DistributionRunApproved`, ◆`cap.DistributionDeclared`, ◆`cap.DistributionPaid`, ◆`cap.LoanDrawn`, ◆`cap.LoanRepaid`, ◆`cap.InterestAccrued`, ◆`cap.GrantReceived`.
 
 ### 5.16 CST, RPT: costing and reporting

@@ -341,6 +341,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Public interface:** none used by other modules.
 - **Imports:** platform, IAM, DOC, FIN.
 - **Subscribes:** nothing.
+- **Built in B12 (ADR-0100, A-380 to A-382, migrations 0352 to 0357):** `Capital` (the register, contributions, withdrawals under IAM's `CAPITAL_WITHDRAWAL`, the capital register as at a date) and `Distributions` (runs under `INVESTOR_DISTRIBUTION`, the schedule rendered and archived by DOC, its archive linked by the asynchronous consumer `cap.distribution-schedule-link` of `doc.DocumentArchived`, payments). Kept at the head office branch, whose id it reads through MDM's `MasterDataRefs` (MDM is layer 3, lower). From FIN it reads `FinancialStatements.netProfitIn`, `Periods.allIn`, `BankAccounts.payoutAccountsIn` and `Journals.entryForSubjectIn` (all additive in B12) and publishes ◆ `cap.CapitalContributed`, `cap.CapitalWithdrawn`, `cap.DistributionDeclared` and `cap.DistributionPaid`, which FIN posts in the publisher's transaction. No port, no new cross-schema key beyond the published ones.
 
 ### CST: costing and profitability (layer 11)
 

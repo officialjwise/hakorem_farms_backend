@@ -2,6 +2,16 @@
 
 Owner: CAP module. Investors, capital and units, profit distribution, loans and grants (ADR-0028). Conventions are in `docs/DATA_MODEL.md`.
 
+**As built in B12 (migration 0353, ADR-0100, A-380 to A-382).** Built: `cap.investor`, `cap.unit_holding`, `cap.capital_withdrawal_request` (new), `cap.capital_transaction`, `cap.distribution_run`, `cap.distribution_line`, `cap.distribution_payment`. Not yet built (B12 continued): `cap.investor_document`, the payout and identity columns' writers, `cap.financing`, `cap.financing_schedule_line`, `cap.financing_repayment`. Differences from the tables below:
+
+- `cap.investor`: `investor_no` is `INV-` and three or more digits (`ck_investor_no`), the tie key by its value; never deleted (`ck_investor_never_deleted`); `payout_method` and `payout_details_enc` are set together or not at all.
+- `cap.capital_withdrawal_request` (DOCUMENT, a `CAPITAL_WITHDRAWAL` business document): investor, amount, value date, unit price, units (exactly the amount over the price), bank account, reference, `approval_request_id` (unique), status `PENDING_APPROVAL`, `APPLIED`, `REJECTED` or `CANCELLED`, decided once (HK004 `ck_capital_withdrawal_request_frozen`), applied only by someone other than its maker (`ck_capital_withdrawal_request_checker`).
+- `cap.capital_transaction`: `transaction_no` is required and the one allocated to it (HK010 `ck_capital_transaction_number`); `posting_date` (the value date, or the ledger's first day before it); `units * unit_price_pesewas = amount_pesewas` (`ck_capital_transaction_units`); a withdrawal names its applied request and approval (`ck_capital_transaction_withdrawal`, HK010 `ck_capital_transaction_approved`) and never takes the holding below nothing on its value date or later (HK010 `ck_capital_transaction_holding`); `journal_entry_id` (unique) names the entry that posted it; `recorded_at`, `actor_id`.
+- `cap.unit_holding` is written only by `cap.capital_transaction_check` (SECURITY DEFINER).
+- `cap.distribution_run`: `run_no` is required, allocated when drafted (`DST-...`); `computation_no` and `computed_at` (a draft's recompute writes a new computation); `approved_by`, `approved_at` (`ck_distribution_run_checker`: never the maker); `journal_entry_id` (unique; was `posted_journal_ref`); `paid_pesewas`, kept by the payment trigger; the lifecycle and frozen figures in `cap.distribution_run_guard` (HK004 `ck_distribution_run_frozen`); a submitted run is never edited (A-382); the deferred `cap.distribution_run_check` (HK010 `ck_distribution_run_allocated`, `ck_distribution_run_paid_lines`).
+- `cap.distribution_line`: `computation_no` (UNIQUE run, computation, investor); `unit_days > 0` (an investor with none has no line); frozen once written but for `paid_pesewas`, which only grows (HK004 `ck_distribution_line_frozen`).
+- `cap.distribution_payment`: `journal_entry_id` (unique), `recorded_at`, `actor_id`; lands only on a current line of a `POSTED` run (HK010 `ck_distribution_payment_posted`).
+
 ---
 
 ### `cap.investor` · MASTER
