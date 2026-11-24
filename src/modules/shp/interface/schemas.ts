@@ -25,7 +25,8 @@ export const CatalogueQuery = z.object({
 });
 
 const LineQuantity = Quantity.refine((value) => Number.parseInt(value, 10) <= MAX_LINE_UNITS, `at most ${MAX_LINE_UNITS}`);
-export const CartLineAdd = z.strictObject({ productId: z.uuid(), quantity: LineQuantity });
+/** CR-039: `uom`, the unit added (a crate or a single egg); left out, the product's sale unit. */
+export const CartLineAdd = z.strictObject({ productId: z.uuid(), quantity: LineQuantity, uom: z.string().regex(/^[A-Z][A-Z0-9_]{0,19}$/).optional() });
 export const CartLineUpdate = z.strictObject({ quantity: LineQuantity });
 export const CouponApply = z.strictObject({ code: z.string().trim().regex(/^[A-Za-z0-9][A-Za-z0-9_-]{1,39}$/) });
 

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.41.0"
+  version: "2.42.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -46486,8 +46486,21 @@ paths:
       tags:
         - bil
       summary: "Send a document by SMS, WhatsApp or email"
-      description: "Permission: `bil.document.send`."
+      description: "Sends an issued billing document to its own customer (2.42.0, ADR-0062, ADR-0099): 202 `QUEUED`, through the outbox. A copy is logged in the document's reprints (`listBillingDocumentReprints`) with the first channel asked and the next copy number; never a new document, never a new number, nothing rendered again. NTF then sends one message (`DOCUMENT_SENT`, transactional) by the first of `channels` its trigger allows, to the customer's own phone or email as MDM holds it when the message goes. An SMS or WhatsApp message carries a link of its own (`getSharedDocument`): a `doc_` token made at each attempt, stored only as its hash, opening exactly the archived document. An email carries the archived PDF itself and the same link. WhatsApp and email have no provider adapter yet (B13), so a message routed to either fails visibly in the message log. A failed message is retried (`retryNotificationMessage`) without a second archive row or copy. `recipient` is optional and only checked: it must be a phone or email the document's customer holds (a Ghanaian number in any usual form), else 422 `RECIPIENT_NOT_DOCUMENT_PARTY` on `/recipient`; it is never stored and never used as the address. Refusals: 404 for a document that is not issued; 422 `DOCUMENT_NOT_ARCHIVED` (`RENDERING`) while it is still rendering; 422 `RECIPIENT_NOT_DOCUMENT_PARTY` (`DOCUMENT_HAS_NO_PARTY`) for a document with no customer (a walk-in receipt).\n\nPermission: `bil.document.send` at the document's branch."
       x-permission: bil.document.send
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - DOCUMENT_NOT_ARCHIVED
+        - RECIPIENT_NOT_DOCUMENT_PARTY
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -46522,7 +46535,7 @@ paths:
                 $ref: "#/components/schemas/Accepted"
               example:
                 status: QUEUED
-                message: "Queued. You will be notified when it completes."
+                message: "Queued. The document goes to its customer by the first channel that can reach them."
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -57000,6 +57013,12 @@ paths:
                         nominalPackKg: null
                         catchWeight: false
                         availability: ON_REQUEST
+                        sellingUnits:
+                          - uom: HEAD
+                            uomName: Head
+                            priceFromPesewas: 12000
+                            priceToPesewas: 195000
+                            availability: ON_REQUEST
                         image:
                           alt: Goat
                           variants:
@@ -57033,6 +57052,12 @@ paths:
                         nominalPackKg: null
                         catchWeight: false
                         availability: ON_REQUEST
+                        sellingUnits:
+                          - uom: HEAD
+                            uomName: Head
+                            priceFromPesewas: 15000
+                            priceToPesewas: 300000
+                            availability: ON_REQUEST
                         image:
                           alt: Sheep
                           variants:
@@ -57066,6 +57091,12 @@ paths:
                         nominalPackKg: null
                         catchWeight: false
                         availability: ON_REQUEST
+                        sellingUnits:
+                          - uom: HEAD
+                            uomName: Head
+                            priceFromPesewas: 15000
+                            priceToPesewas: 220000
+                            availability: ON_REQUEST
                         image:
                           alt: "Baby pig"
                           variants:
@@ -57099,6 +57130,12 @@ paths:
                         nominalPackKg: null
                         catchWeight: false
                         availability: IN_STOCK
+                        sellingUnits:
+                          - uom: HEAD
+                            uomName: Head
+                            priceFromPesewas: 17000
+                            priceToPesewas: null
+                            availability: IN_STOCK
                         image:
                           alt: "Broiler chicken"
                           variants:
@@ -57132,6 +57169,12 @@ paths:
                         nominalPackKg: null
                         catchWeight: false
                         availability: OUT_OF_STOCK
+                        sellingUnits:
+                          - uom: HEAD
+                            uomName: Head
+                            priceFromPesewas: 14000
+                            priceToPesewas: null
+                            availability: OUT_OF_STOCK
                         image:
                           alt: "Local chicken"
                           variants:
@@ -57165,6 +57208,17 @@ paths:
                         nominalPackKg: null
                         catchWeight: false
                         availability: IN_STOCK
+                        sellingUnits:
+                          - uom: CRATE
+                            uomName: Crate
+                            priceFromPesewas: 6000
+                            priceToPesewas: null
+                            availability: IN_STOCK
+                          - uom: EGG
+                            uomName: Egg
+                            priceFromPesewas: 220
+                            priceToPesewas: null
+                            availability: IN_STOCK
                         image:
                           alt: "Eggs, big, crate of 30"
                           variants:
@@ -57198,6 +57252,17 @@ paths:
                         nominalPackKg: null
                         catchWeight: false
                         availability: IN_STOCK
+                        sellingUnits:
+                          - uom: CRATE
+                            uomName: Crate
+                            priceFromPesewas: 4500
+                            priceToPesewas: null
+                            availability: IN_STOCK
+                          - uom: EGG
+                            uomName: Egg
+                            priceFromPesewas: 170
+                            priceToPesewas: null
+                            availability: IN_STOCK
                         image:
                           alt: "Eggs, small, crate of 30"
                           variants:
@@ -57231,6 +57296,12 @@ paths:
                         nominalPackKg: "15.000"
                         catchWeight: true
                         availability: LOW_STOCK
+                        sellingUnits:
+                          - uom: PACK
+                            uomName: Pack
+                            priceFromPesewas: 2000
+                            priceToPesewas: null
+                            availability: LOW_STOCK
                         image:
                           alt: "Full chicken, 15 kg pack"
                           variants:
@@ -57358,6 +57429,12 @@ paths:
                 relatedSlugs:
                   - beef-15-kg-pack
                   - full-chicken-15-kg-pack
+                sellingUnits:
+                  - uom: PACK
+                    uomName: Pack
+                    priceFromPesewas: 2600
+                    priceToPesewas: null
+                    availability: IN_STOCK
                 currency: GHS
         "400":
           $ref: "#/components/responses/BadRequest"
@@ -65338,8 +65415,20 @@ paths:
       tags:
         - whl
       summary: "Send a statement by email or WhatsApp"
-      description: "Permission: `whl.statement.create`."
+      description: "Sends an issued statement to its own customer (2.42.0, ADR-0062, ADR-0099): 202 `QUEUED`, through the outbox; nothing is rendered again and no statement is made. NTF sends one message (`DOCUMENT_SENT`, transactional) by the first of `channels` its trigger allows, to the customer's own phone or email as MDM holds it when the message goes, carrying a link of its own to the archived statement (`getSharedDocument`; an email also carries the archived PDF). A statement still rendering is sent once it is archived: the message waits, it does not fail. WhatsApp and email have no provider adapter yet (B13), so a message routed to either fails visibly in the message log. `recipient` is optional and only checked: it must be a phone or email the statement's customer holds, else 422 `RECIPIENT_NOT_DOCUMENT_PARTY` on `/recipient`; it is never stored. Refusals: 404 for a statement that does not exist or is a draft (a draft is never archived).\n\nPermission: `whl.statement.create` at the statement's branch."
       x-permission: whl.statement.create
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - RECIPIENT_NOT_DOCUMENT_PARTY
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -65373,7 +65462,7 @@ paths:
                 $ref: "#/components/schemas/Accepted"
               example:
                 status: QUEUED
-                message: "Queued. You will be notified when it completes."
+                message: "Queued. The document goes to its customer by the first channel that can reach them."
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -65810,6 +65899,10 @@ paths:
                           - SMS
                           - EMAIL
                         sentAt: "2026-11-13T08:00:00Z"
+                        deliveries:
+                          - channel: SMS
+                            status: DELIVERED
+                            at: "2026-11-13T08:00:00Z"
                         currency: GHS
                       - id: "019a7b07-1e6b-782d-9d65-8babbeb20489"
                         customer:
@@ -65827,6 +65920,10 @@ paths:
                         channels:
                           - SMS
                         sentAt: "2026-11-10T08:00:00Z"
+                        deliveries:
+                          - channel: SMS
+                            status: DELIVERED
+                            at: "2026-11-10T08:00:00Z"
                         currency: GHS
                       - id: "019a7b07-3d5a-7211-a749-29e33863a2c1"
                         customer:
@@ -65845,6 +65942,10 @@ paths:
                           - SMS
                           - EMAIL
                         sentAt: "2026-11-07T08:00:00Z"
+                        deliveries:
+                          - channel: SMS
+                            status: DELIVERED
+                            at: "2026-11-07T08:00:00Z"
                         currency: GHS
                       - id: "019a7b07-5c49-7bf4-b12c-c81ab21440f8"
                         customer:
@@ -65862,6 +65963,10 @@ paths:
                         channels:
                           - SMS
                         sentAt: "2026-11-04T08:00:00Z"
+                        deliveries:
+                          - channel: SMS
+                            status: DELIVERED
+                            at: "2026-11-04T08:00:00Z"
                         currency: GHS
                       - id: "019a7b07-7b38-75d8-8b10-66522bc5df30"
                         customer:
@@ -65879,6 +65984,10 @@ paths:
                         channels:
                           - SMS
                         sentAt: "2026-11-01T08:00:00Z"
+                        deliveries:
+                          - channel: SMS
+                            status: DELIVERED
+                            at: "2026-11-01T08:00:00Z"
                         currency: GHS
                     page:
                       nextCursor: eyJpZCI6IjAxOWE3YyJ9
@@ -79651,6 +79760,47 @@ paths:
           $ref: "#/components/responses/NotFound"
         "409":
           $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/shop/documents/{token}":
+    get:
+      operationId: getSharedDocument
+      tags:
+        - doc
+      summary: "Open a document sent by message, by its link"
+      description: "A billing document, a customer's statement or a supplier's remittance advice sent by SMS (2.42.0, ADR-0062, ADR-0074, ADR-0084, ADR-0099): the message carries a link of its own, a `doc_` token (47 characters: `doc_` and 43 base64url characters of 32 random bytes) made by the sending worker just before the provider call, a new one at each attempt, stored only as its SHA-256 and valid for thirty days. **No session; the token is the only key.** The answer is a signed link, five minutes long and logged, to exactly the archived rendering the token was made for: its bytes are the archive's, and `sha256` is the archived SHA-256, which never changes. **One answer for everything else, 404 `NOT_FOUND`:** a token never sent, mistyped, guessed or altered, expired, a document's id or number, another kind of link's token, or a rendering whose file has not passed the scan. It carries no id of anything. Rate-limited as every public read."
+      x-error-codes:
+        - NOT_FOUND
+        - RATE_LIMITED
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 200
+      security: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedDocument"
+              example:
+                docType: INVOICE
+                documentNo: INV-2026-DDW-000088
+                issuedAt: "2026-11-24T10:15:02Z"
+                sha256: "3f1c9a0b7d2e4f6a8b0c1d2e3f405162738495a6b7c8d9e0f1a2b3c4d5e6f708"
+                url: "https://files.example/archive/inv-2026-ddw-000088.pdf?signature=EXAMPLE"
+                expiresAt: "2026-11-24T10:20:02Z"
+        "404":
+          $ref: "#/components/responses/NotFound"
         "429":
           $ref: "#/components/responses/RateLimited"
         "500":
@@ -96802,6 +96952,10 @@ components:
       properties:
         channels:
           type: array
+          minItems: 1
+          maxItems: 3
+          uniqueItems: true
+          description: "The channels to try, in order; the message goes by the first one its trigger allows (2.42.0)."
           items:
             type: string
             enum:
@@ -96810,7 +96964,8 @@ components:
               - EMAIL
         recipient:
           type: string
-          description: "Phone or email. Defaults to the customer on the document."
+          maxLength: 254
+          description: "Optional, and only checked (2.42.0): a phone or email the document's own customer holds, else 422 `RECIPIENT_NOT_DOCUMENT_PARTY`. The message always goes to the customer's own address as MDM holds it when it is sent; this value is never stored."
       required:
         - channels
       additionalProperties: false
@@ -100900,6 +101055,11 @@ components:
             - OUT_OF_STOCK
             - ON_REQUEST
           description: "Never an exact quantity."
+        sellingUnits:
+          type: array
+          description: "Each unit the product is sold by online (2.42.0, CR-039), the sale unit first: a crate of eggs and a single egg, each priced by its own price list entry, never worked out from another unit's price. A catch-weight pack or an animal by band has one, its sale unit at the product's own range. Put a unit in the cart with `CartLineAdd.uom`."
+          items:
+            $ref: "#/components/schemas/SellingUnit"
         image:
           anyOf:
             - $ref: "#/components/schemas/ImageSet"
@@ -100907,6 +101067,7 @@ components:
         currency:
           $ref: "#/components/schemas/Currency"
       required:
+        - sellingUnits
         - productId
         - slug
         - name
@@ -101046,9 +101207,15 @@ components:
           type: array
           items:
             type: string
+        sellingUnits:
+          type: array
+          description: "Each unit the product is sold by online (2.42.0, CR-039), the sale unit first: a crate of eggs and a single egg, each priced by its own price list entry, never worked out from another unit's price. A catch-weight pack or an animal by band has one, its sale unit at the product's own range. Put a unit in the cart with `CartLineAdd.uom`."
+          items:
+            $ref: "#/components/schemas/SellingUnit"
         currency:
           $ref: "#/components/schemas/Currency"
       required:
+        - sellingUnits
         - productId
         - slug
         - name
@@ -101209,6 +101376,37 @@ components:
         - couponCode
         - currency
         - updatedAt
+    SellingUnit:
+      type: object
+      description: "One unit a product is sold by online (2.42.0, CR-039), priced by its own entry."
+      properties:
+        uom:
+          type: string
+        uomName:
+          type: string
+        priceFromPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+        priceToPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+        availability:
+          type: string
+          enum:
+            - IN_STOCK
+            - LOW_STOCK
+            - OUT_OF_STOCK
+            - ON_REQUEST
+          description: "Never an exact quantity: whether whole units of this unit can be had."
+      required:
+        - uom
+        - uomName
+        - priceFromPesewas
+        - priceToPesewas
+        - availability
+      additionalProperties: false
     CartLineAdd:
       type: object
       properties:
@@ -101217,6 +101415,10 @@ components:
           format: uuid
         quantity:
           $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]{0,19}$"
+          description: "The unit added (2.42.0, CR-039): one of the product's `sellingUnits`, a crate or a single egg; left out, the product's `saleUom`. A crate and a single egg of one product are two cart lines, each priced, checked out and placed in its own unit, and stock is held in the base unit. A unit the product is not sold by online is 422 `PRODUCT_UNAVAILABLE` with `UOM_NOT_SOLD` on `/uom`."
       required:
         - productId
         - quantity
@@ -102030,6 +102232,40 @@ components:
         - unitPricePesewas
         - lineNetPesewas
         - subjectToStock
+    SharedDocument:
+      type: object
+      description: "What a document link opens (2.42.0, `getSharedDocument`): a short-lived signed link to the archived PDF. Carries no id of anything."
+      properties:
+        docType:
+          type: string
+          description: "INVOICE, RECEIPT, CREDIT_NOTE, DEBIT_NOTE, PROFORMA, STATEMENT or REMITTANCE_ADVICE."
+        documentNo:
+          type:
+            - string
+            - "null"
+          description: "The document's number; null for a document that has none (a remittance advice)."
+        issuedAt:
+          type: string
+          format: date-time
+          description: "When the rendering was archived."
+        sha256:
+          type: string
+          pattern: "^[0-9a-f]{64}$"
+          description: "The archived SHA-256 of the PDF the link serves."
+        url:
+          type: string
+          format: uri
+        expiresAt:
+          type: string
+          format: date-time
+      required:
+        - docType
+        - documentNo
+        - issuedAt
+        - sha256
+        - url
+        - expiresAt
+      additionalProperties: false
     PublicReceipt:
       type: object
       description: "A counter sale's digital receipt by its link (2.24.0, CR-033, ADR-0083). No id of anything and nothing of any customer."
@@ -104071,6 +104307,7 @@ components:
               - WHATSAPP
         templateCode:
           type: string
+          description: "One of the reminder templates `listNotificationTemplates?category=REMINDER` lists: `PAYMENT_REMINDER_1`, `PAYMENT_REMINDER_2` or `PAYMENT_REMINDER_3` (2.42.0); any other code is 422 `DUNNING_POLICY_INVALID` with `TEMPLATE_NOT_A_REMINDER` on `/levels/{i}/templateCode`."
       required:
         - level
         - daysOverdue
@@ -104118,6 +104355,11 @@ components:
           type: string
           format: date-time
           description: "When the reminder was queued to NTF through the outbox (B10 continued 2); NTF sends it by the first channel the customer has not opted out of (B11)."
+        deliveries:
+          type: array
+          description: "The reminder's delivery on each channel NTF tried it on (2.42.0, B11 continued 13): the latest status per channel, in the order the channels were first tried. `SENT` when the provider took it, `DELIVERED` or `FAILED` as the provider reported it, `FAILED` too when every attempt failed; a failed reminder shows as failed. Empty until NTF has tried it, and while it waits out quiet hours or was not sent (an opted-out number, no number)."
+          items:
+            $ref: "#/components/schemas/DunningNoticeDelivery"
         currency:
           $ref: "#/components/schemas/Currency"
       required:
@@ -104130,7 +104372,32 @@ components:
         - outstandingPesewas
         - channels
         - sentAt
+        - deliveries
         - currency
+    DunningNoticeDelivery:
+      type: object
+      description: "A reminder's delivery on one channel (2.42.0)."
+      properties:
+        channel:
+          type: string
+          enum:
+            - SMS
+            - EMAIL
+            - WHATSAPP
+        status:
+          type: string
+          enum:
+            - SENT
+            - DELIVERED
+            - FAILED
+        at:
+          type: string
+          format: date-time
+      required:
+        - channel
+        - status
+        - at
+      additionalProperties: false
     DunningNoticePage:
       type: object
       description: "A page of `DunningNotice` results."
@@ -107896,6 +108163,7 @@ components:
             - CONTACT_ON_EVENT
             - ROLE
             - PRINCIPAL_ON_EVENT
+            - SUPPLIER
         recipientRoleCode:
           type:
             - string
@@ -107966,6 +108234,7 @@ components:
             - STAFF
             - INVESTOR
             - CONTACT
+            - SUPPLIER
         id:
           type:
             - string
@@ -108858,6 +109127,7 @@ components:
         - bil.debit_note.create
         - bil.document.read
         - bil.document.reprint
+        - bil.document.send
         - bil.proforma.create
         - del.cash_reconciliation.read
         - del.delivery.assign
@@ -109140,6 +109410,7 @@ components:
         - bil.credit_note.create
         - bil.document.read
         - bil.document.reprint
+        - bil.document.send
         - bil.proforma.create
         - del.cash_reconciliation.read
         - del.delivery.assign
@@ -109579,6 +109850,7 @@ components:
       permissions:
         - bil.document.read
         - bil.document.reprint
+        - bil.document.send
         - iam.session.read
         - iam.session.revoke
         - mdm.branch.read

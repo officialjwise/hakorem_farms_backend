@@ -46,7 +46,7 @@ interface ListingDbRow {
 const LISTING_COLUMNS = `l.product_id, l.slug, l.name, l.description, l.category_code, l.category_codes, l.category_path, l.category_sort, l.product_line,
   l.online_mode, l.price_from_pesewas::text AS price_from_pesewas, l.price_to_pesewas::text AS price_to_pesewas, l.price_basis, l.tax_inclusive,
   l.sale_uom, l.nominal_pack_kg::text AS nominal_pack_kg, l.catch_weight, l.weight_tolerance_percent::text AS weight_tolerance_percent,
-  l.availability, l.images, l.main_image_file_id, l.seo_title, l.seo_description`;
+  l.availability, l.images, l.main_image_file_id, l.seo_title, l.seo_description, l.selling_units`;
 
 /** The catalogue filters as SQL over `l`, numbered from `$2` ($1 is the branch). */
 const FILTERS = `l.branch_id = $1
@@ -84,6 +84,7 @@ function toListing(row: ListingDbRow): ListingRow {
     mainImageFileId: row.main_image_file_id,
     seoTitle: row.seo_title,
     seoDescription: row.seo_description,
+    sellingUnits: (row['selling_units'] as ListingRow['sellingUnits'] | undefined) ?? [],
   };
 }
 
@@ -248,7 +249,7 @@ export class PgShpStore implements ShpStore {
   async upsertCartLine(tx: Transaction, cartId: string, line: { readonly id: string; readonly productId: string; readonly qty: string; readonly uom: string; readonly displayedUnitPricePesewas: bigint }): Promise<void> {
     await tx.query(
       `INSERT INTO shp.cart_line (id, cart_id, product_id, qty, uom, displayed_unit_price_pesewas) VALUES ($1, $2, $3, $4, $5, $6)
-       ON CONFLICT (cart_id, product_id) DO UPDATE SET qty = EXCLUDED.qty, displayed_unit_price_pesewas = EXCLUDED.displayed_unit_price_pesewas, updated_at = now()`,
+       ON CONFLICT (cart_id, product_id, uom) DO UPDATE SET qty = EXCLUDED.qty, displayed_unit_price_pesewas = EXCLUDED.displayed_unit_price_pesewas, updated_at = now()`,
       [line.id, cartId, line.productId, line.qty, line.uom, line.displayedUnitPricePesewas.toString()],
     );
     await this.touch(tx, cartId);

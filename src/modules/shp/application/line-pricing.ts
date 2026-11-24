@@ -8,8 +8,10 @@ const THOUSANDTHS_PER_UNIT = 1_000n;
 export interface LineToPrice {
   readonly lineRef: string;
   readonly product: OnlineProductFacts;
-  /** Whole units of the product's sale unit. */
+  /** Whole units of the line's unit. */
   readonly quantity: Quantity;
+  /** The unit the line is in (CR-039: a crate or a single egg); left out, the product's sale unit. */
+  readonly uom?: string;
 }
 
 export type LinePrice =
@@ -57,7 +59,8 @@ export async function priceLinesIn(pricing: PricingService, tx: Transaction, bra
     ...(couponCode === null ? {} : { couponCode }),
     lines: lines.map((line) => {
       const weightKg = estimatedKg(line.product, line.quantity);
-      const uom = pricingUom(line.product);
+      // A catch-weight pack is priced per kilogram at its estimated weight; any other line in the unit it is in (CR-039).
+      const uom = isCatchWeight(line.product) ? undefined : (line.uom ?? pricingUom(line.product));
       return { lineRef: line.lineRef, productId: line.product.id, quantity: line.quantity.toDecimalString(), ...(weightKg === undefined ? {} : { weightKg }), ...(uom === undefined ? {} : { uom }) };
     }),
   });

@@ -189,7 +189,7 @@ export class Checkouts {
         if (product.onlineMode === 'REQUEST_TO_BUY') throw new RequestToBuyOnlyError(`/lines/${line.id}`);
         if (!wholeUnits(Quantity.parse(line.qty))) throw new CheckoutInvalidError([{ field: `/lines/${line.id}`, rule: 'WHOLE_UNITS' }]);
       }
-      const prices = await priceLinesIn(this.pricing, tx, cart.branchId, cart.couponCode, cartLines.map((l) => ({ lineRef: l.id, product: products.get(l.productId)!, quantity: Quantity.parse(l.qty) })));
+      const prices = await priceLinesIn(this.pricing, tx, cart.branchId, cart.couponCode, cartLines.map((l) => ({ lineRef: l.id, product: products.get(l.productId)!, quantity: Quantity.parse(l.qty), uom: l.uom })));
       const inclusive = await this.storefront.priceListsTaxInclusiveIn(tx, prices.flatMap((p) => (p.kind === 'PRICED' ? [p.priceListId] : [])));
       const lines: CheckoutLineRecord[] = [];
       for (const [index, line] of cartLines.entries()) {
@@ -204,7 +204,7 @@ export class Checkouts {
           productId: product.id,
           qty: line.qty,
           uom: line.uom,
-          baseQty: (await this.baseQtyIn(tx, product, Quantity.parse(line.qty))).toDecimalString(),
+          baseQty: (await this.baseQtyIn(tx, product, Quantity.parse(line.qty), line.uom)).toDecimalString(),
           priceListEntryId: price.priceListEntryId,
           unitPricePesewas: price.unitPrice.pesewas,
           priceBasis: price.basis,
@@ -442,8 +442,9 @@ export class Checkouts {
   }
 
   /** A line's quantity in the product's base unit: a catch-weight line's estimated kilograms (A-178), else MDM's exact conversion. */
-  private async baseQtyIn(tx: Transaction, product: OnlineProductFacts, quantity: Quantity): Promise<Quantity> {
-    const per = await this.listing.perSaleUnit(tx, product);
+  private async baseQtyIn(tx: Transaction, product: OnlineProductFacts, quantity: Quantity, uom: string): Promise<Quantity> {
+    // CR-039: a line in the unit it was put in the cart in, a crate of 30 eggs or a single egg.
+    const per = await this.listing.perUnit(tx, product, uom);
     return Quantity.ofThousandths((quantity.thousandths * per.thousandths) / THOUSANDTHS_PER_UNIT);
   }
 

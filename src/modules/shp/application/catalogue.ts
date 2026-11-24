@@ -1,4 +1,4 @@
-import { Quantity } from '@hakorem/kernel';
+import { Quantity, type Clock } from '@hakorem/kernel';
 import { pricingUom } from './line-pricing';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
@@ -11,7 +11,7 @@ import type { MasterDataRefs, OnlineProductFacts, PricingService, ResolveLine, S
 import { assignSlugs, availabilityLevel, priceRange, type Availability } from '../domain/listing';
 import type { PriceBasis } from '../domain/pricing-lines';
 import { fill } from './errors';
-import type { CatalogueFilters, ImageSetView, ListingRow, ShpStore } from './shp-store';
+import type { CatalogueFilters, ImageSetView, ListingRow, SellingUnitListing, ShpStore } from './shp-store';
 
 /** The principal a guest acts as (migration 0115, A-177): no credentials, no grants. */
 export const STOREFRONT_ACTOR: Actor = { principalId: '01900000-0000-7000-8000-000000000006', kind: 'SYSTEM', displayName: 'Storefront', realm: null, sessionId: null, steppedUpAt: null };
@@ -39,6 +39,8 @@ export interface CatalogueItemView {
   readonly nominalPackKg: string | null;
   readonly catchWeight: boolean;
   readonly availability: Availability;
+  /** CR-039: each unit the product is sold by online, the sale unit first, each at its own price. */
+  readonly sellingUnits: readonly SellingUnitListing[];
   readonly image: ImageSetView | null;
   readonly currency: 'GHS';
 }
@@ -99,6 +101,7 @@ function item(row: ListingRow): CatalogueItemView {
     nominalPackKg: row.nominalPackKg,
     catchWeight: row.catchWeight,
     availability: row.availability,
+    sellingUnits: row.sellingUnits,
     image: listImage(row.images),
     currency: 'GHS',
   };
@@ -131,6 +134,7 @@ export class CatalogueListing {
     private readonly refs: MasterDataRefs,
     private readonly stock: StockQueries,
     private readonly settings: Settings,
+    private readonly clock: Clock,
   ) {}
 
   /** The storefront's branch (A-177): the head office. Null before the first branch exists. */
@@ -151,6 +155,7 @@ export class CatalogueListing {
     const prices = await this.priceRanges(tx, branchId, products);
     const available = await this.available(tx, branchId, products);
     const lowAt = BigInt(await this.settings.integer(LOW_STOCK_SETTING, LOW_STOCK_DEFAULT, branchId));
+    const units = await this.sellingUnitsOf(tx, branchId, products, prices, available, lowAt);
     const rows: ListingRow[] = products.map((p) => {
       const chain = [...p.categoryChain].reverse();
       const price = prices.get(p.id)!;
@@ -179,9 +184,60 @@ export class CatalogueListing {
         mainImageFileId: p.images[0]?.fileId ?? null,
         seoTitle: p.seoTitle,
         seoDescription: p.seoDescription,
+        sellingUnits: units.get(p.id)!,
       };
     });
     return this.store.replaceListing(tx, branchId, rows);
+  }
+
+  /**
+   * The units each product is sold by online (CR-039), the sale unit first, each priced by its own price list entry,
+   * never derived from another unit's price (MDM's `sellingUnitsIn` on the ONLINE channel), with its own availability.
+   * A catch-weight pack and a banded animal are sold in their one unit at the product's own range; so is a product only
+   * one unit of which is priced. A unit no list in force prices is not offered.
+   */
+  private async sellingUnitsOf(
+    tx: Transaction,
+    branchId: string,
+    products: readonly OnlineProductFacts[],
+    prices: ReadonlyMap<string, { readonly from: bigint | null; readonly to: bigint | null }>,
+    available: ReadonlyMap<string, { readonly available: Quantity; readonly perSaleUnit: Quantity }>,
+    lowAt: bigint,
+  ): Promise<ReadonlyMap<string, SellingUnitListing[]>> {
+    const floors = await this.storefront.bandFloorsIn(tx, products.flatMap((p) => (p.speciesId === null ? [] : [p.speciesId])));
+    const several = products.filter((p) => p.stockPolicy !== 'CATCH_WEIGHT' && (p.speciesId === null || (floors.get(p.speciesId) ?? []).length === 0));
+    const sold = several.length === 0 ? [] : (await this.pricing.sellingUnitsIn(tx, { channel: 'ONLINE', branchId, at: this.clock.now(), productIds: several.map((p) => p.id) })).products;
+    const priced = new Map(sold.map((s) => [s.product.id, s.units.filter((u) => u.band !== null)] as const));
+    const codes = new Set(products.map((p) => p.saleUom));
+    for (const units of priced.values()) for (const u of units) codes.add(u.uom);
+    const names = new Map((await this.refs.unitsIn(tx, [...codes])).map((u) => [u.code, u.name] as const));
+    const result = new Map<string, SellingUnitListing[]>();
+    for (const p of products) {
+      const own = available.get(p.id)!;
+      const units = priced.get(p.id) ?? [];
+      if (units.length < 2) {
+        const range = prices.get(p.id)!;
+        result.set(p.id, [{ uom: p.saleUom, uomName: names.get(p.saleUom) ?? p.saleUom, priceFromPesewas: json(range.from), priceToPesewas: json(range.to), availability: availabilityLevel(p.onlineMode, own.available, own.perSaleUnit, lowAt) }]);
+        continue;
+      }
+      const listed: SellingUnitListing[] = [];
+      for (const u of units) {
+        const per = await this.perUnit(tx, p, u.uom);
+        listed.push({ uom: u.uom, uomName: names.get(u.uom) ?? u.uom, priceFromPesewas: Number(u.band!.listPricePesewas), priceToPesewas: null, availability: availabilityLevel(p.onlineMode, own.available, per, lowAt) });
+      }
+      result.set(p.id, listed);
+    }
+    return result;
+  }
+
+  /**
+   * The units a cart line may name for a product (CR-039): those MDM's lists in force price on the ONLINE channel, the
+   * sale unit first. A catch-weight pack is sold in its sale unit only.
+   */
+  async sellingUomsIn(tx: Transaction, branchId: string, product: OnlineProductFacts): Promise<readonly string[]> {
+    if (product.stockPolicy === 'CATCH_WEIGHT') return [product.saleUom];
+    const [sold] = (await this.pricing.sellingUnitsIn(tx, { channel: 'ONLINE', branchId, at: this.clock.now(), productIds: [product.id] })).products;
+    return (sold?.units ?? []).filter((u) => u.band !== null).map((u) => u.uom);
   }
 
   private async priceRanges(tx: Transaction, branchId: string, products: readonly OnlineProductFacts[]) {
@@ -236,9 +292,15 @@ export class CatalogueListing {
    * One sale unit in the base unit: a catch-weight pack is its nominal weight, an estimate only (A-157, A-178); any
    * other sale unit converts through MDM's exact conversion, or counts one for one when there is none.
    */
-  async perSaleUnit(tx: Transaction, product: Pick<OnlineProductFacts, 'id' | 'stockPolicy' | 'nominalPackKg' | 'saleUom'>): Promise<Quantity> {
+  async perSaleUnit(tx: Transaction, product: Pick<OnlineProductFacts, 'id' | 'stockPolicy' | 'nominalPackKg' | 'saleUom' | 'baseUom'>): Promise<Quantity> {
+    return this.perUnit(tx, product, product.saleUom);
+  }
+
+  /** One of a unit in the base unit (CR-039: a crate is 30 eggs, an egg is one); a catch-weight pack its nominal weight. */
+  async perUnit(tx: Transaction, product: Pick<OnlineProductFacts, 'id' | 'stockPolicy' | 'nominalPackKg' | 'baseUom'>, uom: string): Promise<Quantity> {
     if (product.stockPolicy === 'CATCH_WEIGHT' && product.nominalPackKg !== null) return Quantity.parse(product.nominalPackKg);
-    const converted = await this.refs.toBaseIn(tx, product.id, product.saleUom, Quantity.ofUnits(1n));
+    if (uom === product.baseUom) return Quantity.ofUnits(1n);
+    const converted = await this.refs.toBaseIn(tx, product.id, uom, Quantity.ofUnits(1n));
     return converted.ok ? converted.value : Quantity.ofUnits(1n);
   }
 }

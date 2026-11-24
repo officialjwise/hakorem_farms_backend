@@ -35,6 +35,17 @@ export interface ListingRow {
   readonly mainImageFileId: string | null;
   readonly seoTitle: string | null;
   readonly seoDescription: string | null;
+  /** CR-039: each unit the product is sold by online, the sale unit first, each priced by its own entry. */
+  readonly sellingUnits: readonly SellingUnitListing[];
+}
+
+/** The contract's `SellingUnit` on a catalogue item and a product (CR-039). */
+export interface SellingUnitListing {
+  readonly uom: string;
+  readonly uomName: string;
+  readonly priceFromPesewas: number | null;
+  readonly priceToPesewas: number | null;
+  readonly availability: Availability;
 }
 
 export interface CatalogueFilters {
