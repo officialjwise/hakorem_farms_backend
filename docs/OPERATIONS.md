@@ -444,6 +444,7 @@ B07 continued 2 settings (defaults in code, each a `platform.setting` row the ow
 | Daily 08:00 | `dsr-reminders` | Warns when a data subject request is within 5 days of its due date | `aud` |
 | Daily 23:55 | `audit-anchor` | Signs the chain head, writes the anchor to the anchor bucket with object lock, records `platform.audit_anchor` (also done at every shift close) | ADR-0006 |
 | Daily 20:30 | `exception-report` | Finalises and sends the daily exception report to the owner | `rpt` |
+| Daily 02:50 | `costing-drift` | Ties CST's margin projection to the ledger over everything up to yesterday: net revenue against 4000 to 4030 less 4200, 4210 and 4220, cost of sales against 5000 to 5030, closing entries left out; a difference publishes `cst.ProjectionDriftDetected` and is logged as an error, nothing corrected (`docs/runbooks/stock-balance-drift.md`, "Costing projections") | FR-CST-004, ADR-0102 |
 | Monday 08:00 | `dead-letter-digest` | Weekly summary of dead letters and their cause | ADR-0010 |
 | 1st of each month, 03:00 | `backup-verify` | On staging: restores the latest base backup and WAL into a scratch cluster, starts it, runs the row-count and checksum checks, destroys it | NFR: monthly restore test |
 | Per `rpt.report_schedule` | `report-schedule` | Runs scheduled reports at the times set, in Africa/Accra | ADR-0023 |

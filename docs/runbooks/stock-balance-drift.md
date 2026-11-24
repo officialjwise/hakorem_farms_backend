@@ -104,6 +104,21 @@ An offline sale below zero is costed and trued up on arrival (ADR-0081). An arri
 2. Do not edit the pool. Receive the stock in two goods receipts: one of a single unit, then the rest. Neither leaves the pool at quantity zero.
 3. Have the accountant correct cost of sales for the uncovered quantity with an approved manual journal, as ADR-0018 says for a pool that predates the true-up.
 
+## Costing projections (B12 continued 2, ADR-0102)
+
+CST's projections (`cst.cost_object_summary`, `cst.margin_fact`, `cst.loss_fact`) are derived figures, never the books:
+inventory and the ledger are. When the nightly `costing-drift` job logs "the margin projection does not tie to the
+ledger" (and publishes `cst.ProjectionDriftDetected` with both figures):
+
+1. Check the ledger first: a trial balance that does not sum to zero, or a posting outside 4000 to 4030, 4200 to 4220
+   and 5000 to 5030 that should not be there, is a ledger incident (`reconciliation-break.md`), not a projection one.
+2. Check the outbox: a dead-lettered delivery to `cst.costing-projections` leaves a fact behind (`queue-backlog.md`).
+3. Rebuild, from the worker's shell: `CostingProjections.rebuild()` replaces every row from the published views in one
+   transaction; it is idempotent. Run the comparison again; it must report no drift.
+4. A drift that survives a rebuild is a defect in a refresh function or a new kind of posting to sales or cost of sales
+   that the projection does not know: open a defect and record it under an incident-log entry. Never edit a projection
+   row or a ledger row by hand.
+
 ## Verification
 
 - `stock-balance-recompute` run by hand: outcome `SUCCESS`; the health check `last_stock_recompute` is `OK`.

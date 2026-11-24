@@ -21,7 +21,7 @@ import { InvestorInvalidError, MakerCannotCheckError, type CapRule } from './err
 
 export const INVESTOR_PAYOUT_READ = 'cap.investor.payout.read';
 export const INVESTOR_PAYOUT_CHANGE = 'INVESTOR_PAYOUT_CHANGE';
-/** Published for the daily exception report (B12 continued 2): a change asked for, and a change applied. */
+/** Published for the daily exception report (B12 continued 3): a change asked for, and a change applied. */
 export const INVESTOR_PAYOUT_CHANGE_REQUESTED = 'cap.InvestorPayoutChangeRequested';
 export const INVESTOR_PAYOUT_CHANGED = 'cap.InvestorPayoutChanged';
 const FILE_PURPOSES = new Set(['INVESTOR_DOCUMENT', 'AGREEMENT']);

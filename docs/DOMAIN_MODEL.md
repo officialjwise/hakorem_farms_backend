@@ -496,7 +496,7 @@ Neither holds a business fact of record. Both build projections from events and 
 | A bulk export needs step-up authentication | Domain |
 | A projection can be rebuilt from events and matches the module of record | Nightly comparison |
 
-**Events:** `cst.OverheadAllocated`, `rpt.ReportExported`, `rpt.ProjectionDriftDetected`.
+**Events:** `cst.OverheadAllocated`, `rpt.ReportExported`, `rpt.ProjectionDriftDetected`. As built in B12 continued 2 (ADR-0102): `cst.OverheadAllocated` (a run posted, with its maker, checker, period and amounts; its journals are inventory's ◆ `inv.OverheadAbsorbed`, Dr inventory Cr 5220) and `cst.ProjectionDriftDetected` (CST's own projection found different from the ledger; an event is named for the module that publishes it, so FR-CST-004's `rpt.ProjectionDriftDetected` is CST's here and RPT keeps its own name for its projections).
 
 ### 5.17 NTF, DOC, API: supporting modules
 

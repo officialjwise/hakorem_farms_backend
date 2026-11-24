@@ -166,6 +166,8 @@ Each item says why it is parked and what would bring it back.
 | BL-125 | Return metrics above 100 percent (ROI and IRR) shown, not null | The contract's `Percent` is 0 to 100, so A-384 (c) reports such a figure null | An investor's ROI passes 100 percent, or the owner asks | A-384 |
 | BL-126 | The investor statement rendered and archived as a document (`documentUrl`), and sent | The statement is a read model (A-384 (f)); DOC has no investor statement template | The owner wants statements sent to investors | A-384 |
 | BL-127 | A second factor for investors in the portal | Investors sign in with a password only (A-385) | B13's portal subdomain, or the owner asks | A-385 |
+| BL-128 | Allocating labour or overhead by weight gained (`WEIGHT_GAIN`) | No projection of weighings per unit over a period; A-387 (c) refuses it | The owner wants feed-heavy pens to carry more labour | A-387 |
+| BL-129 | Loss rates per pen and handler (`ratePercent`, `comparisonRatePercent`) | Head kept per pen and handler is not projected; A-387 (i) answers them null | The owner reads mortality by handler | A-387 |
 
 ## Explicitly outside the brief
 
