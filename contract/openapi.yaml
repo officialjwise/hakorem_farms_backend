@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.44.0"
+  version: "2.45.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -69343,7 +69343,7 @@ paths:
       tags:
         - cap
       summary: "List investors"
-      description: "Permission: `cap.investor.read`."
+      description: "FR-CAP-001. The investor register in investor-number order (INV-001, INV-002 and on, never reused), each with the units held now and their share of the units in issue, to four places, computed on request. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.investor.read`."
       x-permission: cap.investor.read
       parameters:
         - name: status
@@ -69495,7 +69495,7 @@ paths:
       tags:
         - cap
       summary: "Register an investor"
-      description: "Permission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "FR-CAP-001. Registers an investor, numbered INV-001, INV-002 in order. `idNumber`, `payout`, `agreementFileId` and `createPortalLogin` are built in B12 continued: until then a request naming any of them is 422 `INVESTOR_INVALID` with `FIELD_NOT_YET_SUPPORTED` at its pointer, and nothing is written. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.investor.manage
       x-requires-step-up: true
       parameters:
@@ -69569,7 +69569,7 @@ paths:
       tags:
         - cap
       summary: "Get an investor"
-      description: "Permission: `cap.investor.read`."
+      description: "FR-CAP-001. One investor with their units, share, and what they have paid in and taken out. Payout details, the identity number and the portal login are B12 continued's: until then `payoutMethod`, `payoutDetailsMasked` and `idNumberMasked` are null and `hasPortalLogin` false. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.investor.read`."
       x-permission: cap.investor.read
       parameters:
         - name: id
@@ -69627,7 +69627,7 @@ paths:
       tags:
         - cap
       summary: "Update an investor"
-      description: "Permission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "FR-CAP-001. Changes the phone, email or status at the `version` read (409 `VERSION_CONFLICT` otherwise). An investor is never deleted: one who leaves is `EXITED`, and only once they hold no units (422 `INVESTOR_INVALID` `INVESTOR_HAS_UNITS`). `payout` is B12 continued's (422 `FIELD_NOT_YET_SUPPORTED` until then). Audited with before and after. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.investor.manage
       x-requires-step-up: true
       parameters:
@@ -69807,8 +69807,9 @@ paths:
       tags:
         - cap
       summary: "Attach a document to an investor"
-      description: "Permission: `cap.investor.manage`."
+      description: "Permission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.investor.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -69872,7 +69873,7 @@ paths:
       tags:
         - cap
       summary: "List capital contributions and withdrawals"
-      description: "Permission: `cap.capital.read`."
+      description: "FR-CAP-003, FR-CAP-004. Contributions and withdrawals, latest value date first, filtered by investor, kind and a range of value dates. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.capital.read`."
       x-permission: cap.capital.read
       parameters:
         - name: investorId
@@ -70090,7 +70091,7 @@ paths:
       tags:
         - cap
       summary: "Record a capital contribution or withdrawal"
-      description: "A contribution issues units at its value date and posts to the investor's capital account. A withdrawal cannot redeem more units than the investor holds, and always needs approval by a different user.\n\nPermission: `cap.capital.record`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `CAPITAL_WITHDRAWAL`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "FR-CAP-003, FR-CAP-004, ADR-0028. Capital arrives through CAP to one of the farm's own active bank or mobile money accounts, never as cash (A-212 (a)). A `CONTRIBUTION` issues units at its value date (the contribution day counts): the amount over the unit price (GHS 100.00 unless given), exactly, never rounded; it is numbered `CAP-...` and posts Dr 1100 or 1110 (by the account's kind), Cr 3000 against the investor, in the same transaction (201). A value date before the books begin posts on the ledger's first day, its units still counting from the value date (A-380). A `WITHDRAWAL` redeems units from its value date (that day is not a day held) and always waits for approval of kind `CAPITAL_WITHDRAWAL` by a different person holding `cap.capital.approve`, with step-up: 202, and nothing moves until then; on approval it posts Dr 3000, Cr the account. It can never redeem more units than the investor holds on its value date or any later day, checked when asked, at approval, and by the database. Refusals: 422 `CAPITAL_TRANSACTION_INVALID` with `details[].code` (`INVESTOR_UNKNOWN`, `INVESTOR_EXITED`, `BANK_ACCOUNT_UNKNOWN`, `BANK_ACCOUNT_INACTIVE`, `UNITS_NOT_EXACT`, `VALUE_DATE_IN_FUTURE`, `PERIOD_NOT_OPEN` for a value date in a locked, closed or missing period, `MORE_THAN_HELD`). The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.capital.record`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `CAPITAL_WITHDRAWAL`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: cap.capital.record
       x-requires-step-up: true
       parameters:
@@ -70183,7 +70184,7 @@ paths:
       tags:
         - cap
       summary: "Get a capital transaction"
-      description: "Permission: `cap.capital.read`."
+      description: "FR-CAP-003, FR-CAP-004. One capital transaction. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.capital.read`."
       x-permission: cap.capital.read
       parameters:
         - name: id
@@ -70247,7 +70248,7 @@ paths:
       tags:
         - cap
       summary: "The capital register: units and share per investor at a date"
-      description: "Permission: `cap.capital.read`."
+      description: "FR-CAP-005. Each investor's units on `asOf` (today when absent): units issued on or before it less units redeemed on or before it, their share of the units in issue that day to four places, and what they had paid in and taken out by then. `totalUnits` and `totalNetCapitalPesewas` cover every investor, not the page. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.capital.read`."
       x-permission: cap.capital.read
       parameters:
         - name: asOf
@@ -70364,7 +70365,7 @@ paths:
       tags:
         - cap
       summary: "List profit distribution runs"
-      description: "Permission: `cap.distribution.read`."
+      description: "FR-CAP-006 to FR-CAP-012. Distribution runs, latest period first, with their lines. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.read`."
       x-permission: cap.distribution.read
       parameters:
         - name: status
@@ -70619,7 +70620,7 @@ paths:
       tags:
         - cap
       summary: "Compute a draft distribution for a closed period"
-      description: "The period must be locked or closed. Net profit comes from the ledger; retention is applied; the rest is allocated by unit-days with largest-remainder rounding, so the lines sum exactly to the distributable amount (ADR-0028). In the example GHS 25000.02 splits across five investors and the leftover pesewa goes to the largest remainder.\n\nPermission: `cap.distribution.create`."
+      description: "FR-CAP-006 to FR-CAP-009, ADR-0028. Drafts a numbered run (`DST-...`) for a period that has ended, every day of it in an accounting period and every one of those locked or closed. Net profit is the ledger's for the period (income less cost of sales less expenses); a loss or a break-even records zero and `isLoss`. Retained is `half_up(net profit x retention rate)` (40 percent unless `retentionRatePercent` names another, snapshotted on the run); the rest is allocated by unit-days (units held multiplied by days held, actual Africa/Accra calendar days, both ends counted, the contribution day counted and the withdrawal day not) with largest-remainder rounding, leftover pesewas to the largest remainders and equal remainders to the lower investor number, so the lines sum exactly to the distributable amount. Tax withheld is zero until the accountant confirms a rate (A-030). The example is UAT scenario 4: GHS 25,000.02 across five investors, three leftover pesewas to Esi, Kofi and Yaw. Refusals: 422 `DISTRIBUTION_RUN_INVALID` with `details[].code` (`PERIOD_REVERSED`, `PERIOD_NOT_ENDED`, `PERIOD_NOT_IN_LEDGER`, `PERIOD_NOT_LOCKED`, `PERIOD_ALREADY_DISTRIBUTED` when a run that was not rejected covers a day of it, `NO_UNIT_DAYS` when nobody held units: never an equal split). The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.create`."
       x-permission: cap.distribution.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -70745,7 +70746,7 @@ paths:
       tags:
         - cap
       summary: "Get a distribution run with every investor's working"
-      description: "Permission: `cap.distribution.read`."
+      description: "FR-CAP-006 to FR-CAP-012. One run with the lines of its current computation, in investor-number order. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.read`."
       x-permission: cap.distribution.read
       parameters:
         - name: id
@@ -70864,7 +70865,7 @@ paths:
       tags:
         - cap
       summary: "Recompute a draft run from the ledger"
-      description: "Permission: `cap.distribution.create`."
+      description: "FR-CAP-006 to FR-CAP-008. Recomputes a draft from the ledger and the capital transactions as they stand (a backdated contribution, a journal posted since): a new computation; the old one is kept. Only a draft: a submitted run is never edited, so its approval always decides what was submitted, and a run that must change is rejected, or its maker withdraws the request, and a new one is drafted (A-382): 422 `DISTRIBUTION_RUN_INVALID` `RUN_NOT_EDITABLE`. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.create`."
       x-permission: cap.distribution.create
       parameters:
         - name: id
@@ -70989,7 +70990,7 @@ paths:
       tags:
         - cap
       summary: "Submit a distribution for approval"
-      description: "Archives the distribution schedule, then needs approval by a different user with step-up.\n\nPermission: `cap.distribution.create`.\n\nMay require approval of kind `INVESTOR_DISTRIBUTION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+      description: "FR-CAP-010. Submits a draft for approval of kind `INVESTOR_DISTRIBUTION` (202): a different person holding `cap.distribution.approve` (the Owner) approves it with a step-up within five minutes; the maker never does (IAM, the application and the database refuse it). The distribution schedule, with each investor's unit-days, allocation and leftover pesewa, is rendered and archived after commit (`scheduleDocumentId`). A run with nothing to share cannot be submitted: 422 `DISTRIBUTION_RUN_INVALID` (`NOTHING_TO_DISTRIBUTE`, `RUN_NOT_DRAFT`). The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.create`.\n\nMay require approval of kind `INVESTOR_DISTRIBUTION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
       x-permission: cap.distribution.create
       parameters:
         - name: id
@@ -71004,94 +71005,6 @@ paths:
         - staffSession: []
         - apiKey: []
       responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DistributionRun"
-              example:
-                id: "019a7b0e-3f80-7f9a-84d2-0274ca7d7b52"
-                runNo: DST-2026-DDW-000003
-                status: PENDING_APPROVAL
-                periodStart: "2026-07-01"
-                periodEnd: "2026-09-30"
-                daysInPeriod: 92
-                netProfitPesewas: 4166670
-                isLoss: false
-                retentionRatePercent: "40.00"
-                retainedPesewas: 1666668
-                distributablePesewas: 2500002
-                allocationMethod: UNIT_DAYS
-                dayCountConvention: "Actual calendar days in Africa/Accra; period inclusive at both ends; the contribution day counts; the withdrawal day does not."
-                totalUnitDays: "320400.0000"
-                withholdingRatePercent: "0.00"
-                approvalRequestId: "019a7b0e-5e6f-797d-9eb5-a0ac442e198a"
-                scheduleDocumentId: "019a7ae1-c7f0-789e-8dd6-92b5dc0d0b93"
-                lines:
-                  - id: "019a7b0e-7d5e-7361-a899-3ee3bddfb7c1"
-                    investor:
-                      id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
-                      investorNo: INV-001
-                      name: "Ama Owusu-Ansah"
-                    unitDays: "92000.0000"
-                    allocatedPesewas: 717853
-                    receivedExtraPesewa: false
-                    withheldPesewas: 0
-                    netPayablePesewas: 717853
-                    paidPesewas: 0
-                  - id: "019a7b0e-9c4d-7d44-b27c-dd1b379055f9"
-                    investor:
-                      id: "019a7a91-e8d5-704a-b582-0d78a6088656"
-                      investorNo: INV-002
-                      name: "Kofi Ampofo"
-                    unitDays: "23500.0000"
-                    allocatedPesewas: 183365
-                    receivedExtraPesewa: true
-                    withheldPesewas: 0
-                    netPayablePesewas: 183365
-                    paidPesewas: 0
-                  - id: "019a7b0e-bb3c-7728-8c60-7b52b141f430"
-                    investor:
-                      id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
-                      investorNo: INV-003
-                      name: "Esi Bonsu"
-                    unitDays: "30500.0000"
-                    allocatedPesewas: 237984
-                    receivedExtraPesewa: true
-                    withheldPesewas: 0
-                    netPayablePesewas: 237984
-                    paidPesewas: 0
-                  - id: "019a7b0e-da2b-710b-9643-198a2af29268"
-                    investor:
-                      id: "019a7a92-26b3-7411-9949-49e7996ac2c5"
-                      investorNo: INV-004
-                      name: "Yaw Frimpong"
-                    unitDays: "18400.0000"
-                    allocatedPesewas: 143571
-                    receivedExtraPesewa: true
-                    withheldPesewas: 0
-                    netPayablePesewas: 143571
-                    paidPesewas: 0
-                  - id: "019a7b0e-f91a-7aef-a027-b7c1a4a3309f"
-                    investor:
-                      id: "019a7a92-45a2-7df4-a32d-e81f131b60fc"
-                      investorNo: INV-005
-                      name: "Akwaaba Diaspora Agro Fund"
-                    unitDays: "156000.0000"
-                    allocatedPesewas: 1217229
-                    receivedExtraPesewa: false
-                    withheldPesewas: 0
-                    netPayablePesewas: 1217229
-                    paidPesewas: 0
-                paidPesewas: 0
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 3
-                createdAt: "2026-11-05T10:00:00Z"
         "202":
           description: "Accepted for approval. Nothing has taken effect yet."
           content:
@@ -71130,7 +71043,7 @@ paths:
       tags:
         - cap
       summary: "Post an approved distribution to the ledger"
-      description: "Debits distributions declared and credits distributions payable per investor, exactly the allocated amounts.\n\nPermission: `cap.distribution.post`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "FR-CAP-011, ADR-0028. Posts an approved run once: Dr 3300 Distributions declared each investor's allocation and Cr 2300 Distributions payable each investor's net payable, against the investor, Cr 2310 the tax withheld; nothing for what is retained. The journal is named on the run, which shows `POSTED`. A second post is 422 `DISTRIBUTION_RUN_INVALID` `RUN_NOT_APPROVED`. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.post`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.distribution.post
       x-requires-step-up: true
       parameters:
@@ -71256,7 +71169,7 @@ paths:
       tags:
         - cap
       summary: "Get the distribution schedule PDF"
-      description: "Permission: `cap.distribution.read`."
+      description: "FR-CAP-010. A signed, expiring link to the distribution schedule archived when the run was submitted; 409 `DOCUMENT_NOT_ARCHIVED` while it is still rendering or being scanned. Each issue is logged. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.read`."
       x-permission: cap.distribution.read
       parameters:
         - name: id
@@ -71304,8 +71217,9 @@ paths:
       tags:
         - cap
       summary: "Record a payout to an investor"
-      description: "Cannot exceed the line's net payable.\n\nPermission: `cap.distribution.pay`."
+      description: "FR-CAP-012. Records money paid to an investor against a line of a posted run, from one of the farm's own active bank or mobile money accounts: Dr 2300 against the investor, Cr 1100 or 1110. A line is paid at most its net payable, which the database holds too; the run is `PAID` with its last payment. Refusals: 422 `DISTRIBUTION_PAYMENT_INVALID` (`RUN_NOT_POSTED`, `LINE_PAID`, `MORE_THAN_PAYABLE`, `BANK_ACCOUNT_UNKNOWN`, `BANK_ACCOUNT_INACTIVE`); 409 `DUPLICATE_VALUE` for an `externalReference` already recorded. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.pay`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.distribution.pay
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -109209,6 +109123,16 @@ components:
         - bil.document.reprint
         - bil.document.send
         - bil.proforma.create
+        - cap.capital.approve
+        - cap.capital.read
+        - cap.capital.record
+        - cap.distribution.approve
+        - cap.distribution.create
+        - cap.distribution.pay
+        - cap.distribution.post
+        - cap.distribution.read
+        - cap.investor.manage
+        - cap.investor.read
         - del.cash_reconciliation.read
         - del.delivery.assign
         - del.delivery.read
@@ -109740,6 +109664,14 @@ components:
         - bil.credit_note.create
         - bil.debit_note.create
         - bil.document.read
+        - cap.capital.read
+        - cap.capital.record
+        - cap.distribution.create
+        - cap.distribution.pay
+        - cap.distribution.post
+        - cap.distribution.read
+        - cap.investor.manage
+        - cap.investor.read
         - doc.document.read
         - doc.template.read
         - fin.account.manage

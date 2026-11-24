@@ -1,0 +1,51 @@
+operationId: submitDistributionRun
+tags:
+  - cap
+summary: "Submit a distribution for approval"
+description: "FR-CAP-010. Submits a draft for approval of kind `INVESTOR_DISTRIBUTION` (202): a different person holding `cap.distribution.approve` (the Owner) approves it with a step-up within five minutes; the maker never does (IAM, the application and the database refuse it). The distribution schedule, with each investor's unit-days, allocation and leftover pesewa, is rendered and archived after commit (`scheduleDocumentId`). A run with nothing to share cannot be submitted: 422 `DISTRIBUTION_RUN_INVALID` (`NOTHING_TO_DISTRIBUTE`, `RUN_NOT_DRAFT`). The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.create`.\n\nMay require approval of kind `INVESTOR_DISTRIBUTION`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+x-permission: cap.distribution.create
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7b10-2e70-7dd1-8309-e5ec658d5eca"
+          kind: INVESTOR_DISTRIBUTION
+          subject:
+            id: "019a7b10-4d5f-77b5-9ced-8423df3efd01"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,124 @@
+operationId: createDistributionRun
+tags:
+  - cap
+summary: "Compute a draft distribution for a closed period"
+description: "FR-CAP-006 to FR-CAP-009, ADR-0028. Drafts a numbered run (`DST-...`) for a period that has ended, every day of it in an accounting period and every one of those locked or closed. Net profit is the ledger's for the period (income less cost of sales less expenses); a loss or a break-even records zero and `isLoss`. Retained is `half_up(net profit x retention rate)` (40 percent unless `retentionRatePercent` names another, snapshotted on the run); the rest is allocated by unit-days (units held multiplied by days held, actual Africa/Accra calendar days, both ends counted, the contribution day counted and the withdrawal day not) with largest-remainder rounding, leftover pesewas to the largest remainders and equal remainders to the lower investor number, so the lines sum exactly to the distributable amount. Tax withheld is zero until the accountant confirms a rate (A-030). The example is UAT scenario 4: GHS 25,000.02 across five investors, three leftover pesewas to Esi, Kofi and Yaw. Refusals: 422 `DISTRIBUTION_RUN_INVALID` with `details[].code` (`PERIOD_REVERSED`, `PERIOD_NOT_ENDED`, `PERIOD_NOT_IN_LEDGER`, `PERIOD_NOT_LOCKED`, `PERIOD_ALREADY_DISTRIBUTED` when a run that was not rejected covers a day of it, `NO_UNIT_DAYS` when nobody held units: never an equal split). The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.create`."
+x-permission: cap.distribution.create
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DistributionRunCreate"
+      example:
+        periodStart: "2026-07-01"
+        periodEnd: "2026-09-30"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DistributionRun"
+        example:
+          id: "019a7b0e-3f80-7f9a-84d2-0274ca7d7b52"
+          runNo: DST-2026-DDW-000003
+          status: DRAFT
+          periodStart: "2026-07-01"
+          periodEnd: "2026-09-30"
+          daysInPeriod: 92
+          netProfitPesewas: 4166670
+          isLoss: false
+          retentionRatePercent: "40.00"
+          retainedPesewas: 1666668
+          distributablePesewas: 2500002
+          allocationMethod: UNIT_DAYS
+          dayCountConvention: "Actual calendar days in Africa/Accra; period inclusive at both ends; the contribution day counts; the withdrawal day does not."
+          totalUnitDays: "320400.0000"
+          withholdingRatePercent: "0.00"
+          approvalRequestId: null
+          scheduleDocumentId: null
+          lines:
+            - id: "019a7b0e-7d5e-7361-a899-3ee3bddfb7c1"
+              investor:
+                id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+                investorNo: INV-001
+                name: "Ama Owusu-Ansah"
+              unitDays: "92000.0000"
+              allocatedPesewas: 717853
+              receivedExtraPesewa: false
+              withheldPesewas: 0
+              netPayablePesewas: 717853
+              paidPesewas: 0
+            - id: "019a7b0e-9c4d-7d44-b27c-dd1b379055f9"
+              investor:
+                id: "019a7a91-e8d5-704a-b582-0d78a6088656"
+                investorNo: INV-002
+                name: "Kofi Ampofo"
+              unitDays: "23500.0000"
+              allocatedPesewas: 183365
+              receivedExtraPesewa: true
+              withheldPesewas: 0
+              netPayablePesewas: 183365
+              paidPesewas: 0
+            - id: "019a7b0e-bb3c-7728-8c60-7b52b141f430"
+              investor:
+                id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
+                investorNo: INV-003
+                name: "Esi Bonsu"
+              unitDays: "30500.0000"
+              allocatedPesewas: 237984
+              receivedExtraPesewa: true
+              withheldPesewas: 0
+              netPayablePesewas: 237984
+              paidPesewas: 0
+            - id: "019a7b0e-da2b-710b-9643-198a2af29268"
+              investor:
+                id: "019a7a92-26b3-7411-9949-49e7996ac2c5"
+                investorNo: INV-004
+                name: "Yaw Frimpong"
+              unitDays: "18400.0000"
+              allocatedPesewas: 143571
+              receivedExtraPesewa: true
+              withheldPesewas: 0
+              netPayablePesewas: 143571
+              paidPesewas: 0
+            - id: "019a7b0e-f91a-7aef-a027-b7c1a4a3309f"
+              investor:
+                id: "019a7a92-45a2-7df4-a32d-e81f131b60fc"
+                investorNo: INV-005
+                name: "Akwaaba Diaspora Agro Fund"
+              unitDays: "156000.0000"
+              allocatedPesewas: 1217229
+              receivedExtraPesewa: false
+              withheldPesewas: 0
+              netPayablePesewas: 1217229
+              paidPesewas: 0
+          paidPesewas: 0
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 3
+          createdAt: "2026-11-05T10:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

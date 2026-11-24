@@ -189,6 +189,12 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   resumeStandingOrder: { reason: 'Reopened' },
   endStandingOrder: { reason: 'Contract over' },
   writeOffBadDebt: { billingDocumentId: randomUUID(), amountPesewas: 41_000, reason: 'Church treasurer relocated; two years overdue' },
+  // B12: the investor register, capital and distributions.
+  createInvestor: { kind: 'INDIVIDUAL', legalName: 'Refused Investor', joinedOn: '2026-11-01' },
+  updateInvestor: { version: 1, email: 'refused@test.hakoremfarms.invalid' },
+  recordCapitalTransaction: { kind: 'CONTRIBUTION', investorId: randomUUID(), amountPesewas: 100_000, valueDate: '2026-11-01', bankAccountId: randomUUID() },
+  createDistributionRun: { periodStart: '2026-07-01', periodEnd: '2026-09-30' },
+  recordDistributionPayment: { amountPesewas: 100_000, bankAccountId: randomUUID() },
   // B10 continued 4: one link of a quote version revoked with its reason.
   revokeQuoteLink: { reason: 'Sent to the wrong WhatsApp number' },
   draftSupplierClaimCreditNote: { originalInvoiceId: randomUUID(), supplierInvoiceNo: 'APF-CN-0701', invoiceDate: '2026-11-17' },

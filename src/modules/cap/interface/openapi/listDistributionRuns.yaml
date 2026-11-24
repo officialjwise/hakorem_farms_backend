@@ -1,0 +1,254 @@
+operationId: listDistributionRuns
+tags:
+  - cap
+summary: "List profit distribution runs"
+description: "FR-CAP-006 to FR-CAP-012. Distribution runs, latest period first, with their lines. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.read`."
+x-permission: cap.distribution.read
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DistributionRunPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b0e-3f80-7f9a-84d2-0274ca7d7b52"
+                  runNo: DST-2026-DDW-000003
+                  status: PENDING_APPROVAL
+                  periodStart: "2026-07-01"
+                  periodEnd: "2026-09-30"
+                  daysInPeriod: 92
+                  netProfitPesewas: 4166670
+                  isLoss: false
+                  retentionRatePercent: "40.00"
+                  retainedPesewas: 1666668
+                  distributablePesewas: 2500002
+                  allocationMethod: UNIT_DAYS
+                  dayCountConvention: "Actual calendar days in Africa/Accra; period inclusive at both ends; the contribution day counts; the withdrawal day does not."
+                  totalUnitDays: "320400.0000"
+                  withholdingRatePercent: "0.00"
+                  approvalRequestId: "019a7b0e-5e6f-797d-9eb5-a0ac442e198a"
+                  scheduleDocumentId: "019a7ae1-c7f0-789e-8dd6-92b5dc0d0b93"
+                  lines:
+                    - id: "019a7b0e-7d5e-7361-a899-3ee3bddfb7c1"
+                      investor:
+                        id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+                        investorNo: INV-001
+                        name: "Ama Owusu-Ansah"
+                      unitDays: "92000.0000"
+                      allocatedPesewas: 717853
+                      receivedExtraPesewa: false
+                      withheldPesewas: 0
+                      netPayablePesewas: 717853
+                      paidPesewas: 0
+                    - id: "019a7b0e-9c4d-7d44-b27c-dd1b379055f9"
+                      investor:
+                        id: "019a7a91-e8d5-704a-b582-0d78a6088656"
+                        investorNo: INV-002
+                        name: "Kofi Ampofo"
+                      unitDays: "23500.0000"
+                      allocatedPesewas: 183365
+                      receivedExtraPesewa: true
+                      withheldPesewas: 0
+                      netPayablePesewas: 183365
+                      paidPesewas: 0
+                    - id: "019a7b0e-bb3c-7728-8c60-7b52b141f430"
+                      investor:
+                        id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
+                        investorNo: INV-003
+                        name: "Esi Bonsu"
+                      unitDays: "30500.0000"
+                      allocatedPesewas: 237984
+                      receivedExtraPesewa: true
+                      withheldPesewas: 0
+                      netPayablePesewas: 237984
+                      paidPesewas: 0
+                    - id: "019a7b0e-da2b-710b-9643-198a2af29268"
+                      investor:
+                        id: "019a7a92-26b3-7411-9949-49e7996ac2c5"
+                        investorNo: INV-004
+                        name: "Yaw Frimpong"
+                      unitDays: "18400.0000"
+                      allocatedPesewas: 143571
+                      receivedExtraPesewa: true
+                      withheldPesewas: 0
+                      netPayablePesewas: 143571
+                      paidPesewas: 0
+                    - id: "019a7b0e-f91a-7aef-a027-b7c1a4a3309f"
+                      investor:
+                        id: "019a7a92-45a2-7df4-a32d-e81f131b60fc"
+                        investorNo: INV-005
+                        name: "Akwaaba Diaspora Agro Fund"
+                      unitDays: "156000.0000"
+                      allocatedPesewas: 1217229
+                      receivedExtraPesewa: false
+                      withheldPesewas: 0
+                      netPayablePesewas: 1217229
+                      paidPesewas: 0
+                  paidPesewas: 0
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 3
+                  createdAt: "2026-11-05T10:00:00Z"
+                - id: "019a7b0f-1809-74d2-ba0a-55f91e54ced7"
+                  runNo: DST-2026-DDW-000002
+                  status: PAID
+                  periodStart: "2026-04-01"
+                  periodEnd: "2026-06-30"
+                  daysInPeriod: 91
+                  netProfitPesewas: 3120400
+                  isLoss: false
+                  retentionRatePercent: "40.00"
+                  retainedPesewas: 1248160
+                  distributablePesewas: 1872240
+                  allocationMethod: UNIT_DAYS
+                  dayCountConvention: "Actual calendar days in Africa/Accra; period inclusive at both ends; the contribution day counts; the withdrawal day does not."
+                  totalUnitDays: "254800.0000"
+                  withholdingRatePercent: "0.00"
+                  approvalRequestId: "019a7b0f-36f8-7eb5-83ee-f43098056d0e"
+                  scheduleDocumentId: null
+                  lines: []
+                  paidPesewas: 1872240
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 3
+                  createdAt: "2026-11-05T10:00:00Z"
+                - id: "019a7b0f-55e7-7899-9dd1-926811b60b45"
+                  runNo: DST-2026-DDW-000001
+                  status: PAID
+                  periodStart: "2026-01-01"
+                  periodEnd: "2026-03-31"
+                  daysInPeriod: 90
+                  netProfitPesewas: 2205000
+                  isLoss: false
+                  retentionRatePercent: "40.00"
+                  retainedPesewas: 882000
+                  distributablePesewas: 1323000
+                  allocationMethod: UNIT_DAYS
+                  dayCountConvention: "Actual calendar days in Africa/Accra; period inclusive at both ends; the contribution day counts; the withdrawal day does not."
+                  totalUnitDays: "207000.0000"
+                  withholdingRatePercent: "0.00"
+                  approvalRequestId: "019a7b0f-74d6-727c-a7b5-309f8b67a97d"
+                  scheduleDocumentId: null
+                  lines: []
+                  paidPesewas: 1323000
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 3
+                  createdAt: "2026-11-05T10:00:00Z"
+                - id: "019a7b0f-93c5-7c60-b198-ced7051847b4"
+                  runNo: DST-2026-DDW-000001
+                  status: PAID
+                  periodStart: "2025-10-01"
+                  periodEnd: "2025-12-31"
+                  daysInPeriod: 92
+                  netProfitPesewas: 1840000
+                  isLoss: false
+                  retentionRatePercent: "40.00"
+                  retainedPesewas: 736000
+                  distributablePesewas: 1104000
+                  allocationMethod: UNIT_DAYS
+                  dayCountConvention: "Actual calendar days in Africa/Accra; period inclusive at both ends; the contribution day counts; the withdrawal day does not."
+                  totalUnitDays: "184000.0000"
+                  withholdingRatePercent: "0.00"
+                  approvalRequestId: "019a7b0f-b2b4-7643-8b7c-6d0e7ec9e5ec"
+                  scheduleDocumentId: null
+                  lines: []
+                  paidPesewas: 1104000
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 3
+                  createdAt: "2026-11-05T10:00:00Z"
+                - id: "019a7b0f-d1a3-7027-955f-0b45f87a8423"
+                  runNo: DST-2026-DDW-000001
+                  status: REJECTED
+                  periodStart: "2026-07-01"
+                  periodEnd: "2026-09-30"
+                  daysInPeriod: 92
+                  netProfitPesewas: 4166670
+                  isLoss: false
+                  retentionRatePercent: "40.00"
+                  retainedPesewas: 1666668
+                  distributablePesewas: 2500002
+                  allocationMethod: UNIT_DAYS
+                  dayCountConvention: "Actual calendar days in Africa/Accra; period inclusive at both ends; the contribution day counts; the withdrawal day does not."
+                  totalUnitDays: "320400.0000"
+                  withholdingRatePercent: "0.00"
+                  approvalRequestId: "019a7b0f-f092-7a0a-af43-a97d722b225b"
+                  scheduleDocumentId: null
+                  lines: []
+                  paidPesewas: 0
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 3
+                  createdAt: "2026-11-05T10:00:00Z"
+                - id: "019a7b10-0f81-73ee-b926-47b4ebdcc092"
+                  runNo: null
+                  status: DRAFT
+                  periodStart: "2026-10-01"
+                  periodEnd: "2026-12-31"
+                  daysInPeriod: 92
+                  netProfitPesewas: 0
+                  isLoss: false
+                  retentionRatePercent: "40.00"
+                  retainedPesewas: 0
+                  distributablePesewas: 0
+                  allocationMethod: UNIT_DAYS
+                  dayCountConvention: "Actual calendar days in Africa/Accra; period inclusive at both ends; the contribution day counts; the withdrawal day does not."
+                  totalUnitDays: "0.0000"
+                  withholdingRatePercent: "0.00"
+                  approvalRequestId: null
+                  scheduleDocumentId: null
+                  lines: []
+                  paidPesewas: 0
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 3
+                  createdAt: "2026-11-05T10:00:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -104,6 +104,41 @@ interface DriverCashRemittedPosting {
   readonly overPesewas: number;
 }
 
+/** The fields of CAP's `cap.CapitalContributed` and `cap.CapitalWithdrawn` FIN reads (migration 0354). */
+interface CapitalPosting {
+  readonly transactionId: string;
+  readonly investorId: string;
+  readonly investorName: string;
+  readonly bankAccountId: string;
+  readonly branchId: string;
+  readonly amountPesewas: number;
+  readonly postingDate: string;
+}
+
+/** The fields of CAP's `cap.DistributionDeclared` FIN reads (migration 0354): each investor's line of the run. */
+interface DistributionDeclaredPosting {
+  readonly runId: string;
+  readonly branchId: string;
+  readonly lines: readonly {
+    readonly investorId: string;
+    readonly investorName: string;
+    readonly allocatedPesewas: number;
+    readonly withheldPesewas: number;
+    readonly netPayablePesewas: number;
+  }[];
+}
+
+/** The fields of CAP's `cap.DistributionPaid` FIN reads (migration 0354). */
+interface DistributionPaidPosting {
+  readonly paymentId: string;
+  readonly runId: string;
+  readonly investorId: string;
+  readonly investorName: string;
+  readonly bankAccountId: string;
+  readonly branchId: string;
+  readonly amountPesewas: number;
+}
+
 /** POS's till events (migrations 0228 and 0281): one translator for all, each amount against the till's register. */
 export const TILL_POSTING_EVENTS = ['pos.ShiftOpened', 'pos.CashDropped', 'pos.CashPaidIn', 'pos.CashPaidOut', 'pos.ShiftClosed', 'pos.ShiftLateEntryPosted'] as const;
 
@@ -176,6 +211,10 @@ export class LedgerPostings {
       ['del.CodCollected', (tx, event) => this.codCollected(tx, event.payload as unknown as CodCollectedPosting)],
       ['del.DriverCashRemitted', async (_tx, event) => this.driverCashRemitted(event.payload as unknown as DriverCashRemittedPosting)],
       ['whl.BadDebtWrittenOff', (tx, event) => this.badDebt(tx, event.payload as unknown as BadDebtPosting)],
+      ['cap.CapitalContributed', (tx, event) => this.capital(tx, event.payload as unknown as CapitalPosting)],
+      ['cap.CapitalWithdrawn', (tx, event) => this.capital(tx, event.payload as unknown as CapitalPosting)],
+      ['cap.DistributionDeclared', async (_tx, event) => this.distributionDeclared(event.payload as unknown as DistributionDeclaredPosting)],
+      ['cap.DistributionPaid', (tx, event) => this.distributionPaid(tx, event.payload as unknown as DistributionPaidPosting)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
       ['fin.DepreciationRun', async (_tx, event) => this.depreciationRun(event.payload as unknown as DepreciationRunPosted)],
@@ -268,6 +307,54 @@ export class LedgerPostings {
       sourceDocumentId: payload.writeOffId,
       eventSubjectId: payload.writeOffId,
       branchId: payload.branchId,
+    };
+  }
+
+  /**
+   * `cap.CapitalContributed` and `cap.CapitalWithdrawn` (ADR-0003, migration 0354): the amount between the farm's own
+   * bank or mobile money account (1100 or 1110 by the account's kind, read here, never from the event) and 3000 against
+   * the investor, on the posting date CAP names (the value date, or the ledger's first day before it, A-380).
+   */
+  private async capital(tx: Transaction, payload: CapitalPosting): Promise<Translated> {
+    return {
+      amounts: [await this.investorCash(tx, payload.bankAccountId, payload.investorId, payload.investorName, payload.amountPesewas)],
+      sourceDocumentId: payload.transactionId,
+      eventSubjectId: payload.transactionId,
+      branchId: payload.branchId,
+      postingDate: payload.postingDate,
+    };
+  }
+
+  /** `cap.DistributionDeclared` (ADR-0003, ADR-0028): Dr 3300 each allocation and Cr 2300 each net payable against the investor, Cr 2310 what is withheld. */
+  private distributionDeclared(payload: DistributionDeclaredPosting): Translated {
+    const amounts: PostingAmount[] = [];
+    for (const line of payload.lines) {
+      const investor: SubledgerRef = { kind: 'INVESTOR', refId: line.investorId, displayName: line.investorName };
+      amounts.push({ key: 'allocated', amount: Money.fromJsonInteger(line.allocatedPesewas), subledgers: [investor] });
+      if (line.netPayablePesewas > 0) amounts.push({ key: 'netPayable', amount: Money.fromJsonInteger(line.netPayablePesewas), subledgers: [investor] });
+      if (line.withheldPesewas > 0) amounts.push({ key: 'withheld', amount: Money.fromJsonInteger(line.withheldPesewas) });
+    }
+    return { amounts, sourceDocumentId: payload.runId, eventSubjectId: payload.runId, branchId: payload.branchId };
+  }
+
+  /** `cap.DistributionPaid` (ADR-0003): Dr 2300 against the investor, Cr the farm's bank or mobile money account. */
+  private async distributionPaid(tx: Transaction, payload: DistributionPaidPosting): Promise<Translated> {
+    return {
+      amounts: [await this.investorCash(tx, payload.bankAccountId, payload.investorId, payload.investorName, payload.amountPesewas)],
+      sourceDocumentId: payload.runId,
+      eventSubjectId: payload.paymentId,
+      branchId: payload.branchId,
+    };
+  }
+
+  private async investorCash(tx: Transaction, bankAccountId: string, investorId: string, investorName: string, amountPesewas: number): Promise<PostingAmount> {
+    const account = (await this.bankAccounts.payoutAccountsIn(tx, [bankAccountId])).get(bankAccountId);
+    if (account === undefined) throw new Error(`bank account ${bankAccountId} does not exist`);
+    return {
+      key: 'amount',
+      amount: Money.fromJsonInteger(amountPesewas),
+      determinants: { PAYMENT_METHOD_KIND: account.kind },
+      subledgers: [{ kind: 'INVESTOR', refId: investorId, displayName: investorName }, { kind: 'BANK_ACCOUNT', refId: account.id, displayName: account.name }],
     };
   }
 

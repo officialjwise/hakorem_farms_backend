@@ -102,6 +102,15 @@ export class FinancialStatements {
     return trialBalance(await this.ledgerStore.accountActivity(tx, from, to));
   }
 
+  /**
+   * The net profit of a range over every branch, in the caller's transaction (B12, FR-CAP-006: a distribution run reads
+   * it through FIN's door): income less cost of sales less expenses, signed, the profit and loss statement's own
+   * figure, year-end closing entries left out. The caller authorises.
+   */
+  async netProfitIn(tx: Transaction, from: string, to: string): Promise<bigint> {
+    return profitAndLoss(await this.store.accounts(tx, { from, to, branchId: null })).netProfit;
+  }
+
   trialBalance(actor: Actor | undefined, query: TrialBalanceQuery): Promise<TrialBalanceView> {
     return this.read(actor, query.branchId, async (tx, branchId) => {
       const accounts = await this.store.accounts(tx, { from: query.from, to: query.to, branchId });

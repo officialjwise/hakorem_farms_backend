@@ -113,6 +113,15 @@ export class Periods implements ApprovalHandler {
     });
   }
 
+  /**
+   * The accounting periods, earliest first, in the caller's transaction (B12: a distribution covers only locked or
+   * closed periods, FR-CAP-006; a capital transaction dated before the first period posts on the ledger's first day,
+   * A-380). The caller authorises.
+   */
+  async allIn(tx: Transaction): Promise<readonly PeriodFacts[]> {
+    return [...(await this.store.allPeriods(tx))].sort((a, b) => (a.startDate < b.startDate ? -1 : a.startDate > b.startDate ? 1 : 0));
+  }
+
   /** The Owner asks to reopen a locked period, with a reason: 202, and nothing changes until someone else approves. */
   requestReopen(actor: Actor | undefined, id: string, reason: string, idempotencyKey: string): Promise<StoredResponse<ReopenPendingView>> {
     return this.uow.run({ isolation: 'serializable' }, async (tx) => {

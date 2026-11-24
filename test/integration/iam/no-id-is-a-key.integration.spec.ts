@@ -60,6 +60,9 @@ const TAKES_NO_IDENTIFIER = [
   // B11 continued 11: the triggers are farm-wide master data and an opt-out is a number's, no branch's; one's own
   // preferences and notifications take no identifier (another's are in no row: ntf/preferences-and-opt-outs, ntf/in-app-notifications).
   'listNotificationTriggers', 'listOptOuts', 'getMyNotificationPreferences', 'replaceMyNotificationPreferences', 'listMyNotifications',
+  // B12: the investor books are one register, kept at the head office branch: a list, a run's period and
+  // the register as at a date name no record (another branch's grant reads nothing: cap/capital-and-distribution).
+  'listInvestors', 'getCapitalRegister', 'listDistributionRuns', 'createDistributionRun',
 ];
 
 /**

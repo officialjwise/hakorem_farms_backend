@@ -1,0 +1,72 @@
+operationId: createInvestor
+tags:
+  - cap
+summary: "Register an investor"
+description: "FR-CAP-001. Registers an investor, numbered INV-001, INV-002 in order. `idNumber`, `payout`, `agreementFileId` and `createPortalLogin` are built in B12 continued: until then a request naming any of them is 422 `INVESTOR_INVALID` with `FIELD_NOT_YET_SUPPORTED` at its pointer, and nothing is written. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: cap.investor.manage
+x-requires-step-up: true
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/InvestorCreate"
+      example:
+        kind: INDIVIDUAL
+        legalName: "Yaw Frimpong"
+        phone: "+233558870014"
+        joinedOn: "2025-11-01"
+        payout:
+          method: MOBILE_MONEY
+          momoNetwork: MTN
+          momoNumber: "+233558870014"
+        createPortalLogin: false
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Investor"
+        example:
+          id: "019a7a92-26b3-7411-9949-49e7996ac2c5"
+          investorNo: INV-004
+          kind: INDIVIDUAL
+          legalName: "Yaw Frimpong"
+          phone: "+233558870014"
+          email: null
+          hasPortalLogin: false
+          idNumberMasked: "GHA-••••••••-6"
+          payoutMethod: MOBILE_MONEY
+          payoutDetailsMasked: "MTN MoMo, ****0014"
+          joinedOn: "2025-11-01"
+          status: ACTIVE
+          units: "200.0000"
+          sharePercent: "4.76"
+          contributedPesewas: 2000000
+          withdrawnPesewas: 0
+          currency: GHS
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
