@@ -31503,6 +31503,11 @@ components:
           type:
             - string
             - "null"
+        cancelReason:
+          type:
+            - string
+            - "null"
+          description: "2.43.0 (the owner, 2026-11-23, A-329 (b)): why the farm withdrew the quote (`cancelQuote`, required); null unless it is `CANCELLED`. A quote withdrawn after issue is its own outcome in `getQuotePipeline`."
         branchId:
           type: string
           format: uuid
@@ -31526,6 +31531,7 @@ components:
         - acceptedVersionId
         - convertedOrder
         - declineReason
+        - cancelReason
         - branchId
         - version
         - createdAt
@@ -31738,6 +31744,11 @@ components:
           $ref: "#/components/schemas/Pesewas"
         wonValuePesewas:
           $ref: "#/components/schemas/Pesewas"
+        withdrawn:
+          type: integer
+          description: "2.43.0 (the owner, 2026-11-23, A-329 (b)): quotes withdrawn after issue (`cancelQuote`, each with its reason): their own outcome, in neither `issued` nor the win rate's numerator or denominator."
+        withdrawnValuePesewas:
+          $ref: "#/components/schemas/Pesewas"
       required:
         - group
         - issued
@@ -31748,6 +31759,8 @@ components:
         - winRatePercent
         - issuedValuePesewas
         - wonValuePesewas
+        - withdrawn
+        - withdrawnValuePesewas
     PipelineGroup:
       type: object
       properties:

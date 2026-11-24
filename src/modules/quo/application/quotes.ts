@@ -46,7 +46,7 @@ import {
 } from '../domain/quote';
 import { matchStaff, STAFF_MATCH_WINDOW_HOURS, staffWindowStart, type StaffMatch } from '../domain/staff-match';
 import { offsetPage, pipelineFigures, pipelinePeriod } from '../domain/pipeline';
-import type { QuoteConverted, QuoteDecided, QuoteIssued, QuoteLinkDecidedFromStaffAddress } from '../events';
+import type { QuoteConverted, QuoteDecided, QuoteIssued, QuoteLinkDecidedFromStaffAddress, QuoteWithdrawn } from '../events';
 import { QuoteAlreadyConvertedError, QuoteAlreadyDecidedError, QuoteAuthorCannotApproveError, QuoteInvalidError, QuoteLinkClosedError, type QuoteRule } from './errors';
 import { STOREFRONT_PRINCIPAL } from './public-actor';
 import type { AcceptanceRecord, LineRecord, LineStockRecord, LinkDecisionRecord, LinkRecord, QuoteFilter, QuoteRecord, QuoteStore, VersionRecord } from './quote-store';
@@ -63,6 +63,7 @@ export const QUOTE_ACCEPTED = 'quo.QuoteAccepted';
 export const QUOTE_DECLINED = 'quo.QuoteDeclined';
 export const QUOTE_EXPIRED = 'quo.QuoteExpired';
 export const QUOTE_CONVERTED = 'quo.QuoteConverted';
+export const QUOTE_WITHDRAWN = 'quo.QuoteWithdrawn';
 /**
  * For the exception report's source (B12, `QUOTE_ACCEPTED_BY_STAFF`, abuse case 40): a possible staff acceptance, found
  * by the decision's address and browser (the owner, 2026-11-23, A-343). It never blocks the decision. It replaces
@@ -232,6 +233,8 @@ export interface QuoteView {
   readonly acceptedVersionId: string | null;
   readonly convertedOrder: DocumentRefRecord | null;
   readonly declineReason: string | null;
+  /** Why the farm withdrew the quote, required by `cancelQuote`: its own outcome (the owner, 2026-11-23, A-329 (b)). */
+  readonly cancelReason: string | null;
   readonly branchId: string;
   readonly version: number;
   readonly createdAt: string;
@@ -297,6 +300,9 @@ export interface PipelineRowView {
   readonly winRatePercent: string;
   readonly issuedValuePesewas: number;
   readonly wonValuePesewas: number;
+  /** Quotes withdrawn after issue: their own outcome, neither won nor lost (the owner, 2026-11-23, A-329 (b)). */
+  readonly withdrawn: number;
+  readonly withdrawnValuePesewas: number;
 }
 
 /** The contract's `QuotePipeline`. */
@@ -432,7 +438,7 @@ export class Quotes {
       return {
         data: page.map((g) => {
           const f = pipelineFigures(cells.filter((c) => (c.groupKey ?? '') === g.key));
-          return { group: { id: g.id, label: g.label }, ...f, issuedValuePesewas: json(f.issuedValuePesewas), wonValuePesewas: json(f.wonValuePesewas) };
+          return { group: { id: g.id, label: g.label }, ...f, issuedValuePesewas: json(f.issuedValuePesewas), wonValuePesewas: json(f.wonValuePesewas), withdrawnValuePesewas: json(f.withdrawnValuePesewas) };
         }),
         page: { nextCursor: next === null ? null : this.cursors.encode(binding, { offset: String(next) }), limit, hasMore: next !== null },
         currency: 'GHS',
@@ -733,9 +739,26 @@ export class Quotes {
         if (v.approvalRequestId !== null) await this.approvals.withdrawIn(tx, v.approvalRequestId, 'The quote was withdrawn before its margin was decided');
         await this.store.setVersionStatus(tx, v.id, { status: 'DRAFT' }, actor!.principalId, at);
       }
-      await this.reservations.releaseHeldByIn(tx, actor!.principalId, quoteId, `Quote ${quote.quoteNo} withdrawn: ${reason}`);
+      const released = await this.reservations.releaseHeldByIn(tx, actor!.principalId, quoteId, `Quote ${quote.quoteNo} withdrawn: ${reason}`);
       await this.store.updateQuote(tx, quoteId, { status: 'CANCELLED', cancelReason: reason }, actor!.principalId, at);
       const view = await this.viewOf(tx, quoteId);
+      // Its own outcome, with its reason (the owner, 2026-11-23, A-329 (b)), published for the exception report (case 65).
+      const seen = (await this.store.versionsOf(tx, [quoteId])).filter((v) => v.issuedAt !== null).sort((a, b) => (a.id === quote.acceptedVersionId ? -1 : b.id === quote.acceptedVersionId ? 1 : b.versionNo > a.versionNo ? 1 : -1))[0];
+      const withdrawn: QuoteWithdrawn = {
+        quoteId,
+        quoteNo: quote.quoteNo,
+        branchId: quote.branchId,
+        salespersonId: quote.salespersonId,
+        withdrawnBy: actor!.principalId,
+        reason,
+        fromStatus: quote.status,
+        wasIssued: seen !== undefined,
+        grossPesewas: seen === undefined ? null : json(seen.grossPesewas),
+        heldReleasedQty: Quantity.sum(released.map((r) => Quantity.parse(r.qty))).toDecimalString(),
+        abuseCase: 65,
+        at: at.toISOString(),
+      };
+      await this.events.publish(tx, { type: QUOTE_WITHDRAWN, subjectType: 'Quote', subjectId: quoteId, branchId: quote.branchId, payload: withdrawn, occurredAt: at });
       await this.audit.record(tx, { module: 'quo', action: 'CANCEL', entityType: 'Quote', entityId: quoteId, branchId: quote.branchId, before: { ...before }, after: { ...view } });
       return { status: 200, body: view };
     });
@@ -1627,6 +1650,7 @@ export class Quotes {
         acceptedVersionId: q.acceptedVersionId,
         convertedOrder: q.convertedOrderId === null ? null : (orders.get(q.convertedOrderId) ?? null),
         declineReason: q.declineReason,
+        cancelReason: q.cancelReason,
         branchId: q.branchId,
         version: q.version,
         createdAt: q.createdAt.toISOString(),

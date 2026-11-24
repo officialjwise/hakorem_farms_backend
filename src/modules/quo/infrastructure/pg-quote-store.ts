@@ -410,7 +410,7 @@ export class PgQuoteStore implements QuoteStore {
               WHERE s.quote_id = q.id AND s.issued_at IS NOT NULL
               ORDER BY (s.id = q.accepted_version_id) DESC NULLS LAST, s.version_no DESC LIMIT 1) v
           WHERE q.branch_id = ANY($1::uuid[]) AND q.created_at >= $2 AND q.created_at < $3
-            AND q.status IN ('ISSUED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CONVERTED')
+            AND q.status IN ('ISSUED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CONVERTED', 'CANCELLED')
           GROUP BY 1, 2`,
         [f.branchIds, f.from, f.to],
       )

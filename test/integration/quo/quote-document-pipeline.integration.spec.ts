@@ -143,10 +143,14 @@ describe('the quote pipeline reconciles to listQuotes (FR-QUO-013, the gate)', (
       winRatePercent: '40.00',
       issuedValuePesewas: await sum([...accepted, ...declined, ...expiring, ...open]),
       wonValuePesewas: await sum(accepted),
+      withdrawn: 0,
+      withdrawnValuePesewas: 0,
     });
-    // Esi's: one open, one converted (accepted first): 1 of 1 closed; the draft and the withdrawn quote are not counted.
+    // Esi's: one open, one converted (accepted first): 1 of 1 closed; the draft is not counted, and the withdrawn quote is
+    // its own outcome (the owner, 2026-11-23, A-329 (b)): counted and valued apart, outside the rate and outside `issued`.
     const esiRow = bySales.body.data.find((r: { group: { label: string } }) => r.group.label === 'Esi Appiah');
     expect([esiRow.issued, esiRow.accepted, esiRow.converted, esiRow.winRatePercent, esiRow.wonValuePesewas]).toEqual([2, 1, 1, '100.00', await gross(toConvert)]);
+    expect([esiRow.withdrawn, esiRow.withdrawnValuePesewas]).toEqual([1, await gross(withdrawn)]);
     expect(bySales.body.data.map((r: { group: { label: string } }) => r.group.label)).toEqual(['Esi Appiah', 'Kojo Antwi']);
     expect(bySales.body.currency).toBe('GHS');
 
@@ -167,9 +171,10 @@ describe('the quote pipeline reconciles to listQuotes (FR-QUO-013, the gate)', (
     const counts = Object.fromEntries(await Promise.all(['ISSUED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CONVERTED', 'DRAFT', 'CANCELLED'].map(async (s) => [s, await listed(s)])));
     expect(total('issued')).toBe(counts['ISSUED'] + counts['ACCEPTED'] + counts['DECLINED'] + counts['EXPIRED'] + counts['CONVERTED']);
     expect([total('accepted'), total('declined'), total('expired'), total('converted')]).toEqual([counts['ACCEPTED'] + counts['CONVERTED'], counts['DECLINED'], counts['EXPIRED'], counts['CONVERTED']]);
-    // Esi's draft and the seed's (farm-quo), and the withdrawn quote: in listQuotes, never in the pipeline.
+    // Esi's draft and the seed's (farm-quo): in listQuotes, never in the pipeline; the withdrawn quote is in it as withdrawn.
     expect([counts['DRAFT'], counts['CANCELLED']]).toEqual([2, 1]);
     expect(total('issued')).toBe(14);
+    expect(total('withdrawn')).toBe(counts['CANCELLED']);
 
     // By product line: goats and eggs each their own row, reconciling to the same totals.
     const byLine = await get('sales', `/quotes/pipeline?from=${day(0)}&to=${day(0)}&groupBy=PRODUCT_LINE`);

@@ -85,3 +85,25 @@ export interface QuoteConverted {
   readonly salespersonId: string;
   readonly convertedAt: string;
 }
+
+/**
+ * `quo.QuoteWithdrawn` v1 (B11u, the owner, 2026-11-23, A-329 (b), abuse case 65): the farm withdrew a quote
+ * (`cancelQuote`), with its reason and who withdrew it. A quote withdrawn after issue is its own outcome in the pipeline,
+ * outside the win and loss rate, so each withdrawal is published for the exception report (a loss hidden by
+ * withdrawing a quote about to be declined or to expire). `wasIssued` is false for a draft never sent.
+ */
+export interface QuoteWithdrawn {
+  readonly quoteId: string;
+  readonly quoteNo: string;
+  readonly branchId: string;
+  readonly salespersonId: string;
+  readonly withdrawnBy: string;
+  readonly reason: string;
+  readonly fromStatus: string;
+  readonly wasIssued: boolean;
+  /** The gross of the version the buyer last saw (the accepted one, else the last issued); null for a draft never sent. */
+  readonly grossPesewas: number | null;
+  readonly heldReleasedQty: string;
+  readonly abuseCase: 65;
+  readonly at: string;
+}
