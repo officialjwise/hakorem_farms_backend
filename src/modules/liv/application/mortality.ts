@@ -328,6 +328,16 @@ export class MortalityRecords implements ApprovalHandler {
     });
   }
 
+  /**
+   * A record's own facts in the caller's transaction, for NTF's returned death report (B11 continued 11, additive): who
+   * reported it, at which branch, which animal, and its status and return reason; null when there is none. Not
+   * authorised: the caller is the System's outbox consumer, and nothing here is shown to anyone but the reporter.
+   */
+  async returnFactsIn(tx: Transaction, id: string): Promise<{ readonly id: string; readonly branchId: string; readonly stockUnitId: string; readonly reportedBy: string; readonly status: MortalityStatus; readonly returnedReason: MortalityReturnReason | null } | null> {
+    const record = await this.store.mortality(tx, id);
+    return record === null ? null : { id: record.id, branchId: record.branchId, stockUnitId: record.stockUnitId, reportedBy: record.reportedBy, status: record.status, returnedReason: record.returnedReason };
+  }
+
   /** What writing off `head` of the unit carries now: the whole pool of an animal, or of a flock the average share. */
   private valueOf(unit: StockUnitFacts, head: number): Money {
     if (unit.tracking === 'SERIAL') return Money.ofPesewas(unit.poolValuePesewas);

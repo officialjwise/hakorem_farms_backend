@@ -306,6 +306,7 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   answerMyOrderConsent: { accepted: true },
   createNotificationTemplate: { code: 'DELIVERY_CANCELLED', channel: 'SMS', category: 'TRANSACTIONAL', body: 'Delivery {{deliveryNo}} is cancelled.' },
   previewNotificationTemplate: { data: { orderNo: 'SO-2026-000001' } },
+  updateNotificationTrigger: { version: 1, isActive: true },
 };
 
 /** Reads whose query has a required parameter: without it the request is refused as invalid before it is authorised. */

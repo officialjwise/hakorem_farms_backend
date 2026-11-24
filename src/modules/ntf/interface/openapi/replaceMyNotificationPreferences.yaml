@@ -1,0 +1,88 @@
+operationId: replaceMyNotificationPreferences
+tags:
+  - ntf
+summary: "Set my message preferences and quiet hours"
+description: "Replaces the signed-in recipient's own preferences whole, in order of preference within each category (FR-NTF-004, FR-NTF-006). A channel turned off for reminders or marketing suppresses them there (`PREFERENCE_OFF` in the log); a transactional or operational message is never suppressed, only routed by the order. Quiet hours delay a reminder or marketing message until they end, never drop it; they are refused on transactional and operational preferences (`QUIET_HOURS_NOT_DELAYED`), as half a window (`QUIET_HOURS_INCOMPLETE`) or an empty one (`QUIET_HOURS_EMPTY`); a category and channel twice is `DUPLICATE_PREFERENCE` (422 `PREFERENCES_INVALID`). A STOP reply is kept apart, on the number (`listOptOuts`), and is not undone here. Keyed and audited."
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - PREFERENCES_INVALID
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - customerSession: []
+  - investorSession: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/NotificationPreferencesReplace"
+      example:
+        preferences:
+          - category: MARKETING
+            channel: SMS
+            isEnabled: false
+          - category: TRANSACTIONAL
+            channel: WHATSAPP
+            isEnabled: true
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/NotificationPreferences"
+        example:
+          preferences:
+            - category: TRANSACTIONAL
+              channel: WHATSAPP
+              isEnabled: true
+              quietFrom: null
+              quietTo: null
+            - category: TRANSACTIONAL
+              channel: SMS
+              isEnabled: true
+              quietFrom: null
+              quietTo: null
+            - category: REMINDER
+              channel: SMS
+              isEnabled: true
+              quietFrom: null
+              quietTo: null
+            - category: MARKETING
+              channel: SMS
+              isEnabled: true
+              quietFrom: "21:00"
+              quietTo: "07:00"
+            - category: MARKETING
+              channel: EMAIL
+              isEnabled: false
+              quietFrom: null
+              quietTo: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

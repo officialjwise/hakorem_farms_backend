@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.39.0"
+  version: "2.40.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -76502,8 +76502,13 @@ paths:
       tags:
         - ntf
       summary: "List which events send which messages"
-      description: "Permission: `ntf.template.read`."
+      description: "Which event sends which template, to whom and by which channels in order (FR-NTF-002, B11 continued 11): one trigger for every message NTF sends, seeded with it. `CONTACT_ON_EVENT` is the order's own contact, `CUSTOMER` the customer's own number (the payment reminders, which also go only by the channels their dunning level names), `PRINCIPAL_ON_EVENT` the member of staff the record names, in the console. Listed by event type, then template code.\n\nPermission: `ntf.template.read`."
       x-permission: ntf.template.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -76532,17 +76537,34 @@ paths:
                 default:
                   value:
                     data:
-                      - id: "019a7b15-bd62-74b1-a9e9-53e4435bccc2"
-                        eventType: bil.InvoiceIssued
-                        templateCode: RECEIPT
-                        recipientKind: CUSTOMER
+                      - id: "019a7c01-0000-7000-8000-000000000005"
+                        eventType: del.DeliveryCancelled
+                        templateCode: DELIVERY_CANCELLED
+                        recipientKind: CONTACT_ON_EVENT
                         recipientRoleCode: null
                         channels:
-                          - WHATSAPP
                           - SMS
                         isActive: true
                         version: 1
-                      - id: "019a7b15-dc51-7e94-b3cc-f21bbd0c6af9"
+                      - id: "019a7c01-0000-7000-8000-000000000006"
+                        eventType: del.DeliveryCompleted
+                        templateCode: DELIVERY_COMPLETED
+                        recipientKind: CONTACT_ON_EVENT
+                        recipientRoleCode: null
+                        channels:
+                          - SMS
+                        isActive: true
+                        version: 1
+                      - id: "019a7c01-0000-7000-8000-00000000000b"
+                        eventType: liv.MortalityReturned
+                        templateCode: MORTALITY_RETURNED
+                        recipientKind: PRINCIPAL_ON_EVENT
+                        recipientRoleCode: null
+                        channels:
+                          - IN_APP
+                        isActive: true
+                        version: 1
+                      - id: "019a7c01-0000-7000-8000-000000000001"
                         eventType: ord.OrderDispatched
                         templateCode: ORDER_DISPATCHED
                         recipientKind: CONTACT_ON_EVENT
@@ -76551,45 +76573,28 @@ paths:
                           - SMS
                         isActive: true
                         version: 1
-                      - id: "019a7b15-fb40-7878-8db0-905336bd0931"
-                        eventType: quo.QuoteIssued
-                        templateCode: QUOTE_ISSUED
-                        recipientKind: CONTACT_ON_EVENT
-                        recipientRoleCode: null
-                        channels:
-                          - WHATSAPP
-                          - SMS
-                        isActive: true
-                        version: 1
-                      - id: "019a7b16-1a2f-725b-9793-2e8ab06ea768"
+                      - id: "019a7c01-0000-7000-8000-000000000008"
                         eventType: whl.DunningNoticeDue
                         templateCode: PAYMENT_REMINDER_1
                         recipientKind: CUSTOMER
                         recipientRoleCode: null
                         channels:
                           - SMS
+                          - WHATSAPP
                           - EMAIL
                         isActive: true
                         version: 1
-                      - id: "019a7b16-391e-7c3f-a177-ccc22a1f45a0"
-                        eventType: inv.LowStockDetected
-                        templateCode: LOW_STOCK
-                        recipientKind: ROLE
-                        recipientRoleCode: STOREKEEPER
-                        channels:
-                          - IN_APP
-                        isActive: true
-                        version: 1
-                      - id: "019a7b16-580d-7622-bb5a-6af9a3d0e3d7"
-                        eventType: iam.ApprovalRequested
-                        templateCode: APPROVAL_WAITING
-                        recipientKind: PRINCIPAL_ON_EVENT
+                      - id: "019a7c01-0000-7000-8000-000000000009"
+                        eventType: whl.DunningNoticeDue
+                        templateCode: PAYMENT_REMINDER_2
+                        recipientKind: CUSTOMER
                         recipientRoleCode: null
                         channels:
-                          - IN_APP
                           - SMS
-                        isActive: true
-                        version: 1
+                          - WHATSAPP
+                          - EMAIL
+                        isActive: false
+                        version: 2
                     page:
                       nextCursor: null
                       limit: 25
@@ -76618,8 +76623,20 @@ paths:
       tags:
         - ntf
       summary: "Change a trigger's channels or turn it off"
-      description: "Permission: `ntf.template.manage`."
+      description: "Changes a trigger's channels (in order) or turns it off or on, at the `version` read (409 otherwise). Turned off, it queues no new message; every message already made stays as it was (FR-NTF-002). A channel its recipient cannot have (`CHANNEL_NOT_FOR_RECIPIENT`: `IN_APP` is for staff, phone and email for customers), none (`NO_CHANNEL`), one twice (`DUPLICATE_CHANNEL`) or another template (`TEMPLATE_FIXED`: a template's text changes by a new version) is 422 `TRIGGER_INVALID`. A channel with no adapter yet (WhatsApp, email) makes its messages fail visibly in the log until one exists. Keyed and audited.\n\nPermission: `ntf.template.manage`."
       x-permission: ntf.template.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - TRIGGER_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -76640,8 +76657,7 @@ paths:
               $ref: "#/components/schemas/TriggerRuleUpdate"
             example:
               version: 1
-              channels:
-                - WHATSAPP
+              isActive: false
       responses:
         "200":
           description: OK
@@ -76653,16 +76669,17 @@ paths:
               schema:
                 $ref: "#/components/schemas/TriggerRule"
               example:
-                id: "019a7b15-bd62-74b1-a9e9-53e4435bccc2"
-                eventType: bil.InvoiceIssued
-                templateCode: RECEIPT
+                id: "019a7c01-0000-7000-8000-000000000009"
+                eventType: whl.DunningNoticeDue
+                templateCode: PAYMENT_REMINDER_2
                 recipientKind: CUSTOMER
                 recipientRoleCode: null
                 channels:
-                  - WHATSAPP
                   - SMS
-                isActive: true
-                version: 1
+                  - WHATSAPP
+                  - EMAIL
+                isActive: false
+                version: 2
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -76685,7 +76702,7 @@ paths:
       tags:
         - ntf
       summary: "The message log: what was sent to whom and when"
-      description: "The message log, newest first: what was sent to whom and when, each message on its own channel with its status (`QUEUED`, `SENT`, `DELIVERED`, `FAILED`, `SUPPRESSED`) and every attempt, so a failed message shows as failed (FR-NTF-007, the owner 2026-11-23). The number is masked (`+23324*****56`); only messages of the branches the caller's grants reach are listed. `suppressedReason` is `NO_ADDRESS` (the order has no number) or `RATE_LIMITED` (the recipient's hourly limit, abuse case 58).\n\nPermission: `ntf.message.read`."
+      description: "The message log, newest first: what was sent to whom and when, each message on its own channel with its status (`QUEUED`, `SENT`, `DELIVERED`, `FAILED`, `SUPPRESSED`) and every attempt, so a failed message shows as failed (FR-NTF-007, the owner 2026-11-23). The number is masked (`+23324*****56`); only messages of the branches the caller's grants reach are listed. `suppressedReason` is `NO_ADDRESS` (the record has no number), `RATE_LIMITED` (the recipient's hourly limit, abuse case 58), `OPTED_OUT` (a reminder or marketing message to a number that replied STOP) or `PREFERENCE_OFF` (a channel the recipient turned off for it). A reminder or marketing message due in quiet hours is `DEFERRED_QUIET_HOURS` with `sendAfter`, the end of the quiet hours in Africa/Accra (B11 continued 11). A message to staff in the console is on `IN_APP`, its recipient `STAFF`.\n\nPermission: `ntf.message.read`."
       x-permission: ntf.message.read
       x-error-codes:
         - VALIDATION_FAILED
@@ -76828,11 +76845,7 @@ paths:
                         addressMasked: "+233 •• ••• •924"
                         status: DEFERRED_QUIET_HOURS
                         suppressedReason: null
-                        attempts:
-                          - attemptNo: 1
-                            outcome: ACCEPTED
-                            providerResponse: null
-                            attemptedAt: "2026-11-13T09:13:00Z"
+                        attempts: []
                         sendAfter: "2026-11-14T07:00:00Z"
                         sentAt: null
                         deliveredAt: null
@@ -76864,21 +76877,17 @@ paths:
                         createdAt: "2026-11-13T09:12:00Z"
                       - id: "019a7b17-ac52-72e8-a820-375bde6bb039"
                         sourceEventId: "019a7b17-cb41-7ccc-b204-d593581c4e71"
-                        templateCode: RECEIPT
+                        templateCode: PAYMENT_REMINDER_2
                         channel: SMS
-                        category: TRANSACTIONAL
+                        category: REMINDER
                         recipient:
                           kind: CUSTOMER
                           id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
                           displayName: "Emmanuel Tetteh"
                         addressMasked: "+233 •• ••• •590"
                         status: SUPPRESSED
-                        suppressedReason: "Recipient replied STOP on 2026-10-02"
-                        attempts:
-                          - attemptNo: 1
-                            outcome: ACCEPTED
-                            providerResponse: null
-                            attemptedAt: "2026-11-13T09:13:00Z"
+                        suppressedReason: OPTED_OUT
+                        attempts: []
                         sendAfter: null
                         sentAt: null
                         deliveredAt: null
@@ -77062,8 +77071,13 @@ paths:
       tags:
         - ntf
       summary: "List opt-outs"
-      description: "Permission: `ntf.message.read`."
+      description: "Every opt-out and opt-in a number has sent, newest first (FR-NTF-005, B11 continued 11): a STOP reply to an SMS is recorded at once by the messaging webhook (`source` `REPLY_STOP`), a START reply undoes it (`REPLY_START`); the number's latest instruction on a channel is its state. An opted-out number gets no reminder or marketing message on that channel (a waiting one is suppressed when it comes due, `OPTED_OUT` in the log); a transactional message (a receipt, a dispatch, a delivery) is still sent. The number is masked; it is kept only as its mask and a keyed hash, so an opt-out outlives the customer record. A number is no branch's: every holder of the permission reads the whole list.\n\nPermission: `ntf.message.read`."
       x-permission: ntf.message.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - RATE_LIMITED
       parameters:
         - name: cursor
           in: query
@@ -77093,34 +77107,34 @@ paths:
                   value:
                     data:
                       - id: "019a7b17-ea30-76af-8be7-73cad1cdeca8"
-                        addressMasked: "+233 •• ••• •224"
+                        addressMasked: "+23324*****24"
                         channel: SMS
                         direction: OPT_OUT
-                        source: "Reply STOP"
+                        source: REPLY_STOP
                         recordedAt: "2026-10-02T13:00:00Z"
                       - id: "019a7b18-091f-7093-95cb-12024b7e8ae0"
-                        addressMasked: "+233 •• ••• •713"
+                        addressMasked: "+23320*****13"
                         channel: SMS
                         direction: OPT_OUT
-                        source: "Reply STOP"
+                        source: REPLY_STOP
                         recordedAt: "2026-10-04T13:00:00Z"
                       - id: "019a7b18-280e-7a76-afae-b039c52f2917"
-                        addressMasked: "+233 •• ••• •908"
+                        addressMasked: "+23355*****08"
                         channel: SMS
                         direction: OPT_OUT
-                        source: "Preference screen"
+                        source: REPLY_STOP
                         recordedAt: "2026-10-06T13:00:00Z"
                       - id: "019a7b18-46fd-745a-b992-4e713ee0c74f"
-                        addressMasked: "+233 •• ••• •552"
+                        addressMasked: "+23324*****52"
                         channel: SMS
                         direction: OPT_IN
-                        source: "Preference screen"
+                        source: REPLY_START
                         recordedAt: "2026-10-08T13:00:00Z"
                       - id: "019a7b18-65ec-7e3d-8375-eca8b8916586"
-                        addressMasked: "+233 •• ••• •031"
+                        addressMasked: "+23327*****31"
                         channel: SMS
                         direction: OPT_OUT
-                        source: "Support call"
+                        source: REPLY_STOP
                         recordedAt: "2026-10-10T13:00:00Z"
                     page:
                       nextCursor: eyJpZCI6IjAxOWE3YyJ9
@@ -77150,6 +77164,12 @@ paths:
       tags:
         - ntf
       summary: "Get my message preferences"
+      description: "The signed-in recipient's own message preferences (FR-NTF-004, B11 continued 11): for each category, the channels it may use in the recipient's order, whether each is on, and the recipient's own quiet hours (reminders and marketing only). A customer's are kept on the customer record the sign-in belongs to (404 when none is linked), staff's and investors' on their own sign-in; nobody reads anyone else's (no identifier is taken). An empty list means none set: every channel is accepted, with quiet hours 21:00 to 07:00 Africa/Accra (SA-09). Transactional and operational messages (receipts, dispatch, delivery) are never stopped by a preference: they only take its order of channels."
+      x-error-codes:
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - RATE_LIMITED
       security:
         - staffSession: []
         - customerSession: []
@@ -77206,7 +77226,18 @@ paths:
       tags:
         - ntf
       summary: "Set my message preferences and quiet hours"
-      description: "Quiet hours delay messages; they never drop them."
+      description: "Replaces the signed-in recipient's own preferences whole, in order of preference within each category (FR-NTF-004, FR-NTF-006). A channel turned off for reminders or marketing suppresses them there (`PREFERENCE_OFF` in the log); a transactional or operational message is never suppressed, only routed by the order. Quiet hours delay a reminder or marketing message until they end, never drop it; they are refused on transactional and operational preferences (`QUIET_HOURS_NOT_DELAYED`), as half a window (`QUIET_HOURS_INCOMPLETE`) or an empty one (`QUIET_HOURS_EMPTY`); a category and channel twice is `DUPLICATE_PREFERENCE` (422 `PREFERENCES_INVALID`). A STOP reply is kept apart, on the number (`listOptOuts`), and is not undone here. Keyed and audited."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - PREFERENCES_INVALID
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -77285,6 +77316,12 @@ paths:
       tags:
         - ntf
       summary: "List my in-app notifications"
+      description: "The signed-in principal's own in-app notifications, newest first, with `unreadCount` over all of them whatever the page shows (FR-NTF-008, B11 continued 11). `unreadOnly=true` lists the unread only. Each is a message NTF sent on `IN_APP` (the log shows it); `link` is a console path, never a URL. Nobody lists anyone else's."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - RATE_LIMITED
       parameters:
         - name: unreadOnly
           in: query
@@ -77320,9 +77357,9 @@ paths:
                   value:
                     data:
                       - id: "019a7b18-84db-7820-9d59-8ae0324203be"
-                        title: "Approval waiting"
-                        body: "Adwoa Darko asks you to approve a void of GHS 1,275.00"
-                        link: "/approvals/019a7a98-3161-727e-b7b7-30bd5dfca99b"
+                        title: "Death report sent back"
+                        body: "The death report of G-0171 came back to you: the photograph did not pass the virus scan. Report it again with a new photograph."
+                        link: "/livestock/mortality/019a7a98-3161-727e-b7b7-30bd5dfca99b"
                         readAt: null
                         createdAt: "2026-11-13T08:00:00Z"
                       - id: "019a7b18-a3ca-7204-a73c-2917abf3a1f5"
@@ -77353,6 +77390,7 @@ paths:
                       nextCursor: eyJpZCI6IjAxOWE3YyJ9
                       limit: 25
                       hasMore: true
+                    unreadCount: 3
                 empty:
                   summary: "Nothing matches: no rows and no next page"
                   value:
@@ -77361,6 +77399,7 @@ paths:
                       nextCursor: null
                       limit: 25
                       hasMore: false
+                    unreadCount: 0
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -77377,6 +77416,15 @@ paths:
       tags:
         - ntf
       summary: "Mark a notification read"
+      description: "Marks one of the signed-in principal's own notifications read (FR-NTF-008). Once: a second call answers the same `readAt` (the database keeps the first), so the call is idempotent by itself and takes no idempotency key. Another person's notification, or one that does not exist, is 404, never told apart."
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -77401,9 +77449,9 @@ paths:
                 $ref: "#/components/schemas/InAppNotification"
               example:
                 id: "019a7b18-84db-7820-9d59-8ae0324203be"
-                title: "Approval waiting"
-                body: "Adwoa Darko asks you to approve a void of GHS 1,275.00"
-                link: "/approvals/019a7a98-3161-727e-b7b7-30bd5dfca99b"
+                title: "Death report sent back"
+                body: "The death report of G-0171 came back to you: the photograph did not pass the virus scan. Report it again with a new photograph."
+                link: "/livestock/mortality/019a7a98-3161-727e-b7b7-30bd5dfca99b"
                 readAt: "2026-11-13T09:40:00Z"
                 createdAt: "2026-11-13T08:00:00Z"
         "400":
@@ -77428,7 +77476,7 @@ paths:
       tags:
         - ntf
       summary: "Receive delivery receipts and STOP replies from a messaging provider"
-      description: "A messaging provider's delivery reports (FR-NTF-007). The signature is checked first: `X-Provider-Signature` is the lower-case hex HMAC-SHA256 of the raw body under the provider's webhook secret; anything else is 401 and nothing in the body is read. Every request is logged. A report `{\"type\": \"delivery\", \"id\", \"reference\" (the message id the send carried), \"status\": DELIVERED | FAILED | UNDELIVERED | REJECTED | EXPIRED}` is applied once by its `id` (a second delivery is logged as a replay and changes nothing) and changes only that message's delivery status, a SENT message becoming DELIVERED or FAILED. A body that cannot be read is logged and acknowledged. Only `GENERIC_HTTP`, the SMS adapter, is served; the others answer 404 until their adapters exist. A STOP reply (`\"type\": \"inbound\"`) is logged and acknowledged; recording it as an opt-out comes with the opt-out list (B11 continued 11)."
+      description: "A messaging provider's delivery reports (FR-NTF-007). The signature is checked first: `X-Provider-Signature` is the lower-case hex HMAC-SHA256 of the raw body under the provider's webhook secret; anything else is 401 and nothing in the body is read. Every request is logged. A report `{\"type\": \"delivery\", \"id\", \"reference\" (the message id the send carried), \"status\": DELIVERED | FAILED | UNDELIVERED | REJECTED | EXPIRED}` is applied once by its `id` (a second delivery is logged as a replay and changes nothing) and changes only that message's delivery status, a SENT message becoming DELIVERED or FAILED. A body that cannot be read is logged and acknowledged. Only `GENERIC_HTTP`, the SMS adapter, is served; the others answer 404 until their adapters exist. A reply from a phone (`{\"type\": \"inbound\", \"id\", \"from\" (E.164), \"text\"}`, B11 continued 11) is applied once by its `id`: STOP, STOPALL, UNSUBSCRIBE, CANCEL, END or QUIT as its first word records an opt-out of SMS for that number at once (`listOptOuts`, FR-NTF-005), START or UNSTOP an opt-in; any other text is logged and acknowledged. An unsigned STOP changes nothing."
       x-error-codes:
         - UNAUTHENTICATED
         - NOT_FOUND
@@ -108192,7 +108240,7 @@ components:
         - createdAt
     InAppNotificationPage:
       type: object
-      description: "A page of `InAppNotification` results."
+      description: "A page of `InAppNotification` results, with how many of the caller's own notifications are unread (B11 continued 11)."
       properties:
         data:
           type: array
@@ -108200,9 +108248,14 @@ components:
             $ref: "#/components/schemas/InAppNotification"
         page:
           $ref: "#/components/schemas/PageInfo"
+        unreadCount:
+          type: integer
+          minimum: 0
+          description: "The caller's unread notifications, all of them, whatever this page shows (FR-NTF-008)."
       required:
         - data
         - page
+        - unreadCount
     Integration:
       type: object
       properties:

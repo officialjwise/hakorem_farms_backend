@@ -49,5 +49,7 @@ export interface DunningStore {
   /** Writes a notice; false if this level has already reached the document (`uq_dunning_notice_level`), which changes nothing. */
   insertNotice(tx: Transaction, notice: DunningNoticeRecord, actorId: string): Promise<boolean>;
   /** Newest first, before `beforeId`. */
+  /** Notices by id (B11 continued 11: NTF's reminder reads the notice it sends, never the event's copy). */
+  noticesById(tx: Transaction, ids: readonly string[]): Promise<DunningNoticeRecord[]>;
   notices(tx: Transaction, filter: DunningNoticeFilter, beforeId: string | null, limit: number): Promise<DunningNoticeRecord[]>;
 }

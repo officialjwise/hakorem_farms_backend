@@ -34,7 +34,9 @@ export interface MessageFailed {
 
 /**
  * `ntf.DeliveryReportRejected` v1 (B11 continued 10, abuse case 57): a request to the messaging webhook whose signature
- * was not the provider's, or whose body could not be read. Nothing it said was applied.
+ * was not the provider's, or whose body could not be read. Nothing it said was applied. Since B11 continued 11 the
+ * webhook also takes a recipient's STOP and START replies, so a refused request may be a forged reply: `abuseCases`
+ * names 57 and 59.
  */
 export interface DeliveryReportRejected {
   readonly reportId: string;

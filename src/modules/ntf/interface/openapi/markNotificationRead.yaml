@@ -1,0 +1,58 @@
+operationId: markNotificationRead
+tags:
+  - ntf
+summary: "Mark a notification read"
+description: "Marks one of the signed-in principal's own notifications read (FR-NTF-008). Once: a second call answers the same `readAt` (the database keeps the first), so the call is idempotent by itself and takes no idempotency key. Another person's notification, or one that does not exist, is 404, never told apart."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - customerSession: []
+  - investorSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InAppNotification"
+        example:
+          id: "019a7b18-84db-7820-9d59-8ae0324203be"
+          title: "Death report sent back"
+          body: "The death report of G-0171 came back to you: the photograph did not pass the virus scan. Report it again with a new photograph."
+          link: "/livestock/mortality/019a7a98-3161-727e-b7b7-30bd5dfca99b"
+          readAt: "2026-11-13T09:40:00Z"
+          createdAt: "2026-11-13T08:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

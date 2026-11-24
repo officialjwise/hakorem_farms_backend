@@ -8,7 +8,7 @@ import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type RoleCode, type TestSession } from '../../support/iam';
 import { FakeSms, ntfHarness, SCHEDULER, type NtfHarness } from '../../support/ntf';
 import { SQLSTATE, sqlStateOf } from '../../support/sql-state';
-import { startTestApp, TEST_ORIGIN, TEST_SECRETS, type TestApp } from '../../support/test-app';
+import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
 /**
@@ -85,7 +85,7 @@ beforeAll(async () => {
     );
   }
   api = await startTestApp(database, { clock, environment: { AUTH_ACCESS_TTL_SECONDS: '43200', AUTH_STAFF_REFRESH_IDLE_SECONDS: '172800' } });
-  ntf = ntfHarness(api.app, database, clock, TEST_SECRETS['LOOKUP_HMAC_KEY']!);
+  ntf = ntfHarness(api.app, database, clock);
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }));
   for (const row of await rows<{ code: string; id: string }>('SELECT sku AS code, id FROM mdm.product')) ids.set(row.code, row.id);
   branchId = (await one<{ id: string }>("SELECT id FROM mdm.branch WHERE code = 'DDW'")).id;
@@ -139,7 +139,7 @@ describe("the customer's messages, each sent once, only to the order's own conta
     expect(p.codDuePesewas).toBe(crate.due);
     expect(await one<{ ref: string; key: string }>('SELECT source_event_ref AS ref, idempotency_key AS key FROM ntf.message WHERE id = $1', [message!.id])).toEqual({ ref: event.id, key: `${event.id}:ORDER_DISPATCHED:SMS:${crate.orderId}` });
 
-    expect(await ntf.sender(sms).run(SCHEDULER)).toEqual({ claimed: 1, sent: 1, retrying: 0, failed: 0, suppressed: 0, circuitOpen: false });
+    expect(await ntf.sender(sms).run(SCHEDULER)).toEqual({ claimed: 1, sent: 1, retrying: 0, failed: 0, suppressed: 0, deferred: 0, circuitOpen: false });
     expect(sms.calls).toEqual([{ to: GUEST_PHONE, text: message!.body, idempotencyKey: message!.id }]);
     expect(await one('SELECT status, attempts, provider_message_ref AS ref FROM ntf.message WHERE id = $1', [message!.id])).toEqual({ status: 'SENT', attempts: 1, ref: `fake-${message!.id}` });
     expect(await rows('SELECT attempt_no, outcome FROM ntf.message_attempt WHERE message_id = $1', [message!.id])).toEqual([{ attempt_no: 1, outcome: 'ACCEPTED' }]);

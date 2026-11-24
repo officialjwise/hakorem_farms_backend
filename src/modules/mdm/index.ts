@@ -31,7 +31,7 @@ export { exactFactor, factorText, fromBase, toBase, type UomFactor } from './dom
 export { LocationsAdmin } from './application/locations-admin';
 export { PartiesAdmin } from './application/parties-admin';
 export { ReferenceDataAdmin } from './application/reference-data-admin';
-export { MasterDataRefs, type ReasonCodeView, type ToBaseRefusal, type PaymentMethodFacts, type BranchFacts, type CustomerAddressFacts, type CustomerFacts, type GradeFacts, type WeightBandFacts, type LocationFacts, type ProductFacts, type ReasonCodeFacts, type SpeciesFacts, type SupplierFacts, type TaxCategoryFacts, type UomFacts } from './application/master-data-refs';
+export { MasterDataRefs, type ReasonCodeView, type ToBaseRefusal, type PaymentMethodFacts, type BranchFacts, type CustomerAddressFacts, type CustomerContactFacts, type CustomerFacts, type GradeFacts, type WeightBandFacts, type LocationFacts, type ProductFacts, type ReasonCodeFacts, type SpeciesFacts, type SupplierFacts, type TaxCategoryFacts, type UomFacts } from './application/master-data-refs';
 /**
  * B05 continued 4 adds the import sheet port (ADR-0050): a higher module that owns an entity's rows implements
  * `EntitySheet` and registers it with `MdmImports.registerSheet` when it starts, as INV does for `OPENING_STOCK`; MDM

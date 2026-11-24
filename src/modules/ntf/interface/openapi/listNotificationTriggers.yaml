@@ -1,0 +1,119 @@
+operationId: listNotificationTriggers
+tags:
+  - ntf
+summary: "List which events send which messages"
+description: "Which event sends which template, to whom and by which channels in order (FR-NTF-002, B11 continued 11): one trigger for every message NTF sends, seeded with it. `CONTACT_ON_EVENT` is the order's own contact, `CUSTOMER` the customer's own number (the payment reminders, which also go only by the channels their dunning level names), `PRINCIPAL_ON_EVENT` the member of staff the record names, in the console. Listed by event type, then template code.\n\nPermission: `ntf.template.read`."
+x-permission: ntf.template.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TriggerRulePage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7c01-0000-7000-8000-000000000005"
+                  eventType: del.DeliveryCancelled
+                  templateCode: DELIVERY_CANCELLED
+                  recipientKind: CONTACT_ON_EVENT
+                  recipientRoleCode: null
+                  channels:
+                    - SMS
+                  isActive: true
+                  version: 1
+                - id: "019a7c01-0000-7000-8000-000000000006"
+                  eventType: del.DeliveryCompleted
+                  templateCode: DELIVERY_COMPLETED
+                  recipientKind: CONTACT_ON_EVENT
+                  recipientRoleCode: null
+                  channels:
+                    - SMS
+                  isActive: true
+                  version: 1
+                - id: "019a7c01-0000-7000-8000-00000000000b"
+                  eventType: liv.MortalityReturned
+                  templateCode: MORTALITY_RETURNED
+                  recipientKind: PRINCIPAL_ON_EVENT
+                  recipientRoleCode: null
+                  channels:
+                    - IN_APP
+                  isActive: true
+                  version: 1
+                - id: "019a7c01-0000-7000-8000-000000000001"
+                  eventType: ord.OrderDispatched
+                  templateCode: ORDER_DISPATCHED
+                  recipientKind: CONTACT_ON_EVENT
+                  recipientRoleCode: null
+                  channels:
+                    - SMS
+                  isActive: true
+                  version: 1
+                - id: "019a7c01-0000-7000-8000-000000000008"
+                  eventType: whl.DunningNoticeDue
+                  templateCode: PAYMENT_REMINDER_1
+                  recipientKind: CUSTOMER
+                  recipientRoleCode: null
+                  channels:
+                    - SMS
+                    - WHATSAPP
+                    - EMAIL
+                  isActive: true
+                  version: 1
+                - id: "019a7c01-0000-7000-8000-000000000009"
+                  eventType: whl.DunningNoticeDue
+                  templateCode: PAYMENT_REMINDER_2
+                  recipientKind: CUSTOMER
+                  recipientRoleCode: null
+                  channels:
+                    - SMS
+                    - WHATSAPP
+                    - EMAIL
+                  isActive: false
+                  version: 2
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

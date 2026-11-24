@@ -6,6 +6,8 @@ registerMessages({
   'ntf.template_invalid': 'This message template cannot be saved like this.',
   'ntf.template_not_activatable': 'This template version cannot be made active.',
   'ntf.message_not_retryable': 'This message cannot be sent again.',
+  'ntf.preferences_invalid': 'These message preferences cannot be saved like this.',
+  'ntf.trigger_invalid': 'This trigger cannot be changed like this.',
 });
 
 function details(rules: readonly { readonly field: string; readonly rule: string }[], messageKey: string): ErrorDetail[] {
@@ -40,5 +42,29 @@ export class MessageNotRetryableError extends BusinessRuleError {
   readonly messageKey = 'ntf.message_not_retryable';
   constructor(rule: 'NOT_FAILED' | 'SUPPRESSED') {
     super(`message cannot be retried: ${rule}`, details([{ field: '/id', rule }], 'ntf.message_not_retryable'));
+  }
+}
+
+/**
+ * 422 PREFERENCES_INVALID (B11 continued 11): `details[].code` names the rule (`DUPLICATE_PREFERENCE`,
+ * `QUIET_HOURS_INCOMPLETE`, `QUIET_HOURS_EMPTY`, `QUIET_HOURS_NOT_DELAYED`).
+ */
+export class PreferencesInvalidError extends BusinessRuleError {
+  readonly code = 'PREFERENCES_INVALID';
+  readonly messageKey = 'ntf.preferences_invalid';
+  constructor(rules: readonly { readonly field: string; readonly rule: string }[]) {
+    super(`preferences break ${rules.map((r) => r.rule).join(', ')}`, details(rules, 'ntf.preferences_invalid'));
+  }
+}
+
+/**
+ * 422 TRIGGER_INVALID (B11 continued 11): `details[].code` names the rule (`NO_CHANNEL`, `DUPLICATE_CHANNEL`,
+ * `CHANNEL_NOT_FOR_RECIPIENT`, `TEMPLATE_FIXED`).
+ */
+export class TriggerInvalidError extends BusinessRuleError {
+  readonly code = 'TRIGGER_INVALID';
+  readonly messageKey = 'ntf.trigger_invalid';
+  constructor(rules: readonly { readonly field: string; readonly rule: string }[]) {
+    super(`trigger change breaks ${rules.map((r) => r.rule).join(', ')}`, details(rules, 'ntf.trigger_invalid'));
   }
 }

@@ -57,7 +57,19 @@ const TAKES_NO_IDENTIFIER = [
   'getMyRoute',
   // B11 continued 10: the message templates are farm-wide master data, listed by code and channel; a draft names no record.
   'listNotificationTemplates', 'createNotificationTemplate',
+  // B11 continued 11: the triggers are farm-wide master data and an opt-out is a number's, no branch's; one's own
+  // preferences and notifications take no identifier (another's are in no row: ntf/preferences-and-opt-outs, ntf/in-app-notifications).
+  'listNotificationTriggers', 'listOptOuts', 'getMyNotificationPreferences', 'replaceMyNotificationPreferences', 'listMyNotifications',
 ];
+
+/**
+ * Operations on the caller's own record by its id, open to every realm with no permission: another person's record, or one
+ * that does not exist, is 404 and never told apart, each proved in its module's tests (named here). The walk's role and
+ * realm refusals (403, 401) do not apply: there is no permission to lack and every realm has its own.
+ */
+const OWN_RECORD: Readonly<Record<string, string>> = {
+  markNotificationRead: 'ntf/in-app-notifications: another person’s notification, or a random id, is 404 to read or to mark; nobody signed in is 401',
+};
 
 /** Public by design, each proved in its own block below or in its module's tests (named here). */
 const PUBLIC_WITH_IDENTIFIER: Readonly<Record<string, string>> = {
@@ -320,7 +332,7 @@ afterAll(async () => {
 });
 
 /** The staff routes the walk calls: every mounted route but the public ones and the caller's own account. */
-const staffRoutes = () => routes.filter((r) => r.spec!.access === 'SESSION' && r.spec!.realms.includes('STAFF') && identifiersOf(r).length > 0);
+const staffRoutes = () => routes.filter((r) => r.spec!.access === 'SESSION' && r.spec!.realms.includes('STAFF') && identifiersOf(r).length > 0 && !(r.spec!.operationId in OWN_RECORD));
 
 describe('no identifier is a key: the walk covers every operation that takes one (decision 5)', () => {
   it('finds every mounted operation in the contract, and each takes an identifier or is listed as taking none', () => {
@@ -331,6 +343,8 @@ describe('no identifier is a key: the walk covers every operation that takes one
     expect(publicOnes).toEqual(Object.keys(PUBLIC_WITH_IDENTIFIER).sort());
     const others = routes.filter((r) => r.spec!.access === 'SESSION' && !r.spec!.realms.includes('STAFF') && identifiersOf(r).length > 0).map((r) => r.spec!.operationId);
     expect(others.sort()).toEqual(['answerMyOrderConsent', 'getMyOrder']);
+    const own = routes.filter((r) => r.spec!.access === 'SESSION' && r.spec!.permission === null && r.spec!.realms.includes('STAFF') && identifiersOf(r).length > 0).map((r) => r.spec!.operationId);
+    expect(own.filter((o) => o in OWN_RECORD).sort()).toEqual(Object.keys(OWN_RECORD).sort());
     expect(staffRoutes().length).toBeGreaterThanOrEqual(340);
   });
 

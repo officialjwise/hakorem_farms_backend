@@ -48,3 +48,36 @@ export const ProviderParam = z.enum(['GENERIC_HTTP', 'HUBTEL', 'META_WHATSAPP', 
  * bytes and checks their signature before anything is parsed, so it validates nothing with this; the contract test does.
  */
 export const MessagingWebhookBody = z.looseObject({ type: z.enum(['delivery', 'inbound']) });
+
+export const PageQuery = z.object({ cursor: Cursor, limit: Limit });
+
+const LocalTime = z.string().regex(/^([01][0-9]|2[0-3]):[0-5][0-9]$/);
+
+/** `NotificationPreferencesReplace`: the whole list, in order of preference within each category. */
+export const PreferencesReplace = z.strictObject({
+  preferences: z
+    .array(
+      z.strictObject({
+        category: z.enum(CATEGORIES),
+        channel: z.enum(CHANNELS),
+        isEnabled: z.boolean(),
+        quietFrom: LocalTime.optional(),
+        quietTo: LocalTime.optional(),
+      }),
+    )
+    .max(16),
+});
+
+/** `TriggerRuleUpdate`. */
+export const TriggerUpdate = z.strictObject({
+  version: z.number().int().min(1),
+  channels: z.array(z.enum(CHANNELS)).max(4).optional(),
+  isActive: z.boolean().optional(),
+  templateCode: Code.optional(),
+});
+
+export const MyNotificationsQuery = z.object({
+  unreadOnly: z.enum(['true', 'false']).transform((v) => v === 'true').optional(),
+  cursor: Cursor,
+  limit: Limit,
+});

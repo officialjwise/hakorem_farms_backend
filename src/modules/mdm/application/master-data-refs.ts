@@ -91,6 +91,17 @@ export interface CustomerFacts {
 }
 
 /**
+ * A customer's own number, for a message sent to the customer (NTF, B11 continued 11, additive): read when the message is
+ * queued and again when it is sent, never kept by the caller (ADR-0096).
+ */
+export interface CustomerContactFacts {
+  readonly id: string;
+  readonly name: string;
+  readonly isLive: boolean;
+  readonly phoneE164: string | null;
+}
+
+/**
  * A customer's saved delivery address (FR-MDM-008), as a staff delivery order snapshots it (B11 continued 8): who it is
  * for, where, and the zone it was filed under (null when none was; the order then matches one by area and city).
  */
@@ -165,6 +176,7 @@ export interface MasterDataRefsStore {
   branches(tx: Transaction, ids: readonly string[]): Promise<BranchFacts[]>;
   taxCategories(tx: Transaction, ids: readonly string[]): Promise<TaxCategoryFacts[]>;
   customers(tx: Transaction, ids: readonly string[]): Promise<CustomerFacts[]>;
+  customerContacts(tx: Transaction, ids: readonly string[]): Promise<CustomerContactFacts[]>;
   customerOfPrincipal(tx: Transaction, principalId: string): Promise<CustomerFacts | null>;
   customerAddress(tx: Transaction, id: string): Promise<CustomerAddressFacts | null>;
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
@@ -249,6 +261,12 @@ export class MasterDataRefs {
   async customersIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, CustomerFacts>> {
     if (ids.length === 0) return new Map();
     return byId(await this.store.customers(tx, unique(ids)));
+  }
+
+  /** Customers' own numbers by id (NTF's reminders, B11 continued 11): the customer's name, whether live, and its number. */
+  async customerContactsIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, CustomerContactFacts>> {
+    if (ids.length === 0) return new Map();
+    return byId(await this.store.customerContacts(tx, unique(ids)));
   }
 
   /** The customer a customer-realm sign-in belongs to (`mdm.customer.principal_id`), or null if none is linked. */

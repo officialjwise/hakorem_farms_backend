@@ -1,0 +1,61 @@
+operationId: getMyNotificationPreferences
+tags:
+  - ntf
+summary: "Get my message preferences"
+description: "The signed-in recipient's own message preferences (FR-NTF-004, B11 continued 11): for each category, the channels it may use in the recipient's order, whether each is on, and the recipient's own quiet hours (reminders and marketing only). A customer's are kept on the customer record the sign-in belongs to (404 when none is linked), staff's and investors' on their own sign-in; nobody reads anyone else's (no identifier is taken). An empty list means none set: every channel is accepted, with quiet hours 21:00 to 07:00 Africa/Accra (SA-09). Transactional and operational messages (receipts, dispatch, delivery) are never stopped by a preference: they only take its order of channels."
+x-error-codes:
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - NOT_FOUND
+  - RATE_LIMITED
+security:
+  - staffSession: []
+  - customerSession: []
+  - investorSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/NotificationPreferences"
+        example:
+          preferences:
+            - category: TRANSACTIONAL
+              channel: WHATSAPP
+              isEnabled: true
+              quietFrom: null
+              quietTo: null
+            - category: TRANSACTIONAL
+              channel: SMS
+              isEnabled: true
+              quietFrom: null
+              quietTo: null
+            - category: REMINDER
+              channel: SMS
+              isEnabled: true
+              quietFrom: null
+              quietTo: null
+            - category: MARKETING
+              channel: SMS
+              isEnabled: true
+              quietFrom: "21:00"
+              quietTo: "07:00"
+            - category: MARKETING
+              channel: EMAIL
+              isEnabled: false
+              quietFrom: null
+              quietTo: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
