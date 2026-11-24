@@ -73,10 +73,12 @@ No request names CST. **CR-059 to CR-062** (the exception report's review and ki
 
 | Layer | Result |
 | --- | --- |
-| Unit and integration, the whole suite (`pnpm test:coverage`, after the last code change) | **4,519 passed, 377 files, none failed or skipped** (on `00605c3`, after the last code change; only this report followed). Coverage: statements 94.19 %, branches 83.70 %, functions 97.91 %, lines 97.30 % (baseline 94.17, 83.77, 97.95, 97.30: the new application layer's refusal branches are covered by the integration specs in part; no threshold moved). Every full-coverage gate held, the new `src/modules/cst/domain/` at 100 percent. A first whole run (started on `acdf8ec`) failed one test, `cst/costing`'s posting test: `cst.OverheadAllocated` was added to the code and the spec while that run was in progress, so it ran the new spec against the old code; the spec passed on its own on `2bf804a` and the whole suite was run again on `00605c3`. |
+| Unit and integration, the whole suite (`pnpm test:coverage`, after the last code change) | **4,519 passed, 377 files, none failed or skipped** (on `e11c06d`, after the DEL fix below; only this report followed). Coverage: statements 94.19 %, branches 83.70 %, functions 97.91 %, lines 97.30 % (baseline 94.17, 83.77, 97.95, 97.30: the new application layer's refusal branches are covered by the integration specs in part; no threshold moved). Every full-coverage gate held, the new `src/modules/cst/domain/` at 100 percent. Earlier whole runs: one started on `acdf8ec` failed one test, `cst/costing`'s posting test, because `cst.OverheadAllocated` was added to the code and the spec while that run was in progress; the spec passed on its own on `2bf804a`, and a whole run on `00605c3` passed (4,519, 377 files). |
 | The new specs | `costing` 29 (unit); `cst/costing` 11, `cst/margins` 7 (integration); `b12c2/costing` 2 (contract) |
 | Contract (`pnpm test:contract`) | 144 tests, 57 files, passed |
 | Lint (ESLint with module boundaries, fixtures, placement, schema names), typecheck, Redocly, `contract:generate --check` | Clean (607 operations from code, 61 planned) |
+
+**A failing test in CI, fixed at its cause (`e11c06d`, its own commit):** push run 45479725836 (on `3a75046`) failed shard 3: `del/scheduling`'s "books eight deliveries into a slot of five at once" got two `SLOT_FULL` where three were due, and the next test, which reads a booked slot, failed after it. The same commit's `pull_request` run (45479810761) passed it, as every local run had. Cause: eight concurrent reschedules into one slot conflict on the slot's row at serializable isolation, and on a slow runner one ran out of its five attempts. Proved by making it fail on purpose: with the unit of work allowed one attempt, the test failed with 1 of 8 booked. Fix: `rescheduleDelivery` names the target slot in `seriesLocks`, the advisory lock taken before the transaction begins (ADR-0005), so bookings of one slot run in turn; with one attempt allowed the test then passes (the limit restored to five). No rule or answer changed. Nothing was re-run to turn red green.
 
 Existing specs changed only for what this phase added: the rollback walk (0362 to 0369), the deny-by-default handler walk (eight operations; `:objectType` filled as `STOCK_UNIT`), the identifier walk (`listLosses` and `listOverheadAllocations` take no identifier; `:objectType` filled), the valid bodies and queries (one body, three queries), the request schema table (one body), and the drift test's counts and its still-planned example (`listApiCredentials`, since `getCostObject` moved into code). No expectation weakened, nothing skipped.
 
@@ -98,7 +100,7 @@ Existing specs changed only for what this phase added: the rollback walk (0362 t
 
 ## CI
 
-CIRESULT
+A report cannot name the runs of the commit that adds it. Pull request #146. On `3a75046` (the first push, the report's first version): **45479810761, `pull_request`, success**; **45479725836, `push`, failure** (shard 3, the DEL concurrency failure above, and the coverage gate on the missing shard). Not re-run: fixed at its cause in `e11c06d` and pushed as a new head with this note. Every run on the final head is named in the session's closing message to the parent session, and the pull request merges only when each is green.
 
 ## Next session
 
