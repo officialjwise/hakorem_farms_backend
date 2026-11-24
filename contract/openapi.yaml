@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.37.0"
+  version: "2.38.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -53671,6 +53671,7 @@ paths:
                               sku: EGG-0003
                               name: "Eggs, big, crate of 30"
                             qty: "2.000"
+                            uom: CRATE
                             weightKg: null
                             disposition: WRITE_OFF
                             refundPesewas: 12000
@@ -53713,6 +53714,7 @@ paths:
                               sku: MEAT-0002
                               name: "Chicken wings, 15 kg pack"
                             qty: "13.900"
+                            uom: KG
                             weightKg: "13.900"
                             disposition: RESTOCK
                             refundPesewas: 18070
@@ -53749,6 +53751,7 @@ paths:
                               sku: MEAT-0007
                               name: "Goat meat, 15 kg pack"
                             qty: "14.850"
+                            uom: KG
                             weightKg: "14.850"
                             disposition: RETURNS_HOLD
                             refundPesewas: 38610
@@ -53791,6 +53794,7 @@ paths:
                               sku: PRD-0002
                               name: "Cabbage, head"
                             qty: "3.000"
+                            uom: UNIT
                             weightKg: null
                             disposition: RESTOCK
                             refundPesewas: 3600
@@ -53827,6 +53831,7 @@ paths:
                               sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qty: "1.000"
+                            uom: KG
                             weightKg: "14.700"
                             disposition: RESTOCK
                             refundPesewas: 0
@@ -53863,6 +53868,7 @@ paths:
                               sku: MEAT-0005
                               name: "Beef, 15 kg pack"
                             qty: "15.200"
+                            uom: KG
                             weightKg: "15.200"
                             disposition: RETURNS_HOLD
                             refundPesewas: 45600
@@ -53905,7 +53911,7 @@ paths:
       tags:
         - ord
       summary: "Start a return or exchange against an original receipt"
-      description: "A return against a `COMPLETED` sale and its own receipt, `REQUESTED` and numbered (`RET-...`), with the refund each line's credit would carry (`refundPesewas`, from the receipt's own prices and tax). Nothing moves until it is submitted and approved. On each line no more is taken back than was sold less what returns not `REJECTED` already hold (422 ORDER_INVALID `RETURN_EXCEEDS_SOLD`, also refused by the database under the sold line's lock, so two returns of the last of a line at once leave one). A named animal comes back whole (`SERIAL_RETURNS_WHOLE`); a line sold by weight waits for catch weight (`WEIGHED_LINE_NOT_RETURNABLE`); an `EXCHANGE` waits for the counter's replacement sale (`EXCHANGE_NOT_AVAILABLE`); the reason is a `RETURN` reason (`REASON_NOT_ALLOWED`, `NOTE_REQUIRED`); every broken rule is named at once. An order that is not a completed sale is 422 INVALID_STATE_TRANSITION. A refund destination is taken as asked and judged by PAY when the refund is asked for. A line is returned in the unit it was sold in (a crate or a single egg, `OrderLine.uom`) and refunded at the price actually paid on that sale line, never the current price list. Returning part of a crate as single eggs, pro rata at the crate's price per egg, comes in a later phase.\n\nPermission: `ord.return.create`."
+      description: "A return against a `COMPLETED` sale and its own receipt, `REQUESTED` and numbered (`RET-...`), with the refund each line's credit would carry (`refundPesewas`, from the receipt's own prices and tax). Nothing moves until it is submitted and approved. On each line no more is taken back than was sold less what returns not `REJECTED` already hold (422 ORDER_INVALID `RETURN_EXCEEDS_SOLD`, also refused by the database under the sold line's lock, so two returns of the last of a line at once leave one). A named animal comes back whole (`SERIAL_RETURNS_WHOLE`); a line sold by weight waits for catch weight (`WEIGHED_LINE_NOT_RETURNABLE`); an `EXCHANGE` waits for the counter's replacement sale (`EXCHANGE_NOT_AVAILABLE`); the reason is a `RETURN` reason (`REASON_NOT_ALLOWED`, `NOTE_REQUIRED`); every broken rule is named at once. An order that is not a completed sale is 422 INVALID_STATE_TRANSITION. A refund destination is taken as asked and judged by PAY when the refund is asked for. A line is returned in the unit it was sold in (a crate or a single egg, `OrderLine.uom`) and refunded at the price actually paid on that sale line, never the current price list. Part of a crate may come back as single eggs (2.38.0, a line's `uom` the egg): refunded pro rata at the price actually paid on the line per egg, never the single-egg price, by the running total of ADR-0075 (half-up once): round(paid x eggs returned so far with this one / eggs sold) less round(paid x eggs returned before / eggs sold), so the pieces of a crate always add up to what was paid for it and never more (five eggs of a GH₵55.00 crate refund 917 pesewas; all 30 one at a time refund exactly 5,500). Single eggs go to the returns hold or are written off, never back onto the shelf (`PART_RETURN_TO_HOLD`), whole eggs only (`INEXACT_QUANTITY`), in the egg or the line's own unit only (`UNIT_NOT_SOLD`); a whole crate and its single eggs count against each other. A return in single eggs waits for an open return of its line to be decided, and a line with one open takes no other until it is (`RETURN_OPEN_ON_LINE`, also refused by the database).\n\nPermission: `ord.return.create`."
       x-permission: ord.return.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -53928,6 +53934,10 @@ paths:
                 - orderLineId: "019a7af4-df72-7302-a83a-38f2f74bb1d0"
                   qty: "2.000"
                   disposition: WRITE_OFF
+                - orderLineId: "019a7af4-df72-7302-a83a-38f2f74bb1d1"
+                  qty: "5.000"
+                  uom: EGG
+                  disposition: RETURNS_HOLD
       responses:
         "201":
           description: OK
@@ -53960,6 +53970,7 @@ paths:
                       sku: MEAT-0005
                       name: "Beef, 15 kg pack"
                     qty: "15.200"
+                    uom: KG
                     weightKg: "15.200"
                     disposition: RETURNS_HOLD
                     refundPesewas: 45600
@@ -54039,6 +54050,7 @@ paths:
                       sku: EGG-0003
                       name: "Eggs, big, crate of 30"
                     qty: "2.000"
+                    uom: CRATE
                     weightKg: null
                     disposition: WRITE_OFF
                     refundPesewas: 12000
@@ -54124,6 +54136,7 @@ paths:
                       sku: EGG-0003
                       name: "Eggs, big, crate of 30"
                     qty: "2.000"
+                    uom: CRATE
                     weightKg: null
                     disposition: WRITE_OFF
                     refundPesewas: 12000
@@ -98820,6 +98833,9 @@ components:
           $ref: "#/components/schemas/ProductRef"
         qty:
           $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+          description: "The unit `qty` counts (2.38.0): the sold line's own unit (`OrderLine.uom`, a crate), or its single pieces when part of one came back (the egg)."
         weightKg:
           anyOf:
             - $ref: "#/components/schemas/Kilograms"
@@ -98837,6 +98853,7 @@ components:
         - orderLineId
         - product
         - qty
+        - uom
         - weightKg
         - disposition
         - refundPesewas
@@ -98945,6 +98962,10 @@ components:
           format: uuid
         qty:
           $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]{0,19}$"
+          description: "Optional (2.38.0): the unit `qty` counts. Left out (or the line's own unit), `qty` is in the unit the line was sold in. The product's base unit on a line sold in a unit of several (`EGG` on a line in crates) returns part of one as single pieces: whole pieces only (`INEXACT_QUANTITY`), into `RETURNS_HOLD` or `WRITE_OFF`, never `RESTOCK` (`PART_RETURN_TO_HOLD`); any other unit is `UNIT_NOT_SOLD`."
         weightKg:
           $ref: "#/components/schemas/Kilograms"
         disposition:

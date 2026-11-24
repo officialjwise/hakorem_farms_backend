@@ -48,6 +48,7 @@ responses:
                 sku: EGG-0003
                 name: "Eggs, big, crate of 30"
               qty: "2.000"
+              uom: CRATE
               weightKg: null
               disposition: WRITE_OFF
               refundPesewas: 12000

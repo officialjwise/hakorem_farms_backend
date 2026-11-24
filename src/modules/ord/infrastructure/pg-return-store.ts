@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { NewReturn, ReturnLineRecord, ReturnRecord, ReturnStore } from '../application/return-store';
+import type { HeldOfLine, NewReturn, ReturnLineRecord, ReturnRecord, ReturnStore } from '../application/return-store';
 
 type HeaderRow = Omit<ReturnRecord, 'lines'>;
 type LineRow = Omit<ReturnLineRecord, 'refundPesewas'> & { readonly orderReturnId: string; readonly refundPesewas: string };
@@ -15,8 +15,8 @@ export class PgReturnStore implements ReturnStore {
     );
     for (const l of r.lines) {
       await tx.query(
-        'INSERT INTO ord.order_return_line (id, order_return_id, sales_order_line_id, line_no, qty, weight_kg, disposition, refund_pesewas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
-        [l.id, r.id, l.salesOrderLineId, l.lineNo, l.qty, l.weightKg, l.disposition, l.refundPesewas.toString()],
+        'INSERT INTO ord.order_return_line (id, order_return_id, sales_order_line_id, line_no, qty, uom, pieces_per_unit, weight_kg, disposition, refund_pesewas) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)',
+        [l.id, r.id, l.salesOrderLineId, l.lineNo, l.qty, l.uom, l.piecesPerUnit, l.weightKg, l.disposition, l.refundPesewas.toString()],
       );
     }
   }
@@ -31,7 +31,7 @@ export class PgReturnStore implements ReturnStore {
       [ids],
     );
     const lines = await tx.query<LineRow>(
-      `SELECT id, order_return_id AS "orderReturnId", sales_order_line_id AS "salesOrderLineId", line_no AS "lineNo", qty::text AS qty, weight_kg::text AS "weightKg",
+      `SELECT id, order_return_id AS "orderReturnId", sales_order_line_id AS "salesOrderLineId", line_no AS "lineNo", qty::text AS qty, uom, pieces_per_unit AS "piecesPerUnit", weight_kg::text AS "weightKg",
               disposition, refund_pesewas::text AS "refundPesewas", stock_movement_id AS "stockMovementId"
          FROM ord.order_return_line WHERE order_return_id = ANY($1::uuid[]) ORDER BY order_return_id, line_no`,
       [ids],
@@ -47,16 +47,20 @@ export class PgReturnStore implements ReturnStore {
     return rows[0]?.id ?? null;
   }
 
-  async returnedOf(tx: Transaction, salesOrderLineIds: readonly string[]): Promise<ReadonlyMap<string, string>> {
+  async heldOf(tx: Transaction, salesOrderLineIds: readonly string[]): Promise<ReadonlyMap<string, HeldOfLine>> {
     if (salesOrderLineIds.length === 0) return new Map();
-    const { rows } = await tx.query<{ line: string; qty: string }>(
-      `SELECT l.sales_order_line_id AS line, sum(l.qty)::numeric(14,3)::text AS qty
+    const { rows } = await tx.query<HeldOfLine & { line: string }>(
+      `SELECT l.sales_order_line_id AS line,
+              COALESCE(sum(l.qty) FILTER (WHERE l.uom IS NULL), 0)::numeric(14,3)::text AS "wholeQty",
+              COALESCE(sum(l.qty) FILTER (WHERE l.uom IS NOT NULL), 0)::numeric(14,3)::text AS pieces,
+              count(*) FILTER (WHERE r.status IN ('REQUESTED', 'PENDING_APPROVAL'))::int AS open,
+              count(*) FILTER (WHERE r.status IN ('REQUESTED', 'PENDING_APPROVAL') AND l.uom IS NOT NULL)::int AS "openParts"
          FROM ord.order_return_line l JOIN ord.order_return r ON r.id = l.order_return_id
         WHERE l.sales_order_line_id = ANY($1::uuid[]) AND r.status <> 'REJECTED'
         GROUP BY l.sales_order_line_id`,
       [salesOrderLineIds],
     );
-    return new Map(rows.map((r) => [r.line, r.qty] as const));
+    return new Map(rows.map(({ line, ...held }) => [line, held] as const));
   }
 
   async submit(tx: Transaction, id: string, s: { readonly approvalRequestId: string; readonly actorId: string; readonly at: Date }): Promise<void> {

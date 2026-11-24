@@ -9,6 +9,10 @@ export interface ReturnLineRecord {
   readonly salesOrderLineId: string;
   readonly lineNo: number;
   readonly qty: string;
+  /** The unit `qty` counts when it is single pieces of the line's unit (the egg of a crate); null for the line's own unit. */
+  readonly uom: string | null;
+  /** How many of those pieces make one of the line's unit (30), with `uom` only. */
+  readonly piecesPerUnit: number | null;
   readonly weightKg: string | null;
   readonly disposition: Disposition;
   readonly refundPesewas: bigint;
@@ -41,14 +45,25 @@ export type NewReturn = Omit<ReturnRecord, 'status' | 'approvalRequestId' | 'cre
   readonly lines: readonly Omit<ReturnLineRecord, 'stockMovementId'>[];
 };
 
+export interface HeldOfLine {
+  readonly wholeQty: string;
+  readonly pieces: string;
+  readonly open: number;
+  readonly openParts: number;
+}
+
 /** ORD's returns (migration 0200). Point reads by key; the database holds what may be returned. */
 export interface ReturnStore {
   insert(tx: Transaction, r: NewReturn): Promise<void>;
   /** Returns with their lines, by id; `forUpdate` locks the headers. Unknown ids are absent. */
   returns(tx: Transaction, ids: readonly string[], forUpdate?: boolean): Promise<ReturnRecord[]>;
   idByApproval(tx: Transaction, approvalRequestId: string): Promise<string | null>;
-  /** What returns not REJECTED hold of each sold line, as decimal strings; a line with none is absent. */
-  returnedOf(tx: Transaction, salesOrderLineIds: readonly string[]): Promise<ReadonlyMap<string, string>>;
+  /**
+   * What returns not REJECTED hold of each sold line, split into whole units of the line and single pieces (decimal
+   * strings), with how many returns of it are still open and how many of those count single pieces (migration 0334).
+   * A line with none is absent.
+   */
+  heldOf(tx: Transaction, salesOrderLineIds: readonly string[]): Promise<ReadonlyMap<string, HeldOfLine>>;
   submit(tx: Transaction, id: string, s: { readonly approvalRequestId: string; readonly actorId: string; readonly at: Date }): Promise<void>;
   setLine(tx: Transaction, lineId: string, l: { readonly refundPesewas: bigint; readonly stockMovementId: string | null }): Promise<void>;
   decide(tx: Transaction, id: string, d: { readonly status: 'COMPLETED' | 'REJECTED'; readonly creditNoteId: string | null; readonly refundId: string | null; readonly decidedBy: string; readonly at: Date }): Promise<void>;

@@ -1,6 +1,6 @@
 import { Money, Quantity } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { judgeReturn, judgeReturnApprover, planReturnRefund, type ReturnFacts, type SoldLine } from './order-return';
+import { judgeReturn, judgeReturnApprover, pieceRefund, planReturnRefund, type ReturnFacts, type SoldLine } from './order-return';
 
 const sold = (over: Partial<SoldLine> = {}): SoldLine => ({
   id: 'line-1',
@@ -96,5 +96,76 @@ describe('the refund a return asks for (ADR-0066)', () => {
 
   it('breaks a tie between two payments by the first that was taken', () => {
     expect(planReturnRefund(Money.ofPesewas(1n), Money.ofPesewas(1n), [cash('first', 3_000), cash('second', 3_000)])).toEqual({ paymentId: 'first', amount: Money.ofPesewas(1n) });
+  });
+});
+
+describe('part of a crate returned as single eggs (owner, 2026-11-18, ADR-0075 running total)', () => {
+  const crate = (over: Partial<SoldLine> = {}): SoldLine => sold({ id: 'crate', qtySold: Quantity.parse('1.000'), piecesPerUnit: 30n, ...over });
+  const eggs = (qty: string, over: Record<string, unknown> = {}) => ({ orderLineId: 'crate', qty: Quantity.parse(qty), inPieces: true, disposition: 'RETURNS_HOLD' as const, ...over });
+
+  it('takes five eggs of a crate back, and the last of its thirty, but never a thirty-first', () => {
+    expect(judgeReturn(facts({ sold: [crate()], asked: [eggs('5.000')] }))).toEqual({ ok: true, value: null });
+    expect(judgeReturn(facts({ sold: [crate({ piecesReturned: Quantity.parse('29.000') })], asked: [eggs('1.000')] }))).toEqual({ ok: true, value: null });
+    expect(judgeReturn(facts({ sold: [crate({ piecesReturned: Quantity.parse('30.000') })], asked: [eggs('1.000')] }))).toEqual({ ok: false, error: [{ field: '/lines/0/qty', rule: 'RETURN_EXCEEDS_SOLD' }] });
+    expect(judgeReturn(facts({ sold: [crate()], asked: [eggs('31.000')] }))).toEqual({ ok: false, error: [{ field: '/lines/0/qty', rule: 'RETURN_EXCEEDS_SOLD' }] });
+  });
+
+  it('counts a whole crate returned before against the eggs, and the eggs against a whole crate', () => {
+    const two = crate({ qtySold: Quantity.parse('2.000'), piecesReturned: Quantity.parse('35.000') });
+    expect(judgeReturn(facts({ sold: [two], asked: [eggs('25.000')] }))).toEqual({ ok: true, value: null });
+    expect(judgeReturn(facts({ sold: [two], asked: [eggs('26.000')] }))).toEqual({ ok: false, error: [{ field: '/lines/0/qty', rule: 'RETURN_EXCEEDS_SOLD' }] });
+    expect(judgeReturn(facts({ sold: [two], asked: [{ orderLineId: 'crate', qty: Quantity.parse('1.000') }] }))).toEqual({ ok: false, error: [{ field: '/lines/0/qty', rule: 'RETURN_EXCEEDS_SOLD' }] });
+    expect(judgeReturn(facts({ sold: [crate({ qtySold: Quantity.parse('2.000'), piecesReturned: Quantity.parse('30.000') })], asked: [{ orderLineId: 'crate', qty: Quantity.parse('1.000') }] }))).toEqual({ ok: true, value: null });
+  });
+
+  it('takes eggs whole only, of a line sold in a unit of several, and never back onto the shelf before inspection', () => {
+    expect(judgeReturn(facts({ sold: [crate()], asked: [eggs('2.500')] }))).toEqual({ ok: false, error: [{ field: '/lines/0/qty', rule: 'INEXACT_QUANTITY' }] });
+    expect(judgeReturn(facts({ sold: [sold({ id: 'crate' })], asked: [eggs('1.000')] }))).toEqual({ ok: false, error: [{ field: '/lines/0/uom', rule: 'UNIT_NOT_SOLD' }] });
+    expect(judgeReturn(facts({ sold: [crate()], asked: [eggs('1.000', { unitSold: false })] }))).toEqual({ ok: false, error: [{ field: '/lines/0/uom', rule: 'UNIT_NOT_SOLD' }] });
+    expect(judgeReturn(facts({ sold: [crate()], asked: [eggs('1.000', { disposition: 'RESTOCK' })] }))).toEqual({ ok: false, error: [{ field: '/lines/0/disposition', rule: 'PART_RETURN_TO_HOLD' }] });
+    expect(judgeReturn(facts({ sold: [crate()], asked: [eggs('1.000', { disposition: 'WRITE_OFF' })] }))).toEqual({ ok: true, value: null });
+  });
+
+  it('waits for an open return of the line to be decided, so the pieces always add up', () => {
+    expect(judgeReturn(facts({ sold: [crate({ openReturns: 1 })], asked: [eggs('1.000')] }))).toEqual({ ok: false, error: [{ field: '/lines/0/orderLineId', rule: 'RETURN_OPEN_ON_LINE' }] });
+    expect(judgeReturn(facts({ sold: [crate({ qtySold: Quantity.parse('2.000'), openReturns: 1, openPartReturns: 1 })], asked: [{ orderLineId: 'crate', qty: Quantity.parse('1.000') }] }))).toEqual({
+      ok: false,
+      error: [{ field: '/lines/0/orderLineId', rule: 'RETURN_OPEN_ON_LINE' }],
+    });
+    // Whole crates may still wait beside each other, as before.
+    expect(judgeReturn(facts({ sold: [crate({ qtySold: Quantity.parse('2.000'), openReturns: 1 })], asked: [{ orderLineId: 'crate', qty: Quantity.parse('1.000') }] }))).toEqual({ ok: true, value: null });
+  });
+});
+
+describe('the refund of part of a crate: round(paid x cumulative / pieces) less round(paid x previous / pieces), half-up', () => {
+  const p = (n: bigint) => Money.ofPesewas(n);
+  const q = (n: number) => Quantity.parse(`${n}.000`);
+
+  it('refunds five eggs of a GHS 55.00 crate exactly 917 (5,500 x 5 / 30 = 916.67), never the single-egg price', () => {
+    expect(pieceRefund(p(5_500n), q(30), q(0), q(5))).toEqual(p(917n));
+  });
+
+  it('refunds a crate returned one egg at a time, all 30, exactly 5,500 in total, never more', () => {
+    const pieces = Array.from({ length: 30 }, (_, i) => pieceRefund(p(5_500n), q(30), q(i), q(1)).pesewas);
+    expect(pieces.reduce((a, b) => a + b, 0n)).toBe(5_500n);
+    // Each egg alone rounded would refund 183 x 30 = 5,490: the running total is what makes the pieces add up.
+    expect(pieces.slice(0, 6)).toEqual([183n, 184n, 183n, 183n, 184n, 183n]);
+  });
+
+  it('refunds the second five eggs the rest of the first ten: 1,833 less 917', () => {
+    expect(pieceRefund(p(5_500n), q(30), q(5), q(5))).toEqual(p(916n));
+  });
+
+  it('rounds an exact half pesewa up, once, and one below half down, one above up', () => {
+    expect(pieceRefund(p(3n), q(2), q(0), q(1))).toEqual(p(2n)); // 1.5
+    expect(pieceRefund(p(3n), q(2), q(1), q(1))).toEqual(p(1n)); // 3 - 2
+    expect(pieceRefund(p(7n), q(30), q(0), q(2))).toEqual(p(0n)); // 0.4667
+    expect(pieceRefund(p(8n), q(30), q(0), q(2))).toEqual(p(1n)); // 0.5333
+  });
+
+  it('refunds nothing of a line that cost nothing, and the largest amount whole', () => {
+    expect(pieceRefund(p(0n), q(30), q(0), q(5))).toEqual(p(0n));
+    expect(pieceRefund(p(Money.MAX_PESEWAS), q(30), q(0), q(30))).toEqual(p(Money.MAX_PESEWAS));
+    expect(pieceRefund(p(Money.MAX_PESEWAS), q(30), q(29), q(1)).plus(pieceRefund(p(Money.MAX_PESEWAS), q(30), q(0), q(29)))).toEqual(p(Money.MAX_PESEWAS));
   });
 });

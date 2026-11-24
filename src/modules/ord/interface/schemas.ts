@@ -86,6 +86,11 @@ export const ReturnCreateBody = z.strictObject({
       z.strictObject({
         orderLineId: z.uuid(),
         qty: Quantity.refine((q) => !/^0\.000$/.test(q), { message: 'must be above zero' }),
+        /** The unit `qty` counts: the line's own when left out, or its single pieces (the egg of a crate). */
+        uom: z
+          .string()
+          .regex(/^[A-Z][A-Z0-9_]{0,19}$/)
+          .optional(),
         weightKg: Kilograms.optional(),
         disposition: z.enum(['RESTOCK', 'RETURNS_HOLD', 'WRITE_OFF']),
       }),

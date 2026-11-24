@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.37.0"
+  version: "2.38.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -2655,6 +2655,7 @@ paths:
                               sku: EGG-0003
                               name: "Eggs, big, crate of 30"
                             qty: "2.000"
+                            uom: CRATE
                             weightKg: null
                             disposition: WRITE_OFF
                             refundPesewas: 12000
@@ -2697,6 +2698,7 @@ paths:
                               sku: MEAT-0002
                               name: "Chicken wings, 15 kg pack"
                             qty: "13.900"
+                            uom: KG
                             weightKg: "13.900"
                             disposition: RESTOCK
                             refundPesewas: 18070
@@ -2733,6 +2735,7 @@ paths:
                               sku: MEAT-0007
                               name: "Goat meat, 15 kg pack"
                             qty: "14.850"
+                            uom: KG
                             weightKg: "14.850"
                             disposition: RETURNS_HOLD
                             refundPesewas: 38610
@@ -2775,6 +2778,7 @@ paths:
                               sku: PRD-0002
                               name: "Cabbage, head"
                             qty: "3.000"
+                            uom: UNIT
                             weightKg: null
                             disposition: RESTOCK
                             refundPesewas: 3600
@@ -2811,6 +2815,7 @@ paths:
                               sku: MEAT-0001
                               name: "Full chicken, 15 kg pack"
                             qty: "1.000"
+                            uom: KG
                             weightKg: "14.700"
                             disposition: RESTOCK
                             refundPesewas: 0
@@ -2847,6 +2852,7 @@ paths:
                               sku: MEAT-0005
                               name: "Beef, 15 kg pack"
                             qty: "15.200"
+                            uom: KG
                             weightKg: "15.200"
                             disposition: RETURNS_HOLD
                             refundPesewas: 45600
@@ -28910,6 +28916,9 @@ components:
           $ref: "#/components/schemas/ProductRef"
         qty:
           $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+          description: "The unit `qty` counts (2.38.0): the sold line's own unit (`OrderLine.uom`, a crate), or its single pieces when part of one came back (the egg)."
         weightKg:
           anyOf:
             - $ref: "#/components/schemas/Kilograms"
@@ -28927,6 +28936,7 @@ components:
         - orderLineId
         - product
         - qty
+        - uom
         - weightKg
         - disposition
         - refundPesewas
@@ -29035,6 +29045,10 @@ components:
           format: uuid
         qty:
           $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+          pattern: "^[A-Z][A-Z0-9_]{0,19}$"
+          description: "Optional (2.38.0): the unit `qty` counts. Left out (or the line's own unit), `qty` is in the unit the line was sold in. The product's base unit on a line sold in a unit of several (`EGG` on a line in crates) returns part of one as single pieces: whole pieces only (`INEXACT_QUANTITY`), into `RETURNS_HOLD` or `WRITE_OFF`, never `RESTOCK` (`PART_RETURN_TO_HOLD`); any other unit is `UNIT_NOT_SOLD`."
         weightKg:
           $ref: "#/components/schemas/Kilograms"
         disposition:
