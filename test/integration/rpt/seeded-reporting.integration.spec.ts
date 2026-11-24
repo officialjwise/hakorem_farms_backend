@@ -88,6 +88,21 @@ describe('the seeded farm for reporting (B12 continued 4)', () => {
     expect(run!.postedBy!.id).not.toBe(run!.createdBy.id);
   });
 
+  it("grants the reports as CR-062 asks: the Owner, the Manager and the Accountant read and export, a bulk export the Owner's alone", async () => {
+    const { rows } = await admin().query<{ role: string; codes: string[] }>(
+      `SELECT r.code AS role, array_agg(rp.permission_code ORDER BY rp.permission_code) FILTER (WHERE rp.permission_code IS NOT NULL) AS codes
+         FROM iam.role r LEFT JOIN iam.role_permission rp ON rp.role_id = r.id AND (rp.permission_code LIKE 'rpt.report.%' OR rp.permission_code = 'fin.report.read')
+        WHERE r.deleted_at IS NULL GROUP BY r.code ORDER BY r.code`,
+    );
+    const held = Object.fromEntries(rows.map((r) => [r.role, r.codes ?? []]));
+    expect(held['OWNER']).toEqual(['fin.report.read', 'rpt.report.export', 'rpt.report.export.bulk', 'rpt.report.read']);
+    expect(held['MANAGER']).toEqual(['rpt.report.export', 'rpt.report.read']);
+    expect(held['ACCOUNTANT']).toEqual(['fin.report.read', 'rpt.report.export', 'rpt.report.read']);
+    for (const role of Object.keys(held).filter((r) => !['OWNER', 'MANAGER', 'ACCOUNTANT'].includes(r))) expect(held[role], role).toEqual([]);
+    const bulk = await admin().query<{ requires_step_up: boolean }>("SELECT requires_step_up FROM iam.permission WHERE code = 'rpt.report.export.bulk'");
+    expect(bulk.rows[0]!.requires_step_up).toBe(true);
+  });
+
   it('writes nothing on a second run, and the seeded ledger still balances', async () => {
     const count = async () => (await admin().query<{ n: number }>("SELECT (SELECT count(*) FROM rpt.exception_item)::int + (SELECT count(*) FROM pur.purchase_order)::int + (SELECT count(*) FROM fin.journal_entry)::int AS n")).rows[0]!.n;
     const before = await count();
