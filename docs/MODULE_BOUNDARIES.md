@@ -114,6 +114,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B09e (A-261):** `PricingService.resolveIn` prices a line in the unit it is sold in (`ResolveLine.uom`; an entry names its selling unit, `mdm.price_list_entry.uom`, migration 0215), with quantity breaks entered in that unit and compared in the base unit; a selling module passes the line's unit and its quantity in it (ORD's sale posting, online placement and returns, SHP's lines and catalogue). No new port.
 - **Built in B09u (A-303, A-308):** every unit carries a singular and a plural name and a new unit `EGG` (migration 0249); `EntitySheet.createLocks`, the create locks `applyImportJob` takes before its transaction (the customer and supplier sheets). No interface removed.
 - **Built in B09b continued 2 (A-277, CR-038):** `PricingService.sellingUnitsIn` (the units each product is sold by on a channel's walk for a buyer with no account, each priced by its own entry, never derived; the price list versions in force), `TaxService.schemeInForceIn` (the scheme version in force on a date and its cells), `MasterDataRefs.reasonCodesOfDomainsIn` and `livePaymentMethodsOfChannelIn`, each read only in the caller's transaction, authorising nothing. POS reads them for the offline pack and for a counter line's unit.
+- **Built in B11 continued 11 by lane B (additive, A-376):** `MasterDataRefs.customerContactsIn`, a customer's own name and number by id for NTF's reminders, read when queued and when sent, never kept. No existing function changed.
 
 ### DOC: documents and media (layer 3)
 
@@ -169,6 +170,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Imports:** platform, IAM, MDM, INV.
 - **B09b continued 4c (A-286):** `Weighing.latestIn`, each unit's latest weighing (weight, source, time), read only, for POS's offline pack and sync.
 - **Subscribes (T):** `inv.StockUnitRegistered`, to open an animal for each serialised unit received; and `inv.StockIssuedForSale`, `inv.StockConsumedInProcessing`, `inv.StockWrittenOff`, `inv.SaleReturnReceived` and `inv.SupplierReturnIssued`, to keep an animal's status in step with its stock unit (B06 continued).
+- **Built in B11 continued 11 by lane B (additive, A-376):** `MortalityRecords.returnFactsIn`, a record's reporter, branch, animal, status and return reason in the caller's transaction, for NTF's returned death report. No existing function changed.
 
 ### PRC: processing and production (layer 6)
 
@@ -319,6 +321,7 @@ Each card gives: what the module owns, its public interface (the services export
 - **Built in B10 continued 2 (ADR-0089, A-317, A-318):** `Ageing` (`getAgeingReport`, as at a date: BIL's new `Billing.receivablesAsAtIn`, PAY's new `AllocationsAsAt.netAppliedIn`, FIN's new `Journals.customerReceivableBalancesIn`, in one snapshot) and the statement's ageing summary; `Dunning` (`listDunningLevels`, `replaceDunningLevels`, `listDunningNotices`, the worker's `dunning` job), which publishes `whl.DunningNoticeDue` for NTF (B11). WHL now imports PAY.
 - **Built in B10 continued 3 (ADR-0090, A-320, A-321):** `StandingOrders` (the eight standing order operations, the worker's hourly `standing-orders` job), which places each order through ORD's new `Orders.placeStandingIn` and judges it with `CreditControl.judgeIn`; `BadDebts` (`writeOffBadDebt`, the `BAD_DEBT_WRITE_OFF` approval handler) with BIL's new `Billing.writeOffIn` and FIN's new `Journals.entryForSubjectIn`; WHL declares and publishes ◆ `whl.BadDebtWrittenOff` (FIN posts Dr 6940 Cr 1200) and publishes `whl.WrittenOffCustomerPaid` for the exception report (B12). The ageing takes off what was written off as at the date.
 - **Subscribes (A):** `pay.PaymentCleared` and `pay.DepositAllocated` (B10 continued 2b, `whl.hold-release-on-payment`) and `whl.written-off-customer-paid` (B10 continued 3: money from a customer with a write-off is raised): a payment may have paid off what kept a system overdue hold, which is then released (decision 4 on A-314). `doc.DocumentArchived` (B08 continued 2d), to link each issued statement to its archived rendering once. Exposure is read live, not kept by subscribers (ADR-0088); ageing (B10 continued 2) reads BIL, PAY and FIN the same way (ADR-0089).
+- **Built in B11 continued 11 (A-376):** `Dunning.noticesIn`, notices by id with the reminded document's number, for NTF's payment reminders (NTF consumes `whl.DunningNoticeDue` and reads the notice, never the event's copy).
 
 ### CAP: capital, investors and profit sharing (layer 11)
 
@@ -349,6 +352,8 @@ Each card gives: what the module owns, its public interface (the services export
 - **Public interface:** none used by other modules. Nothing calls NTF.
 - **Imports:** platform (notification channel port), IAM.
 - **Subscribes (A):** `bil.InvoiceIssued`, `bil.DocumentReprinted`, `quo.QuoteIssued`, `ord.*` status events, `del.*` delivery events, `pay.PaymentCleared`, `pay.RefundPaid`, `whl.DunningNoticeDue`, `whl.StatementIssued`, `inv.LowStockDetected`, `inv.LotExpiring`, `inv.StockExceptionRaised`, `shp.CartAbandoned`, `iam.ApprovalRequested`.
+- **Built in B11 continued 10 (ADR-0096, A-374):** templates, the message log, the provider's signed delivery reports, the worker's `message-send` job and the customer's messages (`ntf.customer-messages`, A) from `ord.OrderDispatched`, `ord.OrderCollected`, `del.DeliveryOnTheWay`, `del.DeliveryRescheduled`, `del.DeliveryCancelled` and `del.DeliveryCompleted`, to the order's own contact through ORD's `Orders.messageContactsIn`, and the slot through DEL's `Slots.slotIn`. NTF imports MDM, DEL and ORD (lower layers) for those reads.
+- **Built in B11 continued 11 (ADR-0097, A-376):** triggers, preferences, opt-outs on the number (a signed STOP reply), quiet hours and in-app notifications; every message through one queue, `MessageQueue`. New consumers (A): `ntf.reminders` on `whl.DunningNoticeDue` (the notice through WHL's new `Dunning.noticesIn`, the customer's number through MDM's new `MasterDataRefs.customerContactsIn`) and `ntf.staff-notifications` on `liv.MortalityReturned` (the record through LIV's new `MortalityRecords.returnFactsIn`, the tag through INV's `StockUnits.factsIn`). NTF now also imports INV, LIV and WHL (lower layers), reads only. No new port, no new event; `ntf.DeliveryReportRejected` names abuse cases 57 and 59.
 
 ### API: integrations (layer 11)
 

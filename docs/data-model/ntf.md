@@ -2,7 +2,7 @@
 
 Owner: NTF module. Templates, preferences, opt-outs and the log of every message. NTF only subscribes to events; no module calls it (ADR-0009). Conventions are in `docs/DATA_MODEL.md`.
 
-**Built (B11 continued 10, migration 0335, ADR-0096, A-374):** `ntf.template`, `ntf.message`, `ntf.message_attempt` and `ntf.provider_report`. `ntf.trigger_rule`, `ntf.preference`, `ntf.opt_out` and `ntf.in_app_notification` are B11 continued 11's.
+**Built (B11 continued 10, migration 0335, ADR-0096, A-374):** `ntf.template`, `ntf.message`, `ntf.message_attempt` and `ntf.provider_report`. **Built (B11 continued 11, migration 0338, ADR-0097, A-376):** `ntf.trigger_rule`, `ntf.preference`, `ntf.opt_out` and `ntf.in_app_notification`; `ntf.message` gains `rendered_subject` and `link_path`, may be written `DEFERRED_QUIET_HOURS`; `ntf.template` takes a subject on `IN_APP` (its title).
 
 ---
 
@@ -17,7 +17,7 @@ Message templates per channel and locale.
 | `channel` | `text` | NOT NULL, CHECK in (`SMS`, `WHATSAPP`, `EMAIL`, `IN_APP`) | |
 | `locale` | `text` | NOT NULL DEFAULT `'en-GH'` | English ships first; the column makes other languages data |
 | `category` | `text` | NOT NULL, CHECK in (`TRANSACTIONAL`, `REMINDER`, `MARKETING`, `OPERATIONAL`) | Decides how preferences and quiet hours apply |
-| `subject` | `text` | NULL | Email only |
+| `subject` | `text` | NULL | Email's subject and in-app's title, and only there (`ck_template_subject_titled`, B11 continued 11) |
 | `body` | `text` | NOT NULL | With named placeholders |
 | `provider_template_ref` | `text` | NULL | Pre-approved WhatsApp template name |
 | `version_no` | `integer` | NOT NULL | |
@@ -40,7 +40,7 @@ Which event sends which template to whom.
 | `channels` | `text[]` | NOT NULL | In order of preference |
 | `is_active` | `boolean` | NOT NULL DEFAULT `true` | |
 
-Standard columns: `MASTER`.
+Standard columns: `MASTER`. Partial UNIQUE (`event_type`, `template_code`) among live rows (`uq_trigger_rule`); `channels` one to four, each a known channel; `recipient_role_code` exactly when `ROLE`. Seeded by migration 0338 for every message NTF sends (A-376 (c)). A reminder goes only by the channels its dunning level names that the trigger also allows.
 
 ### `ntf.preference` · MASTER
 
@@ -53,13 +53,14 @@ Channel preferences and quiet hours per recipient.
 | `principal_id` | `uuid` | NULL, FK `iam.principal` | Staff and investors |
 | `category` | `text` | NOT NULL | |
 | `channel` | `text` | NOT NULL | |
+| `rank` | `integer` | NOT NULL, 1 to 16 | The recipient's order within the category (B11 continued 11) |
 | `is_enabled` | `boolean` | NOT NULL | |
 | `quiet_from` | `time` | NULL | Quiet hours, Africa/Accra |
 | `quiet_to` | `time` | NULL | |
 
 Standard columns: `MASTER`.
 
-- CHECK: exactly one of `customer_id`, `principal_id` is set. UNIQUE NULLS NOT DISTINCT (`customer_id`, `principal_id`, `category`, `channel`) among live rows.
+- CHECK: exactly one of `customer_id`, `principal_id` is set. UNIQUE NULLS NOT DISTINCT (`customer_id`, `principal_id`, `category`, `channel`) among live rows (`uq_preference`). Quiet hours both or neither, never empty (`ck_preference_quiet`), only on `REMINDER` and `MARKETING` (`ck_preference_quiet_category`). A replacement retires every live row (soft delete) and writes the new ones.
 
 ### `ntf.opt_out` · LEDGER
 
@@ -68,12 +69,15 @@ An opt-out received from a recipient, for example an SMS reply of STOP.
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
-| `address_hash` | `bytea` | NOT NULL | Keyed hash of the phone number or email, so an opt-out survives deletion of the customer record |
-| `channel` | `text` | NOT NULL | |
+| `address_hash` | `bytea` | NOT NULL, 32 bytes | Keyed hash of the phone number (the message log's `AddressHasher`), so an opt-out survives deletion of the customer record |
+| `address_masked` | `text` | NOT NULL | `+23324*****56`, for the list (B11 continued 11) |
+| `channel` | `text` | NOT NULL, CHECK in (`SMS`, `WHATSAPP`, `EMAIL`) | |
 | `direction` | `text` | NOT NULL, CHECK in (`OPT_OUT`, `OPT_IN`) | |
-| `source` | `text` | NOT NULL | Reply keyword, preference screen, support |
+| `source` | `text` | NOT NULL, CHECK in (`REPLY_STOP`, `REPLY_START`) | A signed reply; a preference screen does not write here (A-376 (d)) |
+| `provider_report_id` | `uuid` | NULL, FK `ntf.provider_report`; set for a reply; UNIQUE | The webhook request it came from, once |
+| `occurred_at` | `timestamptz` | NOT NULL | |
 
-Standard columns: `LEDGER`.
+Standard columns: `LEDGER`. The latest row per (`address_hash`, `channel`) is the number's state (`ix_opt_out_address`).
 
 ### `ntf.message` · DOCUMENT
 
@@ -96,6 +100,8 @@ Every message: what was sent to whom and when. Posted statuses: `SENT`, `DELIVER
 | `address_masked` | `text` | NOT NULL | `+23324*****56` (FR-NTF-007); empty when there was no number |
 | `address_hash` | `bytea` | NULL, 32 bytes | HMAC-SHA256 of the number under a key derived from the lookup key, for the hourly limit per recipient (abuse case 58). **No address is stored** (ADR-0096, A-374 (b)): the planned `address_enc` is not built; the number is read from the record's own module when queued and when sent |
 | `rendered_body` | `text` | NULL | Kept for transactional messages; personal detail limited to what was sent |
+| `rendered_subject` | `text` | NULL | An in-app notification's title (B11 continued 11) |
+| `link_path` | `text` | NULL, a console path (`^/[a-z0-9]...`), never a URL | Where an in-app notification takes its reader (B11 continued 11) |
 | `status` | `text` | NOT NULL, CHECK in (`QUEUED`, `DEFERRED_QUIET_HOURS`, `SENT`, `DELIVERED`, `FAILED`, `SUPPRESSED`) | |
 | `suppressed_reason` | `text` | NULL, CHECK in (`NO_ADDRESS`, `RATE_LIMITED`, `OPTED_OUT`, `PREFERENCE_OFF`); set exactly when `SUPPRESSED` | |
 | `failure_reason` | `text` | NULL | The last failure, scrubbed |
@@ -111,7 +117,7 @@ Every message: what was sent to whom and when. Posted statuses: `SENT`, `DELIVER
 Standard columns: `DOCUMENT` (`version`, `created_by`, `updated_at`, `updated_by`).
 
 - Index (`status`, `send_after`); (`address_hash`, `created_at`); (`created_at` DESC, `id` DESC) for the log.
-- `ntf.message_guard()`: written `QUEUED` or `SUPPRESSED`, never tried; what a message is (its event, order, template, channel, recipient and text) never changes; attempts never fall; `QUEUED` -> `SENT`, `FAILED`, `SUPPRESSED`; `SENT` -> `DELIVERED`, `FAILED`; `FAILED` -> `QUEUED` (a manager's retry); `DELIVERED` and `SUPPRESSED` final. A delivery report moves only the status.
+- `ntf.message_guard()` (replaced in 0338): written `QUEUED`, `DEFERRED_QUIET_HOURS` (with `send_after`) or `SUPPRESSED`, never tried; what a message is (its event, order, template, channel, recipient, text, subject and link) never changes; attempts never fall; `QUEUED` and `DEFERRED_QUIET_HOURS` -> each other, `SENT`, `FAILED`, `SUPPRESSED`; `SENT` -> `DELIVERED`, `FAILED`; `FAILED` -> `QUEUED` (a manager's retry); `DELIVERED` and `SUPPRESSED` final. A delivery report moves only the status.
 
 ### `ntf.message_attempt` · LEDGER
 
@@ -149,7 +155,7 @@ Standard columns: `LEDGER`. Partial UNIQUE (`provider`, `report_key`) where `out
 
 ### `ntf.in_app_notification` · WORK
 
-Notifications shown inside the console.
+Notifications shown inside the console (B11 continued 11): each one a message on `IN_APP`, written by the sender in the attempt's transaction (UNIQUE `message_id`); read by its own principal only; `ntf.in_app_notification_guard()`: only `read_at` changes, once.
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
@@ -160,4 +166,4 @@ Notifications shown inside the console.
 | `body` | `text` | NOT NULL | |
 | `link` | `text` | NULL | Where it takes the user |
 | `read_at` | `timestamptz` | NULL | |
-| `created_at` | `timestamptz` | NOT NULL DEFAULT `now()` | |
+| `created_at` | `timestamptz` | NOT NULL | Written from the application clock (ADR-0067), no default |
