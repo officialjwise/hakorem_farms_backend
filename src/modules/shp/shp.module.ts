@@ -38,9 +38,9 @@ import { ShopController } from './interface/shop.controller';
     { provide: ShopProfile, useFactory: (profiles: BusinessProfiles) => new ShopProfile(profiles), inject: [BusinessProfiles] },
     {
       provide: CatalogueListing,
-      useFactory: (uow: UnitOfWork, store: ShpStore, storefront: Storefront, pricing: PricingService, refs: MasterDataRefs, stock: StockQueries, settings: Settings) =>
-        new CatalogueListing(uow, store, storefront, pricing, refs, stock, settings),
-      inject: [UnitOfWork, SHP_STORE, Storefront, PricingService, MasterDataRefs, StockQueries, Settings],
+      useFactory: (uow: UnitOfWork, store: ShpStore, storefront: Storefront, pricing: PricingService, refs: MasterDataRefs, stock: StockQueries, settings: Settings, clock: Clock) =>
+        new CatalogueListing(uow, store, storefront, pricing, refs, stock, settings, clock),
+      inject: [UnitOfWork, SHP_STORE, Storefront, PricingService, MasterDataRefs, StockQueries, Settings, CLOCK],
     },
     {
       provide: Catalogue,

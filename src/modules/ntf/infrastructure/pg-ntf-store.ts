@@ -44,7 +44,7 @@ function template(row: Row, order: SortOrder | null): TemplateRecord {
 }
 
 const MESSAGE_COLUMNS = `m.id, m.source_event_ref, m.source_event_type, m.branch_id, m.sales_order_id, m.template_id, t.code AS template_code, m.channel, m.category,
-  m.recipient_kind, m.customer_id, m.principal_id, m.address_masked, m.rendered_body, m.status, m.suppressed_reason, m.failure_reason, m.attempts,
+  m.recipient_kind, m.customer_id, m.principal_id, m.supplier_id, m.record_id, m.address_masked, m.rendered_body, m.status, m.suppressed_reason, m.failure_reason, m.attempts,
   m.send_after, m.provider_message_ref, m.sent_at, m.delivered_at, m.created_at`;
 
 function message(row: Row, order: SortOrder | null): MessageRecord {
@@ -61,6 +61,8 @@ function message(row: Row, order: SortOrder | null): MessageRecord {
     recipientKind: row['recipient_kind'] as MessageRecord['recipientKind'],
     customerId: row['customer_id'] as string | null,
     principalId: row['principal_id'] as string | null,
+    supplierId: row['supplier_id'] as string | null,
+    recordId: row['record_id'] as string | null,
     addressMasked: row['address_masked'] as string,
     renderedBody: row['rendered_body'] as string | null,
     status: row['status'] as MessageRecord['status'],
@@ -192,8 +194,8 @@ export class PgNtfStore implements NtfStore {
     const result = await tx.query(
       `INSERT INTO ntf.message (id, idempotency_key, source_event_ref, source_event_type, branch_id, sales_order_id, template_id, channel, category, recipient_kind,
                                 customer_id, principal_id, address_masked, address_hash, rendered_body, rendered_subject, link_path, status, suppressed_reason, send_after,
-                                created_at, created_by, updated_at, updated_by, link_kind, link_record_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $21, $22, $23, $24)
+                                created_at, created_by, updated_at, updated_by, link_kind, link_record_id, supplier_id, record_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $21, $22, $23, $24, $25, $26)
        ON CONFLICT (idempotency_key) DO NOTHING`,
       [
         m.id,
@@ -220,6 +222,8 @@ export class PgNtfStore implements NtfStore {
         m.actorId,
         m.linkKind ?? null,
         m.linkRecordId ?? null,
+        m.supplierId ?? null,
+        m.recordId ?? null,
       ],
     );
     return result.rowCount === 1;
@@ -238,15 +242,18 @@ export class PgNtfStore implements NtfStore {
                         ORDER BY q.created_at, q.id
                         LIMIT $4
                         FOR UPDATE SKIP LOCKED)
-       RETURNING m.id, m.sales_order_id, m.customer_id, m.principal_id, m.category, m.channel, m.rendered_body, m.rendered_subject, m.link_path, m.link_kind, m.link_record_id, m.attempts`,
+       RETURNING m.id, m.source_event_type, m.sales_order_id, m.customer_id, m.principal_id, m.supplier_id, m.record_id, m.category, m.channel, m.rendered_body, m.rendered_subject, m.link_path, m.link_kind, m.link_record_id, m.attempts`,
       [c.now, c.until, c.token, c.limit, c.actorId],
     );
     return rows
       .map((r) => ({
         id: r['id'] as string,
+        sourceEventType: r['source_event_type'] as string,
         salesOrderId: r['sales_order_id'] as string | null,
         customerId: r['customer_id'] as string | null,
         principalId: r['principal_id'] as string | null,
+        supplierId: r['supplier_id'] as string | null,
+        recordId: r['record_id'] as string | null,
         category: r['category'] as ClaimedMessage['category'],
         channel: r['channel'] as ClaimedMessage['channel'],
         renderedBody: r['rendered_body'] as string,
@@ -372,6 +379,11 @@ export class PgNtfStore implements NtfStore {
       "SELECT 1 FROM ntf.message m JOIN ntf.template t ON t.id = m.template_id WHERE m.source_event_ref = $1 AND t.code = $2 AND m.idempotency_key LIKE '%:' || $3 LIMIT 1",
       [sourceEventRef, code, recordId],
     );
+    return rows.length > 0;
+  }
+
+  async messageExistsForRecord(tx: Transaction, code: string, recordId: string): Promise<boolean> {
+    const { rows } = await tx.query('SELECT 1 FROM ntf.message m JOIN ntf.template t ON t.id = m.template_id WHERE m.record_id = $1 AND t.code = $2 LIMIT 1', [recordId, code]);
     return rows.length > 0;
   }
 

@@ -7,8 +7,13 @@ import { scrubString } from '../logging/log-scrubber';
  * outbox, except IAM's one-time codes, which must not sit in an outbox payload.
  */
 export interface OutgoingMessage {
+  /** An E.164 number for SMS and WhatsApp; an email address for EMAIL (B11 continued 13). */
   readonly to: string;
   readonly text: string;
+  /** An email's subject (B11 continued 13); an SMS has none. */
+  readonly subject?: string | null;
+  /** An email's files: a document it carries, as archived (B11 continued 13). The email adapter is B13's (BL-117). */
+  readonly attachments?: readonly { readonly fileName: string; readonly contentType: string; readonly bytes: Buffer }[];
   /** Derived from the outbox message id or the token id, so a retried send cannot deliver twice (ADR-0014). */
   readonly idempotencyKey: string;
 }

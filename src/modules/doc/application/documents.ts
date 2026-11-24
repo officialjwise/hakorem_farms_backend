@@ -6,6 +6,7 @@ import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of
 import { NotFoundError, ValidationFailedError } from '../../../platform/errors/api-error';
 import type { AsyncConsumer, DomainEvents, EventEnvelope } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
+import { issueLinkToken, linkTokenHash } from '../../../platform/crypto/link-tokens';
 import { scrubString } from '../../../platform/logging/log-scrubber';
 import type { FileStore, PutFile, StoredFileRecord } from '../../../platform/storage/file-store';
 import type { Authoriser } from '../../iam';
@@ -22,6 +23,37 @@ const ARCHIVE_PREFIX = 'archive';
 const PDF_TYPE = 'application/pdf';
 const ESC_POS_TYPE = 'application/octet-stream';
 const MAX_ERROR = 500;
+/** A document link's token (B11 continued 13, ADR-0074): `doc_` and 32 random bytes; only its SHA-256 is stored. */
+export const DOCUMENT_LINK_PREFIX = 'doc_';
+/** How long a document link sent by message opens its document (A-288 (b)): thirty days, as a tracking link. */
+export const DOCUMENT_LINK_TTL_MS = 30 * 24 * 3_600_000;
+/** The principal a public read of a document link is logged under (the Storefront's, as a quote's buyer link). */
+const STOREFRONT_PRINCIPAL = '01900000-0000-7000-8000-000000000006';
+/** The one answer to every token that opens nothing: never sent, mistyped, guessed, expired or another kind's. */
+const NO_SUCH_LINK = 'no document opens with this link';
+
+/** What `issueLinkIn` answers while a document's archive is not yet made or not yet scanned: wait and try again. */
+export interface LinkNotReady {
+  readonly notReady: true;
+}
+export const LINK_NOT_READY: LinkNotReady = { notReady: true };
+
+/** The contract's `SharedDocument`: what a document link opens, a short-lived signed link to the archived PDF. */
+export interface SharedDocumentView {
+  readonly docType: string;
+  readonly documentNo: string | null;
+  readonly issuedAt: string;
+  readonly sha256: string;
+  readonly url: string;
+  readonly expiresAt: string;
+}
+
+/** A document's archived PDF, hash-checked, to attach to an email (B11 continued 13). */
+export interface DocumentAttachment {
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly bytes: Buffer;
+}
 
 /** What a module asks DOC to render and archive after its transaction commits. */
 export interface RenderRequest {
@@ -200,6 +232,61 @@ export class Documents {
     if (file === null || file.scanStatus !== 'CLEAN') return null;
     const link = await this.files.signedLink(tx, file, purpose, this.signedUrlTtlSeconds, actorId);
     return { url: link.url, expiresAt: link.expiresAt.toISOString() };
+  }
+
+  /**
+   * A link of its own for a document sent by message (B11 continued 13, ADR-0074, ADR-0084): made by NTF's sending
+   * worker at each attempt, in its own transaction, for the latest archived rendering of the business document. Only the
+   * token's SHA-256 is stored; the token is answered once, to go into the message. While the document is still rendering
+   * or its file not yet scanned, `LINK_NOT_READY` (the message waits and tries again, never fails for good); a document
+   * with no rendering asked for answers null (no link to give).
+   */
+  async issueLinkIn(tx: Transaction, businessDocumentId: string, actorId: string): Promise<string | LinkNotReady | null> {
+    const latest = await this.sendableIn(tx, businessDocumentId);
+    if (latest === null) return (await this.store.jobsOf(tx, [businessDocumentId])).length === 0 ? null : LINK_NOT_READY;
+    const issued = issueLinkToken(DOCUMENT_LINK_PREFIX);
+    const at = this.clock.now();
+    await this.store.insertLink(tx, { id: this.nextId(), archivedDocumentId: latest.id, tokenHash: issued.hash, expiresAt: new Date(at.getTime() + DOCUMENT_LINK_TTL_MS), at, actorId });
+    return issued.token;
+  }
+
+  /**
+   * The archived PDF of a business document's latest rendering, hash-checked, for an email (B11 continued 13): null while
+   * there is none or its file is not yet scanned. Read outside any transaction but for the short lookup.
+   */
+  async attachmentOf(businessDocumentId: string): Promise<DocumentAttachment | null> {
+    const latest = await this.uow.run({ isolation: 'read committed' }, (tx) => this.sendableIn(tx, businessDocumentId));
+    if (latest === null) return null;
+    const bytes = await this.content(latest, 'PDF');
+    return { fileName: `${latest.documentNo ?? latest.docType.toLowerCase()}.pdf`, contentType: PDF_TYPE, bytes };
+  }
+
+  /**
+   * `getSharedDocument` (B11 continued 13): anonymous, rate-limited, by the token alone. A live link answers a signed
+   * link, five minutes long and logged, to exactly the archived rendering it was made for, whose bytes and SHA-256 never
+   * change; anything else (never sent, altered, guessed, expired, a document's id or number) is the same 404.
+   */
+  openLink(token: string): Promise<SharedDocumentView> {
+    const hash = linkTokenHash(DOCUMENT_LINK_PREFIX, token);
+    if (hash === null) return Promise.reject(new NotFoundError(NO_SUCH_LINK));
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const archivedId = await this.store.liveLink(tx, hash, this.clock.now());
+      const [record] = archivedId === null ? [] : await this.store.archived(tx, [archivedId]);
+      if (record === undefined) throw new NotFoundError(NO_SUCH_LINK);
+      const file = await this.files.find(tx, record.fileId);
+      if (file === null || file.scanStatus !== 'CLEAN' || !file.sha256.equals(record.sha256)) throw new NotFoundError(NO_SUCH_LINK);
+      const link = await this.files.signedLink(tx, file, 'doc.link.open', this.signedUrlTtlSeconds, STOREFRONT_PRINCIPAL);
+      return { docType: record.docType, documentNo: record.documentNo, issuedAt: record.recordedAt.toISOString(), sha256: record.sha256.toString('hex'), url: link.url, expiresAt: link.expiresAt.toISOString() };
+    });
+  }
+
+  /** The latest archived rendering of a business document whose PDF has passed the scan, or null. */
+  private async sendableIn(tx: Transaction, businessDocumentId: string): Promise<ArchivedRecord | null> {
+    const archived = await this.store.archivedOf(tx, [businessDocumentId]);
+    const latest = archived.reduce<ArchivedRecord | null>((best, r) => (best === null || r.revision > best.revision ? r : best), null);
+    if (latest === null) return null;
+    const file = await this.files.find(tx, latest.fileId);
+    return file !== null && file.scanStatus === 'CLEAN' ? latest : null;
   }
 
   /** Archived renderings by id, for a module that serves or checks them (BIL's reprints and numbering audit). */

@@ -40,7 +40,7 @@ export class RequestToBuyOnlyError extends BusinessRuleError {
 export class ProductUnavailableError extends BusinessRuleError {
   readonly code = 'PRODUCT_UNAVAILABLE';
   readonly messageKey = 'shp.product_unavailable';
-  constructor(field: string, rule: 'NOT_LISTED' | 'NO_ONLINE_PRICE' | 'NOT_TAX_INCLUSIVE') {
+  constructor(field: string, rule: 'NOT_LISTED' | 'NO_ONLINE_PRICE' | 'NOT_TAX_INCLUSIVE' | 'UOM_NOT_SOLD') {
     super(`product unavailable: ${rule}`, [detail(field, rule, 'shp.product_unavailable')]);
   }
 }

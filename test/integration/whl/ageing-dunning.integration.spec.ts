@@ -373,6 +373,10 @@ describe('dunning (FR-WHL-011, A-318): each level reaches an invoice once howeve
     expect([gap.status, gap.body.error.code, gap.body.error.details[0].code]).toEqual([422, 'DUNNING_POLICY_INVALID', 'LEVELS_NOT_CONSECUTIVE']);
     const twice = await put('manager', '/dunning-policy', { levels: [{ ...levels[0]!, channels: ['SMS', 'SMS'] }] });
     expect(twice.body.error.details[0].code).toBe('CHANNEL_REPEATED');
+    // A level picks one of the reminder templates NTF lists, never a typed code (B11 continued 13); the database holds it too.
+    const typed = await put('manager', '/dunning-policy', { levels: [{ ...levels[0]!, templateCode: 'ORDER_DISPATCHED' }] });
+    expect([typed.status, typed.body.error.code, typed.body.error.details[0].code, typed.body.error.details[0].field]).toEqual([422, 'DUNNING_POLICY_INVALID', 'TEMPLATE_NOT_A_REMINDER', '/levels/0/templateCode']);
+    expect(await sqlStateOf(database.pool('app').query("UPDATE whl.dunning_policy SET template_code = 'PAYMENT_REMINDER_9', version = version + 1 WHERE deleted_at IS NULL"))).toBe('23514');
     const key = randomUUID();
     const replaced = await put('manager', '/dunning-policy', { levels: [...levels].reverse() }, key);
     expect(replaced.status, JSON.stringify(replaced.body)).toBe(200);

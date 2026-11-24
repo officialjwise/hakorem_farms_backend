@@ -61,6 +61,10 @@ responses:
                     - SMS
                     - EMAIL
                   sentAt: "2026-11-13T08:00:00Z"
+                  deliveries:
+                    - channel: SMS
+                      status: DELIVERED
+                      at: "2026-11-13T08:00:00Z"
                   currency: GHS
                 - id: "019a7b07-1e6b-782d-9d65-8babbeb20489"
                   customer:
@@ -78,6 +82,10 @@ responses:
                   channels:
                     - SMS
                   sentAt: "2026-11-10T08:00:00Z"
+                  deliveries:
+                    - channel: SMS
+                      status: DELIVERED
+                      at: "2026-11-10T08:00:00Z"
                   currency: GHS
                 - id: "019a7b07-3d5a-7211-a749-29e33863a2c1"
                   customer:
@@ -96,6 +104,10 @@ responses:
                     - SMS
                     - EMAIL
                   sentAt: "2026-11-07T08:00:00Z"
+                  deliveries:
+                    - channel: SMS
+                      status: DELIVERED
+                      at: "2026-11-07T08:00:00Z"
                   currency: GHS
                 - id: "019a7b07-5c49-7bf4-b12c-c81ab21440f8"
                   customer:
@@ -113,6 +125,10 @@ responses:
                   channels:
                     - SMS
                   sentAt: "2026-11-04T08:00:00Z"
+                  deliveries:
+                    - channel: SMS
+                      status: DELIVERED
+                      at: "2026-11-04T08:00:00Z"
                   currency: GHS
                 - id: "019a7b07-7b38-75d8-8b10-66522bc5df30"
                   customer:
@@ -130,6 +146,10 @@ responses:
                   channels:
                     - SMS
                   sentAt: "2026-11-01T08:00:00Z"
+                  deliveries:
+                    - channel: SMS
+                      status: DELIVERED
+                      at: "2026-11-01T08:00:00Z"
                   currency: GHS
               page:
                 nextCursor: eyJpZCI6IjAxOWE3YyJ9

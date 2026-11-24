@@ -48,6 +48,12 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0347_shp_selling_units',
+      '0346_whl_dunning_deliveries',
+      '0345_iam_grant_bil_send_permission',
+      '0344_iam_seed_bil_send_permission',
+      '0343_ntf_document_sends',
+      '0342_doc_document_link',
       '0341_shp_abandoned_cart_notice',
       '0340_pos_receipt_message_link',
       '0339_ntf_message_links',

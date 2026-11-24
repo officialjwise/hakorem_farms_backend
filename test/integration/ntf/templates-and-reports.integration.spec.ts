@@ -73,14 +73,16 @@ describe('message templates: listed, versioned, two people to each change, no li
     const listed = await get('accountant', '/notification-templates?status=ACTIVE&limit=100');
     expect(listed.status, JSON.stringify(listed.body)).toBe(200);
     // The customer's messages (B11 continued 10), the payment reminders and the returned death report in the console (B11 continued 11),
-    // the tracking and receipt SMS and the abandoned-cart reminder (B11 continued 12).
+    // the tracking and receipt SMS and the abandoned-cart reminder (B11 continued 12), the document sends (B11 continued 13).
     expect(listed.body.data.map((t: { code: string; channel: string; versionNo: number }) => `${t.code}/${t.channel}/${String(t.versionNo)}`).sort()).toEqual(
       [
         'CART_REMINDER/SMS/1',
         ...['DELIVERY_CANCELLED', 'DELIVERY_COMPLETED', 'DELIVERY_ON_THE_WAY', 'DELIVERY_PART_COMPLETED', 'DELIVERY_RESCHEDULED'].map((c) => `${c}/SMS/1`),
         'MORTALITY_RETURNED/IN_APP/1',
         ...['ORDER_COLLECTED', 'ORDER_DISPATCHED', 'ORDER_TRACKING', 'PAYMENT_REMINDER_1', 'PAYMENT_REMINDER_2', 'PAYMENT_REMINDER_3', 'SALE_RECEIPT'].map((c) => `${c}/SMS/1`),
-      ],
+        // B11 continued 13: the document sends and the remittance advice, by SMS, WhatsApp and email.
+        ...['DOCUMENT_SENT', 'REMITTANCE_ADVICE'].flatMap((c) => ['EMAIL', 'SMS', 'WHATSAPP'].map((channel) => `${c}/${channel}/1`)),
+      ].sort(),
     );
     v1 = listed.body.data.find((t: { code: string }) => t.code === 'ORDER_DISPATCHED').id as string;
     expect((await get('sales', `/notification-templates/${v1}`)).body).toMatchObject({ code: 'ORDER_DISPATCHED', category: 'TRANSACTIONAL', locale: 'en-GH', status: 'ACTIVE', subject: null });

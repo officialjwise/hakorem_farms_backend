@@ -351,6 +351,17 @@ export class SupplierPayments implements ApprovalHandler {
   }
 
   /**
+   * A paid payment's remittance advice as a message about it shows it (NTF, B11 continued 13): the advice, its supplier,
+   * branch, amount and time paid, read from PUR's fixed remittance row in the caller's transaction, never from an event;
+   * null for a payment with none.
+   */
+  async remittanceFactsIn(tx: Transaction, supplierPaymentId: string): Promise<{ readonly id: string; readonly supplierPaymentId: string; readonly supplierId: string; readonly branchId: string; readonly amountPesewas: bigint; readonly paidAt: Date } | null> {
+    const remittance = await this.store.remittance(tx, supplierPaymentId);
+    if (remittance === null) return null;
+    return { id: remittance.id, supplierPaymentId: remittance.supplierPaymentId, supplierId: remittance.supplierId, branchId: remittance.branchId, amountPesewas: remittance.amountPesewas, paidAt: remittance.paidAt };
+  }
+
+  /**
    * The remittance advice data, written once in the transaction that marks the payment paid (FR-PUR-013, A-174): the
    * invoices it pays as they stand now, with what is left on each. `uq_supplier_remittance_payment` holds it to one per
    * payment, and `pur.SupplierRemittanceReady` is published once, for DOC to render (B8) and NTF to send (B11).

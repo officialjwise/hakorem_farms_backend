@@ -46,3 +46,13 @@ export const DebitNoteCreate = z.strictObject({
 export const ReprintRequest = z.strictObject({ channel: z.enum(['THERMAL', 'PDF']) });
 
 export const ReprintPageQuery = z.object({ cursor: Cursor, limit: Limit });
+
+/** `sendBillingDocument` (B11 continued 13): the channels in order, each once; `recipient` is only checked, never kept. */
+export const DocumentSendRequest = z.strictObject({
+  channels: z
+    .array(z.enum(['SMS', 'WHATSAPP', 'EMAIL']))
+    .min(1)
+    .max(3)
+    .refine((c) => new Set(c).size === c.length, { message: 'each channel once' }),
+  recipient: z.string().min(1).max(254).optional(),
+});

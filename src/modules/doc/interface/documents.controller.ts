@@ -6,10 +6,10 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
-import { Documents, type ArchivedDocumentView, type Page } from '../application/documents';
+import { Documents, type ArchivedDocumentView, type Page, type SharedDocumentView } from '../application/documents';
 import type { SignedUrlView } from '../application/files';
 import { Templates, type DocumentTemplateView, type TemplatePage, type TemplatePreviewView, type TemplateVersionView } from '../application/templates';
-import { ArchivedDocumentPageQuery, DocumentDownloadRequest, IdParam, PageQuery, TemplatePreviewRequest, TemplateVersionCreate } from './schemas';
+import { ArchivedDocumentPageQuery, DocumentDownloadRequest, DocumentLinkTokenParam, IdParam, PageQuery, TemplatePreviewRequest, TemplateVersionCreate } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -18,6 +18,18 @@ async function reply<T>(res: Response, pending: Promise<StoredResponse<T>>): Pro
   const response = await pending;
   res.status(response.status);
   return response.body;
+}
+
+/** A document sent by message, opened by its link (B11 continued 13, ADR-0074): no session; the token is the only key. */
+@Controller('shop/documents')
+export class SharedDocumentsController {
+  constructor(@Inject(Documents) private readonly documents: Documents) {}
+
+  @Get(':token')
+  @Operation({ operationId: 'getSharedDocument', access: 'PUBLIC', realms: [], permission: null, idempotent: false, csrf: false, rateLimit: 'public' })
+  getSharedDocument(@Param('token', zodPipe(DocumentLinkTokenParam)) token: string): Promise<SharedDocumentView> {
+    return this.documents.openLink(token);
+  }
 }
 
 /** The document archive (FR-DOC-001, FR-DOC-007). Parses and delegates. */

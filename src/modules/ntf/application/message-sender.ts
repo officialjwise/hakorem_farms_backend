@@ -3,8 +3,8 @@ import type { Logger } from 'pino';
 import type { UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import { scrubString } from '../../../platform/logging/log-scrubber';
-import { NotificationSendError, type NotificationChannel } from '../../../platform/notifications/notification-channel';
-import { afterAttempt, CLAIM_LEASE_MS, maskAddress, retryDelayMs, type AttemptOutcome } from '../domain/messages';
+import { NotificationSendError, type NotificationChannel, type OutgoingMessage } from '../../../platform/notifications/notification-channel';
+import { afterAttempt, CLAIM_LEASE_MS, DOCUMENT_WAIT_MS, maskAnyAddress, retryDelayMs, type AttemptOutcome } from '../domain/messages';
 import { withLink } from '../domain/links';
 import { quietHoursApply, quietUntil, suppressibleByOptOut } from '../domain/routing';
 import type { Channel } from '../domain/templates';
@@ -12,6 +12,7 @@ import type { MessageFailed, MessageSuppressed } from '../events';
 import { MessageLinks, type MadeLink } from './message-links';
 import { MESSAGE_SUPPRESSED, PUBLISHED_SUPPRESSIONS, type RecipientFacts } from './message-queue';
 import type { ClaimedMessage, NtfStore, SendResult } from './ntf-store';
+import type { ReminderDeliveries } from './reminders';
 
 export const MESSAGE_FAILED = 'ntf.MessageFailed';
 /** Messages one pass of the sender claims. */
@@ -59,6 +60,8 @@ export class MessageSender {
     private readonly logger: Logger,
     private readonly random: () => number = Math.random,
     private readonly links: MessageLinks = new MessageLinks(null, {}),
+    /** Records a payment reminder's delivery on its dunning notice (B11 continued 13); none in a sender built without it. */
+    private readonly deliveries: ReminderDeliveries | null = null,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -97,20 +100,40 @@ export class MessageSender {
     }
     // The gates are read again now: the number as it is, a STOP since the message was queued, the recipient's quiet hours.
     const gate = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
-      const phone = await this.recipients.phoneIn(tx, message);
+      const phone = await this.recipients.addressIn(tx, message);
       const optedOut = suppressibleByOptOut(message.category) ? await this.recipients.optedOutIn(tx, phone) : new Set<Channel>();
       const own = quietHoursApply(message.category) && message.customerId !== null ? this.recipients.ownQuietHours(await this.recipients.preferencesIn(tx, { customerId: message.customerId }, message.category), message.channel) : null;
       const consented = message.category !== 'MARKETING' || (await this.recipients.consentedIn(tx, message.customerId));
       return { phone, optedOut, consented, quietUntil: quietHoursApply(message.category) ? quietUntil(this.clock.now(), own) : null };
     });
     const phone = gate.phone;
-    if (phone === null) return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'NO_ADDRESS' } };
+    const channel = this.channels.get(message.channel);
+    // A channel with no adapter yet (WhatsApp, email: B13) fails visibly, below, whatever address it lacks (ADR-0097).
+    if (phone === null && channel !== undefined) return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'NO_ADDRESS' } };
     if (gate.optedOut.has(message.channel)) return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'OPTED_OUT' } };
     if (!gate.consented) return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'NO_CONSENT' } };
     if (gate.quietUntil !== null) return { outcome: null, response: null, result: { kind: 'DEFERRED', sendAfter: gate.quietUntil } };
-    const channel = this.channels.get(message.channel);
-    if (channel === undefined) return { outcome: 'PERMANENT_FAILURE', response: `no adapter sends ${message.channel}`, result: { kind: 'FAILED', reason: `no adapter sends ${message.channel}` } };
+    if (channel === undefined || phone === null) return { outcome: 'PERMANENT_FAILURE', response: `no adapter sends ${message.channel}`, result: { kind: 'FAILED', reason: `no adapter sends ${message.channel}` } };
     let text = message.renderedBody;
+    let attachments: OutgoingMessage['attachments'] = undefined;
+    const notYet = (what: string): { outcome: null; response: null; result: SendResult } => ({
+      outcome: null,
+      response: null,
+      result: { kind: 'QUEUED', sendAfter: new Date(this.clock.now().getTime() + DOCUMENT_WAIT_MS), reason: `${what} is not archived yet` },
+    });
+    if (message.channel === 'EMAIL' && message.linkKind === 'DOCUMENT' && message.linkRecordId !== null) {
+      // An email carries the document itself, the archived bytes checked against their SHA-256 (B11 continued 13).
+      if (this.links.attach === null) return { outcome: 'PERMANENT_FAILURE', response: 'no module attaches documents to email', result: { kind: 'FAILED', reason: 'no module attaches documents to email' } };
+      let file: Awaited<ReturnType<NonNullable<MessageLinks['attach']>>>;
+      try {
+        file = await this.links.attach(message.linkRecordId);
+      } catch (error) {
+        const reason = `the document could not be attached: ${describe(error)}`;
+        return { outcome: 'PERMANENT_FAILURE', response: reason, result: { kind: 'FAILED', reason } };
+      }
+      if (file === null) return notYet('the document');
+      attachments = [file];
+    }
     if (message.linkKind !== null && message.linkRecordId !== null) {
       // The link is made now, in its own short transaction, by the record's own module (ADR-0074): a fresh token for
       // each attempt, kept nowhere by NTF; the text with it goes only to the provider.
@@ -122,12 +145,14 @@ export class MessageSender {
         made = { kind: 'UNAVAILABLE', reason: `the link could not be made: ${describe(error)}` };
       }
       if (made.kind === 'NO_LINK') return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'NO_LINK' } };
+      // A document still rendering (a remittance advice made after its paying transaction): wait, no attempt is spent.
+      if (made.kind === 'WAIT') return notYet('the document');
       if (made.kind === 'UNAVAILABLE') return { outcome: 'PERMANENT_FAILURE', response: made.reason, result: { kind: 'FAILED', reason: made.reason } };
       text = withLink(text, made.url);
     }
     try {
-      const sent = await channel.send({ to: phone, text, idempotencyKey: message.id });
-      return { outcome: 'ACCEPTED', response: null, result: { kind: 'SENT', providerRef: sent.providerReference, addressMasked: maskAddress(phone), addressHash: this.recipients.hash(phone) } };
+      const sent = await channel.send({ to: phone, text, idempotencyKey: message.id, ...(message.channel === 'EMAIL' ? { subject: message.renderedSubject } : {}), ...(attachments === undefined ? {} : { attachments }) });
+      return { outcome: 'ACCEPTED', response: null, result: { kind: 'SENT', providerRef: sent.providerReference, addressMasked: maskAnyAddress(phone), addressHash: this.recipients.hash(phone) } };
     } catch (error) {
       const outcome: AttemptOutcome = error instanceof NotificationSendError && !error.retryable ? 'PERMANENT_FAILURE' : 'TEMPORARY_FAILURE';
       const reason = describe(error);
@@ -146,6 +171,7 @@ export class MessageSender {
         this.logger.warn({ messageId: message.id }, 'message claim lost before its attempt was recorded');
         return;
       }
+      if (this.deliveries !== null && (result.kind === 'SENT' || result.kind === 'FAILED')) await this.deliveries.recordIn(tx, message, result.kind, at, actorId);
       if (result.kind === 'SUPPRESSED' && (result.reason === 'NO_LINK' || result.reason === 'NO_CONSENT')) {
         // A link refused or a consent withdrawn by the time of sending reaches the exception report (abuse cases 60, 61).
         const record = (await this.store.message(tx, message.id, false))!;

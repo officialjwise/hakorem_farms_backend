@@ -153,7 +153,7 @@ export function judgePreferences(input: readonly PreferenceInput[]): Result<read
   return rules.length === 0 ? ok(input) : err(rules);
 }
 
-export type RecipientKind = 'CUSTOMER' | 'CONTACT_ON_EVENT' | 'ROLE' | 'PRINCIPAL_ON_EVENT';
+export type RecipientKind = 'CUSTOMER' | 'CONTACT_ON_EVENT' | 'ROLE' | 'PRINCIPAL_ON_EVENT' | 'SUPPLIER';
 
 export interface TriggerRuleRule {
   readonly field: string;
@@ -166,6 +166,8 @@ const CHANNELS_FOR: Readonly<Record<RecipientKind, ReadonlySet<Channel>>> = {
   CONTACT_ON_EVENT: new Set(['SMS', 'WHATSAPP', 'EMAIL']),
   ROLE: new Set(['IN_APP']),
   PRINCIPAL_ON_EVENT: new Set(['IN_APP']),
+  // B11 continued 13: a supplier's remittance advice, by the supplier's own phone or email in MDM.
+  SUPPLIER: new Set(['SMS', 'WHATSAPP', 'EMAIL']),
 };
 
 /**

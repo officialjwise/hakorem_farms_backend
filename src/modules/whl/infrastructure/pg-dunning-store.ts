@@ -1,5 +1,5 @@
 import { databaseErrorOf, type Transaction } from '../../../platform/database/unit-of-work';
-import type { AccountFacts, DunningNoticeFilter, DunningNoticeRecord, DunningStore } from '../application/dunning-store';
+import type { AccountFacts, DunningNoticeFilter, DunningNoticeRecord, DunningStore, NoticeDeliveryRecord } from '../application/dunning-store';
 import type { DunningChannel, DunningLevelRule } from '../domain/dunning';
 
 const ACCOUNT = `customer_id, branch_id, credit_limit_pesewas::text AS credit_limit, status, account_manager_id`;
@@ -115,5 +115,23 @@ export class PgDunningStore implements DunningStore {
       [f.branchIds, f.customerId, f.from, beforeId, limit],
     );
     return rows.map(noticeOf);
+  }
+
+  async insertDelivery(tx: Transaction, d: NoticeDeliveryRecord, at: Date, actorId: string): Promise<boolean> {
+    const result = await tx.query(
+      `INSERT INTO whl.dunning_notice_delivery (id, dunning_notice_id, channel, status, message_ref, occurred_at, recorded_at, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) ON CONFLICT (message_ref, status) DO NOTHING`,
+      [d.id, d.noticeId, d.channel, d.status, d.messageRef, d.occurredAt, at, actorId],
+    );
+    return result.rowCount === 1;
+  }
+
+  async deliveriesOf(tx: Transaction, noticeIds: readonly string[]): Promise<NoticeDeliveryRecord[]> {
+    if (noticeIds.length === 0) return [];
+    const { rows } = await tx.query<{ id: string; dunning_notice_id: string; channel: NoticeDeliveryRecord['channel']; status: NoticeDeliveryRecord['status']; message_ref: string; occurred_at: Date }>(
+      'SELECT id, dunning_notice_id, channel, status, message_ref, occurred_at FROM whl.dunning_notice_delivery WHERE dunning_notice_id = ANY($1::uuid[]) ORDER BY occurred_at, id',
+      [[...new Set(noticeIds)]],
+    );
+    return rows.map((r) => ({ id: r.id, noticeId: r.dunning_notice_id, channel: r.channel, status: r.status, messageRef: r.message_ref, occurredAt: r.occurred_at }));
   }
 }

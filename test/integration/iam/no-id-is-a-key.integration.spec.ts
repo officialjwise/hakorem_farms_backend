@@ -95,6 +95,7 @@ const PUBLIC_WITH_IDENTIFIER: Readonly<Record<string, string>> = {
   acceptQuoteByLink: 'quo/quotes: a replaced, expired or guessed token, the quote id and its number accept nothing (CR-047)',
   declineQuoteByLink: 'quo/quotes: only the live version’s own token declines it (CR-047)',
   receiveMessagingWebhook: 'ntf/templates-and-reports: refused without the provider’s signature over the raw body, and a report changes only a message’s delivery status (abuse case 57)',
+  getSharedDocument: 'ntf/document-sends: a guessed, altered or expired token, the document id, its archive id and its number open nothing (ADR-0074, ADR-0099)',
   getPublicReceipt: 'pos/receipt-link: a guessed, altered, expired, revoked or reused token, the sale id, its numbers and a SKU open nothing (CR-033, ADR-0083)',
 };
 

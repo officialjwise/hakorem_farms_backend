@@ -1,0 +1,39 @@
+operationId: getSharedDocument
+tags:
+  - doc
+summary: "Open a document sent by message, by its link"
+description: "A billing document, a customer's statement or a supplier's remittance advice sent by SMS (2.42.0, ADR-0062, ADR-0074, ADR-0084, ADR-0099): the message carries a link of its own, a `doc_` token (47 characters: `doc_` and 43 base64url characters of 32 random bytes) made by the sending worker just before the provider call, a new one at each attempt, stored only as its SHA-256 and valid for thirty days. **No session; the token is the only key.** The answer is a signed link, five minutes long and logged, to exactly the archived rendering the token was made for: its bytes are the archive's, and `sha256` is the archived SHA-256, which never changes. **One answer for everything else, 404 `NOT_FOUND`:** a token never sent, mistyped, guessed or altered, expired, a document's id or number, another kind of link's token, or a rendering whose file has not passed the scan. It carries no id of anything. Rate-limited as every public read."
+x-error-codes:
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: token
+    in: path
+    required: true
+    schema:
+      type: string
+      maxLength: 200
+security: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SharedDocument"
+        example:
+          docType: INVOICE
+          documentNo: INV-2026-DDW-000088
+          issuedAt: "2026-11-24T10:15:02Z"
+          sha256: "3f1c9a0b7d2e4f6a8b0c1d2e3f405162738495a6b7c8d9e0f1a2b3c4d5e6f708"
+          url: "https://files.example/archive/inv-2026-ddw-000088.pdf?signature=EXAMPLE"
+          expiresAt: "2026-11-24T10:20:02Z"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -6,7 +6,7 @@
  */
 export { DocModule } from './doc.module';
 export { FILE_PURPOSES, type FilePurpose } from './domain/file-use';
-export { Documents, DOCUMENT_ARCHIVED, type RenderRequest } from './application/documents';
+export { Documents, DOCUMENT_ARCHIVED, DOCUMENT_LINK_PREFIX, LINK_NOT_READY, type DocumentAttachment, type LinkNotReady, type RenderRequest, type SharedDocumentView } from './application/documents';
 export type { ArchivedRecord } from './application/doc-store';
 export { ArchiveHashMismatchError, DocumentNotArchivedError } from './application/errors';
 export { PLATFORM_RENDERER, type DocumentRenderer } from './application/rendering';

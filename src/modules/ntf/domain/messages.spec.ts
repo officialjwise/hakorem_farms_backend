@@ -2,10 +2,15 @@ import { describe, expect, it } from 'vitest';
 import {
   afterAttempt,
   afterReport,
+  balanceLine,
+  documentWord,
   customerMessageOf,
   itemsLine,
   judgeRetry,
   maskAddress,
+  maskAnyAddress,
+  maskEmail,
+  normalisedAddress,
   MAX_SEND_ATTEMPTS,
   messageKey,
   mortalityReturnedOf,
@@ -102,6 +107,21 @@ describe('the message log, its attempts and its reports (FR-NTF-003, FR-NTF-007)
     expect(() => maskAddress('0244512856')).toThrow(/E.164/);
   });
 
+  it('masks an email as its first character, ***@ and its domain, at most 40 characters (B11 continued 13)', () => {
+    expect(maskEmail('kwabena.feeds@example.com')).toBe('k***@example.com');
+    expect(maskEmail(`a@${'d'.repeat(60)}.com`)).toHaveLength(40);
+    expect(() => maskEmail('@example.com')).toThrow(/email/);
+    expect(() => maskEmail('kwabena@')).toThrow(/email/);
+    expect(() => maskEmail('kwabena')).toThrow(/email/);
+    expect(maskAnyAddress('kwabena.feeds@example.com')).toBe('k***@example.com');
+    expect(maskAnyAddress('+233244512856')).toBe('+23324*****56');
+  });
+
+  it('compares an email in lower case and a number as it is', () => {
+    expect(normalisedAddress(' Kwabena.Feeds@Example.COM ')).toBe('kwabena.feeds@example.com');
+    expect(normalisedAddress('+233244512856')).toBe('+233244512856');
+  });
+
   it('keys a message by its event, template, channel and recipient', () => {
     expect(messageKey('e', 'ORDER_DISPATCHED', 'SMS', 'o')).toBe('e:ORDER_DISPATCHED:SMS:o');
   });
@@ -160,5 +180,25 @@ describe('a payment reminder and a returned death report (B11 continued 11)', ()
     expect(mortalityReturnedOf('EVIDENCE_UNSCANNABLE', 'G-0171').data['reason']).toBe('the photograph could not be scanned');
     expect(mortalityReturnedOf('constructor', 'G-0171').data['reason']).toBe('the photograph could not be used');
     expect(mortalityReturnedOf(7, 'G-0171').data['reason']).toBe('the photograph could not be used');
+  });
+});
+
+describe('the document sends (B11 continued 13)', () => {
+  it('names each kind of document in words, and anything else a document', () => {
+    expect(['INVOICE', 'RECEIPT', 'CREDIT_NOTE', 'DEBIT_NOTE', 'PROFORMA', 'STATEMENT', 'REMITTANCE_ADVICE'].map(documentWord)).toEqual([
+      'invoice',
+      'receipt',
+      'credit note',
+      'debit note',
+      'proforma invoice',
+      'statement',
+      'document',
+    ]);
+  });
+
+  it("gives a statement's closing balance as owed, or as held in credit, to the pesewa", () => {
+    expect(balanceLine(127_500n, 0n)).toBe('GHS 1,275.00');
+    expect(balanceLine(0n, 4_005n)).toBe('GHS 40.05 in credit');
+    expect(balanceLine(0n, 0n)).toBe('GHS 0.00');
   });
 });

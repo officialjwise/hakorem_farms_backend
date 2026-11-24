@@ -11,6 +11,7 @@ import type { DeliveryReportRejected, MessageFailed } from '../events';
 import { MESSAGE_FAILED } from './message-sender';
 import type { NtfStore, ProviderReportRecord, ReportOutcome } from './ntf-store';
 import type { OptOuts } from './opt-outs';
+import type { ReminderDeliveries } from './reminders';
 
 export const DELIVERY_REPORT_REJECTED = 'ntf.DeliveryReportRejected';
 /** The principal a messaging provider's webhook acts as (migration 0336): it holds no grant. */
@@ -91,6 +92,8 @@ export class DeliveryReports {
     private readonly secret: string | undefined,
     private readonly clock: Clock,
     private readonly logger: Logger,
+    /** Records a payment reminder's reported delivery on its dunning notice (B11 continued 13). */
+    private readonly deliveries: ReminderDeliveries | null = null,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -132,6 +135,7 @@ export class DeliveryReports {
       }
       if (message === null || next === null) return;
       await this.store.applyReport(tx, message.id, next, receivedAt, MESSAGING_WEBHOOK_ACTOR.principalId);
+      if (this.deliveries !== null) await this.deliveries.recordIn(tx, message, next, receivedAt, MESSAGING_WEBHOOK_ACTOR.principalId);
       if (next === 'FAILED') {
         await this.events.publish<MessageFailed>(tx, {
           type: MESSAGE_FAILED,

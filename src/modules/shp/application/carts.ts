@@ -111,17 +111,23 @@ export class Carts {
     return this.uow.run({ isolation: 'read committed' }, async (tx) => this.viewIn(tx, await this.ownedIn(tx, token, id, false)));
   }
 
-  addLine(token: GuestToken, id: string, body: { readonly productId: string; readonly quantity: string }, key: string): Promise<StoredResponse<CartView>> {
+  /**
+   * addCartLine: whole units of one unit of a product (CR-039: `uom`, a crate or a single egg, one the product is sold by
+   * online; left out, its sale unit). A product in two units is two lines, each priced by its own unit's entry.
+   */
+  addLine(token: GuestToken, id: string, body: { readonly productId: string; readonly quantity: string; readonly uom?: string | undefined }, key: string): Promise<StoredResponse<CartView>> {
     return this.write(token, id, 'addCartLine', body, key, async (tx, cart) => {
       const quantity = Quantity.parse(body.quantity);
       if (!wholeUnits(quantity)) throw new QuantityInvalidError('WHOLE_UNITS');
       const product = await this.sellableIn(tx, body.productId, '/productId');
+      const uom = body.uom ?? product.saleUom;
+      if (uom !== product.saleUom && !(await this.listing.sellingUomsIn(tx, cart.branchId, product)).includes(uom)) throw new ProductUnavailableError('/uom', 'UOM_NOT_SOLD');
       const lines = await this.store.cartLines(tx, cart.id);
-      const existing = lines.find((line) => line.productId === product.id);
+      const existing = lines.find((line) => line.productId === product.id && line.uom === uom);
       if (existing === undefined && lines.length >= MAX_CART_LINES) throw new QuantityInvalidError('TOO_MANY_LINES');
       const total = existing === undefined ? quantity : Quantity.parse(existing.qty).plus(quantity);
-      const price = await this.unitPriceIn(tx, cart, product, total, '/productId');
-      await this.store.upsertCartLine(tx, cart.id, { id: existing?.id ?? this.nextId(), productId: product.id, qty: total.toDecimalString(), uom: product.saleUom, displayedUnitPricePesewas: price });
+      const price = await this.unitPriceIn(tx, cart, product, total, body.uom === undefined ? '/productId' : '/uom', uom);
+      await this.store.upsertCartLine(tx, cart.id, { id: existing?.id ?? this.nextId(), productId: product.id, qty: total.toDecimalString(), uom, displayedUnitPricePesewas: price });
     });
   }
 
@@ -132,7 +138,7 @@ export class Carts {
       const line = (await this.store.cartLines(tx, cart.id)).find((l) => l.id === lineId);
       if (line === undefined) throw new NotFoundError(`no cart line ${lineId}`);
       const product = await this.sellableIn(tx, line.productId, '/quantity');
-      await this.store.setCartLineQty(tx, cart.id, lineId, quantity.toDecimalString(), await this.unitPriceIn(tx, cart, product, quantity, '/quantity'));
+      await this.store.setCartLineQty(tx, cart.id, lineId, quantity.toDecimalString(), await this.unitPriceIn(tx, cart, product, quantity, '/quantity', line.uom));
     });
   }
 
@@ -173,7 +179,7 @@ export class Carts {
     const listings = await this.store.listings(tx, cart.branchId, lines.map((l) => l.productId));
     const sellable = lines.filter((l) => products.get(l.productId)?.onlineMode === 'LISTED');
     const prices = new Map(
-      (await priceLinesIn(this.pricing, tx, cart.branchId, null, sellable.map((l) => ({ lineRef: l.id, product: products.get(l.productId)!, quantity: Quantity.parse(l.qty) })))).map((p) => [p.lineRef, p] as const),
+      (await priceLinesIn(this.pricing, tx, cart.branchId, null, sellable.map((l) => ({ lineRef: l.id, product: products.get(l.productId)!, quantity: Quantity.parse(l.qty), uom: l.uom })))).map((p) => [p.lineRef, p] as const),
     );
     const promisable = await this.stock.promisableIn(tx, cart.branchId, sellable.map((l) => l.productId));
     const views = [];
@@ -211,7 +217,7 @@ export class Carts {
   }
 
   private async coveredIn(tx: Transaction, product: OnlineProductFacts, line: CartLineRecord, promisable: Awaited<ReturnType<StockQueries['promisableIn']>>): Promise<boolean> {
-    const needed = Quantity.parse(line.qty).thousandths * (await this.listing.perSaleUnit(tx, product)).thousandths;
+    const needed = Quantity.parse(line.qty).thousandths * (await this.listing.perUnit(tx, product, line.uom)).thousandths;
     const held = Quantity.sum(promisable.filter((r) => r.productId === product.id).map((r) => r.availableQty)).thousandths * THOUSANDTHS_PER_UNIT;
     return held >= needed;
   }
@@ -239,8 +245,8 @@ export class Carts {
     return product;
   }
 
-  private async unitPriceIn(tx: Transaction, cart: CartRecord, product: OnlineProductFacts, quantity: Quantity, field: string): Promise<bigint> {
-    const [price] = await priceLinesIn(this.pricing, tx, cart.branchId, null, [{ lineRef: 'line', product, quantity }]);
+  private async unitPriceIn(tx: Transaction, cart: CartRecord, product: OnlineProductFacts, quantity: Quantity, field: string, uom: string): Promise<bigint> {
+    const [price] = await priceLinesIn(this.pricing, tx, cart.branchId, null, [{ lineRef: 'line', product, quantity, uom }]);
     if (price?.kind !== 'PRICED') throw new ProductUnavailableError(field, 'NO_ONLINE_PRICE');
     return price.unitPrice.pesewas;
   }

@@ -44,6 +44,18 @@ export function normaliseGhanaPhone(input: string): Result<string, 'INVALID_PHON
   return national !== null && GHANA_NATIONAL.test(national) ? ok(`+${GHANA}${national}`) : err('INVALID_PHONE');
 }
 
+/**
+ * Whether an address a sender typed is the party's own (B11 continued 13, `DocumentSendRequest.recipient`): an email the
+ * same in any case, or a phone the same once both are in E.164. Anything else, and anything for a party with no
+ * address, is not: a document is never sent to an address its customer or supplier does not hold.
+ */
+export function isPartyAddress(recipient: string, party: { readonly phoneE164: string | null; readonly email: string | null }): boolean {
+  const typed = recipient.trim();
+  if (typed.includes('@')) return party.email !== null && party.email.trim().toLowerCase() === typed.toLowerCase();
+  const phone = normaliseGhanaPhone(typed);
+  return phone.ok && party.phoneE164 !== null && phone.value === party.phoneE164;
+}
+
 export interface AddressInput {
   readonly region: string;
   readonly line1: string;

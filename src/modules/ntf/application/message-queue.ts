@@ -6,7 +6,7 @@ import { DISPATCHER_PRINCIPAL } from '../../../platform/events/outbox-dispatcher
 import type { MasterDataRefs } from '../../mdm';
 import type { Orders } from '../../ord';
 import { LINK_PLACEHOLDER, linkDataOf, linkKindOf } from '../domain/links';
-import { maskAddress, messageKey, RECIPIENT_WINDOW_MS, withinRecipientLimit, type SuppressedReason } from '../domain/messages';
+import { maskAnyAddress, messageKey, normalisedAddress, RECIPIENT_WINDOW_MS, withinRecipientLimit, type SuppressedReason } from '../domain/messages';
 import { quietHoursApply, quietUntil, routeMessage, type QuietHours } from '../domain/routing';
 import { render, TEMPLATE_CODES, type Category, type Channel, type TemplateCode } from '../domain/templates';
 import type { MessageSuppressed } from '../events';
@@ -31,6 +31,7 @@ export const PUBLISHED_SUPPRESSIONS: Readonly<Partial<Record<SuppressedReason, n
 export type MessageRecipient =
   | { readonly kind: 'ORDER'; readonly orderId: string }
   | { readonly kind: 'CUSTOMER'; readonly customerId: string; readonly branchId: string }
+  | { readonly kind: 'SUPPLIER'; readonly supplierId: string; readonly branchId: string }
   | { readonly kind: 'PRINCIPAL'; readonly principalId: string; readonly branchId: string | null };
 
 export interface MessageSpec {
@@ -38,7 +39,7 @@ export interface MessageSpec {
   readonly code: TemplateCode;
   readonly recipient: MessageRecipient;
   readonly data: Readonly<Record<string, string>>;
-  /** The record the idempotency key names: the order, the dunning notice, the death report. */
+  /** The record the idempotency key names: the order, the dunning notice, the death report, a send, a remittance. */
   readonly recordId: string;
   /** Channels the source itself allows (a reminder level's), intersected with the trigger's; null for all. */
   readonly allowedChannels?: readonly Channel[] | null;
@@ -49,16 +50,24 @@ export interface MessageSpec {
    * the message is sent, never now (ADR-0074).
    */
   readonly linkRecordId?: string | null;
+  /**
+   * One message about the record ever, whatever event names it (B11 continued 13): a remittance advice goes once per
+   * payment, so a second event for the same advice, forged or replayed, queues nothing.
+   */
+  readonly oncePerRecord?: boolean;
 }
 
 /** A recipient's address and identity as read now, with what its preferences are kept under. */
 export interface ResolvedRecipient {
-  readonly kind: 'CUSTOMER' | 'CONTACT' | 'STAFF';
+  readonly kind: 'CUSTOMER' | 'CONTACT' | 'STAFF' | 'SUPPLIER';
   readonly branchId: string | null;
   readonly salesOrderId: string | null;
   readonly customerId: string | null;
   readonly principalId: string | null;
+  readonly supplierId: string | null;
   readonly phoneE164: string | null;
+  /** The party's own email (a customer's or a supplier's, B11 continued 13); an order's contact has none. */
+  readonly email: string | null;
   readonly owner: PreferenceOwner | null;
 }
 
@@ -91,27 +100,44 @@ export class RecipientFacts {
         salesOrderId: contact.orderId,
         customerId: contact.customerId,
         principalId: null,
+        supplierId: null,
         phoneE164: contact.phoneE164,
+        email: null,
         owner: contact.customerId === null ? null : { customerId: contact.customerId },
       };
     }
     if (recipient.kind === 'CUSTOMER') {
-      const customer = (await this.refs.customerContactsIn(tx, [recipient.customerId])).get(recipient.customerId);
+      const customer = (await this.refs.partyAddressesIn(tx, 'CUSTOMER', [recipient.customerId])).get(recipient.customerId);
       if (customer === undefined) return null;
-      return { kind: 'CUSTOMER', branchId: recipient.branchId, salesOrderId: null, customerId: customer.id, principalId: null, phoneE164: customer.phoneE164, owner: { customerId: customer.id } };
+      return { kind: 'CUSTOMER', branchId: recipient.branchId, salesOrderId: null, customerId: customer.id, principalId: null, supplierId: null, phoneE164: customer.phoneE164, email: customer.email, owner: { customerId: customer.id } };
     }
-    return { kind: 'STAFF', branchId: recipient.branchId, salesOrderId: null, customerId: null, principalId: recipient.principalId, phoneE164: null, owner: { principalId: recipient.principalId } };
+    if (recipient.kind === 'SUPPLIER') {
+      // A supplier keeps no preferences in NTF: its remittance advice is transactional, by the trigger's channels.
+      const supplier = (await this.refs.partyAddressesIn(tx, 'SUPPLIER', [recipient.supplierId])).get(recipient.supplierId);
+      if (supplier === undefined) return null;
+      return { kind: 'SUPPLIER', branchId: recipient.branchId, salesOrderId: null, customerId: null, principalId: null, supplierId: supplier.id, phoneE164: supplier.phoneE164, email: supplier.email, owner: null };
+    }
+    return { kind: 'STAFF', branchId: recipient.branchId, salesOrderId: null, customerId: null, principalId: recipient.principalId, supplierId: null, phoneE164: null, email: null, owner: { principalId: recipient.principalId } };
   }
 
-  /** The number as it is now for a message being sent: its order's contact, else its customer's own (A-374 (b)). */
-  async phoneIn(tx: Transaction, message: { readonly salesOrderId: string | null; readonly customerId: string | null }): Promise<string | null> {
-    if (message.salesOrderId !== null) return (await this.orders.messageContactsIn(tx, [message.salesOrderId])).get(message.salesOrderId)?.phoneE164 ?? null;
-    if (message.customerId !== null) return (await this.refs.customerContactsIn(tx, [message.customerId])).get(message.customerId)?.phoneE164 ?? null;
-    return null;
+  /** The address a channel reaches the recipient at: an email for EMAIL, else the phone number; null for the console. */
+  addressFor(recipient: Pick<ResolvedRecipient, 'phoneE164' | 'email'>, channel: Channel): string | null {
+    if (channel === 'IN_APP') return null;
+    return channel === 'EMAIL' ? recipient.email : recipient.phoneE164;
   }
 
-  async optedOutIn(tx: Transaction, phone: string | null): Promise<ReadonlySet<Channel>> {
-    return phone === null ? new Set() : this.store.optedOutChannels(tx, this.hasher.hash(phone));
+  /**
+   * The address as it is now for a message being sent (A-374 (b)): its order's contact, else its customer's or its
+   * supplier's own, by the message's channel (an email for EMAIL, B11 continued 13).
+   */
+  async addressIn(tx: Transaction, message: { readonly salesOrderId: string | null; readonly customerId: string | null; readonly supplierId: string | null; readonly channel: Channel }): Promise<string | null> {
+    if (message.channel !== 'EMAIL' && message.salesOrderId !== null) return (await this.orders.messageContactsIn(tx, [message.salesOrderId])).get(message.salesOrderId)?.phoneE164 ?? null;
+    const party = message.customerId !== null ? (await this.refs.partyAddressesIn(tx, 'CUSTOMER', [message.customerId])).get(message.customerId) : message.supplierId !== null ? (await this.refs.partyAddressesIn(tx, 'SUPPLIER', [message.supplierId])).get(message.supplierId) : undefined;
+    return party === undefined ? null : this.addressFor(party, message.channel);
+  }
+
+  async optedOutIn(tx: Transaction, address: string | null): Promise<ReadonlySet<Channel>> {
+    return address === null ? new Set() : this.store.optedOutChannels(tx, this.hash(address));
   }
 
   async preferencesIn(tx: Transaction, owner: PreferenceOwner | null, category: Category): Promise<PreferenceRecord[]> {
@@ -129,8 +155,8 @@ export class RecipientFacts {
     return customerId !== null && (await this.refs.marketingConsentsIn(tx, [customerId])).has(customerId);
   }
 
-  hash(phone: string): Buffer {
-    return this.hasher.hash(phone);
+  hash(address: string): Buffer {
+    return this.hasher.hash(normalisedAddress(address));
   }
 }
 
@@ -163,6 +189,7 @@ export class MessageQueue {
     const recipient = await this.recipients.resolveIn(tx, spec.recipient);
     if (recipient === null) return false;
     if (await this.store.messageExistsFor(tx, spec.event.id, spec.code, spec.recordId)) return false;
+    if (spec.oncePerRecord === true && (await this.store.messageExistsForRecord(tx, spec.code, spec.recordId))) return false;
     const category = TEMPLATE_CODES[spec.code].category;
     const triggerChannels = spec.allowedChannels == null ? trigger.channels : trigger.channels.filter((c) => spec.allowedChannels!.includes(c));
     if (triggerChannels.length === 0) return false;
@@ -175,11 +202,12 @@ export class MessageQueue {
       return false;
     }
     const at = this.clock.now();
-    const phone = route.channel === 'IN_APP' ? null : recipient.phoneE164;
+    const phone = this.recipients.addressFor(recipient, route.channel);
     const addressHash = phone === null ? null : this.recipients.hash(phone);
     let suppressedReason: SuppressedReason | null = route.kind === 'SUPPRESS' ? route.reason : null;
     if (suppressedReason === null && category === 'MARKETING' && !(await this.recipients.consentedIn(tx, recipient.customerId))) suppressedReason = 'NO_CONSENT';
-    if (suppressedReason === null && route.channel !== 'IN_APP' && phone === null) suppressedReason = 'NO_ADDRESS';
+    // A channel with no adapter yet fails visibly when it is sent (ADR-0097), whatever address it lacks.
+    if (suppressedReason === null && route.channel !== 'IN_APP' && phone === null && this.available.has(route.channel)) suppressedReason = 'NO_ADDRESS';
     if (suppressedReason === null && route.channel === 'IN_APP' && recipient.principalId === null) suppressedReason = 'NO_ADDRESS';
     if (suppressedReason === null && addressHash !== null && !withinRecipientLimit(await this.store.queuedToAddressSince(tx, addressHash, new Date(at.getTime() - RECIPIENT_WINDOW_MS)))) suppressedReason = 'RATE_LIMITED';
     const sendAfter = suppressedReason === null && quietHoursApply(category) ? quietUntil(at, this.recipients.ownQuietHours(preferences, route.channel)) : null;
@@ -202,7 +230,9 @@ export class MessageQueue {
       recipientKind: recipient.kind,
       customerId: recipient.customerId,
       principalId: recipient.principalId,
-      addressMasked: phone === null ? '' : maskAddress(phone),
+      supplierId: recipient.supplierId,
+      recordId: spec.recordId,
+      addressMasked: phone === null ? '' : maskAnyAddress(phone),
       addressHash,
       renderedBody,
       renderedSubject: template.subject === null ? null : render(template.subject, spec.data),

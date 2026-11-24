@@ -296,6 +296,7 @@ describe('triggers (FR-NTF-002, listNotificationTriggers, updateNotificationTrig
     const listed = await get('accountant', '/notification-triggers?limit=100');
     expect(listed.status, JSON.stringify(listed.body)).toBe(200);
     expect(listed.body.data.map((t: { eventType: string; templateCode: string; recipientKind: string; channels: string[] }) => `${t.eventType}>${t.templateCode}>${t.recipientKind}>${t.channels.join('+')}`)).toEqual([
+      'bil.DocumentSendRequested>DOCUMENT_SENT>CUSTOMER>SMS+WHATSAPP+EMAIL',
       'del.DeliveryCancelled>DELIVERY_CANCELLED>CONTACT_ON_EVENT>SMS',
       'del.DeliveryCompleted>DELIVERY_COMPLETED>CONTACT_ON_EVENT>SMS',
       'del.DeliveryCompleted>DELIVERY_PART_COMPLETED>CONTACT_ON_EVENT>SMS',
@@ -306,10 +307,12 @@ describe('triggers (FR-NTF-002, listNotificationTriggers, updateNotificationTrig
       'ord.OrderCompleted>SALE_RECEIPT>CONTACT_ON_EVENT>SMS',
       'ord.OrderDispatched>ORDER_DISPATCHED>CONTACT_ON_EVENT>SMS',
       'ord.OrderPlaced>ORDER_TRACKING>CONTACT_ON_EVENT>SMS',
+      'pur.SupplierRemittanceReady>REMITTANCE_ADVICE>SUPPLIER>SMS+EMAIL',
       'shp.CartAbandoned>CART_REMINDER>CUSTOMER>SMS',
       'whl.DunningNoticeDue>PAYMENT_REMINDER_1>CUSTOMER>SMS+WHATSAPP+EMAIL',
       'whl.DunningNoticeDue>PAYMENT_REMINDER_2>CUSTOMER>SMS+WHATSAPP+EMAIL',
       'whl.DunningNoticeDue>PAYMENT_REMINDER_3>CUSTOMER>SMS+WHATSAPP+EMAIL',
+      'whl.StatementSendRequested>DOCUMENT_SENT>CUSTOMER>SMS+WHATSAPP+EMAIL',
     ]);
     const paged = await get('sales', '/notification-triggers?limit=4');
     const next = await get('sales', `/notification-triggers?limit=4&cursor=${encodeURIComponent(paged.body.page.nextCursor as string)}`);

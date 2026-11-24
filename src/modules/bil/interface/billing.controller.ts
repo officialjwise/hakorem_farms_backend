@@ -7,7 +7,7 @@ import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operatio
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import { Billing, type ApprovalPendingView, type BillingDocumentView, type Page, type ReprintLogView, type ReprintView } from '../application/billing';
-import { BillingDocumentPageQuery, CreditNoteCreate, DebitNoteCreate, IdParam, ReprintPageQuery, ReprintRequest } from './schemas';
+import { BillingDocumentPageQuery, CreditNoteCreate, DebitNoteCreate, DocumentSendRequest, IdParam, ReprintPageQuery, ReprintRequest } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -83,6 +83,18 @@ export class BillingController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<ReprintView> {
     return reply(res, this.billing.reprint(actor, id, body, key));
+  }
+
+  @Post(':id/send')
+  @Operation({ operationId: 'sendBillingDocument', ...WRITE, permission: 'bil.document.send' })
+  sendBillingDocument(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(DocumentSendRequest)) body: z.infer<typeof DocumentSendRequest>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ readonly status: 'QUEUED'; readonly message: string }> {
+    return reply(res, this.billing.send(actor, id, body, key));
   }
 
   @Get(':id/reprints')

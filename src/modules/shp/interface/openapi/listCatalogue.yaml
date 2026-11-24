@@ -82,6 +82,12 @@ responses:
                   nominalPackKg: null
                   catchWeight: false
                   availability: ON_REQUEST
+                  sellingUnits:
+                    - uom: HEAD
+                      uomName: Head
+                      priceFromPesewas: 12000
+                      priceToPesewas: 195000
+                      availability: ON_REQUEST
                   image:
                     alt: Goat
                     variants:
@@ -115,6 +121,12 @@ responses:
                   nominalPackKg: null
                   catchWeight: false
                   availability: ON_REQUEST
+                  sellingUnits:
+                    - uom: HEAD
+                      uomName: Head
+                      priceFromPesewas: 15000
+                      priceToPesewas: 300000
+                      availability: ON_REQUEST
                   image:
                     alt: Sheep
                     variants:
@@ -148,6 +160,12 @@ responses:
                   nominalPackKg: null
                   catchWeight: false
                   availability: ON_REQUEST
+                  sellingUnits:
+                    - uom: HEAD
+                      uomName: Head
+                      priceFromPesewas: 15000
+                      priceToPesewas: 220000
+                      availability: ON_REQUEST
                   image:
                     alt: "Baby pig"
                     variants:
@@ -181,6 +199,12 @@ responses:
                   nominalPackKg: null
                   catchWeight: false
                   availability: IN_STOCK
+                  sellingUnits:
+                    - uom: HEAD
+                      uomName: Head
+                      priceFromPesewas: 17000
+                      priceToPesewas: null
+                      availability: IN_STOCK
                   image:
                     alt: "Broiler chicken"
                     variants:
@@ -214,6 +238,12 @@ responses:
                   nominalPackKg: null
                   catchWeight: false
                   availability: OUT_OF_STOCK
+                  sellingUnits:
+                    - uom: HEAD
+                      uomName: Head
+                      priceFromPesewas: 14000
+                      priceToPesewas: null
+                      availability: OUT_OF_STOCK
                   image:
                     alt: "Local chicken"
                     variants:
@@ -247,6 +277,17 @@ responses:
                   nominalPackKg: null
                   catchWeight: false
                   availability: IN_STOCK
+                  sellingUnits:
+                    - uom: CRATE
+                      uomName: Crate
+                      priceFromPesewas: 6000
+                      priceToPesewas: null
+                      availability: IN_STOCK
+                    - uom: EGG
+                      uomName: Egg
+                      priceFromPesewas: 220
+                      priceToPesewas: null
+                      availability: IN_STOCK
                   image:
                     alt: "Eggs, big, crate of 30"
                     variants:
@@ -280,6 +321,17 @@ responses:
                   nominalPackKg: null
                   catchWeight: false
                   availability: IN_STOCK
+                  sellingUnits:
+                    - uom: CRATE
+                      uomName: Crate
+                      priceFromPesewas: 4500
+                      priceToPesewas: null
+                      availability: IN_STOCK
+                    - uom: EGG
+                      uomName: Egg
+                      priceFromPesewas: 170
+                      priceToPesewas: null
+                      availability: IN_STOCK
                   image:
                     alt: "Eggs, small, crate of 30"
                     variants:
@@ -313,6 +365,12 @@ responses:
                   nominalPackKg: "15.000"
                   catchWeight: true
                   availability: LOW_STOCK
+                  sellingUnits:
+                    - uom: PACK
+                      uomName: Pack
+                      priceFromPesewas: 2000
+                      priceToPesewas: null
+                      availability: LOW_STOCK
                   image:
                     alt: "Full chicken, 15 kg pack"
                     variants:

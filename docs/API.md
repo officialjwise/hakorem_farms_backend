@@ -1193,6 +1193,12 @@ Templates (versioned; `activateNotificationTemplate`), trigger rules, the messag
 - **In-app notifications** (`listMyNotifications` with `unreadCount`, `markNotificationRead`; every realm, one's own only, another's 404; read once, no idempotency key): each a message on `IN_APP` the sender writes, with a title and a console path. The first: a death report the scan sent back reaches its reporter (`MORTALITY_RETURNED`).
 - **B11 continued 12:** the document sends, the remittance advice, the receipt and tracking SMS, abandoned carts, a dunning level picking a listed template and each reminder's delivery on its notice.
 
+**Built in B11 continued 13 (2.42.0, ADR-0099, A-288 to A-290): the document sends, the remittance advice and each reminder's delivery.**
+- **`sendBillingDocument`** (BIL, `bil.document.send`: the Owner, the Manager, the Cashier) and **`sendStatement`** (WHL, `whl.statement.create`): 202 `QUEUED` through the outbox, a billing document's copy logged with its channel; the message (`DOCUMENT_SENT`) goes to the document's own customer's address read through MDM at send, never `recipient`, which may only be the customer's own (422 `RECIPIENT_NOT_DOCUMENT_PARTY`, or `DOCUMENT_HAS_NO_PARTY`). The remittance advice (`REMITTANCE_ADVICE`) goes once per payment to the payment's own supplier from `pur.SupplierRemittanceReady`, and waits while its archive is made.
+- **`getSharedDocument`** (DOC, public, `public` rate limit): the `doc_` token alone, made by the sending worker at each attempt and stored only as its hash for thirty days, answers `SharedDocument` with a five-minute signed link to exactly the archived rendering; anything else is the same 404. The storefront routes `/d/<token>` to it.
+- **Email** carries the archived PDF and the link through the adapter shape; with no email adapter (until B13) it fails visibly. **`DunningNotice.deliveries`**: each reminder's latest outcome per channel (`SENT`, `DELIVERED`, `FAILED`). A dunning level's `templateCode` is one of `PAYMENT_REMINDER_1` to `3`.
+- **CR-039 (SHP):** `CatalogueItem.sellingUnits`, `ProductDetail.sellingUnits` and `CartLineAdd.uom`: a crate and a single egg, each at its own price, as two cart lines (422 `PRODUCT_UNAVAILABLE` `UOM_NOT_SOLD` for a unit not sold online).
+
 ### Integrations (`api`, 15)
 
 Integrations, event types, webhook endpoints and deliveries including the dead letter queue (section 14), and accounting exports (`createAccountingExport` needs step-up). Creating an integration needs step-up; keys are issued through `iam` (section 3.8).

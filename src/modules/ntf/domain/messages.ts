@@ -14,6 +14,12 @@ export const RETRY_MAX_MS = 900_000;
 /** How long a sender holds a claimed message before another worker may take it over (a worker that died mid-send). */
 export const CLAIM_LEASE_MS = 120_000;
 /**
+ * How long a message whose document is not yet archived waits before it is tried again (B11 continued 13, A-288 (c)):
+ * a remittance advice or a document still rendering after its paying or issuing transaction. Waiting is no attempt, so
+ * such a message never fails for good while its document is on its way.
+ */
+export const DOCUMENT_WAIT_MS = 60_000;
+/**
  * The most messages one recipient is queued in an hour (abuse case 58, a reminder storm): a fault that publishes the
  * same kind of event over and over reaches the customer this many times at most; the rest are SUPPRESSED, visible.
  */
@@ -144,6 +150,25 @@ export function reminderMessageOf(notice: NoticeFacts, customerName: string): { 
   };
 }
 
+const DOCUMENT_WORDS: Readonly<Record<string, string>> = {
+  INVOICE: 'invoice',
+  RECEIPT: 'receipt',
+  CREDIT_NOTE: 'credit note',
+  DEBIT_NOTE: 'debit note',
+  PROFORMA: 'proforma invoice',
+  STATEMENT: 'statement',
+};
+
+/** A sent document's kind as its message names it (B11 continued 13): `invoice`, `credit note`, `statement`, and so on. */
+export function documentWord(kind: string): string {
+  return Object.hasOwn(DOCUMENT_WORDS, kind) ? DOCUMENT_WORDS[kind]! : 'document';
+}
+
+/** A statement's closing balance as its message gives it: what is owed, or what is held in credit. */
+export function balanceLine(closingPesewas: bigint, closingCreditPesewas: bigint): string {
+  return closingCreditPesewas > 0n ? `${formatCedis(closingCreditPesewas)} in credit` : formatCedis(closingPesewas);
+}
+
 /** The reminder codes a dunning level may name (`listNotificationTemplates?category=REMINDER` lists their versions). */
 export const REMINDER_CODES: ReadonlySet<string> = new Set(['PAYMENT_REMINDER_1', 'PAYMENT_REMINDER_2', 'PAYMENT_REMINDER_3']);
 
@@ -175,6 +200,23 @@ export function maskAddress(e164: string): string {
   const shown = 6;
   const tail = 2;
   return `${e164.slice(0, shown)}${'*'.repeat(e164.length - shown - tail)}${e164.slice(-tail)}`;
+}
+
+/** An email address as the log shows it (B11 continued 13): its first character, then `***@` and its domain, at most 40. */
+export function maskEmail(email: string): string {
+  const at = email.lastIndexOf('@');
+  if (at < 1 || at === email.length - 1) throw new RangeError('not an email address');
+  return `${email[0]!}***@${email.slice(at + 1)}`.slice(0, 40);
+}
+
+/** Whichever address a message goes to, masked: a phone number in E.164 or an email address. */
+export function maskAnyAddress(address: string): string {
+  return address.includes('@') ? maskEmail(address) : maskAddress(address);
+}
+
+/** An address as it is hashed and compared: an email in lower case, a phone number as it is (E.164). */
+export function normalisedAddress(address: string): string {
+  return address.includes('@') ? address.trim().toLowerCase() : address;
 }
 
 /** The idempotency key that makes a message exist at most once: its source event, its template and its channel (FR-NTF-003). */

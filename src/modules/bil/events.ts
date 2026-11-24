@@ -68,3 +68,15 @@ export interface DebitNoteIssued extends BillingDocumentPayload {
 export interface ProformaIssued extends BillingDocumentPayload {
   readonly kind: 'PROFORMA';
 }
+
+/**
+ * `bil.DocumentSendRequested` v1 (B11 continued 13, ADR-0062, ADR-0099): an issued, archived billing document was asked
+ * to be sent to its own customer, logged as a copy (`bil.reprint_log`, `sendId`, `copyNo`). NTF queues one message from
+ * it, to the customer's own address read through MDM when it is sent, never from this event, which carries no address.
+ */
+export interface DocumentSendRequested {
+  readonly sendId: string;
+  readonly billingDocumentId: string;
+  readonly copyNo: number;
+  readonly channels: readonly ('SMS' | 'WHATSAPP' | 'EMAIL')[];
+}

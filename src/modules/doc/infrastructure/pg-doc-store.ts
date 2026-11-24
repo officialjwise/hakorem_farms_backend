@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { ArchiveFilter, ArchivedRecord, DocStore, NewArchived, RenderJobRecord, TemplateOutput, TemplateRecord, VersionRecord } from '../application/doc-store';
+import type { ArchiveFilter, ArchivedRecord, DocStore, NewArchived, NewDocumentLink, RenderJobRecord, TemplateOutput, TemplateRecord, VersionRecord } from '../application/doc-store';
 
 const TEMPLATE_COLUMNS = `t.id, t.doc_type, t.output, t.name, t.active_version_id, t.version,
   (SELECT count(*) FROM doc.template_version v WHERE v.template_id = t.id)::int AS version_count`;
@@ -254,5 +254,21 @@ export class PgDocStore implements DocStore {
       [f.branchIds, f.businessDocumentId, f.docType, f.documentNo, f.from, f.to, afterId, limit],
     );
     return rows.map(archived);
+  }
+
+  async insertLink(tx: Transaction, l: NewDocumentLink): Promise<void> {
+    await tx.query('INSERT INTO doc.document_link (id, archived_document_id, token_hash, expires_at, recorded_at, actor_id) VALUES ($1, $2, $3, $4, $5, $6)', [
+      l.id,
+      l.archivedDocumentId,
+      l.tokenHash,
+      l.expiresAt,
+      l.at,
+      l.actorId,
+    ]);
+  }
+
+  async liveLink(tx: Transaction, tokenHash: Buffer, at: Date): Promise<string | null> {
+    const { rows } = await tx.query<{ archived_document_id: string }>('SELECT archived_document_id FROM doc.document_link WHERE token_hash = $1 AND expires_at > $2', [tokenHash, at]);
+    return rows[0]?.archived_document_id ?? null;
   }
 }

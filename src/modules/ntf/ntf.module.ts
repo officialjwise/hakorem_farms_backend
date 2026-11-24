@@ -9,17 +9,21 @@ import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { SMS_CHANNEL, type NotificationChannel } from '../../platform/notifications/notification-channel';
 import { CLOCK, LOGGER } from '../../platform/platform.module';
+import { BilModule, Billing } from '../bil';
 import { DelModule, Slots } from '../del';
+import { DocModule, Documents } from '../doc';
 import { Authoriser, IamModule } from '../iam';
 import { InvModule, StockUnits } from '../inv';
 import { LivModule, MortalityRecords } from '../liv';
 import { MasterDataRefs, MdmModule } from '../mdm';
 import { OnlineOrders, OrdModule, Orders } from '../ord';
 import { PosModule, ReceiptLinks } from '../pos';
+import { PurModule, SupplierPayments } from '../pur';
 import { AbandonedCarts, ShpModule } from '../shp';
-import { Dunning, WhlModule } from '../whl';
+import { Dunning, Statements, WhlModule } from '../whl';
 import { AddressHasher, CustomerMessages } from './application/customer-messages';
 import { DeliveryReports } from './application/delivery-reports';
+import { DocumentSends } from './application/document-sends';
 import { LinkMessages } from './application/link-messages';
 import { MessageLinks } from './application/message-links';
 import { InAppNotifications } from './application/in-app';
@@ -29,7 +33,7 @@ import { MessageSender } from './application/message-sender';
 import { NTF_STORE, type NtfStore } from './application/ntf-store';
 import { OptOuts } from './application/opt-outs';
 import { Preferences } from './application/preferences';
-import { Reminders, StaffNotifications } from './application/reminders';
+import { ReminderDeliveries, Reminders, StaffNotifications } from './application/reminders';
 import { Templates } from './application/templates';
 import { Triggers } from './application/triggers';
 import { PgNtfStore } from './infrastructure/pg-ntf-store';
@@ -43,7 +47,7 @@ import { MessagesController, MessagingWebhooksController, MyNotificationsControl
  * (ADR-0097, A-376). Nothing calls NTF (MODULE_BOUNDARIES).
  */
 @Module({
-  imports: [IamModule, MdmModule, InvModule, LivModule, DelModule, OrdModule, PosModule, ShpModule, WhlModule],
+  imports: [IamModule, MdmModule, DocModule, InvModule, LivModule, BilModule, PurModule, DelModule, OrdModule, PosModule, ShpModule, WhlModule],
   controllers: [TemplatesController, MessagesController, MessagingWebhooksController, TriggersController, OptOutsController, MyNotificationsController],
   providers: [
     { provide: NTF_STORE, useClass: PgNtfStore },
@@ -79,6 +83,7 @@ import { MessagesController, MessagingWebhooksController, MyNotificationsControl
       useFactory: (queue: MessageQueue, dunning: Dunning, refs: MasterDataRefs) => new Reminders(queue, dunning, refs),
       inject: [MessageQueue, Dunning, MasterDataRefs],
     },
+    { provide: ReminderDeliveries, useFactory: (dunning: Dunning) => new ReminderDeliveries(dunning), inject: [Dunning] },
     {
       provide: StaffNotifications,
       useFactory: (queue: MessageQueue, mortality: MortalityRecords, units: StockUnits) => new StaffNotifications(queue, mortality, units),
@@ -90,21 +95,32 @@ import { MessagesController, MessagingWebhooksController, MyNotificationsControl
       inject: [MessageQueue, Orders, MasterDataRefs],
     },
     {
-      // Each link a message carries, made at send by the record's own module (ADR-0074, B11 continued 12).
+      provide: DocumentSends,
+      useFactory: (queue: MessageQueue, billing: Billing, statements: Statements, payments: SupplierPayments, refs: MasterDataRefs) => new DocumentSends(queue, billing, statements, payments, refs),
+      inject: [MessageQueue, Billing, Statements, SupplierPayments, MasterDataRefs],
+    },
+    {
+      // Each link a message carries, made at send by the record's own module (ADR-0074, B11 continued 12); a document's
+      // by DOC, with its archived bytes for an email (B11 continued 13).
       provide: MessageLinks,
-      useFactory: (config: AppConfig, online: OnlineOrders, receipts: ReceiptLinks, carts: AbandonedCarts) =>
-        new MessageLinks(config.RECEIPT_LINK_BASE_URL ?? null, {
-          TRACKING: (tx, orderId, actorId) => online.reissueTrackingIn(tx, orderId, actorId),
-          RECEIPT: (tx, saleId, actorId) => receipts.issueMessageLinkIn(tx, saleId, actorId),
-          CART: (tx, cartId) => carts.remindableIn(tx, cartId),
-        }),
-      inject: [APP_CONFIG, OnlineOrders, ReceiptLinks, AbandonedCarts],
+      useFactory: (config: AppConfig, online: OnlineOrders, receipts: ReceiptLinks, carts: AbandonedCarts, documents: Documents) =>
+        new MessageLinks(
+          config.RECEIPT_LINK_BASE_URL ?? null,
+          {
+            TRACKING: (tx, orderId, actorId) => online.reissueTrackingIn(tx, orderId, actorId),
+            RECEIPT: (tx, saleId, actorId) => receipts.issueMessageLinkIn(tx, saleId, actorId),
+            CART: (tx, cartId) => carts.remindableIn(tx, cartId),
+            DOCUMENT: (tx, documentId, actorId) => documents.issueLinkIn(tx, documentId, actorId),
+          },
+          (documentId) => documents.attachmentOf(documentId),
+        ),
+      inject: [APP_CONFIG, OnlineOrders, ReceiptLinks, AbandonedCarts, Documents],
     },
     {
       provide: MessageSender,
-      useFactory: (uow: UnitOfWork, store: NtfStore, recipients: RecipientFacts, sms: NotificationChannel, events: DomainEvents, clock: Clock, logger: Logger, links: MessageLinks) =>
-        new MessageSender(uow, store, recipients, new Map([['SMS', sms]]), events, clock, logger, Math.random, links),
-      inject: [UnitOfWork, NTF_STORE, RecipientFacts, SMS_CHANNEL, DomainEvents, CLOCK, LOGGER, MessageLinks],
+      useFactory: (uow: UnitOfWork, store: NtfStore, recipients: RecipientFacts, sms: NotificationChannel, events: DomainEvents, clock: Clock, logger: Logger, links: MessageLinks, deliveries: ReminderDeliveries) =>
+        new MessageSender(uow, store, recipients, new Map([['SMS', sms]]), events, clock, logger, Math.random, links, deliveries),
+      inject: [UnitOfWork, NTF_STORE, RecipientFacts, SMS_CHANNEL, DomainEvents, CLOCK, LOGGER, MessageLinks, ReminderDeliveries],
     },
     {
       provide: OptOuts,
@@ -113,8 +129,9 @@ import { MessagesController, MessagingWebhooksController, MyNotificationsControl
     },
     {
       provide: DeliveryReports,
-      useFactory: (uow: UnitOfWork, store: NtfStore, events: DomainEvents, optOuts: OptOuts, config: AppConfig, clock: Clock, logger: Logger) => new DeliveryReports(uow, store, events, optOuts, config.SMS_WEBHOOK_SECRET, clock, logger),
-      inject: [UnitOfWork, NTF_STORE, DomainEvents, OptOuts, APP_CONFIG, CLOCK, LOGGER],
+      useFactory: (uow: UnitOfWork, store: NtfStore, events: DomainEvents, optOuts: OptOuts, config: AppConfig, clock: Clock, logger: Logger, deliveries: ReminderDeliveries) =>
+        new DeliveryReports(uow, store, events, optOuts, config.SMS_WEBHOOK_SECRET, clock, logger, deliveries),
+      inject: [UnitOfWork, NTF_STORE, DomainEvents, OptOuts, APP_CONFIG, CLOCK, LOGGER, ReminderDeliveries],
     },
     {
       provide: Preferences,
@@ -141,6 +158,7 @@ export class NtfModule implements OnModuleInit {
     @Inject(Reminders) private readonly reminders: Reminders,
     @Inject(StaffNotifications) private readonly staff: StaffNotifications,
     @Inject(LinkMessages) private readonly links: LinkMessages,
+    @Inject(DocumentSends) private readonly documentSends: DocumentSends,
   ) {}
 
   onModuleInit(): void {
@@ -148,5 +166,6 @@ export class NtfModule implements OnModuleInit {
     this.events.registerConsumer(this.reminders.consumer);
     this.events.registerConsumer(this.staff.consumer);
     this.events.registerConsumer(this.links.consumer);
+    this.events.registerConsumer(this.documentSends.consumer);
   }
 }

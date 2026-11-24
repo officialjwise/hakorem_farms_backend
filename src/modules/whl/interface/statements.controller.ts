@@ -6,7 +6,7 @@ import { CurrentActor } from '../../../platform/http/actor-param';
 import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operation';
 import { zodPipe } from '../../../platform/http/validation';
 import { Statements, type Page, type StatementView } from '../application/statements';
-import { IdParam, StatementCreate, StatementPageQuery } from './schemas';
+import { DocumentSendRequest, IdParam, StatementCreate, StatementPageQuery } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -31,6 +31,20 @@ export class StatementsController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<StatementView> {
     const response = await this.statements.create(actor, body, key);
+    res.status(response.status);
+    return response.body;
+  }
+
+  @Post('statements/:id/send')
+  @Operation({ operationId: 'sendStatement', ...WRITE, permission: 'whl.statement.create' })
+  async sendStatement(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(DocumentSendRequest)) body: z.infer<typeof DocumentSendRequest>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<{ readonly status: 'QUEUED'; readonly message: string }> {
+    const response = await this.statements.send(actor, id, body, key);
     res.status(response.status);
     return response.body;
   }

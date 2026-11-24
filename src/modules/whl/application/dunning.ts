@@ -12,7 +12,7 @@ import type { MasterDataRefs } from '../../mdm';
 import { byLevel, judgeLevels, levelDue, type DunningChannel, type DunningLevelRule } from '../domain/dunning';
 import { pageProbe } from '../domain/paging';
 import { daysPastDue } from '../domain/time';
-import type { DunningNoticeRecord, DunningStore } from './dunning-store';
+import type { DunningNoticeRecord, DunningStore, NoticeDeliveryRecord } from './dunning-store';
 import { DunningPolicyInvalidError } from './errors';
 import type { Page } from './statements';
 
@@ -42,6 +42,11 @@ export interface DunningNoticeView {
   readonly channels: readonly DunningChannel[];
   readonly templateCode: string;
   readonly sentAt: string;
+  /**
+   * The reminder's delivery on each channel it was tried on, as NTF reported it (B11 continued 13): the latest status per
+   * channel, so a failed reminder shows as failed. Empty until NTF has tried it.
+   */
+  readonly deliveries: readonly { readonly channel: DunningChannel; readonly status: 'SENT' | 'DELIVERED' | 'FAILED'; readonly at: string }[];
   readonly currency: 'GHS';
 }
 
@@ -207,9 +212,20 @@ export class Dunning {
     return new Map(rows.map((r) => [r.id, { ...r, documentNo: documents.get(r.billingDocumentId)?.number ?? null }] as const));
   }
 
+  /**
+   * What NTF reported of a notice's reminder on a channel (B11 continued 13, the owner 2026-11-23): sent, delivered or
+   * failed, in NTF's transaction, once per message and status. Not authorised: the caller is NTF's sender or its signed
+   * delivery webhook, never a person. A notice that does not exist records nothing.
+   */
+  async recordDeliveryIn(tx: Transaction, delivery: { readonly noticeId: string; readonly channel: DunningChannel; readonly status: 'SENT' | 'DELIVERED' | 'FAILED'; readonly messageId: string; readonly at: Date; readonly actorId: string }): Promise<boolean> {
+    if ((await this.store.noticesById(tx, [delivery.noticeId])).length === 0) return false;
+    return this.store.insertDelivery(tx, { id: this.nextId(), noticeId: delivery.noticeId, channel: delivery.channel, status: delivery.status, messageRef: delivery.messageId, occurredAt: delivery.at }, this.clock.now(), delivery.actorId);
+  }
+
   private async views(tx: Transaction, rows: readonly DunningNoticeRecord[]): Promise<DunningNoticeView[]> {
     const customers = await this.refs.customersIn(tx, [...new Set(rows.map((r) => r.customerId))]);
     const documents = await this.registry.numberedRefs(tx, rows.map((r) => r.billingDocumentId));
+    const deliveries = await this.store.deliveriesOf(tx, rows.map((r) => r.id));
     return rows.map((r) => {
       const customer = customers.get(r.customerId)!;
       const document = documents.get(r.billingDocumentId);
@@ -223,10 +239,18 @@ export class Dunning {
         channels: r.channels,
         templateCode: r.templateCode,
         sentAt: r.queuedAt.toISOString(),
+        deliveries: latestByChannel(deliveries.filter((d) => d.noticeId === r.id)),
         currency: 'GHS',
       };
     });
   }
+}
+
+/** The latest status on each channel, in the order the channels were first tried (the rows come oldest first). */
+function latestByChannel(rows: readonly NoticeDeliveryRecord[]): DunningNoticeView['deliveries'] {
+  const latest = new Map<DunningChannel, NoticeDeliveryRecord>();
+  for (const row of rows) latest.set(row.channel, row);
+  return [...latest.values()].map((d) => ({ channel: d.channel, status: d.status, at: d.occurredAt.toISOString() }));
 }
 
 function levelView(l: DunningLevelRule): DunningLevelView {

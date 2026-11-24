@@ -60,6 +60,12 @@ responses:
           relatedSlugs:
             - beef-15-kg-pack
             - full-chicken-15-kg-pack
+          sellingUnits:
+            - uom: PACK
+              uomName: Pack
+              priceFromPesewas: 2600
+              priceToPesewas: null
+              availability: IN_STOCK
           currency: GHS
   "400":
     $ref: "#/components/responses/BadRequest"

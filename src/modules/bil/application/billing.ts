@@ -13,7 +13,8 @@ import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import { DocumentNotArchivedError, DOCUMENT_ARCHIVED, type DocumentArchived, type Documents } from '../../doc';
 import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalNames, PrincipalRef } from '../../iam';
-import type { MasterDataRefs, TaxService } from '../../mdm';
+import { isPartyAddress, type MasterDataRefs, type TaxService } from '../../mdm';
+import { RecipientNotDocumentPartyError, type DocumentSendChannel } from '../../../platform/notifications/document-send';
 import {
   checkIssue,
   correctable,
@@ -34,7 +35,7 @@ import {
 import { buyerVerdict, isGhanaTin, maskTin } from '../domain/buyer';
 import { lineNumber, pageProbe } from '../domain/line-numbers';
 import { renderDataOf } from '../domain/render-data';
-import type { BillingDocumentPayload, CreditNoteIssued, DebitNoteIssued } from '../events';
+import type { BillingDocumentPayload, CreditNoteIssued, DebitNoteIssued, DocumentSendRequested } from '../events';
 import type { BillingStore, DocumentFilter, DocumentRecord, DraftHeader, LevyRecord, LineRecord, OpenItemFilter, OpenItemRecord, ReceivableAsAtFilter, ReceivableAsAtRecord, ReprintRecord, SettlementRecord } from './billing-store';
 import { AllocationExceedsOutstandingError, BilReferenceNotFoundError, BillingDocumentInvalidError, CreditNoteExceedsOriginalError } from './errors';
 
@@ -55,6 +56,8 @@ const CREDIT_REASON_DOMAINS = ['REFUND', 'RETURN'] as const;
 const IN_TRANSACTION_CREDIT_REASON_DOMAINS = ['REFUND', 'RETURN', 'VOID'] as const;
 const DEBIT = 'bil.debit_note.create';
 const REPRINT = 'bil.document.reprint';
+const SEND = 'bil.document.send';
+export const DOCUMENT_SEND_REQUESTED = 'bil.DocumentSendRequested';
 const BILLING_KINDS: readonly string[] = ['PROFORMA', 'INVOICE', 'RECEIPT', 'CREDIT_NOTE', 'DEBIT_NOTE'];
 /** The determination group of a charge with no product: by-products and other goods (4030, A-200). */
 const OTHER_GROUP = 'OTHER';
@@ -865,6 +868,64 @@ export class Billing {
       await this.idempotency.complete(tx, claim.id, response);
       return response;
     });
+  }
+
+  /**
+   * `sendBillingDocument` (ADR-0062, B11 continued 13): an issued, archived document sent to its own customer, 202
+   * through the outbox. A copy is logged in `bil.reprint_log` with the first channel asked (never a new document, never a
+   * new number, nothing rendered again) and `bil.DocumentSendRequested` is published for NTF, which sends the archived
+   * document by a link of its own to the customer's own address read when it goes. `recipient`, if given, must be an
+   * address the document's customer holds (422 `RECIPIENT_NOT_DOCUMENT_PARTY`); a document with no customer cannot be
+   * sent (`DOCUMENT_HAS_NO_PARTY`).
+   */
+  async send(actor: Actor | undefined, id: string, body: { readonly channels: readonly DocumentSendChannel[]; readonly recipient?: string | undefined }, idempotencyKey: string): Promise<StoredResponse<{ readonly status: 'QUEUED'; readonly message: string }>> {
+    return this.uow.run({ isolation: 'serializable', seriesLocks: [`REPRINT:${id}`] }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, SEND);
+      const record = await this.documentOf(tx, id, false);
+      await this.authoriser.authorise(tx, actor, SEND, { branchId: record.branchId });
+      if (record.status !== 'ISSUED') throw new NotFoundError(`billing document ${id} is not issued`);
+      const claim = await this.idempotency.claim(tx, { operationId: 'sendBillingDocument', principalId: actor!.principalId, key: idempotencyKey, request: { id, ...body } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<{ readonly status: 'QUEUED'; readonly message: string }>;
+      if (record.archivedDocumentId === null) throw new DocumentNotArchivedError('RENDERING');
+      if (record.customerId === null) throw new RecipientNotDocumentPartyError('DOCUMENT_HAS_NO_PARTY');
+      if (body.recipient !== undefined) {
+        const party = (await this.refs.partyAddressesIn(tx, 'CUSTOMER', [record.customerId])).get(record.customerId);
+        if (party === undefined || !isPartyAddress(body.recipient, party)) throw new RecipientNotDocumentPartyError('RECIPIENT_NOT_DOCUMENT_PARTY');
+      }
+      const sendId = this.nextId();
+      const channels = [...new Set(body.channels)];
+      const copyNo = await this.store.appendReprint(tx, { id: sendId, billingDocumentId: id, channel: channels[0]!, actorId: actor!.principalId, at: this.clock.now() });
+      await this.events.publish<DocumentSendRequested>(tx, {
+        type: DOCUMENT_SEND_REQUESTED,
+        subjectType: 'BillingDocument',
+        subjectId: id,
+        branchId: record.branchId,
+        payload: { sendId, billingDocumentId: id, copyNo, channels },
+      });
+      // The typed recipient is checked, never kept: the message goes to the customer's own address read at send.
+      await this.audit.record(tx, {
+        module: 'bil',
+        action: 'SEND',
+        entityType: 'BillingDocument',
+        entityId: id,
+        branchId: record.branchId,
+        before: null,
+        after: { copyNo, channels, sendId, archivedDocumentId: record.archivedDocumentId },
+      });
+      const response = { status: 202, body: { status: 'QUEUED' as const, message: 'Queued. The document goes to its customer by the first channel that can reach them.' } };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
+
+  /**
+   * A billing document as a message about it shows it (NTF, B11 continued 13): its customer, branch, kind, number and
+   * gross, read in the caller's transaction; null for one that is not issued.
+   */
+  async messageFactsIn(tx: Transaction, id: string): Promise<{ readonly id: string; readonly branchId: string; readonly customerId: string | null; readonly kind: BillingKind; readonly documentNo: string | null; readonly grossPesewas: bigint } | null> {
+    const [record] = await this.store.documents(tx, [id], false);
+    if (record === undefined || record.status !== 'ISSUED') return null;
+    return { id: record.id, branchId: record.branchId, customerId: record.customerId, kind: record.kind, documentNo: record.documentNo, grossPesewas: record.grossPesewas };
   }
 
   /** `listBillingDocumentReprints`: every copy by number, who made it and when. */

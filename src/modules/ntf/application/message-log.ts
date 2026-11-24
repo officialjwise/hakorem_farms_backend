@@ -26,7 +26,7 @@ export interface NotificationMessageView {
   readonly templateCode: string;
   readonly channel: Channel;
   readonly category: string;
-  readonly recipient: { readonly kind: 'CUSTOMER' | 'STAFF' | 'INVESTOR' | 'CONTACT'; readonly id: string | null; readonly displayName: string | null };
+  readonly recipient: { readonly kind: 'CUSTOMER' | 'STAFF' | 'INVESTOR' | 'CONTACT' | 'SUPPLIER'; readonly id: string | null; readonly displayName: string | null };
   readonly addressMasked: string;
   readonly status: MessageStatus;
   readonly suppressedReason: string | null;
@@ -134,6 +134,7 @@ export class MessageLog {
     // One query at a time on the transaction's connection.
     const attempts = await this.store.attemptsOf(tx, rows.map((r) => r.id));
     const customers = await this.refs.customersIn(tx, rows.flatMap((r) => (r.customerId === null ? [] : [r.customerId])));
+    const suppliers = await this.refs.suppliersIn(tx, rows.flatMap((r) => (r.supplierId === null ? [] : [r.supplierId])));
     const contacts = await this.orders.messageContactsIn(tx, rows.flatMap((r) => (r.recipientKind === 'CONTACT' && r.salesOrderId !== null ? [r.salesOrderId] : [])));
     return rows.map((r) => ({
       id: r.id,
@@ -143,8 +144,15 @@ export class MessageLog {
       category: r.category,
       recipient: {
         kind: r.recipientKind,
-        id: r.customerId ?? r.principalId,
-        displayName: r.customerId !== null ? (customers.get(r.customerId)?.name ?? null) : r.salesOrderId === null ? null : (contacts.get(r.salesOrderId)?.contactName ?? null),
+        id: r.customerId ?? r.supplierId ?? r.principalId,
+        displayName:
+          r.customerId !== null
+            ? (customers.get(r.customerId)?.name ?? null)
+            : r.supplierId !== null
+              ? (suppliers.get(r.supplierId)?.name ?? null)
+              : r.salesOrderId === null
+                ? null
+                : (contacts.get(r.salesOrderId)?.contactName ?? null),
       },
       addressMasked: r.addressMasked,
       status: r.status,
