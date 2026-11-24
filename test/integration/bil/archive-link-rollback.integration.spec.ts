@@ -48,6 +48,9 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0337_iam_grant_ntf_permissions',
+      '0336_iam_seed_ntf_permissions',
+      '0335_ntf_create_messages',
       '0334_ord_return_part_of_unit',
       '0333_ord_pick_breakage',
       '0332_ord_order_delivery_slot',
