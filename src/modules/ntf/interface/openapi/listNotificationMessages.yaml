@@ -1,0 +1,224 @@
+operationId: listNotificationMessages
+tags:
+  - ntf
+summary: "The message log: what was sent to whom and when"
+description: "The message log, newest first: what was sent to whom and when, each message on its own channel with its status (`QUEUED`, `SENT`, `DELIVERED`, `FAILED`, `SUPPRESSED`) and every attempt, so a failed message shows as failed (FR-NTF-007, the owner 2026-11-23). The number is masked (`+23324*****56`); only messages of the branches the caller's grants reach are listed. `suppressedReason` is `NO_ADDRESS` (the order has no number) or `RATE_LIMITED` (the recipient's hourly limit, abuse case 58).\n\nPermission: `ntf.message.read`."
+x-permission: ntf.message.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: channel
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: customerId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: templateCode
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date-time
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/NotificationMessagePage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b16-76fc-7005-853e-09311d81820f"
+                  sourceEventId: "019a7b16-95eb-79e9-9f21-a76897322046"
+                  templateCode: RECEIPT
+                  channel: WHATSAPP
+                  category: TRANSACTIONAL
+                  recipient:
+                    kind: CUSTOMER
+                    id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
+                    displayName: "Ama Serwaa Ofori"
+                  addressMasked: "+233 •• ••• •876"
+                  status: DELIVERED
+                  suppressedReason: null
+                  attempts:
+                    - attemptNo: 1
+                      outcome: ACCEPTED
+                      providerResponse: null
+                      attemptedAt: "2026-11-13T09:13:00Z"
+                  sendAfter: null
+                  sentAt: "2026-11-13T09:13:00Z"
+                  deliveredAt: "2026-11-13T09:14:00Z"
+                  createdAt: "2026-11-13T09:12:00Z"
+                - id: "019a7b16-b4da-73cc-a905-45a010e3be7d"
+                  sourceEventId: "019a7b16-d3c9-7db0-b2e8-e3d78a945cb5"
+                  templateCode: ORDER_DISPATCHED
+                  channel: SMS
+                  category: TRANSACTIONAL
+                  recipient:
+                    kind: CUSTOMER
+                    id: "019a7a87-848b-7de0-9318-e6d5c4925fb3"
+                    displayName: "Royal Palm Hotel Ltd"
+                  addressMasked: "+233 •• ••• •410"
+                  status: SENT
+                  suppressedReason: null
+                  attempts:
+                    - attemptNo: 1
+                      outcome: ACCEPTED
+                      providerResponse: null
+                      attemptedAt: "2026-11-13T09:13:00Z"
+                  sendAfter: null
+                  sentAt: "2026-11-13T09:13:00Z"
+                  deliveredAt: null
+                  createdAt: "2026-11-13T09:12:00Z"
+                - id: "019a7b16-f2b8-7793-8ccc-820f0445faec"
+                  sourceEventId: "019a7b17-11a7-7177-96af-20467df69924"
+                  templateCode: QUOTE_ISSUED
+                  channel: WHATSAPP
+                  category: TRANSACTIONAL
+                  recipient:
+                    kind: CUSTOMER
+                    id: "019a7a87-a37a-77c3-acfc-850d3e43fdeb"
+                    displayName: "Kofi Agyeman"
+                  addressMasked: "+233 •• ••• •302"
+                  status: DELIVERED
+                  suppressedReason: null
+                  attempts:
+                    - attemptNo: 1
+                      outcome: ACCEPTED
+                      providerResponse: null
+                      attemptedAt: "2026-11-13T09:13:00Z"
+                  sendAfter: null
+                  sentAt: "2026-11-13T09:13:00Z"
+                  deliveredAt: "2026-11-13T09:14:00Z"
+                  createdAt: "2026-11-13T09:12:00Z"
+                - id: "019a7b17-3096-7b5a-a093-be7df7a7375b"
+                  sourceEventId: "019a7b17-4f85-753e-ba76-5cb57158d593"
+                  templateCode: PAYMENT_REMINDER_1
+                  channel: SMS
+                  category: REMINDER
+                  recipient:
+                    kind: CUSTOMER
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    displayName: "Asantewaa Chop Bar"
+                  addressMasked: "+233 •• ••• •924"
+                  status: DEFERRED_QUIET_HOURS
+                  suppressedReason: null
+                  attempts:
+                    - attemptNo: 1
+                      outcome: ACCEPTED
+                      providerResponse: null
+                      attemptedAt: "2026-11-13T09:13:00Z"
+                  sendAfter: "2026-11-14T07:00:00Z"
+                  sentAt: null
+                  deliveredAt: null
+                  createdAt: "2026-11-13T09:12:00Z"
+                - id: "019a7b17-6e74-7f21-845a-faeceb0973ca"
+                  sourceEventId: "019a7b17-8d63-7905-9e3d-992464ba1202"
+                  templateCode: RECEIPT
+                  channel: SMS
+                  category: TRANSACTIONAL
+                  recipient:
+                    kind: CUSTOMER
+                    id: "019a7a87-e158-7b8a-80c2-c17c31a53a5a"
+                    displayName: "Grace Nyarko"
+                  addressMasked: "+233 •• ••• •118"
+                  status: FAILED
+                  suppressedReason: null
+                  attempts:
+                    - attemptNo: 1
+                      outcome: TEMPORARY_FAILURE
+                      providerResponse: "Network timeout"
+                      attemptedAt: "2026-11-13T09:13:00Z"
+                    - attemptNo: 2
+                      outcome: PERMANENT_FAILURE
+                      providerResponse: "Number not reachable"
+                      attemptedAt: "2026-11-13T09:18:00Z"
+                  sendAfter: null
+                  sentAt: null
+                  deliveredAt: null
+                  createdAt: "2026-11-13T09:12:00Z"
+                - id: "019a7b17-ac52-72e8-a820-375bde6bb039"
+                  sourceEventId: "019a7b17-cb41-7ccc-b204-d593581c4e71"
+                  templateCode: RECEIPT
+                  channel: SMS
+                  category: TRANSACTIONAL
+                  recipient:
+                    kind: CUSTOMER
+                    id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
+                    displayName: "Emmanuel Tetteh"
+                  addressMasked: "+233 •• ••• •590"
+                  status: SUPPRESSED
+                  suppressedReason: "Recipient replied STOP on 2026-10-02"
+                  attempts:
+                    - attemptNo: 1
+                      outcome: ACCEPTED
+                      providerResponse: null
+                      attemptedAt: "2026-11-13T09:13:00Z"
+                  sendAfter: null
+                  sentAt: null
+                  deliveredAt: null
+                  createdAt: "2026-11-13T09:12:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

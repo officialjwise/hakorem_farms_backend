@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.39.0:** additive. No existing field, parameter or status of an implemented operation changed. Nine planned NTF operations move into code with their planned shapes (the templates, the message log and its retry, the messaging webhook); `receiveMessagingWebhook`'s `provider` gains `GENERIC_HTTP`, the only one served. See its entry.
 - **2.38.0, LOUD for `ReturnLine.uom` (new, always sent):** no field removed or retyped. `ReturnLineInput.uom` is new and optional: part of a crate returned as single eggs, refunded pro rata at the price paid.
 - **2.37.0, LOUD for `createOrder` with `DELIVERY` (now taken with the customer's own address, where it was refused `FULFILMENT_NOT_AVAILABLE`), `dispatchFulfilment` and `collectFulfilment` on an order on account (now credit-checked and dispatched, where they were refused `CREDIT_DISPATCH_NOT_AVAILABLE`, which is no longer answered; both may now answer 202 `CreditOverridePending`) and `getOrderCreditCheck` on a confirmed order (its own estimate no longer counted twice in `exposurePesewas`) `Payment.driver` (now filled for a cash-on-delivery payment, BL-096) and `FulfilmentLine.damaged` (new, always sent):** no field removed or retyped. `DispatchRecord.creditOverrideReason` and the optional `CollectRecord` body are new.
 - **2.36.0, LOUD for `payInvoiceAtTill` (it now also takes a guest's receipt of an order), `getOrder`'s `paidPesewas` and `outstandingPesewas` (they now count every allocation to the order's document, a balance paid at the till included), and `SalesOrder.parentOrderId`, `SalesOrderLine.qtyBackordered` and `lineStatus` `BACKORDERED` (now filled for a backorder):** no field removed or retyped. `collectFulfilment` moves into code; `addExtraDeliveryFee` is new; `PackRecord.backorderLineIds` is new and optional. A delivered or handed-over order now completes when a later payment or credit note settles its document.
@@ -50,6 +51,17 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.39.0 (2026-11-24, B11 continued 10)
+
+Minor, additive (NTF's first pass: the customer's messages, the templates, the message log and the provider's delivery reports; ADR-0096, A-374; migrations 0335 to 0337).
+
+- **Into code, with their planned shapes:** `listNotificationTemplates`, `getNotificationTemplate`, `createNotificationTemplate`, `activateNotificationTemplate`, `previewNotificationTemplate`, `listNotificationMessages`, `getNotificationMessage`, `retryNotificationMessage`, `receiveMessagingWebhook`. Each fragment now carries its `x-error-codes` and a description of its rules.
+- **New refusals:** 422 `TEMPLATE_INVALID` (`UNKNOWN_TEMPLATE_CODE`, `CATEGORY_MISMATCH`, `UNKNOWN_MERGE_FIELD`, `LINK_NOT_ALLOWED`, `SUBJECT_EMAIL_ONLY`, `SUBJECT_REQUIRED`, `EMPTY_BODY`, `TOO_LONG`); 422 `TEMPLATE_NOT_ACTIVATABLE` (`OWN_DRAFT`, `NOT_DRAFT`); 422 `MESSAGE_NOT_RETRYABLE` (`NOT_FAILED`, `SUPPRESSED`).
+- **`receiveMessagingWebhook`:** `provider` gains `GENERIC_HTTP` (the SMS adapter), the only one served; the others answer 404 until their adapters exist. Its request example is now a delivery report. A STOP reply is logged and acknowledged, not yet an opt-out (B11 continued 11).
+- **Behaviour, no shape:** the customer is sent one SMS at dispatch, collection, on the way, a reschedule, a cancellation and delivery (a part delivery its own text), to the order's own contact; each appears in `listNotificationMessages`.
+- **New permissions:** `ntf.template.read` (the Owner, the Manager, the Accountant, Sales), `ntf.template.manage`, `ntf.message.read`, `ntf.message.retry` (the Owner and the Manager); the seeded role matrix shows them.
+- Still planned: `listNotificationTriggers`, `updateNotificationTrigger`, `listOptOuts`, `getMyNotificationPreferences`, `replaceMyNotificationPreferences`, `listMyNotifications`, `markNotificationRead`.
 
 ## 2.38.0 (2026-11-24, B11 continued 9)
 

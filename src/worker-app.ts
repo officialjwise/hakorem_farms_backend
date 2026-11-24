@@ -27,6 +27,7 @@ import { QuoteExpiry } from './modules/quo';
 import { AccountHolds, Dunning, StandingOrders } from './modules/whl';
 import { CatalogueListing } from './modules/shp';
 import { ProviderPayments, Refunds, UnverifiedOverdue } from './modules/pay';
+import { MessageSender } from './modules/ntf';
 
 /** Milliseconds a storage call from the worker may take. */
 const STORAGE_TIMEOUT_MS = 10_000;
@@ -44,6 +45,11 @@ const RESERVATION_EXPIRY_EVERY_MS = 60_000;
 const MORTALITY_EVIDENCE_RETURNS_EVERY_MS = 60_000;
 /** The storefront's listing is at most a minute behind prices and stock (A-178); carts and checkouts price live. */
 const CATALOGUE_REFRESH_EVERY_MS = 60_000;
+/**
+ * Every fifteen seconds: the customer's messages queued from the outbox are sent, and a failed attempt retried when its
+ * backoff has passed (FR-NTF-003, FR-NTF-007, B11 continued 10).
+ */
+const MESSAGE_SEND_EVERY_MS = 15_000;
 /**
  * Every hour (FR-WHL-004, A-320): each standing order due today is made on the first run of the day, and one created
  * later in the day for today on the next; a date is made once however often this runs.
@@ -133,6 +139,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const accountHolds = app.get(AccountHolds);
   const dunning = app.get(Dunning);
   const standingOrders = app.get(StandingOrders);
+  const messageSender = app.get(MessageSender);
   // The modules' scheduled jobs (ADR-0049, docs/OPERATIONS.md "Scheduled jobs").
   const jobs: ScheduledJob[] = [
     { name: 'reservation-expiry', when: { everyMs: RESERVATION_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await reservationExpiry.run(system)).length }) },
@@ -156,6 +163,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
         return { from: report.from.toISOString(), to: report.to.toISOString(), transactions: report.transactions, cleared: report.cleared, failed: report.failed, breaksRaised: report.breaksRaised };
       },
     },
+    { name: 'message-send', when: { everyMs: MESSAGE_SEND_EVERY_MS }, run: async (system) => ({ ...(await messageSender.run(system)) }) },
     { name: 'refund-dispatch', when: { everyMs: REFUND_DISPATCH_EVERY_MS }, run: async () => ({ ...(await refunds.dispatch()) }) },
     { name: 'unverified-tender-overdue', when: { cron: UNVERIFIED_OVERDUE_CRON }, run: async (system) => ({ raised: (await unverifiedOverdue.run(system)).length }) },
     {

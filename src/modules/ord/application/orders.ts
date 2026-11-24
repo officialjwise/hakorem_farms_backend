@@ -291,6 +291,16 @@ const lineField = (i: number, name: string) => `/lines/${i}/${name}`;
 const isSet = <T>(value: T | null | undefined): value is T => value !== undefined && value !== null;
 const creditOrderOf = (o: OrderHeaderRecord): CreditOrder => ({ id: o.id, orderNo: o.orderNo, customerId: o.customerId, branchId: o.branchId, estimatedTotalPesewas: o.estimatedTotalPesewas });
 
+/** An order's own contact, as a customer message is addressed (`Orders.messageContactsIn`). */
+export interface MessageContact {
+  readonly orderId: string;
+  readonly orderNo: string;
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly contactName: string | null;
+  readonly phoneE164: string | null;
+}
+
 /**
  * Orders (FR-ORD-001, FR-ORD-002, FR-ORD-003, FR-ORD-005, FR-ORD-016): the one order record of every channel as staff
  * read it, enter it for a phone, WhatsApp or wholesale customer, and confirm it. Each handler authorises in the
@@ -1189,6 +1199,28 @@ export class Orders {
 
   async shiftSalesIn(tx: Transaction, shiftDocumentId: string): Promise<ShiftSalesSummary> {
     return this.store.shiftSales(tx, shiftDocumentId);
+  }
+
+  /**
+   * The order's own contact for a customer message (NTF, B11 continued 10, A-374 (b)), in the caller's transaction: the
+   * number the order was placed with, else its delivery's recipient, as dispatch addressed it; null for an order that does
+   * not exist. NTF reads it by the order's id when it queues and again when it sends, never from an event, so a message
+   * reaches only the order's own contact. It authorises nothing: NTF sends from the outbox as the system.
+   */
+  async messageContactsIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, MessageContact>> {
+    const found = new Map<string, MessageContact>();
+    for (const order of await this.store.orders(tx, [...new Set(ids)])) {
+      const delivery = order.contactPhone === null ? await this.deliveries.ofOrderIn(tx, order.id) : null;
+      found.set(order.id, {
+        orderId: order.id,
+        orderNo: order.orderNo ?? '',
+        branchId: order.branchId,
+        customerId: order.customerId,
+        contactName: order.contactName ?? delivery?.recipientName ?? null,
+        phoneE164: order.contactPhone ?? delivery?.recipientPhone ?? null,
+      });
+    }
+    return found;
   }
 
   /** The order as the contract reads it, in the caller's transaction (ORD's own reversals answer with it). */
