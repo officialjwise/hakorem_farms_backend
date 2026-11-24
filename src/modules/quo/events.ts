@@ -28,6 +28,11 @@ export interface QuoteIssued {
   readonly supersededVersionId: string | null;
   readonly approvalRequestId: string | null;
   readonly issuedAt: string;
+  /**
+   * What the version holds for its validity, line by line, in the base unit (B11u, abuse case 64): how much each product
+   * line asked for and how much stock it holds, so the exception report can see a quote holding stock away from buyers.
+   */
+  readonly holds: readonly { readonly quoteLineId: string; readonly productId: string; readonly askedQty: string; readonly heldQty: string }[];
 }
 
 export interface QuoteDecided {

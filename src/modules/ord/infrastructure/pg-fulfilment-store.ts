@@ -369,6 +369,10 @@ export class PgFulfilmentStore implements FulfilmentStore {
     await tx.query('UPDATE ord.sales_order_line SET line_status = $2 WHERE id = $1', [lineId, status]);
   }
 
+  async nameLineAnimal(tx: Transaction, lineId: string, stockUnitId: string): Promise<void> {
+    await tx.query('UPDATE ord.sales_order_line SET stock_unit_id = $2 WHERE id = $1 AND stock_unit_id IS NULL', [lineId, stockUnitId]);
+  }
+
   async backorderLine(tx: Transaction, lineId: string, qty: string): Promise<void> {
     await tx.query('UPDATE ord.sales_order_line SET qty_backordered = $2 WHERE id = $1', [lineId, qty]);
   }

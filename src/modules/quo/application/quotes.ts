@@ -21,6 +21,7 @@ import {
   StockUnitNotAvailableError,
   StockUnitOnHoldError,
   StockUnitReservedError,
+  type PromisableStock,
   type Reservations,
   type StockQueries,
   type StockUnits,
@@ -31,6 +32,7 @@ import { countOf, lineNumber, nextVersionNo } from '../domain/numbering';
 import { pageProbe } from '../domain/paging';
 import {
   DEFAULT_MARGIN_FLOOR_BASIS_POINTS,
+  inWeightBand,
   linkState,
   marginPercent,
   lineNet,
@@ -749,12 +751,16 @@ export class Quotes {
           continue;
         }
         if (product.tracking === 'SERIAL' && l.stockUnitId === null) {
+          // One order line a head. With no animals given, each waits for the animal its picker names (the owner,
+          // 2026-11-23: "convert without tags; tags are named at picking", B11u, A-351); animals given are named now, as
+          // before, and must then cover the line.
           const head = Number(Quantity.parse(l.qty).toDecimalString().split('.')[0]);
-          if (animals.length < head) {
+          if (animals.length > 0 && animals.length < head) {
             broken.push({ field: '/stockUnitIds', rule: 'ANIMALS_REQUIRED' });
             continue;
           }
-          for (const animal of animals.splice(0, head)) orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: animal, quantity: '1.000', uom: l.uom, priceBasis: l.priceBasis, ...priceOf(l) });
+          const named: (string | null)[] = animals.length === 0 ? Array.from({ length: head }, () => null) : animals.splice(0, head);
+          for (const animal of named) orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: animal, quantity: '1.000', uom: l.uom, priceBasis: l.priceBasis, ...priceOf(l) });
           continue;
         }
         orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: l.stockUnitId, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, ...priceOf(l) });
@@ -777,9 +783,21 @@ export class Quotes {
         taxInclusive: version.taxInclusive,
         lines: orderLines,
       });
+      // The hold passes to the order in this transaction, ended and taken again under the same locks, so nobody else can
+      // take it in between (ADR-0019). Animals the quote held for a line that named none, where the conversion named
+      // others, go back: the order holds the animals it names.
       const moved = await this.reservations.transferHeldByIn(tx, actor!.principalId, quoteId, order.id, `Quote ${quote.quoteNo} converted: its hold passes to order ${order.orderNo ?? order.id}`);
+      if ((request.stockUnitIds ?? []).length > 0) {
+        const kept = new Set([...lines.flatMap((l) => (l.stockUnitId === null ? [] : [l.stockUnitId])), ...(request.stockUnitIds ?? [])]);
+        for (const r of await this.reservations.activeOfHolderIn(tx, order.id)) {
+          if (r.stockUnitId !== null && products.get(r.productId)?.tracking === 'SERIAL' && !kept.has(r.stockUnitId)) {
+            await this.reservations.releaseIn(tx, actor!.principalId, r.id, `Quote ${quote.quoteNo} converted naming other animals`);
+          }
+        }
+      }
+      const active = new Set((await this.reservations.activeOfHolderIn(tx, order.id)).map((r) => r.id));
       for (const line of order.lines) {
-        const held = moved.filter((r) => r.productId === line.product.id);
+        const held = moved.filter((r) => r.productId === line.product.id && active.has(r.id));
         const sameProduct = order.lines.filter((o) => o.product.id === line.product.id);
         if (held.length === 1 && sameProduct.length === 1) await this.orders.holdLineIn(tx, line.id, held[0]!.id);
       }
@@ -911,6 +929,7 @@ export class Quotes {
       await this.reservations.releaseHeldByIn(tx, o.actorId, quote.id, `Quote ${quote.quoteNo} version ${superseded.versionNo} replaced by version ${version.versionNo}`);
     }
     await this.reserveLinesIn(tx, quote, version, o.actorId, o.at);
+    const issuedLines = await this.store.linesOf(tx, [version.id]);
     await this.store.setVersionStatus(
       tx,
       version.id,
@@ -943,6 +962,10 @@ export class Quotes {
       supersededVersionId: superseded?.id ?? null,
       approvalRequestId: version.approvalRequestId,
       issuedAt: o.at.toISOString(),
+      holds: (await this.store.lineStockOf(tx, [version.id])).map((r) => {
+        const line = issuedLines.find((l) => l.id === r.quoteLineId)!;
+        return { quoteLineId: r.quoteLineId, productId: line.productId!, askedQty: line.baseQty!, heldQty: r.heldQty };
+      }),
     };
     // One message per issued version (FR-QUO-007): a revision is announced by the same event, naming what it replaced.
     await this.events.publish(tx, { type: QUOTE_ISSUED, subjectType: 'Quote', subjectId: quote.id, branchId: quote.branchId, payload: issued, occurredAt: o.at });
@@ -961,7 +984,10 @@ export class Quotes {
    * Every product line held for the validity in the base unit (CR-045): a named unit, or lots oldest first, as much as
    * is on hand and never more (the owner, 2026-11-18, ADR-0019, A-328). A line not wholly on hand is issued subject to
    * stock, never refused; what was there and what was held are recorded once per line (quo.quote_line_stock). A balance
-   * below zero (ADR-0081) is nothing on hand. An unnamed animal is still chosen at conversion and not held (A-309 (f)).
+   * below zero (ADR-0081) is nothing on hand. A line of animals that names none holds its count of animals, oldest
+   * first, capped at what is free, each of the line's weight band when it names one (the owner, 2026-11-23: "reserve by
+   * count at issue, capped at what is available", B11u, A-351, replacing A-309 (f)'s "not held"); which animals go is
+   * named at picking, not here: the order the quote converts to may pick any free animal or its own.
    */
   private async reserveLinesIn(tx: Transaction, quote: QuoteRecord, version: VersionRecord, actorId: string, at: Date): Promise<void> {
     const lines = await this.store.linesOf(tx, [version.id]);
@@ -975,6 +1001,7 @@ export class Quotes {
       this.clock.now(),
     );
     const balances = await this.stock.promisableIn(tx, quote.branchId, [...products.keys()]);
+    const eligible = await this.eligibilityIn(tx, lines, products, balances);
     const left = balances.map((b) => b.availableQty);
     for (const [i, line] of lines.entries()) {
       const product = line.productId === null ? undefined : products.get(line.productId);
@@ -988,18 +1015,16 @@ export class Quotes {
         available = free ? wanted : Quantity.zero();
         if (free) pieces.push({ productId: product.id, stockUnitId: unit.id, locationId: unit.currentLocationId!, qty: wanted });
       } else {
-        const offered = balances.map((b, index) => ({ b, index })).filter(({ b }) => b.productId === product.id);
+        const offered = balances.map((b, index) => ({ b, index })).filter(({ b, index }) => b.productId === product.id && eligible(line, index));
         const plan = planHold(
           wanted,
           offered.map(({ index }) => left[index]!),
         );
         available = plan.available;
-        if (product.tracking !== 'SERIAL') {
-          for (const p of plan.pieces) {
-            const { b, index } = offered[p.index]!;
-            left[index] = left[index]!.minus(p.qty);
-            pieces.push({ productId: b.productId, stockUnitId: b.stockUnitId, locationId: b.locationId, qty: p.qty });
-          }
+        for (const p of plan.pieces) {
+          const { b, index } = offered[p.index]!;
+          left[index] = left[index]!.minus(p.qty);
+          pieces.push({ productId: b.productId, stockUnitId: b.stockUnitId, locationId: b.locationId, qty: p.qty });
         }
       }
       const held: string[] = [];
@@ -1023,6 +1048,34 @@ export class Quotes {
         at,
       );
     }
+  }
+
+  /**
+   * Which promisable balances a line may be held from (B11u, A-351): any of its product's, except that a line of
+   * animals naming a weight band takes only animals whose last weighing is in that band (`inWeightBand`).
+   */
+  private async eligibilityIn(
+    tx: Transaction,
+    lines: readonly LineRecord[],
+    products: ReadonlyMap<string, ProductFacts>,
+    balances: readonly PromisableStock[],
+  ): Promise<(line: LineRecord, balanceIndex: number) => boolean> {
+    const banded = lines.filter((l) => l.weightBandId !== null && l.stockUnitId === null && l.productId !== null && products.get(l.productId)?.tracking === 'SERIAL');
+    if (banded.length === 0) return () => true;
+    const bands = await this.refs.weightBandsIn(
+      tx,
+      banded.map((l) => l.weightBandId!),
+    );
+    const animals = await this.units.factsIn(
+      tx,
+      balances.flatMap((b) => (b.stockUnitId === null ? [] : [b.stockUnitId])),
+      this.clock.now(),
+    );
+    return (line, index) => {
+      if (!banded.includes(line)) return true;
+      const unitId = balances[index]!.stockUnitId;
+      return unitId !== null && inWeightBand(animals.get(unitId)?.lastWeightKg ?? null, bands.get(line.weightBandId!) ?? null);
+    };
   }
 
   /** What the quote's template prints, every figure formatted here and the template computing nothing (FR-QUO-007). */

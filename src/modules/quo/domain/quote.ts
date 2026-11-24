@@ -218,3 +218,15 @@ export function unitCost(pools: readonly { readonly valuePesewas: bigint; readon
   // value / held(thousandths) per base thousandth, times baseQty(thousandths) over qty units (thousandths / 1,000).
   return halfUpDivide(value * baseQty.thousandths * 1_000n, held * qty.thousandths);
 }
+
+/**
+ * Whether an animal may be held for a line naming a weight band (B11u, A-351): its last weighing falls in the band,
+ * half-open [min, max) as the engine maps a weight to its band (FR-MDM-005). An animal never weighed is never held for a
+ * banded line, so a quote never promises an animal it cannot show is of the band; a line with no band takes any animal.
+ */
+export function inWeightBand(weightKg: string | null, band: { readonly minKg: string; readonly maxKg: string } | null): boolean {
+  if (band === null) return true;
+  if (weightKg === null) return false;
+  const w = Quantity.parse(weightKg);
+  return w.compareTo(Quantity.parse(band.minKg)) >= 0 && w.compareTo(Quantity.parse(band.maxKg)) < 0;
+}

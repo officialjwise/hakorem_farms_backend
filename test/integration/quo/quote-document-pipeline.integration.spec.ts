@@ -222,15 +222,20 @@ describe('a quote for stock not on hand is issued subject to stock, holding only
     const none = await issued('sales', [eggs('2.000')]);
     expect([none.version.subjectToStock, none.version.lines[0].availableQuantity, none.version.lines[0].heldQuantity]).toEqual([true, '0.000', '0.000']);
     expect(await heldBy(none.quoteId)).toBe('0.000');
+    // The pipeline's goat quotes hold every goat now (B11u, A-351: a line of animals holds its count at issue, and an
+    // accepted quote keeps its hold, A-310 (b)); withdrawn, they give the goats back.
+    const holders = await admin().query<{ id: string }>("SELECT DISTINCT r.holder_document_id AS id FROM inv.stock_reservation r JOIN quo.quote q ON q.id = r.holder_document_id WHERE r.status = 'ACTIVE' AND r.product_id = $1", [id('goat')]);
+    for (const h of holders.rows) expect((await post('manager', `/quotes/${h.id}/cancel`, { reason: 'Goats needed for another buyer (TEST)' })).status).toBe(200);
     // A named animal already held by another quote: issued subject to stock, holding nothing; the first keeps it.
     const named = { productId: id('goat'), stockUnitId: id('G-0142'), description: 'Goat G-0142', quantity: '1.000', priceBasis: 'PER_HEAD', unitPricePesewas: 90_000 };
     const firstGoat = await issued('sales', [named]);
     expect([firstGoat.version.subjectToStock, firstGoat.version.lines[0].heldQuantity, await heldBy(firstGoat.quoteId)]).toEqual([false, '1.000', '1.000']);
     const rival = await issued('sales', [named]);
     expect([rival.version.subjectToStock, rival.version.lines[0].availableQuantity, rival.version.lines[0].heldQuantity, await heldBy(rival.quoteId)]).toEqual([true, '0.000', '0.000', '0.000']);
-    // An animal the line does not name is chosen at conversion and held by nobody (A-309 (f)), what is there shown.
+    // Animals the line does not name are held by count, two of the three goats still free (the owner, 2026-11-23, B11u,
+    // A-351; this was A-309 (f)'s "held by nobody").
     const herd = await issued('sales', [goats('2.000')]);
-    expect([herd.version.subjectToStock, herd.version.lines[0].heldQuantity, await heldBy(herd.quoteId)]).toEqual([false, '0.000', '0.000']);
+    expect([herd.version.subjectToStock, herd.version.lines[0].availableQuantity, herd.version.lines[0].heldQuantity, await heldBy(herd.quoteId)]).toEqual([false, '3.000', '2.000', '2.000']);
     // The recorded rows match INV's reservations, and the buyer sees the flag, never the farm's stock level.
     const rows = await admin().query('SELECT s.available_qty::text AS a, s.held_qty::text AS h FROM quo.quote_line_stock s WHERE s.quote_version_id = $1', [part.versionId]);
     expect(rows.rows).toEqual([{ a: left, h: left }]);

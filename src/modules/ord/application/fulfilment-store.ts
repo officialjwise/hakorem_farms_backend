@@ -184,6 +184,8 @@ export interface FulfilmentStore {
   issuesOf(tx: Transaction, pickIds: readonly string[]): Promise<Map<string, string>>;
   /** An open line fixed at dispatch: sent whole, or short with the customer's agreement. */
   fixLine(tx: Transaction, lineId: string, status: 'FULFILLED' | 'PARTIAL' | 'BACKORDERED'): Promise<void>;
+  /** Names the animal a converted quote's line waited for, once, from its pick (B11u, A-351; `ck_sales_order_line_animal_named`). */
+  nameLineAnimal(tx: Transaction, lineId: string, stockUnitId: string): Promise<void>;
   /** What of an order line is back-ordered at packing (FR-ORD-012): what was not picked of it. */
   backorderLine(tx: Transaction, lineId: string, qty: string): Promise<void>;
   /** The line's first sale issue, once (what a completed line names). */

@@ -426,8 +426,13 @@ describe('an accepted quote converts to exactly one order that keeps every link 
     expect([early.status, early.body.error?.code]).toEqual([422, 'INVALID_STATE_TRANSITION']);
     const recorded = await post('sales', `/quotes/${made.body.id}/record-acceptance`, { method: 'IN_PERSON', acceptedName: 'Kofi Mensah', note: 'Signed the printed quote at the farm gate' });
     expect([recorded.status, recorded.body.status], JSON.stringify(recorded.body)).toEqual([200, 'ACCEPTED']);
+    // Animals given must cover the line; with none given, the line converts and its animals are named at picking (the
+    // owner, 2026-11-23, B11u, A-351; until 2.43.0 this was 422 ANIMALS_REQUIRED).
+    const tooFew = await post('sales', `/quotes/${made.body.id}/convert`, { fulfilmentMode: 'COLLECTION', paymentTerms: 'COD', stockUnitIds: [id('G-0142')] });
+    expect([tooFew.status, tooFew.body.error?.details?.[0]?.code]).toEqual([422, 'ANIMALS_REQUIRED']);
     const noAnimals = await post('sales', `/quotes/${made.body.id}/convert`, { fulfilmentMode: 'COLLECTION', paymentTerms: 'COD' });
-    expect([noAnimals.status, noAnimals.body.error?.details?.[0]?.code]).toEqual([422, 'ANIMALS_REQUIRED']);
+    expect(noAnimals.status, JSON.stringify(noAnimals.body)).toBe(201);
+    expect(noAnimals.body.lines.map((l: { stockUnit: unknown; qtyOrdered: string }) => [l.stockUnit, l.qtyOrdered])).toEqual([[null, '1.000'], [null, '1.000']]);
     const noNote = await post('sales', `/quotes/${made.body.id}/record-acceptance`, { method: 'IN_PERSON', acceptedName: 'Kofi Mensah' });
     expect([noNote.status, noNote.body.error?.details?.[0]?.code]).toEqual([422, 'NOTE_REQUIRED']);
   });
@@ -435,10 +440,13 @@ describe('an accepted quote converts to exactly one order that keeps every link 
 
 describe('a named animal is held for the quote (FR-QUO-012)', () => {
   it('reserves G-0142 named on a quote until it is withdrawn; a second quote naming it meanwhile is issued subject to stock, holding nothing (the owner, 2026-11-18)', async () => {
+    // The goat quote's hold passed to its order at conversion (B11u, A-351); cancelled, the order gives the goats back.
+    const goatOrder = (await get('sales', `/quotes/${id('goatQuote')}`)).body.convertedOrder.id as string;
+    const freed = await post('sales', `/orders/${goatOrder}/cancel`, { reasonCode: 'CUSTOMER_CANCELLED' });
+    expect(freed.status, JSON.stringify(freed.body)).toBe(200);
     const made = await draft('sales', [{ productId: id('goat'), stockUnitId: id('G-0142'), description: 'Goat G-0142', quantity: '1.000', priceBasis: 'PER_HEAD', unitPricePesewas: 90_000 }]);
     expect(made.status, JSON.stringify(made.body)).toBe(201);
     const issued = await issue('sales', made.body.currentVersion.id);
-    // The animal is promised to the converted goat order (not yet confirmed, so not reserved): the quote holds it.
     expect(issued.status, JSON.stringify(issued.body)).toBe(200);
     expect(await heldBy(made.body.id)).toEqual({ qty: '1.000', n: 1 });
     const rival = await draft('sales', [{ productId: id('goat'), stockUnitId: id('G-0142'), description: 'Goat G-0142 again', quantity: '1.000', priceBasis: 'PER_HEAD', unitPricePesewas: 95_000 }]);

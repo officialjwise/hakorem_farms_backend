@@ -885,7 +885,7 @@ export class Orders {
         continue;
       }
       if (line.priceBasis === 'PER_KG') broken.push({ field: lineField(i, 'productId'), rule: 'CATCH_WEIGHT_NOT_AVAILABLE' });
-      if (product.tracking === 'SERIAL' && line.stockUnitId === null) broken.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_UNIT_REQUIRED' });
+      // A line of animals may name none: its animal is named at picking (the owner, 2026-11-23, B11u, A-351); one head a line.
       if (product.tracking === 'SERIAL' && !Quantity.parse(line.quantity).equals(Quantity.ofUnits(1n))) broken.push({ field: lineField(i, 'quantity'), rule: 'ONE_ANIMAL_PER_LINE' });
       const unit = line.stockUnitId === null ? undefined : units.get(line.stockUnitId);
       if (line.stockUnitId !== null && (unit === undefined || unit.productId !== product.id)) broken.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_PRODUCT' });

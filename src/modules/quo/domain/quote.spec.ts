@@ -1,6 +1,6 @@
 import { Quantity } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { canMoveQuote, canMoveVersion, judgeMargin, linkState, lineCost, lineNet, marginPercent, markupPercent, planHold, unitCost, versionFigures } from './quote';
+import { canMoveQuote, canMoveVersion, inWeightBand, judgeMargin, linkState, lineCost, lineNet, marginPercent, markupPercent, planHold, unitCost, versionFigures } from './quote';
 
 const q = (text: string) => Quantity.parse(text);
 
@@ -127,6 +127,16 @@ describe("the estimate's delivery fee is taxed by the invoice's rule (the owner,
   it('leaves the floor judged on the lines alone, whatever the fee and its tax', () => {
     const lines = { qty: q('1.000'), unitPricePesewas: 1_586_666n, unitCostPesewas: 1_428_000n, belowEngineFloor: false };
     expect(versionFigures([lines], { deliveryFeePesewas: 100_000n, deliveryFeeTaxPesewas: 20_000n, taxPesewas: 0n, floorBasisPoints: 1_000 }).belowMarginFloor).toBe(true);
+  });
+});
+
+describe('an animal is held for a banded line only when its last weighing is in the band (B11u, A-351)', () => {
+  const band = { minKg: '18.000', maxKg: '28.000' };
+  it('takes the band half-open: 18.000 and 27.999 are in GOAT-M, 28.000 and 17.999 are not', () => {
+    expect([inWeightBand('18.000', band), inWeightBand('27.999', band), inWeightBand('28.000', band), inWeightBand('17.999', band)]).toEqual([true, true, false, false]);
+  });
+  it('holds no animal never weighed for a banded line, and any animal for a line with no band', () => {
+    expect([inWeightBand(null, band), inWeightBand(null, null), inWeightBand('40.000', null)]).toEqual([false, true, true]);
   });
 });
 
