@@ -12,6 +12,7 @@ import { translate } from '../../../platform/i18n/messages';
 import type { Authoriser, PrincipalNames } from '../../iam';
 import type { Reservations, StockAdjustments, StockQueries, StockUnits } from '../../inv';
 import { extendPrice, type MasterDataRefs, type PricingService } from '../../mdm';
+import { inWeightBand } from '../domain/backorder-hold';
 import { planLineReservation } from '../domain/confirmation';
 import { accraDay, byLineNumber, lineNumber, nextLineNumber } from '../domain/line-numbers';
 import { canMove, type OrderStatus } from '../domain/order';
@@ -346,6 +347,11 @@ export class Fulfilments {
       );
       const unitIds = body.picks.flatMap((p) => (p.stockUnitId === undefined ? [] : [p.stockUnitId]));
       const unitFacts = await this.units.factsIn(tx, unitIds, at);
+      // A converted line of a weight band is picked only from animals weighed in it (B11u continued, BL-124, A-359).
+      const bands = await this.refs.weightBandsIn(
+        tx,
+        order.lines.flatMap((l) => (l.weightBandId === null ? [] : [l.weightBandId])),
+      );
       const fresh: PickRecord[] = [];
       const damages = new Map<string, { qty: string; uom: string; qtyBase: string; reasonCode: string; note: string | undefined; productId: string }>();
       const seen = new Set<string>();
@@ -379,6 +385,10 @@ export class Fulfilments {
             if (unitId === null) broken.push({ field: pickField(i, 'stockUnitId'), rule: 'STOCK_UNIT_REQUIRED' });
             else if (unit === undefined || unit.productId !== line.productId) broken.push({ field: pickField(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_PRODUCT' });
           } else if (unitId !== line.stockUnitId) broken.push({ field: pickField(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_ANIMAL' });
+          // The picker's own weighing if taken, else the animal's last: outside the line's band it is refused.
+          if (line.weightBandId !== null && unit !== undefined && unit.productId === line.productId && !inWeightBand(weight?.toKgString() ?? unit.lastWeightKg, bands.get(line.weightBandId) ?? null)) {
+            broken.push({ field: pickField(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_BAND' });
+          }
           if (!qty.equals(Quantity.ofUnits(1n))) broken.push({ field: pickField(i, 'qty'), rule: 'ONE_ANIMAL_PER_LINE' });
         } else if (product.tracking === 'LOT') {
           if (unitId === null) broken.push({ field: pickField(i, 'stockUnitId'), rule: 'STOCK_UNIT_REQUIRED' });

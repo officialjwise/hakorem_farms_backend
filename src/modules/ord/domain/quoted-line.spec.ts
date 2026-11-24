@@ -1,6 +1,6 @@
 import { Quantity } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { QUOTED_PRICE_REASON, quotedLinePricing } from './quoted-line';
+import { QUOTED_PRICE_REASON, quotedLinePricing, quotedOrderEstimate } from './quoted-line';
 
 // UAT scenario 2: a GOAT-M goat lists at 85,000 (floor 70,000); Emmanuel Tetteh's quote agreed 95,000 a head.
 const one = Quantity.parse('1.000');
@@ -68,5 +68,15 @@ describe("a converted quote's line keeps the list price its quote line recorded 
     // One pesewa below an exact half: 0.499 of 3 is 1.497, 1; of 2 is 0.998, 1; no variance left.
     expect(quotedLinePricing({ quotedUnitPricePesewas: 3n, listUnitPricePesewas: 2n, engineFloorUnitPricePesewas: null, quantity: Quantity.parse('0.499') }).variancePesewas).toBe(0n);
     expect(quotedLinePricing({ quotedUnitPricePesewas: 9_007_199_254_740_991n, listUnitPricePesewas: 0n, engineFloorUnitPricePesewas: null, quantity: one }).variancePesewas).toBe(9_007_199_254_740_991n);
+  });
+});
+
+describe("a converted order's estimate counts the tax as the invoice will (the owner, 2026-11-24, BL-124; A-352 (d) amended)", () => {
+  it('counts UAT step 2.9 at 17,172.00: 18 goats at 950.00, the fee 60.00 and its 12.00 of tax, tax-exclusive', () => {
+    expect(quotedOrderEstimate({ lineTotalsPesewas: Array.from({ length: 18 }, () => 95_000n), deliveryFeePesewas: 6_000n, taxPesewas: 1_200n, taxInclusive: false })).toBe(1_717_200n);
+  });
+  it('adds no tax to a tax-inclusive quote, whose lines and fee already carry it, nor to a quote with no fee and no tax', () => {
+    expect(quotedOrderEstimate({ lineTotalsPesewas: [18_000n], deliveryFeePesewas: 6_003n, taxPesewas: 1_000n, taxInclusive: true })).toBe(24_003n);
+    expect(quotedOrderEstimate({ lineTotalsPesewas: [12_000n, 1n], deliveryFeePesewas: 0n, taxPesewas: 0n, taxInclusive: false })).toBe(12_001n);
   });
 });

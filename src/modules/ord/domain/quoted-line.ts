@@ -58,3 +58,14 @@ export function quotedLinePricing(input: QuotedLineInput): QuotedLinePricing {
     varianceReasonCode: direction === null ? null : QUOTED_PRICE_REASON,
   };
 }
+
+/**
+ * The estimate of an order converted from an accepted quote, which its credit check counts (the owner, 2026-11-24,
+ * BL-124; A-352 (d) amended): its lines, each extended once, and its delivery fee, and on a tax-exclusive quote the tax
+ * the accepted version worked out on them, the fee's included, by the invoice's rule (A-352 (a)), so the check counts
+ * what the customer will be invoiced: UAT step 2.9's 17,172.00. A tax-inclusive quote's lines and fee carry their tax.
+ */
+export function quotedOrderEstimate(e: { readonly lineTotalsPesewas: readonly bigint[]; readonly deliveryFeePesewas: bigint; readonly taxPesewas: bigint; readonly taxInclusive: boolean }): bigint {
+  const lines = e.lineTotalsPesewas.reduce((a, b) => a + b, 0n);
+  return lines + e.deliveryFeePesewas + (e.taxInclusive ? 0n : e.taxPesewas);
+}

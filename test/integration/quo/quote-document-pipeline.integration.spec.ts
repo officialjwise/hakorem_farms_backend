@@ -145,6 +145,7 @@ describe('the quote pipeline reconciles to listQuotes (FR-QUO-013, the gate)', (
       wonValuePesewas: await sum(accepted),
       withdrawn: 0,
       withdrawnValuePesewas: 0,
+      lapsedAfterAcceptance: 0,
     });
     // Esi's: one open, one converted (accepted first): 1 of 1 closed; the draft is not counted, and the withdrawn quote is
     // its own outcome (the owner, 2026-11-23, A-329 (b)): counted and valued apart, outside the rate and outside `issued`.

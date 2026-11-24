@@ -107,3 +107,24 @@ export interface QuoteWithdrawn {
   readonly abuseCase: 65;
   readonly at: string;
 }
+
+/**
+ * `quo.AcceptedQuoteLapsed` v1 (B11u continued, the owner, 2026-11-24: "An accepted quote's hold ends 7 days after
+ * acceptance."; abuse case 66): an accepted quote no order took within 7 days of its acceptance. Its hold was released in
+ * the same transaction and it stands EXPIRED with its accepted version, so it can no longer be converted. Published for
+ * the exception report: an acceptance recorded only to hold stock away from other buyers, and a won quote turned lost.
+ */
+export interface AcceptedQuoteLapsed {
+  readonly quoteId: string;
+  readonly quoteNo: string;
+  readonly branchId: string;
+  readonly salespersonId: string;
+  readonly acceptedVersionId: string;
+  readonly acceptedAt: string;
+  /** How the acceptance was recorded: through the link, or by staff in person or by phone. */
+  readonly acceptanceMethod: string;
+  readonly grossPesewas: number;
+  readonly heldReleasedQty: string;
+  readonly abuseCase: 66;
+  readonly at: string;
+}

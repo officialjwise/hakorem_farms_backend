@@ -262,6 +262,8 @@ export interface OrderDispatched {
   /** The backorder this dispatch left for what was not sent (FR-ORD-012, B11 continued 7), else null. */
   readonly backorderId: string | null;
   readonly backorderNo: string | null;
+  /** What the backorder keeps held of this order's stock, in the base unit (B11u continued, BL-123; abuse case 67). */
+  readonly backorderHeldQty: string;
   readonly dispatchedAt: string;
 }
 
@@ -287,6 +289,8 @@ export interface OrderCollected {
   readonly dueDate: string | null;
   readonly completed: boolean;
   readonly backorderId: string | null;
+  /** What the backorder keeps held of this order's stock, in the base unit (B11u continued, BL-123; abuse case 67). */
+  readonly backorderHeldQty: string;
   readonly collectedAt: string;
 }
 

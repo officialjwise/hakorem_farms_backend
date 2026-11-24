@@ -168,6 +168,8 @@ export interface LinkFacts {
  */
 export function linkState(f: LinkFacts): LinkState {
   if (f.quoteStatus === 'CANCELLED') return 'WITHDRAWN';
+  // An accepted quote whose hold lapsed 7 days after acceptance (the owner, 2026-11-24) is expired, never accepted.
+  if (f.quoteStatus === 'EXPIRED' && f.versionStatus === 'ACCEPTED') return 'EXPIRED';
   if (f.versionStatus === 'ACCEPTED') return 'ACCEPTED';
   if (f.versionStatus === 'SUPERSEDED' || !f.isCurrent) return 'REPLACED';
   if (f.quoteStatus === 'DECLINED') return 'DECLINED';
@@ -240,4 +242,26 @@ export function availableToBuyer(requested: Quantity, held: Quantity, freeNow: Q
   const free = freeNow.isNegative() ? Quantity.zero() : freeNow;
   const there = held.plus(free);
   return there.compareTo(requested) > 0 ? requested : there;
+}
+
+/**
+ * The estimated cost of one unit of a line of animals that names none (the owner, 2026-11-24, BL-124; A-309 (c)
+ * amended): the cost of the animals it holds, or would hold now while a draft (`held`, each animal's own pool value, the
+ * line's first heads only), and for each head it cannot hold the average of `rest`, the pools of the animals of its band
+ * (else of its product), so a quote of twenty goats held at 660.00 costs 13,200.00 whatever else stands in the pens
+ * (UAT step 2.2). The line's total over its quantity in its unit, rounded half-up once. Null with no heads, or with heads
+ * short and nothing to cost them by.
+ */
+export function animalLineUnitCost(held: readonly bigint[], heads: Quantity, qty: Quantity, rest: readonly { readonly valuePesewas: bigint; readonly qty: Quantity }[]): bigint | null {
+  const wanted = heads.thousandths / 1_000n;
+  if (wanted <= 0n || qty.thousandths <= 0n) return null;
+  const mine = held.slice(0, Number(wanted));
+  const value = mine.reduce((a, v) => a + v, 0n);
+  const short = wanted - BigInt(mine.length);
+  if (short === 0n) return halfUpDivide(value * 1_000n, qty.thousandths);
+  const restValue = rest.reduce((a, p) => a + p.valuePesewas, 0n);
+  const restQty = rest.reduce((a, p) => a + p.qty.thousandths, 0n);
+  if (restQty <= 0n) return null;
+  // value + short x restValue / (restQty / 1,000), over qty / 1,000 units.
+  return halfUpDivide((value * restQty + short * restValue * 1_000n) * 1_000n, restQty * qty.thousandths);
 }

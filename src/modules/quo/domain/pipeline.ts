@@ -8,7 +8,12 @@ import { halfUpDivide } from '@hakorem/kernel';
  * The statuses a quote ever issued can stand at in the pipeline. A withdrawn quote (`CANCELLED` after issue) is neither
  * won nor lost: its own outcome, counted apart (the owner, 2026-11-23, A-329 (b)).
  */
-export type PipelineStatus = 'ISSUED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'CONVERTED' | 'CANCELLED';
+export type PipelineStatus = 'ISSUED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'CONVERTED' | 'CANCELLED' | 'LAPSED';
+/*
+ * `LAPSED` is an accepted quote whose hold ended 7 days after acceptance with no order (the owner, 2026-11-24): it stands
+ * EXPIRED with an accepted version. It was not won, so it counts as expired and lost (the conservative reading, A-294
+ * (d)), and is listed apart as `lapsedAfterAcceptance`.
+ */
 
 export interface PipelineFigures {
   readonly issued: number;
@@ -22,6 +27,8 @@ export interface PipelineFigures {
   /** Quotes withdrawn after issue, and the gross of their last issued version (A-329 (b)). */
   readonly withdrawn: number;
   readonly withdrawnValuePesewas: bigint;
+  /** Accepted quotes whose hold lapsed 7 days after acceptance with no order: among `expired`, lost in the rate. */
+  readonly lapsedAfterAcceptance: number;
 }
 
 /**
@@ -35,19 +42,21 @@ export function pipelineFigures(cells: readonly { readonly status: PipelineStatu
   const n = (s: PipelineStatus) => cells.filter((c) => c.status === s).reduce((a, c) => a + c.count, 0);
   const value = (s: readonly PipelineStatus[]) => cells.filter((c) => s.includes(c.status)).reduce((a, c) => a + c.grossPesewas, 0n);
   const accepted = n('ACCEPTED') + n('CONVERTED');
-  const closed = accepted + n('DECLINED') + n('EXPIRED');
+  const expired = n('EXPIRED') + n('LAPSED');
+  const closed = accepted + n('DECLINED') + expired;
   const hundredths = closed === 0 ? 0n : halfUpDivide(BigInt(accepted) * 10_000n, BigInt(closed));
   return {
     issued: cells.filter((c) => c.status !== 'CANCELLED').reduce((a, c) => a + c.count, 0),
     accepted,
     declined: n('DECLINED'),
-    expired: n('EXPIRED'),
+    expired,
     converted: n('CONVERTED'),
     winRatePercent: `${hundredths / 100n}.${(hundredths % 100n).toString().padStart(2, '0')}`,
-    issuedValuePesewas: value(['ISSUED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CONVERTED']),
+    issuedValuePesewas: value(['ISSUED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'LAPSED', 'CONVERTED']),
     wonValuePesewas: value(['ACCEPTED', 'CONVERTED']),
     withdrawn: n('CANCELLED'),
     withdrawnValuePesewas: value(['CANCELLED']),
+    lapsedAfterAcceptance: n('LAPSED'),
   };
 }
 

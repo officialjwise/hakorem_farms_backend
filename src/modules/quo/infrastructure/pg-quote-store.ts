@@ -167,12 +167,13 @@ export class PgQuoteStore implements QuoteStore {
     ]);
   }
 
-  async lockLapsed(tx: Transaction, now: Date, limit: number): Promise<QuoteRecord[]> {
+  async lockLapsed(tx: Transaction, now: Date, limit: number, acceptedBy: Date): Promise<QuoteRecord[]> {
     const due = await tx.query<{ id: string }>(
       `SELECT q.id FROM quo.quote q
-        WHERE q.status = 'ISSUED' AND EXISTS (SELECT 1 FROM quo.quote_version v WHERE v.quote_id = q.id AND v.status = 'ISSUED' AND v.valid_until < $1)
+        WHERE (q.status = 'ISSUED' AND EXISTS (SELECT 1 FROM quo.quote_version v WHERE v.quote_id = q.id AND v.status = 'ISSUED' AND v.valid_until < $1))
+           OR (q.status = 'ACCEPTED' AND EXISTS (SELECT 1 FROM quo.quote_acceptance a WHERE a.quote_version_id = q.accepted_version_id AND a.accepted_at <= $3))
         ORDER BY q.id LIMIT $2 FOR UPDATE OF q SKIP LOCKED`,
-      [now, limit],
+      [now, limit, acceptedBy],
     );
     return this.quotes(
       tx,
@@ -403,7 +404,8 @@ export class PgQuoteStore implements QuoteStore {
     const group = f.groupBy === 'SALESPERSON' ? 'q.salesperson_id::text' : 'q.product_line';
     const rows = (
       await tx.query<{ groupKey: string | null; status: PipelineCell['status']; count: string; grossPesewas: string }>(
-        `SELECT ${group} AS "groupKey", q.status, count(*)::text AS count, sum(v.gross_pesewas)::text AS "grossPesewas"
+        // An accepted quote whose hold lapsed after acceptance stands EXPIRED with its accepted version (A-294): LAPSED here.
+        `SELECT ${group} AS "groupKey", CASE WHEN q.status = 'EXPIRED' AND q.accepted_version_id IS NOT NULL THEN 'LAPSED' ELSE q.status END AS status, count(*)::text AS count, sum(v.gross_pesewas)::text AS "grossPesewas"
            FROM quo.quote q
            CROSS JOIN LATERAL (
              SELECT s.gross_pesewas FROM quo.quote_version s

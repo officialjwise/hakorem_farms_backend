@@ -12,14 +12,15 @@ import type { Authoriser } from '../../iam';
 import type { Reservations, Stock, StockUnits } from '../../inv';
 import type { MasterDataRefs, Storefront } from '../../mdm';
 import type { Payments, Refunds } from '../../pay';
-import { backorderLines, cashDueOnDelivery, feesAtDispatch, judgeExtraDeliveryFee, planSettlement, type FeeAtDispatch } from '../domain/dispatch';
+import { keptForBackorder } from '../domain/backorder-hold';
+import { backorderLines, cashDueOnDelivery, feesAtDispatch, judgeExtraDeliveryFee, planSettlement, type BackorderLine, type FeeAtDispatch } from '../domain/dispatch';
 import { canMove, type OrderStatus } from '../domain/order';
 import type { OrderCollected, OrderDelivered, OrderDispatched } from '../events';
 import { CreditRefusedError, FulfilmentInvalidError, OrderInvalidError, type SaleRule } from './errors';
 import type { CreditOverridePending, CreditPolicyAnswer, OrderConfirmationPolicy } from './order-confirmation-policy';
 import type { FulfilmentStore, PickRecord } from './fulfilment-store';
 import type { Fulfilments, FulfilmentView } from './fulfilments';
-import type { OrderHeaderRecord, OrderLineRecord, OrderStore } from './order-store';
+import type { OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore } from './order-store';
 import type { Orders } from './orders';
 import type { VanReturns } from './van-returns';
 
@@ -320,8 +321,10 @@ export class Dispatches {
       refundIds.push(asked.subject.id);
     }
 
-    // The goods move from where they were picked onto the vehicle, once each; the order's promises end with them.
-    await this.reservations.releaseHeldByIn(tx, actorId, header.id, `Order ${header.orderNo!} dispatched`);
+    // The goods move from where they were picked onto the vehicle, once each; the order's promises end with them, except
+    // what the backorder keeps of them (the owner, 2026-11-24, BL-123), handed to it in this transaction.
+    const backordered = backorder.length === 0 ? null : await this.orders.backorderIn(tx, actor!, order, backorder, at);
+    const backorderHeldQty = await this.endPromisesIn(tx, actorId, header, order, picks, backorder, backordered, `Order ${header.orderNo!} dispatched`);
     for (const { pick, list } of picks) {
       const posted = await this.stock.postIn(tx, actorId, {
         movementType: ONTO_VEHICLE,
@@ -345,7 +348,6 @@ export class Dispatches {
     }
     for (const list of lists) await this.store.dispatch(tx, list.id, { at, actorId });
     await this.store.invoiceOrder(tx, header.id, { billingDocumentId: document.id, finalTotalPesewas: gross.pesewas, at, actorId });
-    const backordered = backorder.length === 0 ? null : await this.orders.backorderIn(tx, actor!, order, backorder, at);
 
     const delivery = await this.deliveries.scheduleIn(tx, actor!, {
       orderDocumentId: header.id,
@@ -385,6 +387,7 @@ export class Dispatches {
       lines: delivery.contents.map((c) => ({ orderLineId: c.orderLineId, name: c.name, quantity: c.quantity, uom: c.uom, weightKg: c.weightKg })),
       backorderId: backordered?.id ?? null,
       backorderNo: backordered?.orderNo ?? null,
+      backorderHeldQty,
       dispatchedAt: at.toISOString(),
     };
     await this.events.publish<OrderDispatched>(tx, { type: ORDER_DISPATCHED, subjectType: 'SalesOrder', subjectId: header.id, branchId: header.branchId, payload: dispatched, occurredAt: at });
@@ -491,8 +494,10 @@ export class Dispatches {
       refundIds.push(asked.subject.id);
     }
 
-    // The goods go from where they were picked to the customer, once each; the order's promises end with them.
-    await this.reservations.releaseHeldByIn(tx, actorId, header.id, `Order ${header.orderNo!} collected`);
+    // The goods go from where they were picked to the customer, once each; the order's promises end with them, except
+    // what the backorder keeps of them (the owner, 2026-11-24, BL-123), handed to it in this transaction.
+    const backordered = backorder.length === 0 ? null : await this.orders.backorderIn(tx, actor!, order, backorder, at);
+    const backorderHeldQty = await this.endPromisesIn(tx, actorId, header, order, picks, backorder, backordered, `Order ${header.orderNo!} collected`);
     const customer = await this.refs.virtualLocationIn(tx, header.branchId, 'CUSTOMER');
     if (customer === null) throw new Error(`branch ${header.branchId} has no CUSTOMER location`);
     const lineMovement = new Map<string, string>();
@@ -523,7 +528,6 @@ export class Dispatches {
     for (const [lineId, movementId] of lineMovement) await this.store.setLineMovement(tx, lineId, movementId);
     for (const list of lists) await this.store.collect(tx, list.id, { at, actorId });
     await this.store.invoiceOrder(tx, header.id, { billingDocumentId: document.id, finalTotalPesewas: gross.pesewas, at, actorId });
-    const backordered = backorder.length === 0 ? null : await this.orders.backorderIn(tx, actor!, order, backorder, at);
     await this.moveIn(tx, header, 'READY_FOR_COLLECTION', `Handed over on ${document.documentNo ?? document.id}`, at, actorId);
     const completed = settlement.due.isZero();
     if (completed) {
@@ -546,6 +550,7 @@ export class Dispatches {
       dueDate,
       completed,
       backorderId: backordered?.id ?? null,
+      backorderHeldQty,
       collectedAt: at.toISOString(),
     };
     await this.events.publish<OrderCollected>(tx, { type: ORDER_COLLECTED, subjectType: 'SalesOrder', subjectId: header.id, branchId: header.branchId, payload: collected, occurredAt: at });
@@ -732,6 +737,57 @@ export class Dispatches {
   }
 
   /** Each open line as weighed and picked: a catch-weight line in kilograms, any other in its sold unit (FR-BIL-005). */
+  /**
+   * The first order's promises at its dispatch or hand-over (FR-ORD-012; the owner, 2026-11-24, BL-123; A-366 (a)
+   * amended, A-295): each of its reservations ended once; what its backorder still needs of the stock they held, less
+   * what the picks going now take (`keptForBackorder`), is promised again to the backorder in this serializable
+   * transaction, under the same locks, so nobody else can take it in between and nothing is promised twice or below
+   * zero. The rest is released as before. A backorder line holding one reservation names it. Answers what the backorder
+   * holds, in the base unit, for the exception report (abuse case 67).
+   */
+  private async endPromisesIn(
+    tx: Transaction,
+    actorId: string,
+    header: OrderHeaderRecord,
+    order: OrderRecord,
+    picks: readonly { readonly pick: PickRecord; readonly list: { readonly pickLocationId: string } }[],
+    backorder: readonly BackorderLine[],
+    backordered: { readonly id: string; readonly orderNo: string } | null,
+    reason: string,
+  ): Promise<string> {
+    const held = await this.reservations.activeOfHolderIn(tx, header.id);
+    const products = await this.refs.productsIn(
+      tx,
+      held.map((r) => r.productId),
+    );
+    const needs = [];
+    for (const b of backordered === null ? [] : backorder) {
+      const line = order.lines.find((l) => l.id === b.fromLineId)!;
+      const base = await this.refs.toBaseIn(tx, line.productId, line.uom, Quantity.parse(b.qty));
+      if (!base.ok) throw new Error(`order line ${line.id} in ${line.uom} has no exact base quantity (${base.error})`);
+      needs.push({ productId: line.productId, qty: base.value });
+    }
+    const kept = keptForBackorder(
+      held.map((r) => ({ reservationId: r.id, productId: r.productId, stockUnitId: r.stockUnitId, locationId: r.locationId, qty: Quantity.parse(r.qty), serial: products.get(r.productId)?.tracking === 'SERIAL' })),
+      picks.map(({ pick, list }) => ({ productId: order.lines.find((l) => l.id === pick.salesOrderLineId)!.productId, stockUnitId: pick.stockUnitId, locationId: list.pickLocationId, qty: Quantity.parse(pick.qtyBase) })),
+      needs,
+    );
+    const keeps = new Set(kept.map((k) => k.reservationId));
+    for (const r of held) {
+      if (keeps.has(r.id)) await this.reservations.endIn(tx, actorId, r.id, 'RELEASED', `${reason}: what was not sent stays held for backorder ${backordered!.orderNo}`, backordered!.id);
+      else await this.reservations.endIn(tx, actorId, r.id, 'RELEASED', reason);
+    }
+    if (backordered === null || kept.length === 0) return '0.000';
+    const lines = (await this.orderStore.orders(tx, [backordered.id]))[0]!.lines;
+    const byLine = new Map<number, string[]>();
+    for (const k of kept) {
+      const id = await this.reservations.reserveIn(tx, actorId, { productId: k.productId, stockUnitId: k.stockUnitId, locationId: k.locationId, qty: k.qty, holderDocumentId: backordered.id, expiresAt: null });
+      byLine.set(k.lineIndex, [...(byLine.get(k.lineIndex) ?? []), id]);
+    }
+    for (const [index, ids] of byLine) if (ids.length === 1) await this.orders.holdLineIn(tx, lines[index]!.id, ids[0]!);
+    return Quantity.sum(kept.map((k) => k.qty)).toDecimalString();
+  }
+
   private async billedLines(tx: Transaction, open: readonly OrderLineRecord[], picks: readonly PickRecord[], at: Date): Promise<IssueLineRequest[]> {
     const unitIds = [...new Set(picks.flatMap((p) => (p.stockUnitId === null ? [] : [p.stockUnitId])))];
     const units = await this.units.factsIn(tx, unitIds, at);

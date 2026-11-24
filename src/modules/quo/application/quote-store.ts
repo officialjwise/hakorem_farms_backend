@@ -163,8 +163,12 @@ export interface QuoteStore {
     actorId: string,
     at: Date,
   ): Promise<void>;
-  /** Issued quotes whose live version's validity ended before `now`, locked, oldest first. */
-  lockLapsed(tx: Transaction, now: Date, limit: number): Promise<QuoteRecord[]>;
+  /**
+   * Issued quotes whose live version's validity ended before `now`, and accepted quotes accepted at or before
+   * `acceptedBy` (their hold ends 7 days after acceptance, the owner, 2026-11-24), locked, skipping any a conversion
+   * holds, by id.
+   */
+  lockLapsed(tx: Transaction, now: Date, limit: number, acceptedBy: Date): Promise<QuoteRecord[]>;
 
   insertVersion(tx: Transaction, version: Omit<VersionRecord, 'version' | 'status' | 'approvalRequestId' | 'approvedBy' | 'issuedAt' | 'issuedBy' | 'archivedDocumentId'>): Promise<void>;
   versionsOf(tx: Transaction, quoteIds: readonly string[]): Promise<VersionRecord[]>;
