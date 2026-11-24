@@ -298,6 +298,17 @@ export class Animals {
     });
   }
 
+  /**
+   * Each stock unit's purpose, in the caller's transaction (B12 continued 2, FR-CST-002: CST capitalises labour and
+   * overhead onto growing stock only, ADR-0018): an animal's own, a flock's its batch's, and GROWING for a unit with
+   * neither (A-158), as the feed spread reads it. Additive: nothing else changes.
+   */
+  async purposesIn(tx: Transaction, stockUnitIds: readonly string[]): Promise<ReadonlyMap<string, 'GROWING' | 'BREEDING' | 'LAYING'>> {
+    const animals = new Map((await this.store.animals(tx, stockUnitIds)).map((a) => [a.stockUnitId, a.purpose] as const));
+    const batches = await this.herd.batchesOfUnits(tx, stockUnitIds);
+    return new Map(stockUnitIds.map((id) => [id, animals.get(id) ?? batches.get(id)?.purpose ?? 'GROWING'] as const));
+  }
+
   /** The contract's `Animal` for each record, read with its stock unit, its references and its band at the counter. */
   async viewsIn(tx: Transaction, records: readonly AnimalRecord[], at: Date): Promise<AnimalView[]> {
     if (records.length === 0) return [];

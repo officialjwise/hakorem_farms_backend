@@ -1,0 +1,109 @@
+operationId: listLosses
+tags:
+  - cst
+summary: "Mortality, shrinkage and wastage as their own figures"
+description: "FR-CST-007, ADR-0102 (2.47.0). Mortality and cull (5100), shrinkage and adjustments (5110) and wastage and expiry (5120) as their own figures, never inside cost of sales, by cause, by the location the stock left, by who recorded it or by product: each group's write-offs counted (a reversal takes one back), with their quantity and value at cost. A group's `lossGroup` is its cause. `qty` is null for causes, which mix units. `ratePercent` and `comparisonRatePercent` are null until head kept per pen is projected (BL-129). `totalPesewas` covers the whole filter. Every branch the caller reads in full. 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `cst.margin.read`."
+x-permission: cst.margin.read
+parameters:
+  - name: groupBy
+    in: query
+    required: true
+    schema:
+      type: string
+      enum:
+        - CAUSE
+        - LOCATION
+        - HANDLER
+        - PRODUCT
+  - name: from
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/LossReport"
+        examples:
+          default:
+            value:
+              data:
+                - group:
+                    id: null
+                    label: Mortality
+                  lossGroup: MORTALITY
+                  events: 11
+                  qty: null
+                  valuePesewas: 213000
+                  ratePercent: null
+                  comparisonRatePercent: null
+                - group:
+                    id: null
+                    label: Shrinkage
+                  lossGroup: SHRINKAGE
+                  events: 6
+                  qty: null
+                  valuePesewas: 28171
+                  ratePercent: null
+                  comparisonRatePercent: null
+                - group:
+                    id: null
+                    label: "Wastage and expiry"
+                  lossGroup: WASTAGE
+                  events: 4
+                  qty: null
+                  valuePesewas: 35000
+                  ratePercent: null
+                  comparisonRatePercent: null
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              totalPesewas: 276171
+              currency: GHS
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              totalPesewas: 0
+              currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

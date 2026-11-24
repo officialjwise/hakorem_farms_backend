@@ -152,6 +152,7 @@ import {
   DriverCashHandInCreate as PosDriverCashHandInCreate,
 } from '../../../src/modules/pos/interface/schemas';
 import { AccountCreate as WhlAccountCreate, AccountUpdate as WhlAccountUpdate, ReasonBody as WhlReasonBody, StatementCreate as WhlStatementCreate, DunningPolicyReplace as WhlDunningPolicyReplace, StandingOrderCreate as WhlStandingOrderCreate, StandingOrderUpdate as WhlStandingOrderUpdate, BadDebtWriteOff as WhlBadDebtWriteOff, DocumentSendRequest as StatementSendRequest } from '../../../src/modules/whl/interface/schemas';
+import { OverheadAllocationCreate as CstOverheadAllocationCreate } from '../../../src/modules/cst/interface/schemas';
 import { CapitalTransactionCreate as CapCapitalTransactionCreate, InvestorCreate as CapInvestorCreate, InvestorUpdate as CapInvestorUpdate, PaymentCreate as CapPaymentCreate, RunCreate as CapRunCreate, InvestorDocumentCreate as CapInvestorDocumentCreate, FinancingCreate as CapFinancingCreate, RepaymentCreate as CapRepaymentCreate } from '../../../src/modules/cap/interface/schemas';
 import {
   PublicQuoteRequest as QuoPublicQuoteRequest,
@@ -508,6 +509,7 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     addInvestorDocument: CapInvestorDocumentCreate,
     createFinancing: CapFinancingCreate,
     recordRepayment: CapRepaymentCreate,
+    createOverheadAllocation: CstOverheadAllocationCreate,
     confirmOrder: OrderConfirmBody,
     submitQuoteRequest: QuoPublicQuoteRequest,
     acceptQuoteByLink: QuoAcceptByLink,

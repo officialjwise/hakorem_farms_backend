@@ -1,0 +1,96 @@
+operationId: createOverheadAllocation
+tags:
+  - cst
+summary: "Spread a period's labour or overhead over the animals"
+description: "FR-CST-002, ADR-0018, ADR-0102 (2.47.0). Spreads a period's labour or overhead over the livestock of a pen (`scopeLocationId`) or a whole branch (`branchId`) through `allocate`: by head-days (each day's whole head on hand there at the end of the day, Africa/Accra) or equally (`EQUAL`, one each). 30,001 over head-days of 10, 10 and 5 is 12,001, 12,000 and 6,000, the leftover pesewa on the first tag. The lines sum exactly to `totalPesewas` (the database checks it at commit). A growing animal's share is CAPITALISED; a breeding or laying animal's, or one no longer on hand, is EXPENSED and stays in the period's cost. The run is a DRAFT: nothing posts until a different person posts it. 422 `ALLOCATION_INVALID`: `BRANCH_REQUIRED`, `PERIOD_INVALID` (the end before the start, or after today), `SCOPE_NOT_A_PEN`, `BASIS_NOT_SUPPORTED` (`WEIGHT_GAIN`, BL-128), `NO_ANIMALS_IN_SCOPE`.\n\nPermission: `cst.allocation.manage`."
+x-permission: cst.allocation.manage
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/OverheadAllocationCreate"
+      example:
+        periodStart: "2026-10-01"
+        periodEnd: "2026-10-31"
+        costElement: LABOUR
+        basis: HEAD_DAYS
+        scopeLocationId: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+        totalPesewas: 96000
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OverheadAllocationRun"
+        example:
+          id: "019a7b11-a1a4-747b-89b3-508619d9c964"
+          status: DRAFT
+          periodStart: "2026-10-01"
+          periodEnd: "2026-10-31"
+          costElement: LABOUR
+          basis: HEAD_DAYS
+          scopeLocation:
+            id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+            code: PEN-G1
+            name: "Goat pen 1"
+            kind: PEN
+          totalPesewas: 96000
+          lines:
+            - stockUnit:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                identifier: G-0142
+                tracking: SERIAL
+              weight: 30
+              amountPesewas: 32000
+              treatment: CAPITALISED
+              movementId: null
+            - stockUnit:
+                id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                identifier: G-0157
+                tracking: SERIAL
+              weight: 30
+              amountPesewas: 32000
+              treatment: CAPITALISED
+              movementId: null
+            - stockUnit:
+                id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+                identifier: G-0118
+                tracking: SERIAL
+              weight: 30
+              amountPesewas: 32000
+              treatment: CAPITALISED
+              movementId: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 1
+          createdAt: "2026-11-05T10:00:00Z"
+          createdBy:
+            id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+            displayName: "Efua Asante"
+          postedBy: null
+          postedAt: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

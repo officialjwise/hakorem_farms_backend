@@ -1,0 +1,94 @@
+operationId: postOverheadAllocation
+tags:
+  - cst
+summary: "Post an allocation as value-only stock movements"
+description: "FR-CST-002, ADR-0017, ADR-0018, ADR-0102 (2.47.0). Posts a DRAFT run created by someone else: each capitalised share above nothing becomes a value-only `OVERHEAD_CAPITALISE` movement onto its animal, which the ledger posts in the same transaction (Dr inventory by the product's GL group, Cr 5220 Labour and overhead absorbed into stock); an expensed share posts nothing. The lines sum exactly to the total. One posted run per branch, cost element, scope and period. 422 `MAKER_CANNOT_CHECK` (the person who created it); 422 `ALLOCATION_INVALID`: `ALREADY_POSTED`, `PERIOD_ALREADY_POSTED`, `UNIT_NOT_ON_HAND` (an animal with a capitalised share has left since: make the run again).\n\nPermission: `cst.allocation.post`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: cst.allocation.post
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OverheadAllocationRun"
+        example:
+          id: "019a7b11-a1a4-747b-89b3-508619d9c964"
+          status: POSTED
+          periodStart: "2026-10-01"
+          periodEnd: "2026-10-31"
+          costElement: LABOUR
+          basis: HEAD_DAYS
+          scopeLocation:
+            id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+            code: PEN-G1
+            name: "Goat pen 1"
+            kind: PEN
+          totalPesewas: 96000
+          lines:
+            - stockUnit:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                identifier: G-0142
+                tracking: SERIAL
+              weight: 30
+              amountPesewas: 32000
+              treatment: CAPITALISED
+              movementId: "019a7b13-00aa-7c00-8a00-000000000000"
+            - stockUnit:
+                id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                identifier: G-0157
+                tracking: SERIAL
+              weight: 30
+              amountPesewas: 32000
+              treatment: CAPITALISED
+              movementId: "019a7b13-01aa-7c00-8a00-000000000001"
+            - stockUnit:
+                id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+                identifier: G-0118
+                tracking: SERIAL
+              weight: 30
+              amountPesewas: 32000
+              treatment: CAPITALISED
+              movementId: "019a7b13-02aa-7c00-8a00-000000000002"
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 1
+          createdAt: "2026-11-05T10:00:00Z"
+          createdBy:
+            id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+            displayName: "Efua Asante"
+          postedBy:
+            id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+            displayName: "Kwame Asare"
+          postedAt: "2026-11-05T11:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

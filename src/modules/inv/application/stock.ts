@@ -85,6 +85,8 @@ export const INV_LEDGER_EVENTS = [
   'inv.SupplierReturnIssued',
   'inv.NegativeStockCosted',
   'inv.NegativeStockTrueUp',
+  // B12 continued 2 (migration 0363, ADR-0102): OVERHEAD_CAPITALISE, a share of labour or overhead posted by CST.
+  'inv.OverheadAbsorbed',
 ] as const;
 
 /** The true-up of stock sold ahead of receipt (ADR-0081, migration 0286): a nil lift before the arrival, a valued issue after. */

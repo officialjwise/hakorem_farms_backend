@@ -48,6 +48,14 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0369_iam_cst_permissions',
+      '0368_cst_costing',
+      '0367_ord_publish_sale_dimensions',
+      '0366_bil_publish_document_lines',
+      '0365_mdm_publish_costing_facts',
+      '0364_fin_overhead_absorption',
+      '0363_inv_overhead_capitalise',
+      '0362_platform_add_costing_documents',
       '0361_iam_cap_financing_permissions',
       '0360_fin_financing_postings',
       '0359_cap_payout_documents_financing',
