@@ -260,6 +260,28 @@ export interface OrderDispatched {
 }
 
 /**
+ * `ord.OrderCollected` v1 (B11 continued 7, FR-ORD-011): a collection order handed to the customer, its document issued
+ * on the weighed quantity and its deposits allocated; `dueAtTillPesewas` is what is left to pay at the till, `completed`
+ * when nothing was. For the customer's message (NTF) and the daily exception report.
+ */
+export interface OrderCollected {
+  readonly orderId: string;
+  readonly orderNo: string;
+  readonly branchId: string;
+  readonly customerId: string | null;
+  readonly contactPhone: string | null;
+  readonly billingDocumentId: string;
+  readonly billingDocumentNo: string;
+  readonly finalTotalPesewas: number;
+  readonly allocatedPesewas: number;
+  readonly refundRequestedPesewas: number;
+  readonly dueAtTillPesewas: number;
+  readonly completed: boolean;
+  readonly backorderId: string | null;
+  readonly collectedAt: string;
+}
+
+/**
  * `ord.OrderDelivered` v1 (B11 continued, FR-DEL-008, FR-DEL-012): a dispatched order delivered, its goods issued from
  * the vehicle; `completed` when nothing was left to pay. The customer's delivered message (NTF, B11 continued 3).
  */

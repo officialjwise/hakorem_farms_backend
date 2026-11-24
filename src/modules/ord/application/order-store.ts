@@ -213,6 +213,8 @@ export interface OrderStore {
   lockOnlineBySource(tx: Transaction, sourceDocumentId: string): Promise<OrderHeaderRecord | null>;
   /** The backorders of an order (FR-ORD-012), oldest first, with their status. */
   backordersOf(tx: Transaction, parentOrderId: string): Promise<Array<{ readonly id: string; readonly orderNo: string | null; readonly status: OrderStatus }>>;
+  /** The order a billing document bills (its `billing_document_id`), or null. */
+  orderOfBillingDocument(tx: Transaction, billingDocumentId: string): Promise<string | null>;
   insertExtraFee(tx: Transaction, fee: Omit<ExtraFeeRecord, 'recordedAt'>): Promise<void>;
   extraFeesOf(tx: Transaction, orderIds: readonly string[]): Promise<ExtraFeeRecord[]>;
 }

@@ -1241,13 +1241,18 @@ export class Orders {
   /**
    * FR-ORD-016: paid, outstanding and the payment status, from the order's cleared payments and, once issued, its
    * billing document (gross less credits). Before the document, what is outstanding is the estimate less what was
-   * received; a pending charge counts for nothing until it clears.
+   * received; a pending charge counts for nothing until it clears. Once issued, the document's own allocations are what
+   * covers it, so a balance paid at the till against it counts as paid.
    */
   private figures(order: OrderRecord, bill: BillingDocumentView | undefined, all: readonly PaymentView[]): { paid: number; outstanding: number; paymentStatus: PaymentStatus } {
     const cleared = all.filter((p) => p.status === 'CLEARED');
     const sum = (pick: (p: PaymentView) => number) => Money.sum(cleared.map((p) => Money.fromJsonInteger(pick(p))));
-    const paid = sum((p) => p.amountPesewas);
-    const allocated = sum((p) => p.allocatedPesewas);
+    const own = sum((p) => p.allocatedPesewas);
+    // Once the document is issued, what settled it is its own allocations, whoever paid them: a balance paid at the till
+    // against it (B11 continued 7) names no order, and an order's deposit may also settle its backorder's document.
+    const allocated = bill === undefined ? own : Money.fromJsonInteger(bill.settlement.allocatedPesewas);
+    const beyond = allocated.compareTo(own) > 0 ? allocated.minus(own) : Money.zero();
+    const paid = sum((p) => p.amountPesewas).plus(beyond);
     const refunded = sum((p) => p.refundedPesewas);
     const due = bill === undefined ? null : Money.fromJsonInteger(bill.grossPesewas).minus(Money.fromJsonInteger(bill.settlement.creditedPesewas));
     const paymentStatus = paymentStatusOf({ documentDue: due, allocated, deposits: sum((p) => p.unallocatedPesewas), paid, refunded });

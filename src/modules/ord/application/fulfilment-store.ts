@@ -155,6 +155,8 @@ export interface FulfilmentStore {
   setSubstituteLine(tx: Transaction, consentId: string, lineId: string, at: Date, actorId: string): Promise<void>;
   /** PACKED to DISPATCHED, at the time given. */
   dispatch(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void>;
+  /** A packed pick list handed to the customer at the branch (collectFulfilment): COLLECTED, its time the dispatch time. */
+  collect(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void>;
   /** A pick's movement at dispatch, set once (the guard holds it). */
   setPickMovement(tx: Transaction, pickId: string, movementId: string, at: Date, actorId: string): Promise<void>;
   /** A delivered pick's sale issue from the vehicle (`ord.fulfilment_issue`, insert-only). */

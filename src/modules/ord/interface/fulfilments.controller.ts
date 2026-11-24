@@ -82,6 +82,13 @@ export class FulfilmentsController {
     return this.fulfilments.pack(actor, id, body, key).then((r) => r.body);
   }
 
+  @Post(':id/collect')
+  @HttpCode(200)
+  @Operation({ operationId: 'collectFulfilment', ...WRITE, permission: 'ord.fulfilment.dispatch' })
+  collectFulfilment(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string, @IdempotencyKeyHeader() key: string): Promise<FulfilmentView> {
+    return this.dispatches.collect(actor, id, key).then((r) => r.body);
+  }
+
   @Post(':id/dispatch')
   @HttpCode(200)
   @Operation({ operationId: 'dispatchFulfilment', ...WRITE, permission: 'ord.fulfilment.dispatch' })

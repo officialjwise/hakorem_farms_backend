@@ -339,6 +339,11 @@ export class PgOrderStore implements OrderStore {
     return rows.map((r) => ({ id: r.id, orderNo: r.order_no, status: r.status }));
   }
 
+  async orderOfBillingDocument(tx: Transaction, billingDocumentId: string): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>('SELECT id FROM ord.sales_order WHERE billing_document_id = $1', [billingDocumentId]);
+    return rows[0]?.id ?? null;
+  }
+
   async insertExtraFee(tx: Transaction, f: Omit<ExtraFeeRecord, 'recordedAt'>): Promise<void> {
     await tx.query(
       'INSERT INTO ord.order_extra_fee (id, sales_order_id, delivery_zone_id, amount_pesewas, note, branch_id, actor_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',

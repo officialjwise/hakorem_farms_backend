@@ -9,6 +9,7 @@
 --                           fee of its own: the fee is charged once, on the first dispatch (A-331 (b)).
 --                           ck_sales_order_settled_lines (replaced): a completed order's line wholly back-ordered
 --                           (BACKORDERED) needs no stock movement of its own; its backorder carries it.
+--                           ix_sales_order_billing_document: the order of a document a later payment settles (BL-097).
 --   ord.order_extra_fee     (LEDGER) an extra delivery the customer asked for, added by staff holding
 --                           ord.delivery_fee.add (0330, 0331): one a backorder (uq_order_extra_fee_order), its zone's fee,
 --                           positive; only on a delivery backorder not yet dispatched (ck_order_extra_fee_order, HK010).
@@ -22,6 +23,8 @@ ALTER TABLE ord.sales_order_line
 ALTER TABLE ord.sales_order
   ADD CONSTRAINT ck_sales_order_parent CHECK (parent_order_id IS NULL OR parent_order_id <> id);
 CREATE INDEX ix_sales_order_parent ON ord.sales_order (parent_order_id) WHERE parent_order_id IS NOT NULL;
+-- The order a billing document bills, read when a later payment or credit note settles it (BL-097).
+CREATE INDEX ix_sales_order_billing_document ON ord.sales_order (billing_document_id) WHERE billing_document_id IS NOT NULL;
 
 CREATE FUNCTION ord.sales_order_backorder_guard() RETURNS trigger
   LANGUAGE plpgsql
@@ -156,6 +159,7 @@ END
 $$;
 DROP TRIGGER trg_sales_order_backorder ON ord.sales_order;
 DROP FUNCTION ord.sales_order_backorder_guard();
+DROP INDEX ord.ix_sales_order_billing_document;
 DROP INDEX ord.ix_sales_order_parent;
 ALTER TABLE ord.sales_order DROP CONSTRAINT ck_sales_order_parent;
 ALTER TABLE ord.sales_order_line DROP CONSTRAINT ck_sales_order_line_backorder;
