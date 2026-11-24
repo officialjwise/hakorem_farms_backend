@@ -1,0 +1,62 @@
+operationId: addExtraDeliveryFee
+tags:
+  - ord
+summary: "Charge an extra delivery the customer asked for on a backorder"
+description: "An extra delivery the customer asked for is its own, explicit fee line (2.36.0, B11 continued 7; the owner, 2026-11-23; A-331 (b)): the delivery fee is otherwise charged once, on the order's first dispatch, and a backorder the farm sends to complete a short order carries none. Adds the backorder's zone fee (never an amount typed by staff) as an extra fee, charged as its own `DELIVERY_FEE` line on the backorder's dispatch document. Only on a delivery backorder (`parentOrderId` set) not yet dispatched (`CONFIRMED`, `PICKING`, `AWAITING_CUSTOMER` or `PACKED`), once. Refusals: 422 `ORDER_INVALID` with `NOT_A_DELIVERY`, `NOT_A_BACKORDER`, `NOT_BEFORE_DISPATCH`, `EXTRA_FEE_ALREADY_ADDED` or `ZONE_HAS_NO_FEE`; 404 for an order the caller cannot see; 403 at another branch. Audited.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.delivery_fee.add`."
+x-permission: ord.delivery_fee.add
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ExtraDeliveryFeeCreate"
+      example:
+        note: "The customer asked for the last two crates to come on Saturday"
+responses:
+  "201":
+    description: Created
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ExtraDeliveryFee"
+        example:
+          id: "019a7b20-11aa-7c3e-9d41-5f0e2b7a1c01"
+          order:
+            id: "019a7b1f-0d22-7a41-8c19-3e5b9f2d4a77"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004231
+          amountPesewas: 1500
+          currency: GHS
+          note: "The customer asked for the last two crates to come on Saturday"
+          addedAt: "2026-11-24T10:15:00.000Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

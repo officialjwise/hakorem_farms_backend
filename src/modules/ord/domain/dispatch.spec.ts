@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { planSettlement } from './dispatch';
+import { backorderLines, feesAtDispatch, judgeExtraDeliveryFee, planSettlement } from './dispatch';
 
 const m = (pesewas: number) => Money.ofPesewas(BigInt(pesewas));
 const deposit = (id: string, pesewas: number) => ({ paymentId: id, unallocated: m(pesewas) });
@@ -58,5 +58,73 @@ describe('settling an order at dispatch against the invoice on the weighed quant
   it('settles the largest amount a pesewa field holds without losing one', () => {
     const plan = planSettlement(Money.ofPesewas(Money.MAX_PESEWAS), [deposit('p1', 1)]);
     expect(plan.due.pesewas).toBe(Money.MAX_PESEWAS - 1n);
+  });
+});
+
+describe('a dispatch that leaves a backorder (FR-ORD-012, A-331 (b))', () => {
+  it('keeps what the deposits hold beyond the invoice for the backorder instead of refunding it', () => {
+    // 3 crates at 5,500 paid ahead (16,500), 2 dispatched: 11,000 allocated, 5,500 held for the backorder.
+    expect(plain(planSettlement(m(11_000), [deposit('p1', 16_500)], { holdForBackorder: true }))).toEqual({ allocations: [['p1', 11_000n]], refunds: [], due: 0n });
+  });
+
+  it('still refunds what the deposits hold beyond the last dispatch of the order', () => {
+    expect(plain(planSettlement(m(5_500), [deposit('p1', 6_000)], { holdForBackorder: false }))).toEqual({ allocations: [['p1', 5_500n]], refunds: [['p1', 500n]], due: 0n });
+  });
+});
+
+describe('backorderLines (FR-ORD-012): the rest of each short line, at the price agreed on the order', () => {
+  const line = (over: Partial<Parameters<typeof backorderLines>[0][number]> = {}) => ({ id: 'l1', lineNo: 1, qtyOrdered: '20.000', qtyFulfilled: '12.000', qtyBackordered: '8.000', agreedUnitPricePesewas: 5_500n, discountPesewas: 0n, ...over });
+
+  it("back-orders FR-ORD-012's 8 of 20 crates at 5,500 as one line of 44,000, and leaves a line sent in full alone", () => {
+    expect(backorderLines([line(), line({ id: 'l2', lineNo: 2, qtyFulfilled: '3.000', qtyOrdered: '3.000', qtyBackordered: '0.000' })])).toEqual([{ fromLineId: 'l1', qty: '8.000', estimatedLineTotalPesewas: 44_000n, status: 'PARTIAL' }]);
+  });
+
+  it('names a line sent not at all BACKORDERED, the whole of it on the backorder', () => {
+    expect(backorderLines([line({ qtyFulfilled: '0.000', qtyBackordered: '20.000' })])).toEqual([{ fromLineId: 'l1', qty: '20.000', estimatedLineTotalPesewas: 110_000n, status: 'BACKORDERED' }]);
+  });
+
+  it('rounds the backorder line once, half-up: 1.500 at 333 is 499.5, so 500; 1.499 at 333 is 499.167, so 499', () => {
+    expect(backorderLines([line({ qtyOrdered: '3.000', qtyFulfilled: '1.500', qtyBackordered: '1.500', agreedUnitPricePesewas: 333n })])[0]!.estimatedLineTotalPesewas).toBe(500n);
+    expect(backorderLines([line({ qtyOrdered: '3.000', qtyFulfilled: '1.501', qtyBackordered: '1.499', agreedUnitPricePesewas: 333n })])[0]!.estimatedLineTotalPesewas).toBe(499n);
+  });
+
+  it('refuses a back-order that is not exactly what was not sent, or of a discounted line', () => {
+    expect(() => backorderLines([line({ qtyBackordered: '7.000' })])).toThrow('BACKORDER_MISMATCH');
+    expect(() => backorderLines([line({ discountPesewas: 100n })])).toThrow('BACKORDER_DISCOUNTED');
+  });
+});
+
+describe('feesAtDispatch (A-331 (b), the owner 2026-11-23): the delivery fee once, an extra delivery its own line', () => {
+  it("charges the order's own fee of 1,500 on its first dispatch", () => {
+    expect(feesAtDispatch({ deliveryFeePesewas: 1_500n, isBackorder: false, extraFees: [] })).toEqual([{ kind: 'DELIVERY', amountPesewas: 1_500n, extraFeeId: null }]);
+  });
+
+  it('charges nothing on the dispatch of a backorder the farm makes to complete the order, whatever fee it carries', () => {
+    expect(feesAtDispatch({ deliveryFeePesewas: 0n, isBackorder: true, extraFees: [] })).toEqual([]);
+    expect(feesAtDispatch({ deliveryFeePesewas: 1_500n, isBackorder: true, extraFees: [] })).toEqual([]);
+  });
+
+  it('charges an extra delivery the customer asked for as its own line of exactly its amount', () => {
+    expect(feesAtDispatch({ deliveryFeePesewas: 0n, isBackorder: true, extraFees: [{ id: 'x1', amountPesewas: 1_500n }] })).toEqual([{ kind: 'EXTRA_DELIVERY', amountPesewas: 1_500n, extraFeeId: 'x1' }]);
+  });
+
+  it('charges nothing for a free delivery', () => {
+    expect(feesAtDispatch({ deliveryFeePesewas: 0n, isBackorder: false, extraFees: [] })).toEqual([]);
+  });
+});
+
+describe('judgeExtraDeliveryFee (the owner 2026-11-23): only on a delivery backorder not yet dispatched, once', () => {
+  const facts = (over: Partial<Parameters<typeof judgeExtraDeliveryFee>[0]> = {}) => ({ fulfilmentMode: 'DELIVERY' as const, isBackorder: true, status: 'CONFIRMED' as const, alreadyAdded: false, zoneFeePesewas: 1_500n, ...over });
+
+  it('adds the zone fee to a backorder waiting to be sent', () => {
+    for (const status of ['CONFIRMED', 'PICKING', 'AWAITING_CUSTOMER', 'PACKED'] as const) expect(judgeExtraDeliveryFee(facts({ status }))).toEqual({ ok: true, value: 1_500n });
+  });
+
+  it('refuses a collection order, an order that is not a backorder, one already dispatched, a second extra fee and a free zone', () => {
+    expect(judgeExtraDeliveryFee(facts({ fulfilmentMode: 'COLLECTION' }))).toEqual({ ok: false, error: 'NOT_A_DELIVERY' });
+    expect(judgeExtraDeliveryFee(facts({ isBackorder: false }))).toEqual({ ok: false, error: 'NOT_A_BACKORDER' });
+    for (const status of ['PLACED', 'DISPATCHED', 'DELIVERED', 'COMPLETED', 'CANCELLED'] as const) expect(judgeExtraDeliveryFee(facts({ status }))).toEqual({ ok: false, error: 'NOT_BEFORE_DISPATCH' });
+    expect(judgeExtraDeliveryFee(facts({ alreadyAdded: true }))).toEqual({ ok: false, error: 'EXTRA_FEE_ALREADY_ADDED' });
+    expect(judgeExtraDeliveryFee(facts({ zoneFeePesewas: 0n }))).toEqual({ ok: false, error: 'ZONE_HAS_NO_FEE' });
   });
 });

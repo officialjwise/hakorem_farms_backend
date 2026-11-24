@@ -26,6 +26,7 @@ import {
 import { extendPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts } from '../../mdm';
 import type { Payments, PaymentView } from '../../pay';
 import { judgeConfirmation, planLineReservation, receivedForOrder } from '../domain/confirmation';
+import type { BackorderLine } from '../domain/dispatch';
 import { judgeOverride } from '../domain/price-override';
 import { lineNumber } from '../domain/line-numbers';
 import { paymentStatusOf, type OrderStatus, type PaymentStatus } from '../domain/order';
@@ -743,6 +744,77 @@ export class Orders {
   /** The series lock an order entered at a branch takes before BEGIN (A-186): QUO's conversion holds it. */
   locksFor(branchId: string): string[] {
     return [`SALES_ORDER:${toBusinessDate(this.clock.now()).slice(0, 4)}:${branchId}`];
+  }
+
+  /**
+   * The backorder a dispatch or a collection leaves (FR-ORD-012, ADR-0094), in the caller's serializable transaction,
+   * which holds `locksFor`: an order of its own number naming the order it completes (`parent_order_id`, always the first
+   * order, so a backorder's own backorder names the same parent), with the parent's branch, customer, contact, terms,
+   * fulfilment mode and delivery address, **no delivery fee** (charged once, on the first dispatch: A-331 (b), and the
+   * database refuses one, `ck_sales_order_backorder`), and one line per line short at packing: what was not sent, at the
+   * price agreed on the order and its pricing record, extended once. It is written PLACED and confirmed at once with the
+   * parent's credit check (an order on account is checked again at its own dispatch), holding no reservation: it waits
+   * for stock. The caller has authorised the dispatch.
+   */
+  async backorderIn(tx: Transaction, actor: Actor, parent: OrderRecord, lines: readonly BackorderLine[], at: Date): Promise<{ readonly id: string; readonly orderNo: string }> {
+    const rootId = parent.parentOrderId ?? parent.id;
+    const branch = (await this.refs.branchesIn(tx, [parent.branchId])).get(parent.branchId)!;
+    const orderId = this.nextId();
+    await this.documents.register(tx, { id: orderId, docType: 'SALES_ORDER', ownerModule: 'ord', branchId: parent.branchId, actorId: actor.principalId });
+    const orderNo = await this.numbers.allocateIn(tx, { docType: 'SALES_ORDER', fiscalYear: Number(toBusinessDate(at).slice(0, 4)), branchId: parent.branchId, branchCode: branch.code, documentId: orderId });
+    const newLines: NewOrderLine[] = lines.map((b, i) => {
+      const from = parent.lines.find((l) => l.id === b.fromLineId)!;
+      return {
+        ...from,
+        id: this.nextId(),
+        salesOrderId: orderId,
+        lineNo: lineNumber(i),
+        qtyOrdered: b.qty,
+        qtyFulfilled: '0.000',
+        fulfilledWeightKg: null,
+        weightSource: null,
+        estimatedLineTotalPesewas: b.estimatedLineTotalPesewas,
+        finalLineTotalPesewas: null,
+        reservationId: null,
+        stockMovementId: null,
+        stockExceptionId: null,
+        estimatedWeightKg: null,
+        tolerancePercent: null,
+        lineStatus: 'OPEN',
+      };
+    });
+    const estimated = Money.sum(newLines.map((l) => Money.ofPesewas(l.estimatedLineTotalPesewas)));
+    await this.store.insertOrder(tx, {
+      id: orderId,
+      orderNo,
+      channel: parent.channel,
+      customerId: parent.customerId,
+      contactName: parent.contactName,
+      contactPhone: parent.contactPhone,
+      paymentTerms: parent.paymentTerms,
+      fulfilmentMode: parent.fulfilmentMode,
+      sourceDocumentId: null,
+      shiftDocumentId: null,
+      salespersonId: parent.salespersonId,
+      taxInclusive: parent.taxInclusive,
+      deliveryFeePesewas: 0n,
+      estimatedTotalPesewas: estimated.pesewas,
+      maximumTotalPesewas: estimated.pesewas,
+      isOffline: false,
+      placedAt: at,
+      notes: `Backorder of ${parent.orderNo!}`,
+      branchId: parent.branchId,
+      actorId: actor.principalId,
+      deliveryAddressSnapshot: parent.deliveryAddressSnapshot,
+      deliveryZoneId: parent.deliveryZoneId,
+      parentOrderId: rootId,
+    });
+    await this.store.recordStatus(tx, orderId, { id: this.nextId(), fromStatus: null, toStatus: 'PLACED', reason: `Backorder of ${parent.orderNo!}`, occurredAt: at, actorId: actor.principalId });
+    await this.store.insertLines(tx, newLines);
+    await this.store.confirm(tx, orderId, { creditCheck: parent.creditCheck ?? 'NOT_REQUIRED', at, actorId: actor.principalId });
+    await this.store.recordStatus(tx, orderId, { id: this.nextId(), fromStatus: 'PLACED', toStatus: 'CONFIRMED', reason: `Backorder of ${parent.orderNo!}, waiting for stock`, occurredAt: at, actorId: actor.principalId });
+    await this.audit.record(tx, { module: 'ord', action: 'BACKORDER', entityType: 'SalesOrder', entityId: orderId, branchId: parent.branchId, before: null, after: { parentOrderId: rootId, fromOrderId: parent.id, orderNo, lines: lines.map((l) => ({ ...l, estimatedLineTotalPesewas: l.estimatedLineTotalPesewas.toString() })) } });
+    return { id: orderId, orderNo };
   }
 
   /**

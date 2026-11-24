@@ -12,16 +12,21 @@ import type { Authoriser } from '../../iam';
 import type { Reservations, Stock, StockUnits } from '../../inv';
 import type { MasterDataRefs, Storefront } from '../../mdm';
 import type { Payments, Refunds } from '../../pay';
-import { planSettlement } from '../domain/dispatch';
+import { backorderLines, feesAtDispatch, judgeExtraDeliveryFee, planSettlement, type FeeAtDispatch } from '../domain/dispatch';
 import { canMove, type OrderStatus } from '../domain/order';
 import type { OrderDelivered, OrderDispatched } from '../events';
-import { FulfilmentInvalidError, type SaleRule } from './errors';
+import { FulfilmentInvalidError, OrderInvalidError, type SaleRule } from './errors';
 import type { FulfilmentStore, PickRecord } from './fulfilment-store';
 import type { Fulfilments, FulfilmentView } from './fulfilments';
 import type { OrderHeaderRecord, OrderLineRecord, OrderStore } from './order-store';
+import type { Orders } from './orders';
 import type { VanReturns } from './van-returns';
 
 const DISPATCH = 'ord.fulfilment.dispatch';
+/** An extra delivery the customer asked for (the owner, 2026-11-23): its own permission, the Manager's and the Owner's. */
+const ADD_FEE = 'ord.delivery_fee.add';
+/** A backorder still to be sent: what the order's deposits hold beyond its documents stays held for it (FR-ORD-012). */
+const BEFORE_DISPATCH: ReadonlySet<OrderStatus> = new Set(['PLACED', 'CONFIRMED', 'PICKING', 'AWAITING_CUSTOMER', 'PACKED']);
 export const ORDER_DISPATCHED = 'ord.OrderDispatched';
 export const ORDER_DELIVERED = 'ord.OrderDelivered';
 /** Dispatch moves the picked goods onto the vehicle; they stay the farm's until delivered (FR-DEL-005, A-337). */
@@ -37,6 +42,15 @@ const invalidState = (what: string, status: string) =>
   new InvalidStateTransitionError(`${what} is ${status}`, [{ field: null, code: status, message: translate('error.invalid_state_transition') }]);
 const activeOf = (picks: readonly PickRecord[]) => picks.filter((p) => p.withdrawnAt === null);
 const json = (pesewas: bigint) => Money.ofPesewas(pesewas).toJsonInteger();
+
+export interface ExtraDeliveryFeeView {
+  readonly id: string;
+  readonly order: { readonly id: string; readonly docType: 'SALES_ORDER'; readonly number: string | null };
+  readonly amountPesewas: number;
+  readonly currency: 'GHS';
+  readonly note: string;
+  readonly addedAt: string;
+}
 
 export interface DispatchRequest {
   readonly driverId?: string | undefined;
@@ -84,8 +98,43 @@ export class Dispatches {
     private readonly audit: AuditTrail,
     private readonly authoriser: Authoriser,
     private readonly clock: Clock,
+    private readonly orders: Orders,
   ) {
     this.nextId = createUuidV7Generator(clock);
+  }
+
+  /**
+   * addExtraDeliveryFee (the owner, 2026-11-23, A-331 (b)): an extra delivery the customer asked for, charged as its own
+   * fee line on the dispatch of a backorder, never inferred from a second dispatch. Only by staff holding
+   * `ord.delivery_fee.add` at the order's branch; only on a delivery backorder not yet dispatched, once, at its zone's own
+   * fee (staff never type the amount). Audited; the database holds the same rules (`ck_order_extra_fee_order`).
+   */
+  addExtraFee(actor: Actor | undefined, orderId: string, body: { readonly note: string }, key: string): Promise<StoredResponse<ExtraDeliveryFeeView>> {
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, ADD_FEE);
+      const claim = await this.idempotency.claim(tx, { operationId: 'addExtraDeliveryFee', principalId: actor!.principalId, key, request: { orderId, ...body } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<ExtraDeliveryFeeView>;
+      const header = await this.orderStore.lock(tx, orderId);
+      if (header === null) throw new NotFoundError('no such order');
+      await this.authoriser.authorise(tx, actor, ADD_FEE, { branchId: header.branchId });
+      const zone = header.deliveryZoneId === null ? undefined : (await this.storefront.deliveryZonesIn(tx, [header.deliveryZoneId])).get(header.deliveryZoneId);
+      const judged = judgeExtraDeliveryFee({
+        fulfilmentMode: header.fulfilmentMode,
+        isBackorder: header.parentOrderId !== null,
+        status: header.status,
+        alreadyAdded: (await this.orderStore.extraFeesOf(tx, [orderId])).length > 0,
+        zoneFeePesewas: zone?.feePesewas ?? 0n,
+      });
+      if (!judged.ok) throw new OrderInvalidError([{ field: judged.error === 'NOT_BEFORE_DISPATCH' ? '/status' : '', rule: judged.error }]);
+      const at = this.clock.now();
+      const fee = { id: this.nextId(), salesOrderId: orderId, deliveryZoneId: header.deliveryZoneId!, amountPesewas: judged.value, note: body.note, branchId: header.branchId, actorId: actor!.principalId };
+      await this.orderStore.insertExtraFee(tx, fee);
+      const view: ExtraDeliveryFeeView = { id: fee.id, order: { id: orderId, docType: 'SALES_ORDER', number: header.orderNo }, amountPesewas: json(fee.amountPesewas), currency: 'GHS', note: fee.note, addedAt: at.toISOString() };
+      await this.audit.record(tx, { module: 'ord', action: 'ADD_EXTRA_DELIVERY_FEE', entityType: 'SalesOrder', entityId: orderId, branchId: header.branchId, before: null, after: { ...view } });
+      const response = { status: 201, body: view };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
   }
 
   dispatch(actor: Actor | undefined, id: string, body: DispatchRequest, key: string): Promise<StoredResponse<FulfilmentView>> {
@@ -101,7 +150,12 @@ export class Dispatches {
         this.uow.run(
           {
             isolation: 'serializable',
-            seriesLocks: [...this.billing.seriesLocksFor('INVOICE', branchId), ...this.billing.seriesLocksFor('RECEIPT', branchId), ...this.deliveries.locksFor(branchId)],
+            seriesLocks: [
+              ...this.billing.seriesLocksFor('INVOICE', branchId),
+              ...this.billing.seriesLocksFor('RECEIPT', branchId),
+              ...this.deliveries.locksFor(branchId),
+              ...this.orders.locksFor(branchId),
+            ],
           },
           (tx) => this.dispatchIn(tx, actor, id, body, key),
         ),
@@ -140,9 +194,15 @@ export class Dispatches {
     const lists = (await this.store.fulfilments(tx, (await this.store.ofOrders(tx, [header.id])).map((x) => x.id))).filter((x) => x.status === 'PACKED');
     const picks = lists.flatMap((x) => activeOf(x.picks).map((p) => ({ pick: p, list: x })));
     const open = order.lines.filter((l) => l.lineStatus === 'OPEN');
+    // A line back-ordered whole sends nothing now (FR-ORD-012); the rest of a short line goes on the backorder.
+    const sent = open.filter((l) => !Quantity.parse(l.qtyFulfilled).isZero());
+    const backorder = backorderLines(open);
+    const rootId = header.parentOrderId ?? header.id;
     const before = await this.fulfilments.viewIn(tx, id);
+    const fees = feesAtDispatch({ deliveryFeePesewas: header.deliveryFeePesewas, isBackorder: header.parentOrderId !== null, extraFees: await this.orderStore.extraFeesOf(tx, [header.id]) });
 
-    // The billing document on the weighed quantity (FR-BIL-005), with the delivery fee once (A-331 (b)).
+    // The billing document on the weighed quantity (FR-BIL-005), with the delivery fee once (A-331 (b)) and an extra
+    // delivery the customer asked for as its own line.
     const document = await this.billing.issueIn(tx, actor, {
       kind: header.customerId === null ? 'RECEIPT' : 'INVOICE',
       branchId: header.branchId,
@@ -150,15 +210,19 @@ export class Dispatches {
       orderDocumentId: header.id,
       taxInclusive: header.taxInclusive,
       occurredAt: at,
-      lines: [...(await this.billedLines(tx, open, picks.map((p) => p.pick), at)), ...(await this.feeLine(tx, header))],
+      lines: [...(await this.billedLines(tx, sent, picks.map((p) => p.pick), at)), ...(await this.feeLines(tx, fees))],
     });
     const gross = Money.fromJsonInteger(document.grossPesewas);
 
-    // The deposits applied oldest first, the rest refunded, what is left due on delivery (ADR-0021).
-    const paid = (await this.payments.ofOrderIn(tx, header.id)).filter((p) => p.status === 'CLEARED');
+    // The deposits applied oldest first, what is left due on delivery (ADR-0021); what they hold beyond the document is
+    // refunded, unless a backorder of the order is still to be sent: then it stays held for it (FR-ORD-012). The
+    // deposits of a backorder are its first order's.
+    const paid = (await this.payments.ofOrderIn(tx, rootId)).filter((p) => p.status === 'CLEARED');
+    const waiting = (await this.orderStore.backordersOf(tx, rootId)).some((b) => b.id !== header.id && BEFORE_DISPATCH.has(b.status));
     const settlement = planSettlement(
       gross,
       paid.map((p) => ({ paymentId: p.id, unallocated: Money.fromJsonInteger(p.unallocatedPesewas) })),
+      { holdForBackorder: backorder.length > 0 || waiting },
     );
     for (const a of settlement.allocations) await this.payments.allocateIn(tx, actor!, a.paymentId, [{ billingDocumentId: document.id, amountPesewas: a.amount.pesewas }]);
     const refundIds: string[] = [];
@@ -192,9 +256,13 @@ export class Dispatches {
       });
       await this.store.setPickMovement(tx, pick.id, posted.id, at, actorId);
     }
-    for (const line of open) await this.store.fixLine(tx, line.id, Quantity.parse(line.qtyFulfilled).compareTo(Quantity.parse(line.qtyOrdered)) < 0 && line.priceBasis !== 'PER_KG' ? 'PARTIAL' : 'FULFILLED');
+    for (const line of open) {
+      const back = backorder.find((b) => b.fromLineId === line.id);
+      await this.store.fixLine(tx, line.id, back !== undefined ? back.status : Quantity.parse(line.qtyFulfilled).compareTo(Quantity.parse(line.qtyOrdered)) < 0 && line.priceBasis !== 'PER_KG' ? 'PARTIAL' : 'FULFILLED');
+    }
     for (const list of lists) await this.store.dispatch(tx, list.id, { at, actorId });
     await this.store.invoiceOrder(tx, header.id, { billingDocumentId: document.id, finalTotalPesewas: gross.pesewas, at, actorId });
+    const backordered = backorder.length === 0 ? null : await this.orders.backorderIn(tx, actor!, order, backorder, at);
 
     const delivery = await this.deliveries.scheduleIn(tx, actor!, {
       orderDocumentId: header.id,
@@ -205,7 +273,7 @@ export class Dispatches {
       recipientName: address!.recipientName as string,
       recipientPhoneE164: address!.recipientPhone as string,
       address: address!,
-      contents: await this.contentsOf(tx, open),
+      contents: await this.contentsOf(tx, sent),
       driverId: body.driverId!,
       vehicleLocationId: body.vehicleLocationId!,
       codDuePesewas: settlement.due.pesewas,
@@ -228,6 +296,8 @@ export class Dispatches {
       deliveryId: delivery.id,
       deliveryNo: delivery.deliveryNo!,
       lines: delivery.contents.map((c) => ({ orderLineId: c.orderLineId, name: c.name, quantity: c.quantity, uom: c.uom, weightKg: c.weightKg })),
+      backorderId: backordered?.id ?? null,
+      backorderNo: backordered?.orderNo ?? null,
       dispatchedAt: at.toISOString(),
     };
     await this.events.publish<OrderDispatched>(tx, { type: ORDER_DISPATCHED, subjectType: 'SalesOrder', subjectId: header.id, branchId: header.branchId, payload: dispatched, occurredAt: at });
@@ -239,7 +309,7 @@ export class Dispatches {
       entityId: id,
       branchId: f.branchId,
       before: { ...before },
-      after: { ...view, billingDocumentId: document.id, deliveryId: delivery.id, codDuePesewas: settlement.due.toJsonInteger(), refundIds },
+      after: { ...view, billingDocumentId: document.id, deliveryId: delivery.id, codDuePesewas: settlement.due.toJsonInteger(), refundIds, backorderId: backordered?.id ?? null, fees: fees.map((f) => ({ ...f, amountPesewas: json(f.amountPesewas) })) },
     });
     const response = { status: 200, body: view };
     await this.idempotency.complete(tx, claim.id, response);
@@ -413,10 +483,17 @@ export class Dispatches {
     });
   }
 
-  /** The order's delivery fee as a line of its own, taxed as a delivery service, when it has one. */
-  private async feeLine(tx: Transaction, header: OrderHeaderRecord): Promise<IssueLineRequest[]> {
-    if (header.deliveryFeePesewas === 0n) return [];
-    return [{ lineKind: 'DELIVERY_FEE', description: translate('ord.delivery_fee'), quantity: '1.000', unitPricePesewas: header.deliveryFeePesewas, taxCategoryId: await this.storefront.deliveryTaxCategoryIdIn(tx) }];
+  /** Each fee of the dispatch as a line of its own, taxed as a delivery service (A-331 (b)). */
+  private async feeLines(tx: Transaction, fees: readonly FeeAtDispatch[]): Promise<IssueLineRequest[]> {
+    if (fees.length === 0) return [];
+    const taxCategoryId = await this.storefront.deliveryTaxCategoryIdIn(tx);
+    return fees.map((f) => ({
+      lineKind: 'DELIVERY_FEE' as const,
+      description: translate(f.kind === 'DELIVERY' ? 'ord.delivery_fee' : 'ord.extra_delivery_fee'),
+      quantity: '1.000',
+      unitPricePesewas: f.amountPesewas,
+      taxCategoryId,
+    }));
   }
 
   /** What the delivery carries, line by line, for the driver and the delivery note (CR-055 point 1). */

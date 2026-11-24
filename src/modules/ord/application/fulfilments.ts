@@ -440,7 +440,7 @@ export class Fulfilments {
    * agreed to, a catch-weight line weighed and within its tolerance or consented above it, while the order waits for no
    * answer. The order is PACKED once no pick list of it is still being picked and every open line is packed.
    */
-  pack(actor: Actor | undefined, id: string, body: { readonly packageCount: number }, key: string): Promise<StoredResponse<FulfilmentView>> {
+  pack(actor: Actor | undefined, id: string, body: { readonly packageCount: number; readonly backorderLineIds?: readonly string[] | undefined }, key: string): Promise<StoredResponse<FulfilmentView>> {
     return this.uow.run({ isolation: 'serializable' }, async (tx) => {
       await this.authoriser.authorise(tx, actor, PICK);
       const claim = await this.idempotency.claim(tx, { operationId: 'packFulfilment', principalId: actor!.principalId, key, request: { id, ...body } });
@@ -461,6 +461,10 @@ export class Fulfilments {
           return { p, line };
         })
         .filter(({ line }) => line.lineStatus === 'OPEN');
+      // A short line's rest back-ordered (FR-ORD-012): a line of this pick list only, on no other live pick list, undiscounted.
+      const backorder = new Set(body.backorderLineIds ?? []);
+      const backorderRules = await this.backorderRulesIn(tx, header.id, id, backorder, toPack.map(({ line }) => line));
+      if (backorderRules.length > 0) throw new FulfilmentInvalidError(backorderRules);
       const judged = readyToPack(
         toPack.map(({ p, line }) => ({
           lineNo: p.lineNo,
@@ -470,10 +474,14 @@ export class Fulfilments {
           agreedShort: agreedShortOf(line, consents),
           tolerance: toleranceOf(line),
           consentedAbove: consentedAbove(line, consents),
+          backorder: backorder.has(line.id),
         })),
       );
       if (!judged.ok) throw new FulfilmentInvalidError(judged.error.map((e) => ({ field: `/pickList/${e.lineNo}`, rule: e.rule })));
       const before = await this.viewOf(tx, id);
+      for (const { line } of toPack.filter(({ line }) => backorder.has(line.id))) {
+        await this.store.backorderLine(tx, line.id, Quantity.parse(line.qtyOrdered).minus(Quantity.parse(line.qtyFulfilled)).toDecimalString());
+      }
       const at = this.clock.now();
       if (f.status === 'PICK_LIST') await this.store.startPicking(tx, id, { pickerId: actor!.principalId, at });
       await this.store.pack(tx, id, { packageCount: body.packageCount, at, actorId: actor!.principalId });
@@ -958,6 +966,22 @@ export class Fulfilments {
   }
 
   /** Every open line is on a packed pick list for all it asks (or what the customer agreed to), and nothing is still being picked. */
+  /** The back-order a pack asks for (FR-ORD-012): each named line open on this pick list, on no other live one, undiscounted. */
+  private async backorderRulesIn(tx: Transaction, orderId: string, listId: string, wanted: ReadonlySet<string>, lines: readonly OrderLineRecord[]): Promise<SaleRule[]> {
+    if (wanted.size === 0) return [];
+    const rules: SaleRule[] = [];
+    const others = (await this.store.fulfilments(tx, (await this.store.ofOrders(tx, [orderId])).filter((f) => f.id !== listId && f.status !== 'CANCELLED').map((f) => f.id))).flatMap((f) =>
+      f.pickList.filter((p) => p.status === 'OPEN').map((p) => p.salesOrderLineId),
+    );
+    for (const lineId of wanted) {
+      const line = lines.find((l) => l.id === lineId);
+      if (line === undefined) rules.push({ field: '/backorderLineIds', rule: 'LINE_UNKNOWN' });
+      else if (others.includes(lineId)) rules.push({ field: '/backorderLineIds', rule: 'ON_ANOTHER_PICK_LIST' });
+      else if (line.discountPesewas !== 0n) rules.push({ field: '/backorderLineIds', rule: 'BACKORDER_DISCOUNTED' });
+    }
+    return rules;
+  }
+
   private async everyLinePackedIn(tx: Transaction, order: OrderRecord): Promise<boolean> {
     const lists = await this.store.fulfilments(
       tx,

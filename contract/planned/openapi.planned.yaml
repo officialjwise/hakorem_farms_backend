@@ -28880,8 +28880,55 @@ components:
       properties:
         packageCount:
           type: integer
+        backorderLineIds:
+          type: array
+          description: "Order lines of this pick list picked short whose rest is back-ordered (2.36.0, FR-ORD-012): at dispatch the order goes with what was picked, and the rest becomes a backorder linked to it (`parentOrderId`) with no delivery fee of its own. Never a line picked in full (`BACKORDER_NOT_SHORT`), a catch-weight line (`BACKORDER_NOT_BY_WEIGHT`), a line the customer already agreed to take less of (`SHORT_ALREADY_AGREED`), a discounted line (`BACKORDER_DISCOUNTED`), a line not on this pick list (`LINE_UNKNOWN`) or on another live one (`ON_ANOTHER_PICK_LIST`); a pick list back-ordered so that nothing is picked is `NOTHING_PICKED`."
+          minItems: 1
+          maxItems: 200
+          items:
+            type: string
+            format: uuid
       required:
         - packageCount
+      additionalProperties: false
+    ExtraDeliveryFeeCreate:
+      type: object
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Why the customer asked for the extra delivery."
+      required:
+        - note
+      additionalProperties: false
+    ExtraDeliveryFee:
+      type: object
+      description: "An extra delivery the customer asked for (2.36.0): the backorder's zone fee, charged as its own line on the backorder's dispatch document."
+      properties:
+        id:
+          type: string
+          format: uuid
+        order:
+          $ref: "#/components/schemas/DocumentRef"
+        amountPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        currency:
+          type: string
+          enum:
+            - GHS
+        note:
+          type: string
+        addedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - order
+        - amountPesewas
+        - currency
+        - note
+        - addedAt
       additionalProperties: false
     DispatchRecord:
       type: object

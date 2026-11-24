@@ -139,4 +139,19 @@ describe('readyToPack (FR-ORD-011, FR-ORD-010, CR-054): every line picked, short
   it('refuses an empty pick list', () => {
     expect(readyToPack([])).toEqual({ ok: false, error: [{ lineNo: 0, rule: 'NOTHING_PICKED' }] });
   });
+
+  it('packs a short line whose rest is back-ordered (FR-ORD-012), and one picked not at all beside another picked', () => {
+    expect(readyToPack([line({ picked: q('1.000'), backorder: true })]).ok).toBe(true);
+    expect(readyToPack([line(), line({ lineNo: 2, picked: q('0.000'), backorder: true })]).ok).toBe(true);
+  });
+
+  it('refuses a back-order of a line picked in full, of a catch-weight line, and of a line the customer agreed to take less of', () => {
+    expect(readyToPack([line({ backorder: true })])).toEqual({ ok: false, error: [{ lineNo: 1, rule: 'BACKORDER_NOT_SHORT' }] });
+    expect(readyToPack([line({ catchWeight: true, picked: q('1.000'), tolerance: 'WITHIN', backorder: true })])).toEqual({ ok: false, error: [{ lineNo: 1, rule: 'BACKORDER_NOT_BY_WEIGHT' }] });
+    expect(readyToPack([line({ picked: q('1.000'), agreedShort: q('1.000'), backorder: true })])).toEqual({ ok: false, error: [{ lineNo: 1, rule: 'SHORT_ALREADY_AGREED' }] });
+  });
+
+  it('refuses a pick list back-ordered whole: nothing would go', () => {
+    expect(readyToPack([line({ picked: q('0.000'), backorder: true }), line({ lineNo: 2, picked: q('0.000'), backorder: true })])).toEqual({ ok: false, error: [{ lineNo: 0, rule: 'NOTHING_PICKED' }] });
+  });
 });

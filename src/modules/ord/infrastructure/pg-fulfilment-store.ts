@@ -341,8 +341,12 @@ export class PgFulfilmentStore implements FulfilmentStore {
     return new Map(rows.map((r) => [r.pick, r.movement]));
   }
 
-  async fixLine(tx: Transaction, lineId: string, status: 'FULFILLED' | 'PARTIAL'): Promise<void> {
+  async fixLine(tx: Transaction, lineId: string, status: 'FULFILLED' | 'PARTIAL' | 'BACKORDERED'): Promise<void> {
     await tx.query('UPDATE ord.sales_order_line SET line_status = $2 WHERE id = $1', [lineId, status]);
+  }
+
+  async backorderLine(tx: Transaction, lineId: string, qty: string): Promise<void> {
+    await tx.query('UPDATE ord.sales_order_line SET qty_backordered = $2 WHERE id = $1', [lineId, qty]);
   }
 
   async setLineMovement(tx: Transaction, lineId: string, movementId: string): Promise<void> {

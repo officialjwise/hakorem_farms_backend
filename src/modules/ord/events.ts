@@ -253,6 +253,9 @@ export interface OrderDispatched {
   readonly deliveryId: string;
   readonly deliveryNo: string;
   readonly lines: readonly { readonly orderLineId: string; readonly name: string; readonly quantity: string; readonly uom: string; readonly weightKg: string | null }[];
+  /** The backorder this dispatch left for what was not sent (FR-ORD-012, B11 continued 7), else null. */
+  readonly backorderId: string | null;
+  readonly backorderNo: string | null;
   readonly dispatchedAt: string;
 }
 

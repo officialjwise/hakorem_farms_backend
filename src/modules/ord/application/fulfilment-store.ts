@@ -162,7 +162,9 @@ export interface FulfilmentStore {
   /** The sale issues of these picks, by pick. */
   issuesOf(tx: Transaction, pickIds: readonly string[]): Promise<Map<string, string>>;
   /** An open line fixed at dispatch: sent whole, or short with the customer's agreement. */
-  fixLine(tx: Transaction, lineId: string, status: 'FULFILLED' | 'PARTIAL'): Promise<void>;
+  fixLine(tx: Transaction, lineId: string, status: 'FULFILLED' | 'PARTIAL' | 'BACKORDERED'): Promise<void>;
+  /** What of an order line is back-ordered at packing (FR-ORD-012): what was not picked of it. */
+  backorderLine(tx: Transaction, lineId: string, qty: string): Promise<void>;
   /** The line's first sale issue, once (what a completed line names). */
   setLineMovement(tx: Transaction, lineId: string, movementId: string): Promise<void>;
   /** The order's billing document on the weighed quantity and its final total, issued at dispatch. */

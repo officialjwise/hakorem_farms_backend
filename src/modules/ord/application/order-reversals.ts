@@ -150,7 +150,7 @@ export class OrderReversals {
     const actorId = actor.principalId;
 
     const released = [...(await this.reservations.releaseHeldByIn(tx, actorId, id, `Order ${header.orderNo!} cancelled (${body.reasonCode})`))];
-    const money = planCancellationMoney(await this.payments.ofOrderIn(tx, id));
+    const money = planCancellationMoney(await this.paymentsHeldForIn(tx, header));
     for (const paymentId of money.releases) await this.providerPayments.releaseChargeIn(tx, paymentId, actorId);
     const refundIds: string[] = [];
     for (const refund of money.refunds) {
@@ -330,6 +330,20 @@ export class OrderReversals {
       before: { ...before },
       after: { ...view, creditNoteId: credit.id, reversingPaymentIds, reversingMovementIds, approvalRequestId: request.id },
     });
+  }
+
+  /**
+   * The payments a cancellation gives back (FR-ORD-014): the order's own; for a backorder (FR-ORD-012), what its first
+   * order's deposits still hold beyond its documents, once no other backorder of it is still to be sent (until then it
+   * stays held for that one; the last dispatch or cancellation gives it back). A backorder's pending charge is its first
+   * order's and is not released here.
+   */
+  private async paymentsHeldForIn(tx: Transaction, header: OrderHeaderRecord): Promise<Awaited<ReturnType<Payments['ofOrderIn']>>> {
+    if (header.parentOrderId === null) return this.payments.ofOrderIn(tx, header.id);
+    const waiting = (await this.store.backordersOf(tx, header.parentOrderId)).some((b) => b.id !== header.id && ['PLACED', 'CONFIRMED', 'PICKING', 'AWAITING_CUSTOMER', 'PACKED'].includes(b.status));
+    const parent = await this.store.lock(tx, header.parentOrderId);
+    if (waiting || parent === null || !['DISPATCHED', 'DELIVERED', 'DELIVERY_FAILED', 'COMPLETED', 'READY_FOR_COLLECTION'].includes(parent.status)) return [];
+    return (await this.payments.ofOrderIn(tx, header.parentOrderId)).filter((p) => p.status === 'CLEARED');
   }
 
   private async lockOrder(tx: Transaction, id: string): Promise<OrderHeaderRecord> {

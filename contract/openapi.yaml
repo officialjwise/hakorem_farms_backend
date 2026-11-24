@@ -53041,7 +53041,7 @@ paths:
       tags:
         - ord
       summary: "Mark a fulfilment packed"
-      description: "Seals a pick list (FR-ORD-011): every open line picked in full (`SHORT_PICK_NOT_AGREED` otherwise, unless the customer agreed to the smaller quantity, packed at exactly that), a catch-weight line with at least one pack weighed (`NOTHING_PICKED`) and within its tolerance or consented above it (`TOLERANCE_EXCEEDED`), each refusal naming `/pickList/<lineNo>`. While the order waits for its customer, 422 `CONSENT_PENDING`. The order moves to `PACKED` once no pick list of it is still being picked and every open line is packed. Publishes `ord.FulfilmentPacked`.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
+      description: "Seals a pick list (FR-ORD-011): every open line picked in full (`SHORT_PICK_NOT_AGREED` otherwise, unless the customer agreed to the smaller quantity, packed at exactly that), a catch-weight line with at least one pack weighed (`NOTHING_PICKED`) and within its tolerance or consented above it (`TOLERANCE_EXCEEDED`), each refusal naming `/pickList/<lineNo>`. While the order waits for its customer, 422 `CONSENT_PENDING`. A short line may instead have its rest back-ordered (2.36.0, FR-ORD-012, `backorderLineIds`): it packs at what was picked, and at dispatch the rest becomes a backorder linked to the order, with no delivery fee of its own; the refusals are on `/backorderLineIds` or the line. The order moves to `PACKED` once no pick list of it is still being picked and every open line is packed. Publishes `ord.FulfilmentPacked`.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
       x-permission: ord.fulfilment.pick
       parameters:
         - name: id
@@ -80786,6 +80786,70 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/orders/{id}/extra-delivery-fee":
+    post:
+      operationId: addExtraDeliveryFee
+      tags:
+        - ord
+      summary: "Charge an extra delivery the customer asked for on a backorder"
+      description: "An extra delivery the customer asked for is its own, explicit fee line (2.36.0, B11 continued 7; the owner, 2026-11-23; A-331 (b)): the delivery fee is otherwise charged once, on the order's first dispatch, and a backorder the farm sends to complete a short order carries none. Adds the backorder's zone fee (never an amount typed by staff) as an extra fee, charged as its own `DELIVERY_FEE` line on the backorder's dispatch document. Only on a delivery backorder (`parentOrderId` set) not yet dispatched (`CONFIRMED`, `PICKING`, `AWAITING_CUSTOMER` or `PACKED`), once. Refusals: 422 `ORDER_INVALID` with `NOT_A_DELIVERY`, `NOT_A_BACKORDER`, `NOT_BEFORE_DISPATCH`, `EXTRA_FEE_ALREADY_ADDED` or `ZONE_HAS_NO_FEE`; 404 for an order the caller cannot see; 403 at another branch. Audited.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.delivery_fee.add`."
+      x-permission: ord.delivery_fee.add
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtraDeliveryFeeCreate"
+            example:
+              note: "The customer asked for the last two crates to come on Saturday"
+      responses:
+        "201":
+          description: Created
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtraDeliveryFee"
+              example:
+                id: "019a7b20-11aa-7c3e-9d41-5f0e2b7a1c01"
+                order:
+                  id: "019a7b1f-0d22-7a41-8c19-3e5b9f2d4a77"
+                  docType: SALES_ORDER
+                  number: SO-2026-DDW-004231
+                amountPesewas: 1500
+                currency: GHS
+                note: "The customer asked for the last two crates to come on Saturday"
+                addedAt: "2026-11-24T10:15:00.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
   "/orders/{id}/fulfilment-view":
     get:
       operationId: getOrderFulfilmentView
@@ -98508,8 +98572,55 @@ components:
       properties:
         packageCount:
           type: integer
+        backorderLineIds:
+          type: array
+          description: "Order lines of this pick list picked short whose rest is back-ordered (2.36.0, FR-ORD-012): at dispatch the order goes with what was picked, and the rest becomes a backorder linked to it (`parentOrderId`) with no delivery fee of its own. Never a line picked in full (`BACKORDER_NOT_SHORT`), a catch-weight line (`BACKORDER_NOT_BY_WEIGHT`), a line the customer already agreed to take less of (`SHORT_ALREADY_AGREED`), a discounted line (`BACKORDER_DISCOUNTED`), a line not on this pick list (`LINE_UNKNOWN`) or on another live one (`ON_ANOTHER_PICK_LIST`); a pick list back-ordered so that nothing is picked is `NOTHING_PICKED`."
+          minItems: 1
+          maxItems: 200
+          items:
+            type: string
+            format: uuid
       required:
         - packageCount
+      additionalProperties: false
+    ExtraDeliveryFeeCreate:
+      type: object
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Why the customer asked for the extra delivery."
+      required:
+        - note
+      additionalProperties: false
+    ExtraDeliveryFee:
+      type: object
+      description: "An extra delivery the customer asked for (2.36.0): the backorder's zone fee, charged as its own line on the backorder's dispatch document."
+      properties:
+        id:
+          type: string
+          format: uuid
+        order:
+          $ref: "#/components/schemas/DocumentRef"
+        amountPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        currency:
+          type: string
+          enum:
+            - GHS
+        note:
+          type: string
+        addedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - order
+        - amountPesewas
+        - currency
+        - note
+        - addedAt
       additionalProperties: false
     DispatchRecord:
       type: object
@@ -108591,6 +108702,7 @@ components:
         - mdm.weight_band.create
         - mdm.weight_band.read
         - mdm.weight_band.update
+        - ord.delivery_fee.add
         - ord.fulfilment.dispatch
         - ord.fulfilment.pick
         - ord.fulfilment.read
@@ -108846,6 +108958,7 @@ components:
         - mdm.weight_band.create
         - mdm.weight_band.read
         - mdm.weight_band.update
+        - ord.delivery_fee.add
         - ord.fulfilment.dispatch
         - ord.fulfilment.pick
         - ord.fulfilment.read

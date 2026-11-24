@@ -6,6 +6,7 @@ import { registerMessages, translate } from '../../../platform/i18n/messages';
 /** ORD's user-facing messages (docs/API.md section 10). Registered when the module loads. */
 registerMessages({
   'ord.delivery_fee': 'Delivery',
+  'ord.extra_delivery_fee': 'Extra delivery',
   'ord.sale_invalid': 'This sale cannot be recorded like this.',
   'ord.quote_required': 'This item has no price for this sale. Raise a quote instead.',
   'ord.price_override_needs_approval': 'This price needs a manager’s approval.',
