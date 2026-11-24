@@ -195,23 +195,51 @@ One row per quote, for the pipeline and win rate.
 | `outcome` | `text` | NOT NULL | Issued, accepted, declined, expired, converted |
 | `gross_pesewas` | `pesewas` | NOT NULL | |
 
-### `rpt.exception_item` · PROJECTION
+### `rpt.exception_item` · PROJECTION (as built, B12 continued 3, migration 0370, ADR-0103)
 
-The daily exception report: one row per thing a manager must look at. This is the detection side of the threat model's abuse cases.
+The daily exception report: one row per thing a manager must look at. This is the detection side of the threat model's abuse cases. Raised by the projector `rpt.exception-items` from outbox events and by the sweep from records with no event. Written only by `rpt.put_exception_items`; the application roles and `hk_report` read it.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK, CHECK = `rpt.exception_item_id(source_key)` | Fixed by the source, so a rebuild gives each item the same id and its review still applies |
+| `source_key` | `text` | NOT NULL, UNIQUE | The event id and the kind, or the record's own key (`break:`, `stock-exception:`, `audit:`, `job-run:`, `split:`, `accrual-blocked:`, `checkout-holding:`) |
+| `event_ref` | `uuid` | NULL | The outbox message that raised it; null for a swept record |
+| `exception_date` | `date` | NOT NULL | Africa/Accra day of `raised_at` |
+| `branch_id` | `uuid` | NULL, FK `mdm.branch` | A company-wide item is kept at the head office branch |
+| `kind` | `text` | NOT NULL, CHECK in the 66 kinds of `ExceptionKind` (2.48.0) | One kind per detection in the threat model |
+| `source_kind` | `text` | NULL | The source's own finer kind (`TILL_PIN_LOCKED`, a break's kind, `UNWITNESSED_CASH_DROP`) |
+| `abuse_cases` | `integer[]` | NOT NULL | Numbers of the threat model's abuse cases this item helps detect |
+| `severity` | `text` | NOT NULL, CHECK in (`INFO`, `REVIEW`, `URGENT`) | |
+| `actor_ref` | `uuid` | NULL | Who did it |
+| `subject_document_ref`, `subject_doc_type` | `uuid`, `text` | NULL together | The sale, adjustment or payment; its number is read from the registry when shown |
+| `amount_pesewas` | `pesewas` | NULL | A size, never negative |
+| `summary` | `text` | NOT NULL | Enough detail to act on |
+| `details` | `jsonb` | NOT NULL | The source event or record, and the fields kept by name; no contact or identity details |
+| `raised_at` | `timestamptz` | NOT NULL | When it was recorded |
+| `restricted_to` | `text` | NULL | A permission the reader must also hold (`cap.capital.read` for the investor books) |
+| `projected_at` | `timestamptz` | NOT NULL | |
+
+- Indexes on (`exception_date`, `branch_id`), (`kind`, `actor_ref`, `exception_date`) for rate-by-user reports.
+
+### `rpt.exception_review` · LEDGER (B12 continued 3, CR-059)
+
+An exception item marked reviewed with a note. Insert-only (`platform.reject_change`).
 
 | Column | Type | Constraints | Why |
 | --- | --- | --- | --- |
 | `id` | `uuid` | PK | |
-| `event_ref` | `uuid` | NOT NULL, UNIQUE | The outbox message that raised it |
-| `exception_date` | `date` | NOT NULL | |
-| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | |
-| `kind` | `text` | NOT NULL, CHECK in (`SALE_VOID`, `PRICE_OVERRIDE`, `REFUND`, `MORTALITY`, `STOCK_ADJUSTMENT`, `STOCK_EXCEPTION`, `UNMATCHED_PAYMENT`, `WEBHOOK_REJECTED`, `DRIVER_VARIANCE`, `SHIFT_OVER_SHORT`, `DEVICE_COUNTER_GAP`, `AUTHORISATION_FAILURE`, `BULK_EXPORT`, `CREDIT_OVERRIDE`, `AUDIT_INTEGRITY`, `RECONCILIATION_BREAK`, `PAYOUT_DETAIL_CHANGE`, `PERMISSION_CHANGE`, `YIELD_VARIANCE`, `SYNC_REJECTED`, `LATE_POSTING`) | One kind per detection in the threat model |
-| `abuse_cases` | `integer[]` | NOT NULL DEFAULT `'{}'` | Numbers of the threat model's abuse cases this item helps detect. B13 asserts every case appears on at least one kind |
-| `severity` | `text` | NOT NULL, CHECK in (`INFO`, `REVIEW`, `URGENT`) | |
-| `actor_ref` | `uuid` | NULL | Who did it |
-| `subject_document_ref` | `uuid` | NULL | The sale, adjustment or payment |
-| `amount_pesewas` | `pesewas` | NULL | |
-| `summary` | `text` | NOT NULL | Enough detail to act on |
-| `details` | `jsonb` | NOT NULL | |
+| `exception_item_id` | `uuid` | NOT NULL, UNIQUE | Once per item; no foreign key, so the projection can be rebuilt under it |
+| `branch_id` | `uuid` | NULL, FK `mdm.branch` | |
+| `item_actor_ref` | `uuid` | NULL | The person the item names, copied |
+| `note` | `text` | NOT NULL, 1 to 500 characters | |
+| `recorded_at`, `actor_id` | | LEDGER standard | |
 
-- Indexes on (`exception_date`, `branch_id`), (`kind`, `actor_ref`, `exception_date`) for rate-by-user reports.
+- `ck_exception_review_not_own`: `item_actor_ref IS DISTINCT FROM actor_id`.
+
+### `rpt.approval_fact`, `rpt.checkout_fact`, `rpt.payout_change_fact` · PROJECTION (B12 continued 3)
+
+The facts the report needs across events: each approval decided (maker, checker, amount) for the approval pairs (R1); each storefront checkout by the keyed hash of its client address and how it ended, for R18; each payout detail change made (supplier or investor), for a payment within 24 hours after it (SA-17, abuse cases 13 and 70). Written only by their `SECURITY DEFINER` functions; emptied with the items by `rpt.clear_exception_projections()` on a rebuild.
+
+### `rpt.projection_checkpoint` · WORK (as built, B12 continued 3)
+
+As above, with `last_recorded_at` (the recorded time of the last event read, for lag).

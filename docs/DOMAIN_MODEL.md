@@ -431,6 +431,8 @@ A counter sale is not a POS aggregate. It is a sales order on channel `POS`, pla
 
 **Events:** `del.DeliveryScheduled`, `del.DeliveryAssigned`, `del.DeliveryDispatched`, `del.DeliveryOnTheWay`, `del.DeliveryCompleted`, `del.DeliveryFailed`, `del.DeliveryReturned`, ◆`del.CodCollected`, ◆`del.DriverCashRemitted`.
 
+**B12 continued 3 (ADR-0103):** `del.ProofFileReused`: the photograph or signature on a proof has the bytes of another upload, or is a file an earlier proof carries (abuse case 44, CR-059), for the daily exception report; the proof records both flags.
+
 ### 5.14 FIN: general ledger and accounting
 
 **Ledgers:** journal entries and lines.
@@ -475,9 +477,9 @@ A counter sale is not a POS aggregate. It is a sales order on channel `POS`, pla
 | Amounts paid against a distribution line do not exceed net payable | DB (trigger) |
 | A capital withdrawal is approved by a different user | DB (approval constraint) |
 
-**Built in B12 (ADR-0100):** ◆`cap.CapitalContributed`, ◆`cap.CapitalWithdrawn`, ◆`cap.DistributionDeclared` and ◆`cap.DistributionPaid` (payloads in `src/modules/cap/events.ts`). **Built in B12 continued (ADR-0101):** ◆`cap.LoanDrawn`, ◆`cap.GrantReceived`, ◆`cap.InterestAccrued`, ◆`cap.GrantRecognised` (new, Dr 2450 Cr 4910), ◆`cap.LoanRepaid`, and `cap.InvestorPayoutChangeRequested` and `cap.InvestorPayoutChanged` for the daily exception report (abuse case 70). `cap.InvestorRegistered` and `cap.DistributionRunApproved` are not published: nothing subscribes to them.
+**Built in B12 (ADR-0100):** ◆`cap.CapitalContributed`, ◆`cap.CapitalWithdrawn`, ◆`cap.DistributionDeclared` and ◆`cap.DistributionPaid` (payloads in `src/modules/cap/events.ts`). **Built in B12 continued (ADR-0101):** ◆`cap.LoanDrawn`, ◆`cap.GrantReceived`, ◆`cap.InterestAccrued`, ◆`cap.GrantRecognised` (new, Dr 2450 Cr 4910), ◆`cap.LoanRepaid`, and `cap.InvestorPayoutChangeRequested` and `cap.InvestorPayoutChanged` for the daily exception report (abuse case 70). **B12 continued 3:** `cap.FinancingAccrualBlocked` (a finished month the accrual job could not accrue, abuse case 71) and `retentionRatePercent` on ◆`cap.DistributionDeclared` (abuse case 69), for the daily exception report. `cap.InvestorRegistered` and `cap.DistributionRunApproved` are not published: nothing subscribes to them.
 
-**Events:** `cap.InvestorRegistered`, ◆`cap.CapitalContributed`, ◆`cap.CapitalWithdrawn`, `cap.DistributionRunApproved`, ◆`cap.DistributionDeclared`, ◆`cap.DistributionPaid`, ◆`cap.LoanDrawn`, ◆`cap.LoanRepaid`, ◆`cap.InterestAccrued`, ◆`cap.GrantReceived`, ◆`cap.GrantRecognised`, `cap.InvestorPayoutChangeRequested`, `cap.InvestorPayoutChanged`.
+**Events:** `cap.InvestorRegistered`, ◆`cap.CapitalContributed`, ◆`cap.CapitalWithdrawn`, `cap.DistributionRunApproved`, ◆`cap.DistributionDeclared`, ◆`cap.DistributionPaid`, ◆`cap.LoanDrawn`, ◆`cap.LoanRepaid`, ◆`cap.InterestAccrued`, ◆`cap.GrantReceived`, ◆`cap.GrantRecognised`, `cap.InvestorPayoutChangeRequested`, `cap.InvestorPayoutChanged`, `cap.FinancingAccrualBlocked`.
 
 ### 5.16 CST, RPT: costing and reporting
 
