@@ -107,6 +107,7 @@ import { PgVanReturnStore } from './infrastructure/pg-van-return-store';
         overrides: PriceOverrides,
         fulfilmentStore: FulfilmentStore,
         deliveries: Deliveries,
+        storefront: Storefront,
       ) =>
         new Orders(
           uow,
@@ -132,6 +133,7 @@ import { PgVanReturnStore } from './infrastructure/pg-van-return-store';
           overrides,
           fulfilmentStore,
           deliveries,
+          storefront,
         ),
       inject: [
         UnitOfWork,
@@ -157,6 +159,7 @@ import { PgVanReturnStore } from './infrastructure/pg-van-return-store';
         PriceOverrides,
         FULFILMENT_STORE,
         Deliveries,
+        Storefront,
       ],
     },
     {

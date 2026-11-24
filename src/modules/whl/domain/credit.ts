@@ -91,6 +91,20 @@ export function overrideCovers(approved: { readonly orderPesewas: bigint; readon
 }
 
 /**
+ * Whether an approved override still covers the dispatch or hand-over of an order on account (B11 continued 8, the owner,
+ * 2026-11-23): the goods actually sent are judged, so an override approved on the order's estimate covers a dispatch of
+ * no more than that amount, no more over the limit than was approved, and for no reason the approver was not asked
+ * about. A heavier dispatch, or a customer further over since, needs a new approval.
+ */
+export function overrideCoversDispatch(approved: { readonly orderPesewas: bigint; readonly overLimitPesewas: bigint; readonly reasons: readonly CreditReason[] }, now: CreditJudgement, gross: Money): boolean {
+  return (
+    gross.pesewas <= approved.orderPesewas &&
+    now.overLimit.compareTo(Money.ofPesewas(approved.overLimitPesewas)) <= 0 &&
+    now.reasons.every((r) => approved.reasons.includes(r))
+  );
+}
+
+/**
  * Whether paying releases a hold (the owner, 2026-11-18, decision 4 on A-314): only a hold the system placed for being
  * overdue, and only once nothing is past its due date any more (the overdue balance is nil; what is owed but not yet
  * due does not keep the hold). A hold a person placed stays until an Owner or Manager who did not ask releases it.

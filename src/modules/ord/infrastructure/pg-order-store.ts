@@ -135,12 +135,13 @@ export class PgOrderStore implements OrderStore {
     );
   }
 
-  async uninvoicedCreditTotal(tx: Transaction, customerId: string): Promise<bigint> {
+  async uninvoicedCreditTotal(tx: Transaction, customerId: string, excludingOrderId: string | null): Promise<bigint> {
     const { rows } = await tx.query<{ total: string }>(
       `SELECT COALESCE(sum(estimated_total_pesewas), 0)::text AS total FROM ord.sales_order
         WHERE customer_id = $1 AND payment_terms = 'CREDIT' AND billing_document_id IS NULL
-          AND status IN ('CONFIRMED', 'PICKING', 'AWAITING_CUSTOMER', 'PACKED', 'READY_FOR_COLLECTION', 'DISPATCHED', 'DELIVERED', 'DELIVERY_FAILED')`,
-      [customerId],
+          AND status IN ('CONFIRMED', 'PICKING', 'AWAITING_CUSTOMER', 'PACKED', 'READY_FOR_COLLECTION', 'DISPATCHED', 'DELIVERED', 'DELIVERY_FAILED')
+          AND ($2::uuid IS NULL OR id <> $2::uuid)`,
+      [customerId, excludingOrderId],
     );
     return BigInt(rows[0]!.total);
   }

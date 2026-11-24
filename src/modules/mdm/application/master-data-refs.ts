@@ -90,6 +90,26 @@ export interface CustomerFacts {
   readonly hasPhone: boolean;
 }
 
+/**
+ * A customer's saved delivery address (FR-MDM-008), as a staff delivery order snapshots it (B11 continued 8): who it is
+ * for, where, and the zone it was filed under (null when none was; the order then matches one by area and city).
+ */
+export interface CustomerAddressFacts {
+  readonly id: string;
+  readonly customerId: string;
+  readonly recipientName: string;
+  readonly recipientPhone: string;
+  readonly line1: string;
+  readonly area: string;
+  readonly city: string;
+  readonly region: string;
+  readonly digitalAddress: string | null;
+  readonly directions: string | null;
+  readonly deliveryZoneId: string | null;
+  /** Not archived. */
+  readonly isLive: boolean;
+}
+
 export interface BranchFacts {
   readonly id: string;
   readonly code: string;
@@ -146,6 +166,7 @@ export interface MasterDataRefsStore {
   taxCategories(tx: Transaction, ids: readonly string[]): Promise<TaxCategoryFacts[]>;
   customers(tx: Transaction, ids: readonly string[]): Promise<CustomerFacts[]>;
   customerOfPrincipal(tx: Transaction, principalId: string): Promise<CustomerFacts | null>;
+  customerAddress(tx: Transaction, id: string): Promise<CustomerAddressFacts | null>;
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
   units(tx: Transaction, codes: readonly string[]): Promise<UomFacts[]>;
   paymentMethodsByCode(tx: Transaction, codes: readonly string[]): Promise<PaymentMethodFacts[]>;
@@ -233,6 +254,11 @@ export class MasterDataRefs {
   /** The customer a customer-realm sign-in belongs to (`mdm.customer.principal_id`), or null if none is linked. */
   async customerOfPrincipalIn(tx: Transaction, principalId: string): Promise<CustomerFacts | null> {
     return this.store.customerOfPrincipal(tx, principalId);
+  }
+
+  /** A customer's saved delivery address by id, archived or not, or null (B11 continued 8: a staff delivery order). */
+  customerAddressIn(tx: Transaction, id: string): Promise<CustomerAddressFacts | null> {
+    return this.store.customerAddress(tx, id);
   }
 
   async branchesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, BranchFacts>> {

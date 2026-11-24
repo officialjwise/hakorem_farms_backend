@@ -12,10 +12,11 @@ import type { Authoriser } from '../../iam';
 import type { Reservations, Stock, StockUnits } from '../../inv';
 import type { MasterDataRefs, Storefront } from '../../mdm';
 import type { Payments, Refunds } from '../../pay';
-import { backorderLines, feesAtDispatch, judgeExtraDeliveryFee, planSettlement, type FeeAtDispatch } from '../domain/dispatch';
+import { backorderLines, cashDueOnDelivery, feesAtDispatch, judgeExtraDeliveryFee, planSettlement, type FeeAtDispatch } from '../domain/dispatch';
 import { canMove, type OrderStatus } from '../domain/order';
 import type { OrderCollected, OrderDelivered, OrderDispatched } from '../events';
-import { FulfilmentInvalidError, OrderInvalidError, type SaleRule } from './errors';
+import { CreditRefusedError, FulfilmentInvalidError, OrderInvalidError, type SaleRule } from './errors';
+import type { CreditOverridePending, CreditPolicyAnswer, OrderConfirmationPolicy } from './order-confirmation-policy';
 import type { FulfilmentStore, PickRecord } from './fulfilment-store';
 import type { Fulfilments, FulfilmentView } from './fulfilments';
 import type { OrderHeaderRecord, OrderLineRecord, OrderStore } from './order-store';
@@ -43,6 +44,8 @@ const invalidState = (what: string, status: string) =>
   new InvalidStateTransitionError(`${what} is ${status}`, [{ field: null, code: status, message: translate('error.invalid_state_transition') }]);
 const activeOf = (picks: readonly PickRecord[]) => picks.filter((p) => p.withdrawnAt === null);
 const json = (pesewas: bigint) => Money.ofPesewas(pesewas).toJsonInteger();
+/** What a hand-over's key is bound to: the pick list, and the written reason when one is given (B11 continued 8). */
+const collectClaim = (id: string, body: CollectRequest) => (body.creditOverrideReason === undefined ? { id } : { id, creditOverrideReason: body.creditOverrideReason });
 
 export interface ExtraDeliveryFeeView {
   readonly id: string;
@@ -56,6 +59,28 @@ export interface ExtraDeliveryFeeView {
 export interface DispatchRequest {
   readonly driverId?: string | undefined;
   readonly vehicleLocationId?: string | undefined;
+  /** An order on account refused for credit at dispatch: with a written reason, the override is asked for (202). */
+  readonly creditOverrideReason?: string | undefined;
+}
+
+/** The hand-over's optional body (B11 continued 8): the same written reason for an order on account. */
+export interface CollectRequest {
+  readonly creditOverrideReason?: string | undefined;
+}
+
+/**
+ * An order on account refused for credit at its dispatch or hand-over, inside the command's transaction: the command
+ * rolls back whole (the document's number returns to its series) and the caller answers 422, or asks for the override
+ * with the written reason in a transaction of its own (B11 continued 8). Never leaves `Dispatches`.
+ */
+class RefusedAtDispatch extends Error {
+  constructor(
+    readonly policy: OrderConfirmationPolicy,
+    readonly answer: CreditPolicyAnswer,
+    readonly grossPesewas: bigint,
+  ) {
+    super('an order on account refused for credit at dispatch');
+  }
 }
 
 /** What a delivery address snapshot (SHP's checkout) carries that a delivery needs. */
@@ -138,7 +163,7 @@ export class Dispatches {
     });
   }
 
-  dispatch(actor: Actor | undefined, id: string, body: DispatchRequest, key: string): Promise<StoredResponse<FulfilmentView>> {
+  dispatch(actor: Actor | undefined, id: string, body: DispatchRequest, key: string): Promise<StoredResponse<FulfilmentView | CreditOverridePending>> {
     return this.uow
       .run({ isolation: 'read committed' }, async (tx) => {
         await this.authoriser.authorise(tx, actor, DISPATCH);
@@ -160,7 +185,62 @@ export class Dispatches {
           },
           (tx) => this.dispatchIn(tx, actor, id, body, key),
         ),
-      );
+      )
+      .catch((error: unknown) => this.refusedForCredit(error, actor, id, { operationId: 'dispatchFulfilment', request: { id, ...body }, step: 'dispatch' }, body.creditOverrideReason, key));
+  }
+
+  /**
+   * An order on account refused for credit at dispatch or hand-over (B11 continued 8, CR-046 as at confirmation): with
+   * no written reason, or with an override already waiting, 422 with the server's figures; with a reason, the override
+   * is asked for the gross of what would be sent, in a transaction of its own, and answered 202 under the command's key
+   * (a replay answers the same). Nothing was dispatched. Once a different person approves it, the same command goes.
+   */
+  private async refusedForCredit(
+    error: unknown,
+    actor: Actor | undefined,
+    id: string,
+    claimed: { readonly operationId: string; readonly request: object; readonly step: 'dispatch' | 'hand over' },
+    reason: string | undefined,
+    key: string,
+  ): Promise<never | StoredResponse<CreditOverridePending>> {
+    if (!(error instanceof RefusedAtDispatch)) throw error;
+    if (reason === undefined || error.answer.overridePending) throw new CreditRefusedError(error.answer, claimed.step);
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, DISPATCH);
+      const claim = await this.idempotency.claim(tx, { operationId: claimed.operationId, principalId: actor!.principalId, key, request: claimed.request });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<CreditOverridePending>;
+      const f = await this.store.lock(tx, id);
+      if (f === null) throw new NotFoundError('no such pick list');
+      await this.authoriser.authorise(tx, actor, DISPATCH, { branchId: f.branchId });
+      const header = await this.orderStore.lock(tx, f.salesOrderId);
+      if (header === null) throw new NotFoundError('no such order');
+      if (header.status !== 'PACKED') throw invalidState(`order ${header.id}`, header.status);
+      const pending = await this.orders.requestDispatchOverrideIn(tx, actor!, error.policy, header, error.grossPesewas, reason);
+      const response: StoredResponse<CreditOverridePending> = { status: 202, body: pending };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
+
+  /**
+   * The credit check of an order on account at its dispatch or hand-over (the owner, 2026-11-23): WHL's credit control
+   * through the port judges the gross of the document on what is sent, the order's own estimate never counted beside
+   * it; an approved override covers it when the gross is no more than it was approved for. No policy answering is a
+   * refusal, never a pass. Anything but an order on account passes untouched.
+   */
+  private async creditAtDispatchIn(tx: Transaction, header: OrderHeaderRecord, gross: Money, documentId: string): Promise<void> {
+    if (header.paymentTerms !== 'CREDIT') return;
+    const judged = await this.orders.creditAtDispatchIn(tx, header, gross.pesewas, documentId);
+    if (judged === null) throw new FulfilmentInvalidError([{ field: '', rule: 'CREDIT_CHECK_UNAVAILABLE' }]);
+    if (judged.answer.verdict === 'REFUSED') throw new RefusedAtDispatch(judged.policy, judged.answer, gross.pesewas);
+  }
+
+  /** The due date of an order on account's invoice from the customer's terms (B11 continued 8); null for any other order. */
+  private async dueDateOf(tx: Transaction, header: OrderHeaderRecord): Promise<string | null> {
+    if (header.paymentTerms !== 'CREDIT') return null;
+    const due = header.customerId === null ? null : await this.orders.dueDateIn(tx, header.customerId);
+    if (due === null) throw new FulfilmentInvalidError([{ field: '', rule: 'CREDIT_CHECK_UNAVAILABLE' }]);
+    return due;
   }
 
   private async dispatchIn(tx: Transaction, actor: Actor | undefined, id: string, body: DispatchRequest, key: string): Promise<StoredResponse<FulfilmentView>> {
@@ -178,8 +258,6 @@ export class Dispatches {
 
     const broken: SaleRule[] = [];
     if (header.fulfilmentMode !== 'DELIVERY') broken.push({ field: '', rule: 'NOT_A_DELIVERY' });
-    // An order on account takes its due date from the customer's terms (WHL); its dispatch is B11 continued 2's (A-341).
-    if (header.paymentTerms === 'CREDIT') broken.push({ field: '', rule: 'CREDIT_DISPATCH_NOT_AVAILABLE' });
     if (header.fulfilmentMode === 'DELIVERY' && (header.deliveryZoneId === null || address === null || typeof address.recipientName !== 'string' || typeof address.recipientPhone !== 'string')) {
       broken.push({ field: '', rule: 'DELIVERY_ADDRESS_REQUIRED' });
     }
@@ -201,9 +279,10 @@ export class Dispatches {
     const rootId = header.parentOrderId ?? header.id;
     const before = await this.fulfilments.viewIn(tx, id);
     const fees = feesAtDispatch({ deliveryFeePesewas: header.deliveryFeePesewas, isBackorder: header.parentOrderId !== null, extraFees: await this.orderStore.extraFeesOf(tx, [header.id]) });
+    const dueDate = await this.dueDateOf(tx, header);
 
     // The billing document on the weighed quantity (FR-BIL-005), with the delivery fee once (A-331 (b)) and an extra
-    // delivery the customer asked for as its own line.
+    // delivery the customer asked for as its own line; an order on account's invoice is due on the customer's terms.
     const document = await this.billing.issueIn(tx, actor, {
       kind: header.customerId === null ? 'RECEIPT' : 'INVOICE',
       branchId: header.branchId,
@@ -211,9 +290,11 @@ export class Dispatches {
       orderDocumentId: header.id,
       taxInclusive: header.taxInclusive,
       occurredAt: at,
+      dueDate,
       lines: [...(await this.billedLines(tx, sent, picks.map((p) => p.pick), at)), ...(await this.feeLines(tx, fees))],
     });
     const gross = Money.fromJsonInteger(document.grossPesewas);
+    await this.creditAtDispatchIn(tx, header, gross, document.id);
 
     // The deposits applied oldest first, what is left due on delivery (ADR-0021); what they hold beyond the document is
     // refunded, unless a backorder of the order is still to be sent: then it stays held for it (FR-ORD-012). The
@@ -277,7 +358,7 @@ export class Dispatches {
       contents: await this.contentsOf(tx, sent),
       driverId: body.driverId!,
       vehicleLocationId: body.vehicleLocationId!,
-      codDuePesewas: settlement.due.pesewas,
+      codDuePesewas: cashDueOnDelivery(header.paymentTerms, settlement.due).pesewas,
       dispatchedAt: at,
     });
     await this.moveIn(tx, header, 'DISPATCHED', `Dispatched on ${delivery.deliveryNo!}`, at, actorId);
@@ -293,7 +374,8 @@ export class Dispatches {
       finalTotalPesewas: gross.toJsonInteger(),
       allocatedPesewas: Money.sum(settlement.allocations.map((a) => a.amount)).toJsonInteger(),
       refundRequestedPesewas: Money.sum(settlement.refunds.map((r) => r.amount)).toJsonInteger(),
-      codDuePesewas: settlement.due.toJsonInteger(),
+      codDuePesewas: cashDueOnDelivery(header.paymentTerms, settlement.due).toJsonInteger(),
+      dueDate,
       deliveryId: delivery.id,
       deliveryNo: delivery.deliveryNo!,
       lines: delivery.contents.map((c) => ({ orderLineId: c.orderLineId, name: c.name, quantity: c.quantity, uom: c.uom, weightKg: c.weightKg })),
@@ -310,7 +392,7 @@ export class Dispatches {
       entityId: id,
       branchId: f.branchId,
       before: { ...before },
-      after: { ...view, billingDocumentId: document.id, deliveryId: delivery.id, codDuePesewas: settlement.due.toJsonInteger(), refundIds, backorderId: backordered?.id ?? null, fees: fees.map((f) => ({ ...f, amountPesewas: json(f.amountPesewas) })) },
+      after: { ...view, billingDocumentId: document.id, deliveryId: delivery.id, codDuePesewas: cashDueOnDelivery(header.paymentTerms, settlement.due).toJsonInteger(), dueDate, refundIds, backorderId: backordered?.id ?? null, fees: fees.map((f) => ({ ...f, amountPesewas: json(f.amountPesewas) })) },
     });
     const response = { status: 200, body: view };
     await this.idempotency.complete(tx, claim.id, response);
@@ -327,7 +409,7 @@ export class Dispatches {
    * (`payInvoiceAtTill`, a guest's receipt included) and the order completes when its document is settled (BL-097). An
    * order on account is B11 continued 8's (`CREDIT_DISPATCH_NOT_AVAILABLE`). `ord.fulfilment.dispatch` at the branch.
    */
-  collect(actor: Actor | undefined, id: string, key: string): Promise<StoredResponse<FulfilmentView>> {
+  collect(actor: Actor | undefined, id: string, key: string, body: CollectRequest = {}): Promise<StoredResponse<FulfilmentView | CreditOverridePending>> {
     return this.uow
       .run({ isolation: 'read committed' }, async (tx) => {
         await this.authoriser.authorise(tx, actor, DISPATCH);
@@ -339,14 +421,15 @@ export class Dispatches {
       .then((branchId) =>
         this.uow.run(
           { isolation: 'serializable', seriesLocks: [...this.billing.seriesLocksFor('INVOICE', branchId), ...this.billing.seriesLocksFor('RECEIPT', branchId), ...this.orders.locksFor(branchId)] },
-          (tx) => this.collectIn(tx, actor, id, key),
+          (tx) => this.collectIn(tx, actor, id, key, body),
         ),
-      );
+      )
+      .catch((error: unknown) => this.refusedForCredit(error, actor, id, { operationId: 'collectFulfilment', request: collectClaim(id, body), step: 'hand over' }, body.creditOverrideReason, key));
   }
 
-  private async collectIn(tx: Transaction, actor: Actor | undefined, id: string, key: string): Promise<StoredResponse<FulfilmentView>> {
+  private async collectIn(tx: Transaction, actor: Actor | undefined, id: string, key: string, body: CollectRequest): Promise<StoredResponse<FulfilmentView>> {
     await this.authoriser.authorise(tx, actor, DISPATCH);
-    const claim = await this.idempotency.claim(tx, { operationId: 'collectFulfilment', principalId: actor!.principalId, key, request: { id } });
+    const claim = await this.idempotency.claim(tx, { operationId: 'collectFulfilment', principalId: actor!.principalId, key, request: collectClaim(id, body) });
     if (claim.kind === 'REPLAY') return claim.response as StoredResponse<FulfilmentView>;
     const f = await this.store.lock(tx, id);
     if (f === null) throw new NotFoundError('no such pick list');
@@ -357,8 +440,6 @@ export class Dispatches {
     if (header.status !== 'PACKED') throw invalidState(`order ${header.id}`, header.status);
     const broken: SaleRule[] = [];
     if (header.fulfilmentMode !== 'COLLECTION') broken.push({ field: '', rule: 'NOT_A_COLLECTION' });
-    // An order on account is credit-checked at its hand-over and invoiced with its terms' due date: B11 continued 8.
-    if (header.paymentTerms === 'CREDIT') broken.push({ field: '', rule: 'CREDIT_DISPATCH_NOT_AVAILABLE' });
     if (broken.length > 0) throw new FulfilmentInvalidError(broken);
 
     const at = this.clock.now();
@@ -371,6 +452,7 @@ export class Dispatches {
     const backorder = backorderLines(open);
     const rootId = header.parentOrderId ?? header.id;
     const before = await this.fulfilments.viewIn(tx, id);
+    const dueDate = await this.dueDateOf(tx, header);
 
     const document = await this.billing.issueIn(tx, actor, {
       kind: header.customerId === null ? 'RECEIPT' : 'INVOICE',
@@ -379,9 +461,11 @@ export class Dispatches {
       orderDocumentId: header.id,
       taxInclusive: header.taxInclusive,
       occurredAt: at,
+      dueDate,
       lines: await this.billedLines(tx, sent, picks.map((p) => p.pick), at),
     });
     const gross = Money.fromJsonInteger(document.grossPesewas);
+    await this.creditAtDispatchIn(tx, header, gross, document.id);
     const paid = (await this.payments.ofOrderIn(tx, rootId)).filter((p) => p.status === 'CLEARED');
     const waiting = (await this.orderStore.backordersOf(tx, rootId)).some((b) => b.id !== header.id && BEFORE_DISPATCH.has(b.status));
     const settlement = planSettlement(
@@ -453,7 +537,8 @@ export class Dispatches {
       finalTotalPesewas: gross.toJsonInteger(),
       allocatedPesewas: Money.sum(settlement.allocations.map((a) => a.amount)).toJsonInteger(),
       refundRequestedPesewas: Money.sum(settlement.refunds.map((r) => r.amount)).toJsonInteger(),
-      dueAtTillPesewas: settlement.due.toJsonInteger(),
+      dueAtTillPesewas: cashDueOnDelivery(header.paymentTerms, settlement.due).toJsonInteger(),
+      dueDate,
       completed,
       backorderId: backordered?.id ?? null,
       collectedAt: at.toISOString(),

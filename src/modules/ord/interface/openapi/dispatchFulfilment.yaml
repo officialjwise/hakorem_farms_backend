@@ -2,7 +2,7 @@ operationId: dispatchFulfilment
 tags:
   - ord
 summary: "Dispatch: load the vehicle and issue the invoice"
-description: "Dispatches a packed delivery order onto a vehicle with its driver (B11 continued, FR-ORD-011, FR-BIL-005, ADR-0021, ADR-0091), in one serializable transaction: every packed pick list of the order goes (the order must be `PACKED`, else 422 `INVALID_STATE_TRANSITION`); the billing document is issued on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT` for a guest), a catch-weight line in kilograms at its price, with the order's delivery fee as its own line, charged once, on the order's first dispatch: a backorder's dispatch carries no order fee, and an extra delivery the customer asked for (`addExtraDeliveryFee`) is its own `DELIVERY_FEE` line (2.36.0, A-331 (b)); a line packed with its rest back-ordered goes with what was picked and the rest becomes a backorder linked to the order (`parentOrderId`), what the deposits hold beyond the document then staying held for it rather than refunded; the order's deposits are allocated to it oldest first, what they hold beyond it is asked back to the original method (`WEIGHED_BELOW_PAID`, a refund waiting for its approval), and what they do not cover becomes the cash due on delivery; the order's reservations end and each pick moves from its pick location onto the vehicle (never below zero online: 422 `INSUFFICIENT_STOCK`, nor stock promised to another order); the delivery is made (`DLN-...`, assigned to the driver and vehicle) and the order moves to `DISPATCHED`. `ord.OrderDispatched` is written to the outbox in the same transaction for the customer's message with the weights and the final total. Refusals: 422 `FULFILMENT_INVALID` with `NOT_A_DELIVERY` (a collection order is handed over with `collectFulfilment`), `CREDIT_DISPATCH_NOT_AVAILABLE` (an order on account, B11 continued 8), `DELIVERY_ADDRESS_REQUIRED`, `DRIVER_REQUIRED` or `VEHICLE_REQUIRED`; 422 `DELIVERY_INVALID` with `NOT_A_DRIVER` (not a driver at the branch) or `NOT_A_VEHICLE` (not a live vehicle of the branch).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.dispatch`."
+description: "Dispatches a packed delivery order onto a vehicle with its driver (B11 continued, FR-ORD-011, FR-BIL-005, ADR-0021, ADR-0091), in one serializable transaction: every packed pick list of the order goes (the order must be `PACKED`, else 422 `INVALID_STATE_TRANSITION`); the billing document is issued on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT` for a guest), a catch-weight line in kilograms at its price, with the order's delivery fee as its own line, charged once, on the order's first dispatch: a backorder's dispatch carries no order fee, and an extra delivery the customer asked for (`addExtraDeliveryFee`) is its own `DELIVERY_FEE` line (2.36.0, A-331 (b)); a line packed with its rest back-ordered goes with what was picked and the rest becomes a backorder linked to the order (`parentOrderId`), what the deposits hold beyond the document then staying held for it rather than refunded; the order's deposits are allocated to it oldest first, what they hold beyond it is asked back to the original method (`WEIGHED_BELOW_PAID`, a refund waiting for its approval), and what they do not cover becomes the cash due on delivery, nil on an order on account (nothing is ever due to the driver on account); the order's reservations end and each pick moves from its pick location onto the vehicle (never below zero online: 422 `INSUFFICIENT_STOCK`, nor stock promised to another order); the delivery is made (`DLN-...`, assigned to the driver and vehicle) and the order moves to `DISPATCHED`. `ord.OrderDispatched` is written to the outbox in the same transaction for the customer's message with the weights and the final total. Refusals: 422 `FULFILMENT_INVALID` with `NOT_A_DELIVERY` (a collection order is handed over with `collectFulfilment`), `DELIVERY_ADDRESS_REQUIRED`, `DRIVER_REQUIRED` or `VEHICLE_REQUIRED`; 422 `DELIVERY_INVALID` with `NOT_A_DRIVER` (not a driver at the branch) or `NOT_A_VEHICLE` (not a live vehicle of the branch).\n\nAn order on account (`CREDIT`, 2.37.0, B11 continued 8, the owner 2026-11-23) is credit-checked here through WHL's credit control on the gross of the document on what is sent, against everything else the customer owes (the order's own estimate is never counted beside it): within the limit and terms it goes, its `INVOICE` due on the customer's payment terms (`dueDate`, the business date plus `paymentTermsDays`); an approved credit override covers it when the gross is no more than it was approved for. Refused, nothing is written and the answer is 422 `CREDIT_LIMIT_EXCEEDED`, `ACCOUNT_ON_HOLD` or `CREDIT_TERMS_EXCEEDED` with the figures in words (`details[]`: each reason, then `OVERRIDE_REASON_REQUIRED` or `APPROVAL_PENDING`); sent again with `creditOverrideReason` and none waiting, the override is asked for that gross instead (202 `CreditOverridePending`, a holder of `whl.credit.override` who did not ask approves it), and once approved the same request goes. A backorder of an order on account is judged again at its own dispatch, on its own quantities. With no open account the order is refused `CREDIT_CHECK_UNAVAILABLE`.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.dispatch`."
 x-permission: ord.fulfilment.dispatch
 parameters:
   - name: id
@@ -95,6 +95,53 @@ responses:
           currency: GHS
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 2
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CreditOverridePending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+          kind: CREDIT_OVERRIDE
+          subject:
+            id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+            docType: SALES_ORDER
+            number: SO-2026-DDW-004198
+          summary: "Credit override for SO-2026-DDW-004198 of GH₵920.00 to Asantewaa Chop Bar: GH₵420.00 over its GH₵5,000.00 limit. Reason: Pays every Friday"
+          requestedAt: "2026-11-13T10:12:00Z"
+          creditCheck:
+            order:
+              id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+              docType: SALES_ORDER
+              number: SO-2026-DDW-004198
+            customer:
+              id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+              publicId: cus_TS4VEDD3ZZNAAQGD
+              name: "Asantewaa Chop Bar"
+            outcome: OVER_LIMIT
+            reasons:
+              - OVER_LIMIT
+            creditLimitPesewas: 500000
+            exposurePesewas: 450000
+            orderPesewas: 92000
+            overLimitPesewas: 42000
+            overduePesewas: 0
+            oldestOverdueDays: null
+            paymentTermsDays: 14
+            override:
+              approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+              status: PENDING_APPROVAL
+              reason: "Pays every Friday"
+              requestedBy:
+                id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                displayName: "Kojo Antwi"
+              requestedAt: "2026-11-13T10:12:00Z"
+              decidedBy: null
+              decidedAt: null
+            checkedAt: "2026-11-13T10:12:00Z"
+            currency: GHS
   "400":
     $ref: "#/components/responses/BadRequest"
   "401":

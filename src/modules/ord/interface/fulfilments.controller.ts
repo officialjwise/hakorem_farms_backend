@@ -7,10 +7,12 @@ import { IdempotencyKeyHeader, Operation } from '../../../platform/http/operatio
 import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import { Dispatches } from '../application/dispatches';
+import type { CreditOverridePending } from '../application/order-confirmation-policy';
 import { Fulfilments, type FulfilmentView } from '../application/fulfilments';
 import { OnlineOrders, type CustomerOrderView } from '../application/online-orders';
 import type { Page, SalesOrderView } from '../application/orders';
 import {
+  CollectRecordBody,
   ConsentRecordBody,
   DispatchRecordBody,
   FulfilmentCreateBody,
@@ -85,8 +87,14 @@ export class FulfilmentsController {
   @Post(':id/collect')
   @HttpCode(200)
   @Operation({ operationId: 'collectFulfilment', ...WRITE, permission: 'ord.fulfilment.dispatch' })
-  collectFulfilment(@CurrentActor() actor: Actor | undefined, @Param('id', zodPipe(IdParam)) id: string, @IdempotencyKeyHeader() key: string): Promise<FulfilmentView> {
-    return this.dispatches.collect(actor, id, key).then((r) => r.body);
+  collectFulfilment(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(CollectRecordBody)) body: z.infer<typeof CollectRecordBody>,
+    @IdempotencyKeyHeader() key: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<FulfilmentView | CreditOverridePending> {
+    return reply(res, this.dispatches.collect(actor, id, key, body ?? {}));
   }
 
   @Post(':id/dispatch')
@@ -97,8 +105,9 @@ export class FulfilmentsController {
     @Param('id', zodPipe(IdParam)) id: string,
     @Body(zodPipe(DispatchRecordBody)) body: z.infer<typeof DispatchRecordBody>,
     @IdempotencyKeyHeader() key: string,
-  ): Promise<FulfilmentView> {
-    return this.dispatches.dispatch(actor, id, body, key).then((r) => r.body);
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<FulfilmentView | CreditOverridePending> {
+    return reply(res, this.dispatches.dispatch(actor, id, body, key));
   }
 
   @Post(':id/cancel')

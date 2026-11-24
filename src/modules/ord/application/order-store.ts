@@ -172,7 +172,7 @@ export interface OrderStore {
   /** The summary of the sales a till shift took. */
   shiftSales(tx: Transaction, shiftDocumentId: string): Promise<ShiftSalesSummary>;
   /** The customer's confirmed credit orders not yet invoiced, at their estimated totals, summed (SA-21, WHL's exposure). */
-  uninvoicedCreditTotal(tx: Transaction, customerId: string): Promise<bigint>;
+  uninvoicedCreditTotal(tx: Transaction, customerId: string, excludingOrderId: string | null): Promise<bigint>;
   insertOrder(tx: Transaction, order: NewOrder): Promise<void>;
   insertTrackingToken(tx: Transaction, token: TrackingTokenRecord): Promise<void>;
   /** The token stored under this hash that has not expired at `at`, by the unique hash (a point read). */

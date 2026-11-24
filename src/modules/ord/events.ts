@@ -249,7 +249,10 @@ export interface OrderDispatched {
   readonly finalTotalPesewas: number;
   readonly allocatedPesewas: number;
   readonly refundRequestedPesewas: number;
+  /** Nil on an order on account (B11 continued 8): nothing is due to the driver; the invoice is due on `dueDate`. */
   readonly codDuePesewas: number;
+  /** An order on account's invoice due date from the customer's terms (B11 continued 8), else null. */
+  readonly dueDate: string | null;
   readonly deliveryId: string;
   readonly deliveryNo: string;
   readonly lines: readonly { readonly orderLineId: string; readonly name: string; readonly quantity: string; readonly uom: string; readonly weightKg: string | null }[];
@@ -275,7 +278,10 @@ export interface OrderCollected {
   readonly finalTotalPesewas: number;
   readonly allocatedPesewas: number;
   readonly refundRequestedPesewas: number;
+  /** Nil on an order on account (B11 continued 8): the invoice is due on `dueDate`, never at the till. */
   readonly dueAtTillPesewas: number;
+  /** An order on account's invoice due date from the customer's terms (B11 continued 8), else null. */
+  readonly dueDate: string | null;
   readonly completed: boolean;
   readonly backorderId: string | null;
   readonly collectedAt: string;

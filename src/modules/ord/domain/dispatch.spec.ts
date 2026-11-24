@@ -1,6 +1,6 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { backorderLines, feesAtDispatch, judgeExtraDeliveryFee, planSettlement } from './dispatch';
+import { backorderLines, cashDueOnDelivery, feesAtDispatch, judgeExtraDeliveryFee, planSettlement, zoneFee } from './dispatch';
 
 const m = (pesewas: number) => Money.ofPesewas(BigInt(pesewas));
 const deposit = (id: string, pesewas: number) => ({ paymentId: id, unallocated: m(pesewas) });
@@ -126,5 +126,24 @@ describe('judgeExtraDeliveryFee (the owner 2026-11-23): only on a delivery backo
     for (const status of ['PLACED', 'DISPATCHED', 'DELIVERED', 'COMPLETED', 'CANCELLED'] as const) expect(judgeExtraDeliveryFee(facts({ status }))).toEqual({ ok: false, error: 'NOT_BEFORE_DISPATCH' });
     expect(judgeExtraDeliveryFee(facts({ alreadyAdded: true }))).toEqual({ ok: false, error: 'EXTRA_FEE_ALREADY_ADDED' });
     expect(judgeExtraDeliveryFee(facts({ zoneFeePesewas: 0n }))).toEqual({ ok: false, error: 'ZONE_HAS_NO_FEE' });
+  });
+});
+
+describe("a staff delivery order's fee from the customer's address zone (B11 continued 8, FR-SHP-008)", () => {
+  const zone = { feePesewas: 1_500n, freeOverPesewas: 50_000n };
+  it("charges the zone's exact fee on goods at the threshold, and waives it one pesewa above", () => {
+    expect([zoneFee(zone, m(50_000)).pesewas, zoneFee(zone, m(50_001)).pesewas]).toEqual([1_500n, 0n]);
+  });
+  it('never waives the fee of a zone without a threshold', () => {
+    expect(zoneFee({ feePesewas: 2_000n, freeOverPesewas: null }, m(9_000_000)).pesewas).toBe(2_000n);
+  });
+});
+
+describe('what the driver collects on an order on account (B11 continued 8, ADR-0092)', () => {
+  it('is nothing: the balance is the invoice, due on the terms', () => {
+    expect(cashDueOnDelivery('CREDIT', m(86_240)).pesewas).toBe(0n);
+  });
+  it('is what the deposits do not cover on cash on delivery or a prepaid order', () => {
+    expect([cashDueOnDelivery('COD', m(2_240)).pesewas, cashDueOnDelivery('PREPAID', m(0)).pesewas]).toEqual([2_240n, 0n]);
   });
 });

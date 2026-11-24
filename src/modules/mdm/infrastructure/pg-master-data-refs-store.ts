@@ -1,6 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { UomFactor } from '../domain/unit-conversion';
-import type { BranchFacts, GradeFacts, ReasonCodeFacts, UomFacts, ReasonCodeView, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerFacts, PaymentMethodFacts, WeightBandFacts } from '../application/master-data-refs';
+import type { BranchFacts, GradeFacts, ReasonCodeFacts, UomFacts, ReasonCodeView, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerAddressFacts, CustomerFacts, PaymentMethodFacts, WeightBandFacts } from '../application/master-data-refs';
 
 /** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
 const PAYMENT_METHOD_FACTS = `SELECT id, code, name, kind, requires_provider_verification AS "requiresProviderVerification", allowed_offline AS "allowedOffline", channels,
@@ -131,6 +131,16 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
       [ids, 'ACTIVE'],
     );
     return rows;
+  }
+
+  async customerAddress(tx: Transaction, id: string): Promise<CustomerAddressFacts | null> {
+    const { rows } = await tx.query<CustomerAddressFacts>(
+      `SELECT id, customer_id AS "customerId", recipient_name AS "recipientName", recipient_phone_e164 AS "recipientPhone", line1, area, city, region,
+              digital_address AS "digitalAddress", directions, delivery_zone_id AS "deliveryZoneId", deleted_at IS NULL AS "isLive"
+         FROM mdm.customer_address WHERE id = $1`,
+      [id],
+    );
+    return rows[0] ?? null;
   }
 
   async customerOfPrincipal(tx: Transaction, principalId: string): Promise<CustomerFacts | null> {
