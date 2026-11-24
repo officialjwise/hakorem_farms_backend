@@ -25,7 +25,7 @@ import {
   type StockQueries,
   type StockUnits,
 } from '../../inv';
-import { defaultLineUom, type MasterDataRefs, type PricingService, type ProductFacts, type TaxService } from '../../mdm';
+import { defaultLineUom, type MasterDataRefs, type PricingService, type ProductFacts, type Storefront, type TaxService } from '../../mdm';
 import type { Orders, QuoteOrderLine, SalesOrderView } from '../../ord';
 import { countOf, lineNumber, nextVersionNo } from '../domain/numbering';
 import { pageProbe } from '../domain/paging';
@@ -69,6 +69,8 @@ export const QUOTE_LINK_DECIDED_FROM_STAFF_ADDRESS = 'quo.QuoteLinkDecidedFromSt
 /** The setting holding the margin floor in basis points of the selling price (FR-QUO-005, seed 10 percent; over cost until 2.29.0, A-342). */
 export const MARGIN_FLOOR_SETTING = 'quo.margin_floor_basis_points';
 const TOKEN_PREFIX = 'quo_';
+/** The delivery fee's line in the version's tax calculation (B11u, A-352). */
+const DELIVERY_FEE_REF = 'delivery-fee';
 const EXPIRY_BATCH = 100;
 const DEFAULT_UOM: Readonly<Record<PriceBasis, string>> = { PER_HEAD: 'HEAD', PER_KG: 'KG', PER_UNIT: 'UNIT' };
 
@@ -363,6 +365,7 @@ export class Quotes {
     private readonly clock: Clock,
     private readonly staffSessions: StaffSessionsSeen,
     private readonly archive: Documents,
+    private readonly storefront: Storefront,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -1430,7 +1433,12 @@ export class Quotes {
     return { lines, products };
   }
 
-  /** The version's figures: the calculator's tax on the product lines, the margin floor from its setting. */
+  /**
+   * The version's figures: the calculator's tax on the product lines and on the delivery fee, the margin floor from its
+   * setting. The fee is taxed exactly as the invoice taxes it at dispatch (the owner, 2026-11-23, B11u, A-352): a line of
+   * the same calculation in the `DELIVERY_SERVICE` category (MDM's `Storefront.deliveryTaxCategoryIdIn`, as ORD's
+   * dispatch takes it), its amount the fee in the version's pricing mode, so the quote and the invoice agree to the pesewa.
+   */
   private async figuresIn(
     tx: Transaction,
     branchId: string,
@@ -1438,16 +1446,11 @@ export class Quotes {
     o: { readonly taxInclusive: boolean; readonly deliveryFeePesewas: bigint; readonly at: Date },
   ) {
     const taxed = priced.lines.filter((l) => l.productId !== null);
-    const tax =
-      taxed.length === 0
-        ? 0n
-        : (
-            await this.tax.calculateIn(tx, {
-              taxInclusive: o.taxInclusive,
-              taxDate: toBusinessDate(o.at),
-              lines: taxed.map((l) => ({ lineRef: l.id, taxCategoryId: priced.products.get(l.productId!)!.taxCategoryId, amountPesewas: l.lineNetPesewas })),
-            })
-          ).totals.tax.pesewas;
+    const lines = taxed.map((l) => ({ lineRef: l.id, taxCategoryId: priced.products.get(l.productId!)!.taxCategoryId, amountPesewas: l.lineNetPesewas }));
+    if (o.deliveryFeePesewas > 0n) lines.push({ lineRef: DELIVERY_FEE_REF, taxCategoryId: await this.storefront.deliveryTaxCategoryIdIn(tx), amountPesewas: o.deliveryFeePesewas });
+    const calculation = lines.length === 0 ? null : await this.tax.calculateIn(tx, { taxInclusive: o.taxInclusive, taxDate: toBusinessDate(o.at), lines });
+    const feeTax = calculation?.lines.find((l) => l.lineRef === DELIVERY_FEE_REF)?.tax.pesewas ?? 0n;
+    const tax = (calculation?.totals.tax.pesewas ?? 0n) - feeTax;
     const floor = await this.settings.integer(MARGIN_FLOOR_SETTING, DEFAULT_MARGIN_FLOOR_BASIS_POINTS, branchId);
     const f = versionFigures(
       priced.lines.map((l) => ({
@@ -1456,7 +1459,7 @@ export class Quotes {
         unitCostPesewas: l.estimatedUnitCostPesewas,
         belowEngineFloor: l.resolvedFloorUnitPricePesewas !== null && l.unitPricePesewas < l.resolvedFloorUnitPricePesewas,
       })),
-      { deliveryFeePesewas: o.deliveryFeePesewas, taxPesewas: tax, floorBasisPoints: floor, taxInclusive: o.taxInclusive },
+      { deliveryFeePesewas: o.deliveryFeePesewas, deliveryFeeTaxPesewas: feeTax, taxPesewas: tax, floorBasisPoints: floor, taxInclusive: o.taxInclusive },
     );
     return { netPesewas: f.netPesewas, taxPesewas: f.taxPesewas, grossPesewas: f.grossPesewas, estimatedCostPesewas: f.estimatedCostPesewas, markupPercent: f.markupPercent, belowMarginFloor: f.belowMarginFloor };
   }

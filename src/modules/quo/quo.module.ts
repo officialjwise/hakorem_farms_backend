@@ -14,7 +14,7 @@ import { Settings } from '../../platform/settings/settings';
 import { DocModule, Documents } from '../doc';
 import { Approvals, Authoriser, IamModule, PRINCIPAL_NAMES, STAFF_SESSIONS_SEEN, type PrincipalNames, type StaffSessionsSeen } from '../iam';
 import { InvModule, Reservations, StockQueries, StockUnits } from '../inv';
-import { MasterDataRefs, MdmModule, PartiesAdmin, PricingService, TaxService } from '../mdm';
+import { MasterDataRefs, MdmModule, PartiesAdmin, PricingService, Storefront, TaxService } from '../mdm';
 import { OrdModule, Orders } from '../ord';
 import { QUOTE_STORE, type QuoteStore } from './application/quote-store';
 import { QUOTE_BELOW_MARGIN_KIND, QuoteExpiry, Quotes } from './application/quotes';
@@ -58,8 +58,9 @@ import { MyQuotesController, QuotesController, RfqsController } from './interfac
         clock: Clock,
         staffSessions: StaffSessionsSeen,
         documents: Documents,
-      ) => new Quotes(uow, store, refs, pricing, tax, units, stock, reservations, orders, approvals, authoriser, principals, idempotency, audit, events, registry, numbers, settings, cursors, clock, staffSessions, documents),
-      inject: [UnitOfWork, QUOTE_STORE, MasterDataRefs, PricingService, TaxService, StockUnits, StockQueries, Reservations, Orders, Approvals, Authoriser, PRINCIPAL_NAMES, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, Settings, Cursors, CLOCK, STAFF_SESSIONS_SEEN, Documents],
+        storefront: Storefront,
+      ) => new Quotes(uow, store, refs, pricing, tax, units, stock, reservations, orders, approvals, authoriser, principals, idempotency, audit, events, registry, numbers, settings, cursors, clock, staffSessions, documents, storefront),
+      inject: [UnitOfWork, QUOTE_STORE, MasterDataRefs, PricingService, TaxService, StockUnits, StockQueries, Reservations, Orders, Approvals, Authoriser, PRINCIPAL_NAMES, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, Settings, Cursors, CLOCK, STAFF_SESSIONS_SEEN, Documents, Storefront],
     },
     {
       provide: Rfqs,
