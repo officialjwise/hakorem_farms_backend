@@ -67,6 +67,10 @@ const TAKES_NO_IDENTIFIER = [
   // portal's reads find the investor by the session, never by an identifier (cap/investor-books, cap/uat-scenario-4).
   'getOverallReturns', 'listFinancing',
   'getMyInvestorSummary', 'listMyCapitalTransactions', 'listMyDistributions', 'getMyInvestorStatement', 'listMyInvestorDocuments',
+  // B12 continued 2: losses take a period and read every branch the caller reads in full, and the allocation runs are
+  // listed the same way; a run's scope is checked on its branch (another branch's run or cost object answers as a
+  // made-up one: cst/costing).
+  'listLosses', 'listOverheadAllocations',
 ];
 
 /**
@@ -197,6 +201,7 @@ function pathFor(route: RouteInfo, real: boolean): string {
     const known = realIds.get(`${out.join('/')}/:${name}`) ?? null;
     if (name === 'key') out.push('pur.purchase_order.approval_limit_pesewas');
     else if (name === 'tagNo') out.push(real ? 'G-0143' : 'G-9999');
+    else if (name === 'objectType') out.push('STOCK_UNIT');
     else out.push(real && known !== null ? known : randomUUID());
   }
   return out.join('/');
