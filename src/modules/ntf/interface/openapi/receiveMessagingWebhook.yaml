@@ -1,0 +1,61 @@
+operationId: receiveMessagingWebhook
+tags:
+  - ntf
+summary: "Receive delivery receipts and STOP replies from a messaging provider"
+description: "A messaging provider's delivery reports (FR-NTF-007). The signature is checked first: `X-Provider-Signature` is the lower-case hex HMAC-SHA256 of the raw body under the provider's webhook secret; anything else is 401 and nothing in the body is read. Every request is logged. A report `{\"type\": \"delivery\", \"id\", \"reference\" (the message id the send carried), \"status\": DELIVERED | FAILED | UNDELIVERED | REJECTED | EXPIRED}` is applied once by its `id` (a second delivery is logged as a replay and changes nothing) and changes only that message's delivery status, a SENT message becoming DELIVERED or FAILED. A body that cannot be read is logged and acknowledged. Only `GENERIC_HTTP`, the SMS adapter, is served; the others answer 404 until their adapters exist. A STOP reply (`\"type\": \"inbound\"`) is logged and acknowledged; recording it as an opt-out comes with the opt-out list (B11 continued 11)."
+x-error-codes:
+  - UNAUTHENTICATED
+  - NOT_FOUND
+  - VALIDATION_FAILED
+  - RATE_LIMITED
+parameters:
+  - name: provider
+    in: path
+    required: true
+    schema:
+      type: string
+      enum:
+        - GENERIC_HTTP
+        - HUBTEL
+        - META_WHATSAPP
+        - SENDGRID
+  - name: X-Provider-Signature
+    in: header
+    required: true
+    schema:
+      type: string
+security: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        type: object
+        additionalProperties: true
+      example:
+        type: delivery
+        id: "dlr-7Q2k9w"
+        reference: "019a7b16-76fc-7005-853e-09311d81820f"
+        status: DELIVERED
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/WebhookAck"
+        example:
+          received: true
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

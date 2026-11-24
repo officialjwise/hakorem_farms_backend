@@ -93,6 +93,9 @@ const environmentSchema = z
     SMS_API_KEY: z.string().min(16).optional(),
     SMS_SENDER_ID: z.string().regex(/^[A-Za-z0-9 ]{1,11}$/).default('HaKorem'),
     SMS_TIMEOUT_MS: z.coerce.number().int().min(500).max(30_000).default(5_000),
+    // The SMS provider's delivery reports are signed with this (B11 continued 10, FR-NTF-007); without it every report is
+    // refused 401 and a sent message stays SENT. A deployment matter: B13 supplies it with the provider's key (A-374 (d)).
+    SMS_WEBHOOK_SECRET: z.string().min(32).optional(),
     // Object storage (docs/OPERATIONS.md section 3.5). Required by the worker from B3 (audit anchors), by the API from B4.
     S3_ENDPOINT: z.string().url().optional(),
     S3_REGION: z.string().min(1).default('us-east-1'),

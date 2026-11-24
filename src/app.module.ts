@@ -20,6 +20,7 @@ import { ShpModule } from './modules/shp';
 import { RptModule } from './modules/rpt';
 import { WhlModule } from './modules/whl';
 import { QuoModule } from './modules/quo';
+import { NtfModule } from './modules/ntf';
 import { PlatformModule } from './platform/platform.module';
 
 /**
@@ -36,7 +37,7 @@ export class AppModule {
   ): DynamicModule {
     return {
       module: AppModule,
-      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, AudModule, MdmModule, DocModule, FinModule, InvModule, LivModule, PrcModule, BilModule, PayModule, PurModule, DelModule, OrdModule, PosModule, ShpModule, QuoModule, WhlModule, RptModule, ...extra],
+      imports: [PlatformModule.forRoot(config, logger, clock), IamModule, AudModule, MdmModule, DocModule, FinModule, InvModule, LivModule, PrcModule, BilModule, PayModule, PurModule, DelModule, OrdModule, PosModule, ShpModule, QuoModule, WhlModule, RptModule, NtfModule, ...extra],
     };
   }
 }

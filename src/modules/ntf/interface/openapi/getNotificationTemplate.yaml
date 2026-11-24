@@ -1,0 +1,57 @@
+operationId: getNotificationTemplate
+tags:
+  - ntf
+summary: "Get a message template"
+description: "One template version; 404 for an id that names none.\n\nPermission: `ntf.template.read`."
+x-permission: ntf.template.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/NotificationTemplate"
+        example:
+          id: "019a7b15-03c8-795c-8e94-9e9769351775"
+          code: RECEIPT
+          channel: SMS
+          locale: en-GH
+          category: TRANSACTIONAL
+          subject: null
+          body: "HaKorem Farms: receipt {{documentNo}}, GHS {{total}}. Thank you! View: {{link}}"
+          providerTemplateRef: null
+          versionNo: 2
+          status: ACTIVE
+          version: 1
+          createdAt: "2026-11-01T09:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

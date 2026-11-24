@@ -167,6 +167,7 @@ import {
   RfqUpdate as QuoRfqUpdate,
 } from '../../../src/modules/quo/interface/schemas';
 import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
+import { MessagingWebhookBody, TemplateCreate, TemplatePreview } from '../../../src/modules/ntf/interface/schemas';
 import { DeliveryAssign, DeliveryFailure, DeliveryReschedule, DriverSyncBatch, OnTheWay, ProofOfDeliveryCreate, RouteCreate, RouteStopsReplace, SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
 import {
@@ -587,6 +588,9 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     startCheckout: CheckoutStart,
     placeOrder: PlaceOrder,
     updateCheckout: CheckoutUpdate,
+    createNotificationTemplate: TemplateCreate,
+    previewNotificationTemplate: TemplatePreview,
+    receiveMessagingWebhook: MessagingWebhookBody,
   };
 
   it('parses every request example of an implemented operation with the schema its route validates with', () => {

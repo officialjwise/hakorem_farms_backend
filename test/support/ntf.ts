@@ -1,0 +1,103 @@
+import { createHmac, randomUUID } from 'node:crypto';
+import type { Clock } from '@hakorem/kernel';
+import type { INestApplication } from '@nestjs/common';
+import pino from 'pino';
+import { AddressHasher, CustomerMessages } from '../../src/modules/ntf/application/customer-messages';
+import { MessageSender } from '../../src/modules/ntf/application/message-sender';
+import { NTF_STORE, type NtfStore } from '../../src/modules/ntf/application/ntf-store';
+import { Orders } from '../../src/modules/ord';
+import { runAsSystem } from '../../src/platform/context/request-context';
+import { UnitOfWork } from '../../src/platform/database/unit-of-work';
+import { DomainEvents, type DomainEvent } from '../../src/platform/events/domain-events';
+import { OutboxDispatcher } from '../../src/platform/events/outbox-dispatcher';
+import { NotificationSendError, type NotificationChannel, type OutgoingMessage } from '../../src/platform/notifications/notification-channel';
+import type { TestDatabase } from './test-database';
+
+const silent = pino({ level: 'silent' });
+export const SCHEDULER = { kind: 'SYSTEM', principalId: '01900000-0000-7000-8000-000000000004' } as const;
+const SYSTEM = { principalId: '01900000-0000-7000-8000-000000000001', displayName: 'System' };
+
+/**
+ * The SMS provider's test double: the one channel NTF sends by, with no network and no key. It keeps every call, and
+ * delivers a message to the phone once per idempotency key, as a provider that honours the key does (A-374 (f)). A
+ * script of failures makes the next calls fail, temporarily or for good; `hold` makes the next call reach the provider
+ * and then never answer, as a worker that died mid-send.
+ */
+export class FakeSms implements NotificationChannel {
+  readonly channel = 'SMS' as const;
+  readonly calls: OutgoingMessage[] = [];
+  readonly delivered = new Map<string, OutgoingMessage>();
+  private readonly script: Array<'TEMPORARY' | 'PERMANENT' | 'HOLD'> = [];
+  private readonly held: Array<() => void> = [];
+
+  failNext(kind: 'TEMPORARY' | 'PERMANENT', times = 1): void {
+    for (let i = 0; i < times; i++) this.script.push(kind);
+  }
+
+  holdNext(): void {
+    this.script.push('HOLD');
+  }
+
+  /** Lets every held call answer at last, as a worker that comes back after its claim was taken over. */
+  release(): void {
+    for (const answer of this.held.splice(0)) answer();
+  }
+
+  async send(message: OutgoingMessage): Promise<{ readonly providerReference: string }> {
+    this.calls.push(message);
+    const next = this.script.shift();
+    if (next === 'TEMPORARY') throw new NotificationSendError('the SMS provider answered 503', true);
+    if (next === 'PERMANENT') throw new NotificationSendError('the SMS provider answered 400: number not reachable', false);
+    if (!this.delivered.has(message.idempotencyKey)) this.delivered.set(message.idempotencyKey, message);
+    if (next === 'HOLD') await new Promise<void>((resolve) => this.held.push(resolve));
+    return { providerReference: `fake-${message.idempotencyKey}` };
+  }
+}
+
+export interface NtfHarness {
+  readonly store: NtfStore;
+  readonly events: DomainEvents;
+  readonly customerMessages: CustomerMessages;
+  readonly workerUow: UnitOfWork;
+  /** A sender over the worker's pool with its own channel, as each worker process builds one, run as the Scheduler. */
+  sender(sms: NotificationChannel, random?: () => number): { run(system: typeof SCHEDULER): ReturnType<MessageSender['run']> };
+  /** Delivers the outbox to every consumer until nothing is due, as the worker's dispatcher does. */
+  dispatch(): Promise<void>;
+  /** Publishes an event as ORD or DEL would, in its own committed transaction, and returns its id. */
+  publish(event: DomainEvent): Promise<string>;
+}
+
+export function ntfHarness(app: INestApplication, database: TestDatabase, clock: Clock, lookupKey: string): NtfHarness {
+  const events = app.get(DomainEvents);
+  const store = app.get<NtfStore>(NTF_STORE);
+  const workerUow = new UnitOfWork(database.pool('worker'), silent, undefined, clock);
+  const appUow = app.get(UnitOfWork);
+  const hasher = new AddressHasher(Buffer.from(lookupKey, 'base64'));
+  const dispatcher = new OutboxDispatcher(workerUow, events, clock, silent, { maxAttempts: 5, backoffBaseMs: 1_000, backoffMaxMs: 10_000, batchSize: 200 });
+  return {
+    store,
+    events,
+    customerMessages: app.get(CustomerMessages),
+    workerUow,
+    sender: (sms, random = () => 0) => {
+      const sender = new MessageSender(workerUow, store, app.get(Orders), new Map([['SMS', sms]]), events, hasher, clock, silent, random);
+      return { run: (system) => runAsSystem({ principalId: system.principalId, displayName: 'Scheduler' }, randomUUID(), () => sender.run(system)) };
+    },
+    async dispatch() {
+      for (let pass = 0; pass < 20; pass++) {
+        const outcome = await runAsSystem(SYSTEM, randomUUID(), () => dispatcher.dispatchOnce());
+        if (outcome.delivered + outcome.failed + outcome.dead === 0) return;
+      }
+    },
+    async publish(event) {
+      const envelope = await runAsSystem(SYSTEM, randomUUID(), () => appUow.run({ isolation: 'serializable' }, (tx) => events.publish(tx, event)));
+      return envelope.id;
+    },
+  };
+}
+
+
+/** The provider's signature over a delivery report's raw body (receiveMessagingWebhook). */
+export function signReport(secret: string, body: string): string {
+  return createHmac('sha256', secret).update(body).digest('hex');
+}

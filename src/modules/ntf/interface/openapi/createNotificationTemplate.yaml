@@ -1,0 +1,70 @@
+operationId: createNotificationTemplate
+tags:
+  - ntf
+summary: "Draft a message template or a new version of one"
+description: "Drafts a new version of a code, channel and locale (`en-GH` unless given), numbered after its last; it is used only once another person activates it. The code must be one NTF sends, in its own category, and the text may name only that code's merge fields and carries no link of its own (a link a message needs is filled in by the server). Refused with 422 `TEMPLATE_INVALID` naming the rule (`UNKNOWN_TEMPLATE_CODE`, `CATEGORY_MISMATCH`, `UNKNOWN_MERGE_FIELD`, `LINK_NOT_ALLOWED`, `SUBJECT_EMAIL_ONLY`, `SUBJECT_REQUIRED`, `EMPTY_BODY`, `TOO_LONG`). A version's text never changes afterwards (FR-NTF-001, abuse case 57).\n\nPermission: `ntf.template.manage`."
+x-permission: ntf.template.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - TEMPLATE_INVALID
+  - RATE_LIMITED
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/NotificationTemplateCreate"
+      example:
+        code: ORDER_DISPATCHED
+        channel: SMS
+        category: TRANSACTIONAL
+        body: "Your HaKorem order {{orderNo}} left the farm with {{driverFirstName}}. Track: {{link}}"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/NotificationTemplate"
+        example:
+          id: "019a7b15-03c8-795c-8e94-9e9769351775"
+          code: RECEIPT
+          channel: SMS
+          locale: en-GH
+          category: TRANSACTIONAL
+          subject: null
+          body: "HaKorem Farms: receipt {{documentNo}}, GHS {{total}}. Thank you! View: {{link}}"
+          providerTemplateRef: null
+          versionNo: 2
+          status: ACTIVE
+          version: 1
+          createdAt: "2026-11-01T09:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

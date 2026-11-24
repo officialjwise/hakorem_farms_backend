@@ -1,0 +1,81 @@
+operationId: retryNotificationMessage
+tags:
+  - ntf
+summary: "Retry a failed message"
+description: "Queues a FAILED message to be sent again, to its order's own contact as it is now, with its attempts kept; no new message is made. Only a failed message (422 `MESSAGE_NOT_RETRYABLE` `NOT_FAILED`); a suppressed one never (`SUPPRESSED`: an opt-out or a limit is never overridden). At the message's branch; audited.\n\nPermission: `ntf.message.retry`."
+x-permission: ntf.message.retry
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - MESSAGE_NOT_RETRYABLE
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/NotificationMessage"
+        example:
+          id: "019a7b17-6e74-7f21-845a-faeceb0973ca"
+          sourceEventId: "019a7b17-8d63-7905-9e3d-992464ba1202"
+          templateCode: RECEIPT
+          channel: SMS
+          category: TRANSACTIONAL
+          recipient:
+            kind: CUSTOMER
+            id: "019a7a87-e158-7b8a-80c2-c17c31a53a5a"
+            displayName: "Grace Nyarko"
+          addressMasked: "+233 •• ••• •118"
+          status: QUEUED
+          suppressedReason: null
+          attempts:
+            - attemptNo: 1
+              outcome: TEMPORARY_FAILURE
+              providerResponse: "Network timeout"
+              attemptedAt: "2026-11-13T09:13:00Z"
+            - attemptNo: 2
+              outcome: PERMANENT_FAILURE
+              providerResponse: "Number not reachable"
+              attemptedAt: "2026-11-13T09:18:00Z"
+          sendAfter: null
+          sentAt: null
+          deliveredAt: null
+          createdAt: "2026-11-13T09:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

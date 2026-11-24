@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.38.0"
+  version: "2.39.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -76082,8 +76082,13 @@ paths:
       tags:
         - ntf
       summary: "List message templates"
-      description: "Permission: `ntf.template.read`."
+      description: "Every version of every message template, by code and channel, the newest version first, so a reminder level picks a template instead of typing its code (the owner, 2026-11-23). Farm-wide master data. Filters: `code`, `channel`, `status`.\n\nPermission: `ntf.template.read`."
       x-permission: ntf.template.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - RATE_LIMITED
       parameters:
         - name: code
           in: query
@@ -76226,8 +76231,18 @@ paths:
       tags:
         - ntf
       summary: "Draft a message template or a new version of one"
-      description: "Permission: `ntf.template.manage`."
+      description: "Drafts a new version of a code, channel and locale (`en-GH` unless given), numbered after its last; it is used only once another person activates it. The code must be one NTF sends, in its own category, and the text may name only that code's merge fields and carries no link of its own (a link a message needs is filled in by the server). Refused with 422 `TEMPLATE_INVALID` naming the rule (`UNKNOWN_TEMPLATE_CODE`, `CATEGORY_MISMATCH`, `UNKNOWN_MERGE_FIELD`, `LINK_NOT_ALLOWED`, `SUBJECT_EMAIL_ONLY`, `SUBJECT_REQUIRED`, `EMPTY_BODY`, `TOO_LONG`). A version's text never changes afterwards (FR-NTF-001, abuse case 57).\n\nPermission: `ntf.template.manage`."
       x-permission: ntf.template.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - TEMPLATE_INVALID
+        - RATE_LIMITED
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
         - $ref: "#/components/parameters/CsrfToken"
@@ -76288,8 +76303,14 @@ paths:
       tags:
         - ntf
       summary: "Get a message template"
-      description: "Permission: `ntf.template.read`."
+      description: "One template version; 404 for an id that names none.\n\nPermission: `ntf.template.read`."
       x-permission: ntf.template.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -76341,8 +76362,19 @@ paths:
       tags:
         - ntf
       summary: "Make a template version active"
-      description: "Permission: `ntf.template.manage`."
+      description: "Makes a DRAFT version the one in use and retires the version it replaces, in one step; messages already rendered keep the version they used. Never by the person who drafted it (422 `TEMPLATE_NOT_ACTIVATABLE` `OWN_DRAFT`; the database holds the same rule), and only a draft (`NOT_DRAFT`). Audited with the text activated (FR-NTF-001, abuse case 57).\n\nPermission: `ntf.template.manage`."
       x-permission: ntf.template.manage
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - TEMPLATE_NOT_ACTIVATABLE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -76400,8 +76432,17 @@ paths:
       tags:
         - ntf
       summary: "Render a template with sample data"
-      description: "Permission: `ntf.template.read`."
+      description: "Renders the version with its code's sample data under the values sent; a key that is not one of the code's merge fields is 422 `TEMPLATE_INVALID` `UNKNOWN_MERGE_FIELD`. `smsSegments` counts the SMS parts (160 GSM characters in one, then 153 a part; 70 and 67 when a character needs UCS-2). Writes nothing.\n\nPermission: `ntf.template.read`."
       x-permission: ntf.template.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - TEMPLATE_INVALID
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -76644,8 +76685,13 @@ paths:
       tags:
         - ntf
       summary: "The message log: what was sent to whom and when"
-      description: "Permission: `ntf.message.read`."
+      description: "The message log, newest first: what was sent to whom and when, each message on its own channel with its status (`QUEUED`, `SENT`, `DELIVERED`, `FAILED`, `SUPPRESSED`) and every attempt, so a failed message shows as failed (FR-NTF-007, the owner 2026-11-23). The number is masked (`+23324*****56`); only messages of the branches the caller's grants reach are listed. `suppressedReason` is `NO_ADDRESS` (the order has no number) or `RATE_LIMITED` (the recipient's hourly limit, abuse case 58).\n\nPermission: `ntf.message.read`."
       x-permission: ntf.message.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - RATE_LIMITED
       parameters:
         - name: status
           in: query
@@ -76865,8 +76911,14 @@ paths:
       tags:
         - ntf
       summary: "Get a message with its attempts"
-      description: "Permission: `ntf.message.read`."
+      description: "One message with its attempts, read at the message's branch; 404 for an id that names none.\n\nPermission: `ntf.message.read`."
       x-permission: ntf.message.read
+      x-error-codes:
+        - VALIDATION_FAILED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - NOT_FOUND
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -76927,8 +76979,19 @@ paths:
       tags:
         - ntf
       summary: "Retry a failed message"
-      description: "Refused for a suppressed message: an opt-out is never overridden.\n\nPermission: `ntf.message.retry`."
+      description: "Queues a FAILED message to be sent again, to its order's own contact as it is now, with its attempts kept; no new message is made. Only a failed message (422 `MESSAGE_NOT_RETRYABLE` `NOT_FAILED`); a suppressed one never (`SUPPRESSED`: an opt-out or a limit is never overridden). At the message's branch; audited.\n\nPermission: `ntf.message.retry`."
       x-permission: ntf.message.retry
+      x-error-codes:
+        - VALIDATION_FAILED
+        - IDEMPOTENCY_KEY_REQUIRED
+        - IDEMPOTENCY_KEY_REUSED
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - CSRF_TOKEN_INVALID
+        - ORIGIN_NOT_ALLOWED
+        - NOT_FOUND
+        - MESSAGE_NOT_RETRYABLE
+        - RATE_LIMITED
       parameters:
         - name: id
           in: path
@@ -77365,7 +77428,12 @@ paths:
       tags:
         - ntf
       summary: "Receive delivery receipts and STOP replies from a messaging provider"
-      description: "Signature checked as for payment webhooks. A STOP reply records an opt-out at once."
+      description: "A messaging provider's delivery reports (FR-NTF-007). The signature is checked first: `X-Provider-Signature` is the lower-case hex HMAC-SHA256 of the raw body under the provider's webhook secret; anything else is 401 and nothing in the body is read. Every request is logged. A report `{\"type\": \"delivery\", \"id\", \"reference\" (the message id the send carried), \"status\": DELIVERED | FAILED | UNDELIVERED | REJECTED | EXPIRED}` is applied once by its `id` (a second delivery is logged as a replay and changes nothing) and changes only that message's delivery status, a SENT message becoming DELIVERED or FAILED. A body that cannot be read is logged and acknowledged. Only `GENERIC_HTTP`, the SMS adapter, is served; the others answer 404 until their adapters exist. A STOP reply (`\"type\": \"inbound\"`) is logged and acknowledged; recording it as an opt-out comes with the opt-out list (B11 continued 11)."
+      x-error-codes:
+        - UNAUTHENTICATED
+        - NOT_FOUND
+        - VALIDATION_FAILED
+        - RATE_LIMITED
       parameters:
         - name: provider
           in: path
@@ -77373,6 +77441,7 @@ paths:
           schema:
             type: string
             enum:
+              - GENERIC_HTTP
               - HUBTEL
               - META_WHATSAPP
               - SENDGRID
@@ -77390,9 +77459,10 @@ paths:
               type: object
               additionalProperties: true
             example:
-              type: inbound
-              from: "+233554000224"
-              text: STOP
+              type: delivery
+              id: dlr-7Q2k9w
+              reference: "019a7b16-76fc-7005-853e-09311d81820f"
+              status: DELIVERED
       responses:
         "200":
           description: OK
@@ -108898,6 +108968,10 @@ components:
         - mdm.weight_band.create
         - mdm.weight_band.read
         - mdm.weight_band.update
+        - ntf.message.read
+        - ntf.message.retry
+        - ntf.template.manage
+        - ntf.template.read
         - ord.delivery_fee.add
         - ord.fulfilment.dispatch
         - ord.fulfilment.pick
@@ -109154,6 +109228,10 @@ components:
         - mdm.weight_band.create
         - mdm.weight_band.read
         - mdm.weight_band.update
+        - ntf.message.read
+        - ntf.message.retry
+        - ntf.template.manage
+        - ntf.template.read
         - ord.delivery_fee.add
         - ord.fulfilment.dispatch
         - ord.fulfilment.pick
@@ -109324,6 +109402,7 @@ components:
         - mdm.tax.manage
         - mdm.tax.read
         - mdm.weight_band.read
+        - ntf.template.read
         - ord.order.read
         - ord.return.read
         - pay.payment.allocate
@@ -109510,6 +109589,7 @@ components:
         - mdm.tax.calculate
         - mdm.tax.read
         - mdm.weight_band.read
+        - ntf.template.read
         - ord.order.cancel
         - ord.order.confirm
         - ord.order.create

@@ -1,0 +1,68 @@
+operationId: previewNotificationTemplate
+tags:
+  - ntf
+summary: "Render a template with sample data"
+description: "Renders the version with its code's sample data under the values sent; a key that is not one of the code's merge fields is 422 `TEMPLATE_INVALID` `UNKNOWN_MERGE_FIELD`. `smsSegments` counts the SMS parts (160 GSM characters in one, then 153 a part; 70 and 67 when a character needs UCS-2). Writes nothing.\n\nPermission: `ntf.template.read`."
+x-permission: ntf.template.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - TEMPLATE_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TemplatePreview"
+      example:
+        data:
+          documentNo: RCP-2026-DDW-T1-018834
+          total: "1,379.00"
+          link: "https://hkfarms.gh/r/9Xq2"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/RenderedMessage"
+        example:
+          subject: null
+          body: "HaKorem Farms: receipt RCP-2026-DDW-T1-018834, GHS 1,379.00. Thank you! View: https://hkfarms.gh/r/9Xq2"
+          characterCount: 104
+          smsSegments: 1
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

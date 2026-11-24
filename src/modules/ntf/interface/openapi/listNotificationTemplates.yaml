@@ -1,0 +1,148 @@
+operationId: listNotificationTemplates
+tags:
+  - ntf
+summary: "List message templates"
+description: "Every version of every message template, by code and channel, the newest version first, so a reminder level picks a template instead of typing its code (the owner, 2026-11-23). Farm-wide master data. Filters: `code`, `channel`, `status`.\n\nPermission: `ntf.template.read`."
+x-permission: ntf.template.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: code
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: channel
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/NotificationTemplatePage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b15-03c8-795c-8e94-9e9769351775"
+                  code: RECEIPT
+                  channel: SMS
+                  locale: en-GH
+                  category: TRANSACTIONAL
+                  subject: null
+                  body: "HaKorem Farms: receipt {{documentNo}}, GHS {{total}}. Thank you! View: {{link}}"
+                  providerTemplateRef: null
+                  versionNo: 2
+                  status: ACTIVE
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+                - id: "019a7b15-22b7-733f-9878-3ccee2e6b5ac"
+                  code: RECEIPT
+                  channel: WHATSAPP
+                  locale: en-GH
+                  category: TRANSACTIONAL
+                  subject: null
+                  body: "Thank you for buying from HaKorem Farms. Your receipt {{documentNo}} for GHS {{total}} is attached."
+                  providerTemplateRef: receipt_v2
+                  versionNo: 2
+                  status: ACTIVE
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+                - id: "019a7b15-41a6-7d23-a25b-db065c9753e4"
+                  code: ORDER_DISPATCHED
+                  channel: SMS
+                  locale: en-GH
+                  category: TRANSACTIONAL
+                  subject: null
+                  body: "Your order {{orderNo}} is on the way with {{driverFirstName}}. Track: {{link}}"
+                  providerTemplateRef: null
+                  versionNo: 2
+                  status: ACTIVE
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+                - id: "019a7b15-6095-7706-bc3f-793dd648f21b"
+                  code: QUOTE_ISSUED
+                  channel: WHATSAPP
+                  locale: en-GH
+                  category: TRANSACTIONAL
+                  subject: null
+                  body: "Hello {{customerName}}, your quote {{quoteNo}} is ready. Valid until {{validUntil}}: {{link}}"
+                  providerTemplateRef: quote_issued_v2
+                  versionNo: 2
+                  status: ACTIVE
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+                - id: "019a7b15-7f84-70ea-8622-17754ff99053"
+                  code: PAYMENT_REMINDER_1
+                  channel: SMS
+                  locale: en-GH
+                  category: REMINDER
+                  subject: null
+                  body: "HaKorem Farms: invoice {{documentNo}} of GHS {{outstanding}} was due on {{dueDate}}. Pay by MoMo to 0244 000 000."
+                  providerTemplateRef: null
+                  versionNo: 2
+                  status: ACTIVE
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+                - id: "019a7b15-9e73-7acd-9005-b5acc9aa2e8a"
+                  code: LOW_STOCK
+                  channel: IN_APP
+                  locale: en-GH
+                  category: OPERATIONAL
+                  subject: null
+                  body: "{{productName}} is below its reorder point: {{onHand}} {{uom}} left."
+                  providerTemplateRef: null
+                  versionNo: 2
+                  status: ACTIVE
+                  version: 1
+                  createdAt: "2026-11-01T09:00:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,66 @@
+operationId: getNotificationMessage
+tags:
+  - ntf
+summary: "Get a message with its attempts"
+description: "One message with its attempts, read at the message's branch; 404 for an id that names none.\n\nPermission: `ntf.message.read`."
+x-permission: ntf.message.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - NOT_FOUND
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/NotificationMessage"
+        example:
+          id: "019a7b16-76fc-7005-853e-09311d81820f"
+          sourceEventId: "019a7b16-95eb-79e9-9f21-a76897322046"
+          templateCode: RECEIPT
+          channel: WHATSAPP
+          category: TRANSACTIONAL
+          recipient:
+            kind: CUSTOMER
+            id: "019a7a87-659c-73fc-8935-489e4ae1c17c"
+            displayName: "Ama Serwaa Ofori"
+          addressMasked: "+233 •• ••• •876"
+          status: DELIVERED
+          suppressedReason: null
+          attempts:
+            - attemptNo: 1
+              outcome: ACCEPTED
+              providerResponse: null
+              attemptedAt: "2026-11-13T09:13:00Z"
+          sendAfter: null
+          sentAt: "2026-11-13T09:13:00Z"
+          deliveredAt: "2026-11-13T09:14:00Z"
+          createdAt: "2026-11-13T09:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
