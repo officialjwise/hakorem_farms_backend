@@ -751,10 +751,10 @@ export class Quotes {
             broken.push({ field: '/stockUnitIds', rule: 'ANIMALS_REQUIRED' });
             continue;
           }
-          for (const animal of animals.splice(0, head)) orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: animal, quantity: '1.000', uom: l.uom, priceBasis: l.priceBasis, unitPricePesewas: l.unitPricePesewas });
+          for (const animal of animals.splice(0, head)) orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: animal, quantity: '1.000', uom: l.uom, priceBasis: l.priceBasis, ...priceOf(l) });
           continue;
         }
-        orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: l.stockUnitId, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, unitPricePesewas: l.unitPricePesewas });
+        orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: l.stockUnitId, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, ...priceOf(l) });
       }
       if (animals.length > 0) broken.push({ field: '/stockUnitIds', rule: 'ANIMALS_NOT_ON_QUOTE' });
       // Delivery is B11's (ORD refuses it until then); an address or a slot is refused rather than ignored.
@@ -1352,6 +1352,13 @@ export class Quotes {
     if (broken.length > 0) throw new QuoteInvalidError(broken);
 
     const priced = checked.filter((c) => c.product !== null);
+    // A line naming a weight band and no animal is priced as an animal of that band: the band's lowest weight, which the
+    // engine maps to that band (half-open, FR-MDM-005), so the line records its band's list price and floor at issue
+    // (B11u, A-350: the list the booking takes; UAT scenario 2 step 2.2 shows it).
+    const bandWeights = await this.refs.weightBandsIn(
+      tx,
+      priced.flatMap((c) => (isSet(c.input.weightBandId) && !isSet(c.input.stockUnitId) ? [c.input.weightBandId] : [])),
+    );
     const resolved =
       priced.length === 0
         ? []
@@ -1364,7 +1371,7 @@ export class Quotes {
               lines: priced.map((c) => {
                 const unit = isSet(c.input.stockUnitId) ? units.get(c.input.stockUnitId) : undefined;
                 const gradeId = c.input.gradeId ?? unit?.gradeId ?? undefined;
-                const weightKg = unit?.lastWeightKg ?? undefined;
+                const weightKg = unit?.lastWeightKg ?? (isSet(c.input.weightBandId) ? bandWeights.get(c.input.weightBandId)?.minKg : undefined) ?? undefined;
                 return {
                   lineRef: String(c.i),
                   productId: c.product!.id,
@@ -1677,6 +1684,14 @@ function publicStatus(quote: QuoteRecord, version: VersionRecord, now: Date): Pu
 }
 
 /** A stored line as the input it was priced from, to price again (a revision, an issue). */
+/**
+ * What a converted line costs and what it is booked against (the owner, 2026-11-23, B11u, A-350): the quoted price the
+ * buyer pays, and the list price and engine floor the line recorded when its version was issued, never a later list.
+ */
+function priceOf(l: LineRecord): Pick<QuoteOrderLine, 'unitPricePesewas' | 'listUnitPricePesewas' | 'engineFloorUnitPricePesewas'> {
+  return { unitPricePesewas: l.unitPricePesewas, listUnitPricePesewas: l.resolvedUnitPricePesewas, engineFloorUnitPricePesewas: l.resolvedFloorUnitPricePesewas };
+}
+
 function inputOf(l: LineRecord): QuoteLineInput {
   return {
     ...(l.productId === null ? {} : { productId: l.productId }),

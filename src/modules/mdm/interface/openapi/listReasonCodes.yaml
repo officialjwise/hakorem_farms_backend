@@ -2,7 +2,7 @@ operationId: listReasonCodes
 tags:
   - mdm
 summary: "List reason codes"
-description: "A fixed list changed only by migration, as the threat model requires; the contract has no write operation for it. Ordered by code. The example shows a part of the list, not all of it. `GOODS_RECEIPT_REJECTION` (B09e continued 2, 2.3.0) holds the reasons for goods rejected at the door, which a goods receipt line names in `rejectionReasonCode`: `CRACKED`, `BROKEN`, `DIRTY`, `SHORT`, `WRONG_ITEM_DELIVERED` and `QUALITY_REJECTED`. `STOCK_ADJUSTMENT` holds `BREAKAGE` (broken or cracked in store, no note) and `RODENT_DAMAGE`, both written off to the `WASTAGE` loss group. `COD_VARIANCE` (B11 continued, 2.27.0) holds why a driver collected less than the amount due on delivery, which a proof of delivery names in `codVarianceReasonCode`: `CUSTOMER_PAID_SHORT` and `CUSTOMER_PAYS_LATER`, each with a note. `REFUND` gains `WEIGHED_BELOW_PAID`, the refund dispatch asks for when the weighed total comes to less than was paid.\n\nPermission: `mdm.reason_code.read`."
+description: "A fixed list changed only by migration, as the threat model requires; the contract has no write operation for it. Ordered by code. The example shows a part of the list, not all of it. `GOODS_RECEIPT_REJECTION` (B09e continued 2, 2.3.0) holds the reasons for goods rejected at the door, which a goods receipt line names in `rejectionReasonCode`: `CRACKED`, `BROKEN`, `DIRTY`, `SHORT`, `WRONG_ITEM_DELIVERED` and `QUALITY_REJECTED`. `STOCK_ADJUSTMENT` holds `BREAKAGE` (broken or cracked in store, no note) and `RODENT_DAMAGE`, both written off to the `WASTAGE` loss group. `COD_VARIANCE` (B11 continued, 2.27.0) holds why a driver collected less than the amount due on delivery, which a proof of delivery names in `codVarianceReasonCode`: `CUSTOMER_PAID_SHORT` and `CUSTOMER_PAYS_LATER`, each with a note. `REFUND` gains `WEIGHED_BELOW_PAID`, the refund dispatch asks for when the weighed total comes to less than was paid. `QUOTED_PRICE` (B11u, 2.43.0) holds one code of the same name, the server's own: a converted quote's order line records under it the difference between the quoted price and the list price its quote line recorded at issue (posted to 4210); no sale or override may name it.\n\nPermission: `mdm.reason_code.read`."
 x-error-codes:
   - VALIDATION_FAILED
   - UNAUTHENTICATED
@@ -33,6 +33,7 @@ parameters:
         - PAYMENT_REVERSAL
         - GOODS_RECEIPT_REJECTION
         - COD_VARIANCE
+        - QUOTED_PRICE
   - name: cursor
     in: query
     required: false
