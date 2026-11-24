@@ -63,6 +63,24 @@ export const TEMPLATE_CODES = {
     category: 'TRANSACTIONAL',
     fields: { orderNo: 'SO-2026-000142', deliveryNo: 'DLV-2026-000311', collected: 'GHS 880.00', returnedCredit: 'GHS 60.00' },
   },
+  // B11 continued 11 (A-376): WHL's reminder levels send these (whl.DunningNoticeDue); a level names one of them.
+  PAYMENT_REMINDER_1: {
+    category: 'REMINDER',
+    fields: { customerName: 'Asantewaa Chop Bar', documentNo: 'INV-2026-DDW-000088', outstanding: 'GHS 1,275.00', daysPastDue: '7' },
+  },
+  PAYMENT_REMINDER_2: {
+    category: 'REMINDER',
+    fields: { customerName: 'Asantewaa Chop Bar', documentNo: 'INV-2026-DDW-000088', outstanding: 'GHS 1,275.00', daysPastDue: '30' },
+  },
+  PAYMENT_REMINDER_3: {
+    category: 'REMINDER',
+    fields: { customerName: 'Asantewaa Chop Bar', documentNo: 'INV-2026-DDW-000088', outstanding: 'GHS 1,275.00', daysPastDue: '60' },
+  },
+  // B11 continued 11 (A-376 (e), B06r, A-175): a death report sent back to its reporter because its photograph failed the scan.
+  MORTALITY_RETURNED: {
+    category: 'OPERATIONAL',
+    fields: { tagNo: 'G-0171', reason: 'the photograph did not pass the virus scan' },
+  },
 } as const satisfies Record<string, { readonly category: Category; readonly fields: Readonly<Record<string, string>> }>;
 
 export type TemplateCode = keyof typeof TEMPLATE_CODES;
@@ -103,9 +121,15 @@ function textRules(text: string, where: string, code: TemplateCode | null): Temp
   return rules;
 }
 
+/** An email's subject, and an in-app notification's title (B11 continued 11): the channels whose message has a heading. */
+export function titled(channel: Channel): boolean {
+  return channel === 'EMAIL' || channel === 'IN_APP';
+}
+
 /**
- * Whether a template may be drafted (FR-NTF-001): a known code in its own category; a body (and an email's subject)
- * naming only that code's merge fields and carrying no link of its own; a subject on email only.
+ * Whether a template may be drafted (FR-NTF-001): a known code in its own category; a body (and an email's subject or an
+ * in-app title) naming only that code's merge fields and carrying no link of its own; a subject on email and in-app
+ * only (`SUBJECT_EMAIL_ONLY` keeps its name: an in-app title is the one other heading, B11 continued 11).
  */
 export function judgeTemplate(draft: TemplateDraft): Result<TemplateDraft, TemplateRule[]> {
   const rules: TemplateRule[] = [];
@@ -115,8 +139,8 @@ export function judgeTemplate(draft: TemplateDraft): Result<TemplateDraft, Templ
   if (draft.body.trim().length === 0) rules.push({ field: '/body', rule: 'EMPTY_BODY' });
   if (draft.body.length > MAX_BODY_LENGTH) rules.push({ field: '/body', rule: 'TOO_LONG' });
   rules.push(...textRules(draft.body, '/body', code));
-  if (draft.channel === 'EMAIL' && (draft.subject === null || draft.subject.trim().length === 0)) rules.push({ field: '/subject', rule: 'SUBJECT_REQUIRED' });
-  if (draft.channel !== 'EMAIL' && draft.subject !== null) rules.push({ field: '/subject', rule: 'SUBJECT_EMAIL_ONLY' });
+  if (titled(draft.channel) && (draft.subject === null || draft.subject.trim().length === 0)) rules.push({ field: '/subject', rule: 'SUBJECT_REQUIRED' });
+  if (!titled(draft.channel) && draft.subject !== null) rules.push({ field: '/subject', rule: 'SUBJECT_EMAIL_ONLY' });
   if (draft.subject !== null) {
     if (draft.subject.length > MAX_SUBJECT_LENGTH) rules.push({ field: '/subject', rule: 'TOO_LONG' });
     rules.push(...textRules(draft.subject, '/subject', code));

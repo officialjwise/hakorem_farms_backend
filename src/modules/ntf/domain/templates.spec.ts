@@ -45,6 +45,14 @@ describe('a message template (FR-NTF-001)', () => {
     expect(rules(draft({ channel: 'EMAIL', subject: 'Order {{orderNo}} {{nope}}' }))).toEqual(['/subject:UNKNOWN_MERGE_FIELD']);
     expect(rules(draft({ channel: 'EMAIL', subject: 'x'.repeat(201) }))).toEqual(['/subject:TOO_LONG']);
     expect(rules(draft({ body: '   ' }))).toEqual(['/body:EMPTY_BODY']);
+  });
+
+  it('an in-app notification has a title, as an email its subject (B11 continued 11); a reminder is a REMINDER', () => {
+    const returned = { code: 'MORTALITY_RETURNED', channel: 'IN_APP' as const, category: 'OPERATIONAL' as const, body: 'The death report of {{tagNo}} came back: {{reason}}.' };
+    expect(rules(draft({ ...returned, subject: 'Death report sent back' }))).toEqual([]);
+    expect(rules(draft({ ...returned, subject: null }))).toEqual(['/subject:SUBJECT_REQUIRED']);
+    expect(rules(draft({ code: 'PAYMENT_REMINDER_2', category: 'REMINDER', body: '{{documentNo}}: {{outstanding}} is {{daysPastDue}} days late, {{customerName}}.' }))).toEqual([]);
+    expect(rules(draft({ code: 'PAYMENT_REMINDER_1', category: 'TRANSACTIONAL', body: '{{documentNo}}' }))).toEqual(['/category:CATEGORY_MISMATCH']);
     expect(rules(draft({ body: 'x'.repeat(1_001) }))).toEqual(['/body:TOO_LONG']);
   });
 

@@ -20,8 +20,8 @@ export const CLAIM_LEASE_MS = 120_000;
 export const RECIPIENT_HOURLY_LIMIT = 10;
 export const RECIPIENT_WINDOW_MS = 3_600_000;
 
-/** Why a message was not sent; shown in the log (FR-NTF-005, FR-NTF-007). */
-export type SuppressedReason = 'NO_ADDRESS' | 'RATE_LIMITED';
+/** Why a message was not sent; shown in the log (FR-NTF-005, FR-NTF-007; OPTED_OUT and PREFERENCE_OFF, B11 continued 11). */
+export type SuppressedReason = 'NO_ADDRESS' | 'RATE_LIMITED' | 'OPTED_OUT' | 'PREFERENCE_OFF';
 
 /** The order and recipient facts a customer message is built on, read from ORD at queue time (never from the event). */
 export interface OrderContact {
@@ -117,6 +117,40 @@ export function customerMessageOf(eventType: string, payload: Readonly<Record<st
     default:
       return null;
   }
+}
+
+/** A dunning notice as WHL holds it (`Dunning.noticesIn`), the facts a reminder is written from (never the event's). */
+export interface NoticeFacts {
+  readonly level: number;
+  readonly templateCode: string;
+  readonly documentNo: string | null;
+  readonly outstandingPesewas: bigint;
+  readonly daysPastDue: number;
+}
+
+/**
+ * A payment reminder (FR-WHL-011, B11 continued 11): the template its level names, if it is a reminder NTF sends, with the
+ * customer's name and the notice's own figures; null for a level naming a code that is not a reminder.
+ */
+export function reminderMessageOf(notice: NoticeFacts, customerName: string): { readonly code: TemplateCode; readonly data: Readonly<Record<string, string>> } | null {
+  if (!REMINDER_CODES.has(notice.templateCode)) return null;
+  return {
+    code: notice.templateCode as TemplateCode,
+    data: { customerName, documentNo: notice.documentNo ?? '', outstanding: formatCedis(notice.outstandingPesewas), daysPastDue: String(notice.daysPastDue) },
+  };
+}
+
+/** The reminder codes a dunning level may name (`listNotificationTemplates?category=REMINDER` lists their versions). */
+export const REMINDER_CODES: ReadonlySet<string> = new Set(['PAYMENT_REMINDER_1', 'PAYMENT_REMINDER_2', 'PAYMENT_REMINDER_3']);
+
+const RETURN_REASONS: Readonly<Record<string, string>> = {
+  EVIDENCE_INFECTED: 'the photograph did not pass the virus scan',
+  EVIDENCE_UNSCANNABLE: 'the photograph could not be scanned',
+};
+
+/** A death report sent back to its reporter (B06r, A-175): the animal's tag and why, in words; the reason is LIV's fixed list. */
+export function mortalityReturnedOf(reason: unknown, tagNo: string): { readonly code: 'MORTALITY_RETURNED'; readonly data: Readonly<Record<string, string>> } {
+  return { code: 'MORTALITY_RETURNED', data: { tagNo, reason: typeof reason === 'string' && Object.hasOwn(RETURN_REASONS, reason) ? RETURN_REASONS[reason]! : 'the photograph could not be used' } };
 }
 
 /** The events whose customer message NTF sends (the B11 continued 10 gate). */

@@ -8,6 +8,8 @@ import {
   maskAddress,
   MAX_SEND_ATTEMPTS,
   messageKey,
+  mortalityReturnedOf,
+  reminderMessageOf,
   orderIdOf,
   RECIPIENT_HOURLY_LIMIT,
   retryDelayMs,
@@ -139,5 +141,24 @@ describe('the message log, its attempts and its reports (FR-NTF-003, FR-NTF-007)
     expect(judgeRetry('FAILED')).toBe('OK');
     expect(judgeRetry('SUPPRESSED')).toBe('SUPPRESSED');
     expect(judgeRetry('SENT')).toBe('NOT_FAILED');
+  });
+});
+
+describe('a payment reminder and a returned death report (B11 continued 11)', () => {
+  it("a reminder is the level's own template with the notice's figures and the customer's name", () => {
+    const notice = { level: 2, templateCode: 'PAYMENT_REMINDER_2', documentNo: 'INV-2026-DDW-000088', outstandingPesewas: 127_550n, daysPastDue: 31 };
+    expect(reminderMessageOf(notice, 'Asantewaa Chop Bar')).toEqual({
+      code: 'PAYMENT_REMINDER_2',
+      data: { customerName: 'Asantewaa Chop Bar', documentNo: 'INV-2026-DDW-000088', outstanding: 'GHS 1,275.50', daysPastDue: '31' },
+    });
+    expect(reminderMessageOf({ ...notice, documentNo: null }, 'X')?.data['documentNo']).toBe('');
+    expect(reminderMessageOf({ ...notice, templateCode: 'ORDER_DISPATCHED' }, 'X')).toBeNull();
+  });
+
+  it("a returned death report names the animal and why, in words, never LIV's code", () => {
+    expect(mortalityReturnedOf('EVIDENCE_INFECTED', 'G-0171')).toEqual({ code: 'MORTALITY_RETURNED', data: { tagNo: 'G-0171', reason: 'the photograph did not pass the virus scan' } });
+    expect(mortalityReturnedOf('EVIDENCE_UNSCANNABLE', 'G-0171').data['reason']).toBe('the photograph could not be scanned');
+    expect(mortalityReturnedOf('constructor', 'G-0171').data['reason']).toBe('the photograph could not be used');
+    expect(mortalityReturnedOf(7, 'G-0171').data['reason']).toBe('the photograph could not be used');
   });
 });
