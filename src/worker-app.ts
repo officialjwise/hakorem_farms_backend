@@ -27,6 +27,7 @@ import { QuoteExpiry } from './modules/quo';
 import { AccountHolds, Dunning, StandingOrders } from './modules/whl';
 import { Financing } from './modules/cap';
 import { CostingProjections } from './modules/cst';
+import { ExceptionSweep } from './modules/rpt';
 import { AbandonedCarts, CatalogueListing } from './modules/shp';
 import { ProviderPayments, Refunds, UnverifiedOverdue } from './modules/pay';
 import { MessageSender } from './modules/ntf';
@@ -82,6 +83,8 @@ const DUNNING_CRON = '0 8 * * *';
 const FINANCING_ACCRUAL_CRON = '20 0 * * *';
 /** Daily at 02:50, after the ledger reconciliation and the numbering audit: the margin projection tied to the ledger (FR-CST-004). */
 const COSTING_DRIFT_CRON = '50 2 * * *';
+/** The exception report's sweep of today and yesterday (ADR-0103): every quarter hour. */
+const EXCEPTION_SWEEP_EVERY_MS = 900_000;
 
 /**
  * Builds and starts the worker: the application's module graph as a context (no HTTP), its own pools as hk_worker
@@ -149,6 +152,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const dunning = app.get(Dunning);
   const financing = app.get(Financing);
   const costing = app.get(CostingProjections);
+  const exceptionSweep = app.get(ExceptionSweep);
   const standingOrders = app.get(StandingOrders);
   const messageSender = app.get(MessageSender);
   // The modules' scheduled jobs (ADR-0049, docs/OPERATIONS.md "Scheduled jobs").
@@ -159,6 +163,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
     { name: 'dunning', when: { cron: DUNNING_CRON }, run: async (system) => ({ queued: (await dunning.run(system)).length }) },
     { name: 'financing-accrual', when: { cron: FINANCING_ACCRUAL_CRON }, run: async (system) => ({ ...(await financing.accrueAll(system)) }) },
     { name: 'costing-drift', when: { cron: COSTING_DRIFT_CRON }, run: async () => ({ ...(await costing.nightly()) }) },
+    { name: 'exception-sweep', when: { everyMs: EXCEPTION_SWEEP_EVERY_MS }, run: async () => ({ ...(await exceptionSweep.run()) }) },
     {
       name: 'standing-orders',
       when: { everyMs: STANDING_ORDERS_EVERY_MS },

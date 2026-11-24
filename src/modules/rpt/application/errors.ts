@@ -1,4 +1,4 @@
-import { BusinessRuleError } from '../../../platform/errors/api-error';
+import { ApiError, BusinessRuleError } from '../../../platform/errors/api-error';
 import { registerMessages, translate } from '../../../platform/i18n/messages';
 import type { PeriodRule } from '../domain/dashboard';
 
@@ -16,4 +16,22 @@ export class ReportPeriodInvalidError extends BusinessRuleError {
   constructor(rules: readonly PeriodRule[]) {
     super('the period cannot be reported', rules.map((rule) => ({ field: rule.field, code: rule.rule, message: translate('rpt.report_period_rule') })));
   }
+}
+
+registerMessages({
+  'rpt.already_reviewed': 'This exception has been reviewed already.',
+  'rpt.reviewer_is_actor': 'Someone other than the person this exception names must review it.',
+});
+
+/** 409 ALREADY_REVIEWED: an exception item is marked reviewed once; the first review stands (CR-059 point 1). */
+export class AlreadyReviewedError extends ApiError {
+  readonly status = 409;
+  readonly code = 'ALREADY_REVIEWED';
+  readonly messageKey = 'rpt.already_reviewed';
+}
+
+/** 422 REVIEWER_IS_ACTOR: the person an exception names never reviews it (ADR-0017, held by the database too). */
+export class ReviewerIsActorError extends BusinessRuleError {
+  readonly code = 'REVIEWER_IS_ACTOR';
+  readonly messageKey = 'rpt.reviewer_is_actor';
 }
