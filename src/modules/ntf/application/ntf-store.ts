@@ -40,8 +40,12 @@ export interface NewMessage {
   readonly templateId: string;
   readonly channel: Channel;
   readonly category: Category;
-  readonly recipientKind: 'CUSTOMER' | 'CONTACT' | 'STAFF';
+  readonly recipientKind: 'CUSTOMER' | 'CONTACT' | 'STAFF' | 'SUPPLIER';
   readonly customerId: string | null;
+  /** The supplier a remittance advice is for (B11 continued 13): its contact is read through MDM when it is sent. */
+  readonly supplierId?: string | null;
+  /** The record the message is about, as its idempotency key names it (a dunning notice, a send; B11 continued 13). */
+  readonly recordId?: string | null;
   /** The member of staff an in-app notification is for (B11 continued 11). */
   readonly principalId?: string | null;
   readonly addressMasked: string;
@@ -72,9 +76,11 @@ export interface MessageRecord {
   readonly templateCode: string;
   readonly channel: Channel;
   readonly category: Category;
-  readonly recipientKind: 'CUSTOMER' | 'STAFF' | 'INVESTOR' | 'CONTACT';
+  readonly recipientKind: 'CUSTOMER' | 'STAFF' | 'INVESTOR' | 'CONTACT' | 'SUPPLIER';
   readonly customerId: string | null;
   readonly principalId: string | null;
+  readonly supplierId: string | null;
+  readonly recordId: string | null;
   readonly addressMasked: string;
   readonly renderedBody: string | null;
   readonly status: MessageStatus;
@@ -110,9 +116,12 @@ export interface MessageFilters {
 /** A message a sender holds while it sends, by the claim token only that sender knows. */
 export interface ClaimedMessage {
   readonly id: string;
+  readonly sourceEventType: string;
   readonly salesOrderId: string | null;
   readonly customerId: string | null;
   readonly principalId: string | null;
+  readonly supplierId: string | null;
+  readonly recordId: string | null;
   readonly category: Category;
   readonly channel: Channel;
   readonly renderedBody: string;
@@ -231,6 +240,8 @@ export interface NtfStore {
   insertReport(tx: Transaction, r: ProviderReportRecord): Promise<boolean>;
   /** Whether a message of this source event and template already exists for the record, on any channel (FR-NTF-003). */
   messageExistsFor(tx: Transaction, sourceEventRef: string, code: string, recordId: string): Promise<boolean>;
+  /** Whether a message of this template exists about the record from any event (B11 continued 13: one advice a payment). */
+  messageExistsForRecord(tx: Transaction, code: string, recordId: string): Promise<boolean>;
 
   /** The live trigger for an event and a template, or null (B11 continued 11, FR-NTF-002). */
   triggerFor(tx: Transaction, eventType: string, templateCode: string): Promise<TriggerRecord | null>;

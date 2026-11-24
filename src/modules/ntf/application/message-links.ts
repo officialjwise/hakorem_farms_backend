@@ -6,9 +6,20 @@ import { linkUrl, type LinkKind } from '../domain/links';
  * (ADR-0074): ORD's tracking link, POS's receipt link for a message, DOC's document link. Answers the token, which is
  * never stored by NTF, or null when the record has no link to give (a sale with no till link, a cart no longer idle).
  */
-export type LinkMinter = (tx: Transaction, recordId: string, actorId: string) => Promise<string | null>;
+export type LinkMinter = (tx: Transaction, recordId: string, actorId: string) => Promise<string | null | { readonly notReady: true }>;
 
-export type MadeLink = { readonly kind: 'URL'; readonly url: string } | { readonly kind: 'NO_LINK' } | { readonly kind: 'UNAVAILABLE'; readonly reason: string };
+/**
+ * An email's attachment for a document it carries (B11 continued 13): the archived PDF, hash-checked, read by DOC
+ * outside any transaction; null while the document is not yet archived and scanned.
+ */
+export type DocumentAttacher = (businessDocumentId: string) => Promise<{ readonly fileName: string; readonly contentType: string; readonly bytes: Buffer } | null>;
+
+export type MadeLink =
+  | { readonly kind: 'URL'; readonly url: string }
+  | { readonly kind: 'NO_LINK' }
+  /** The record is not ready to be linked yet (a document still rendering): the message waits and tries again. */
+  | { readonly kind: 'WAIT' }
+  | { readonly kind: 'UNAVAILABLE'; readonly reason: string };
 
 /**
  * The links a message carries (B11 continued 12, ADR-0084): each made at send time, once per attempt (a message sent
@@ -21,6 +32,8 @@ export class MessageLinks {
   constructor(
     private readonly base: string | null,
     private readonly minters: Partial<Readonly<Record<LinkKind, LinkMinter>>>,
+    /** DOC's archived bytes for an email that carries a document (B11 continued 13); none, and such an email waits. */
+    readonly attach: DocumentAttacher | null = null,
   ) {}
 
   async linkIn(tx: Transaction, kind: LinkKind, recordId: string, actorId: string): Promise<MadeLink> {
@@ -29,6 +42,7 @@ export class MessageLinks {
     if (mint === undefined) return { kind: 'UNAVAILABLE', reason: `no module makes ${kind} links` };
     const token = await mint(tx, recordId, actorId);
     if (token === null) return { kind: 'NO_LINK' };
+    if (typeof token !== 'string') return { kind: 'WAIT' };
     // A cart's link carries no token: SHP answers only whether the cart may still be reminded.
     return { kind: 'URL', url: linkUrl(kind, this.base, kind === 'CART' ? null : token) };
   }

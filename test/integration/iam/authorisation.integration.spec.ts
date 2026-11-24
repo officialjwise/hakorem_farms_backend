@@ -154,6 +154,8 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'assignDelivery', 'rescheduleDelivery',
         'listShiftDriverCashHolders', 'cancelDelivery', 'syncDriverEvents',
         'addExtraDeliveryFee', 'collectFulfilment',
+        // B11 continued 13: the document sends and a document link's public read.
+        'sendBillingDocument', 'sendStatement', 'getSharedDocument',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);

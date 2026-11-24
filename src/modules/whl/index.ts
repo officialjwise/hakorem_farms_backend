@@ -5,7 +5,7 @@
  * `whl.DunningNoticeDue` for NTF (B11); `Ageing` for the seed; `StandingOrders` for the worker's `standing-orders` job (B10 continued 3); `BadDebts` and its events for the wiring, the seed and the exception report (B12).
  */
 export { WhlModule } from './whl.module';
-export { Statements, STATEMENT, type StatementView } from './application/statements';
+export { Statements, STATEMENT, STATEMENT_SEND_REQUESTED, type StatementSendRequested, type StatementView } from './application/statements';
 export { BusinessAccounts, ACCOUNT_RELEASE_KIND, CREDIT_LIMIT_CHANGE_KIND, type BusinessAccountView } from './application/business-accounts';
 export { CreditControl, CREDIT_OVERRIDE_KIND } from './application/credit-control';
 export { AccountHolds } from './application/account-holds';

@@ -15,7 +15,7 @@ import { Documents } from './application/documents';
 import { Files } from './application/files';
 import { Templates } from './application/templates';
 import { PgDocStore } from './infrastructure/pg-doc-store';
-import { DocumentsController, TemplatesController } from './interface/documents.controller';
+import { DocumentsController, SharedDocumentsController, TemplatesController } from './interface/documents.controller';
 import { FilesController } from './interface/files.controller';
 
 /**
@@ -26,7 +26,7 @@ import { FilesController } from './interface/files.controller';
  */
 @Module({
   imports: [IamModule],
-  controllers: [FilesController, DocumentsController, TemplatesController],
+  controllers: [FilesController, DocumentsController, SharedDocumentsController, TemplatesController],
   providers: [
     { provide: DOC_STORE, useClass: PgDocStore },
     {

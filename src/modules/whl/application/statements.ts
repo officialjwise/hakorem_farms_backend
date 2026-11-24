@@ -5,13 +5,14 @@ import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
 import type { NumberSeries } from '../../../platform/documents/number-series';
 import { NotFoundError } from '../../../platform/errors/api-error';
-import type { AsyncConsumer } from '../../../platform/events/domain-events';
+import type { AsyncConsumer, DomainEvents } from '../../../platform/events/domain-events';
+import { RecipientNotDocumentPartyError, type DocumentSendChannel } from '../../../platform/notifications/document-send';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import { DOCUMENT_ARCHIVED, type DocumentArchived, type Documents } from '../../doc';
 import type { Journals } from '../../fin';
 import type { Authoriser } from '../../iam';
-import type { MasterDataRefs } from '../../mdm';
+import { isPartyAddress, type MasterDataRefs } from '../../mdm';
 import { pageProbe } from '../domain/paging';
 import { judgePeriod, numberedLines, statementOf, statementRenderData, type Side, type StatementFigures, type StatementLineKind } from '../domain/statement';
 import { StatementInvalidError, type StatementRule } from './errors';
@@ -21,6 +22,18 @@ import type { Ageing } from './ageing';
 const READ = 'whl.statement.read';
 const CREATE = 'whl.statement.create';
 export const STATEMENT = 'STATEMENT';
+export const STATEMENT_SEND_REQUESTED = 'whl.StatementSendRequested';
+
+/**
+ * `whl.StatementSendRequested` v1 (B11 continued 13, ADR-0062, ADR-0099): an issued statement was asked to be sent to its
+ * own customer. NTF queues one message from it, to the customer's own address read through MDM when it is sent; the
+ * event carries no address.
+ */
+export interface StatementSendRequested {
+  readonly sendId: string;
+  readonly statementId: string;
+  readonly channels: readonly DocumentSendChannel[];
+}
 
 /** The contract's `StatementLine`. */
 export interface StatementLineView {
@@ -119,6 +132,7 @@ export class Statements {
     private readonly cursors: Cursors,
     private readonly clock: Clock,
     private readonly ageing: Ageing,
+    private readonly events: DomainEvents,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -145,6 +159,49 @@ export class Statements {
       await this.authoriser.authorise(tx, actor, READ, { branchId: statement.branchId });
       return (await this.views(tx, [statement], new Map([[id, await this.store.lines(tx, id)]])))[0]!;
     });
+  }
+
+  /**
+   * `sendStatement` (ADR-0062, B11 continued 13): an issued statement sent to its own customer, 202 through the outbox;
+   * nothing is rendered again. `whl.StatementSendRequested` is published for NTF, which sends the archived statement by
+   * a link of its own to the customer's own address read when it goes (and waits while it is still rendering).
+   * `recipient`, if given, must be an address the customer holds (422 `RECIPIENT_NOT_DOCUMENT_PARTY`). A draft is 404.
+   */
+  async send(actor: Actor | undefined, id: string, body: { readonly channels: readonly DocumentSendChannel[]; readonly recipient?: string | undefined }, key: string): Promise<StoredResponse<{ readonly status: 'QUEUED'; readonly message: string }>> {
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, CREATE);
+      const statement = await this.store.statement(tx, id);
+      if (statement === null) throw new NotFoundError(`no statement ${id}`);
+      await this.authoriser.authorise(tx, actor, CREATE, { branchId: statement.branchId });
+      if (statement.status !== 'ISSUED') throw new NotFoundError(`statement ${id} is a draft`);
+      const claim = await this.idempotency.claim(tx, { operationId: 'sendStatement', principalId: actor!.principalId, key, request: { id, ...body } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<{ readonly status: 'QUEUED'; readonly message: string }>;
+      if (body.recipient !== undefined) {
+        const party = (await this.refs.partyAddressesIn(tx, 'CUSTOMER', [statement.customerId])).get(statement.customerId);
+        if (party === undefined || !isPartyAddress(body.recipient, party)) throw new RecipientNotDocumentPartyError('RECIPIENT_NOT_DOCUMENT_PARTY');
+      }
+      const sendId = this.nextId();
+      const channels = [...new Set(body.channels)];
+      await this.events.publish<StatementSendRequested>(tx, {
+        type: STATEMENT_SEND_REQUESTED,
+        subjectType: 'CustomerStatement',
+        subjectId: id,
+        branchId: statement.branchId,
+        payload: { sendId, statementId: id, channels },
+      });
+      // The typed recipient is checked, never kept: the message goes to the customer's own address read at send.
+      await this.audit.record(tx, { module: 'whl', action: 'SEND', entityType: 'CustomerStatement', entityId: id, branchId: statement.branchId, before: null, after: { sendId, channels } });
+      const response = { status: 202, body: { status: 'QUEUED' as const, message: 'Queued. The document goes to its customer by the first channel that can reach them.' } };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
+  }
+
+  /** An issued statement as a message about it shows it (NTF, B11 continued 13); null for a draft or none. */
+  async messageFactsIn(tx: Transaction, id: string): Promise<{ readonly id: string; readonly branchId: string; readonly customerId: string; readonly statementNo: string | null; readonly closingPesewas: bigint; readonly closingCreditPesewas: bigint } | null> {
+    const statement = await this.store.statement(tx, id);
+    if (statement?.status !== 'ISSUED') return null;
+    return { id: statement.id, branchId: statement.branchId, customerId: statement.customerId, statementNo: statement.statementNo, closingPesewas: statement.closingPesewas, closingCreditPesewas: statement.closingCreditPesewas };
   }
 
   /**

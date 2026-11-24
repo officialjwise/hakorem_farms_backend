@@ -5,6 +5,7 @@ import pino from 'pino';
 import { CustomerMessages } from '../../src/modules/ntf/application/customer-messages';
 import { MessageLinks } from '../../src/modules/ntf/application/message-links';
 import { RecipientFacts } from '../../src/modules/ntf/application/message-queue';
+import { ReminderDeliveries } from '../../src/modules/ntf/application/reminders';
 import { MessageSender } from '../../src/modules/ntf/application/message-sender';
 import { NTF_STORE, type NtfStore } from '../../src/modules/ntf/application/ntf-store';
 import { runAsSystem } from '../../src/platform/context/request-context';
@@ -55,13 +56,36 @@ export class FakeSms implements NotificationChannel {
   }
 }
 
+/**
+ * The email provider's test double (B11 continued 13): the adapter shape B13 fills with a real provider, with no
+ * network and no key. It keeps every call, its subject and its attachments, and can be told to fail the next call.
+ */
+export class FakeEmail implements NotificationChannel {
+  readonly channel = 'EMAIL' as const;
+  readonly calls: OutgoingMessage[] = [];
+  private failures = 0;
+
+  failNext(times = 1): void {
+    this.failures += times;
+  }
+
+  async send(message: OutgoingMessage): Promise<{ readonly providerReference: string }> {
+    this.calls.push(message);
+    if (this.failures > 0) {
+      this.failures -= 1;
+      throw new NotificationSendError('the email provider answered 503', true);
+    }
+    return { providerReference: `fake-email-${message.idempotencyKey}` };
+  }
+}
+
 export interface NtfHarness {
   readonly store: NtfStore;
   readonly events: DomainEvents;
   readonly customerMessages: CustomerMessages;
   readonly workerUow: UnitOfWork;
   /** A sender over the worker's pool with its own channel, as each worker process builds one, run as the Scheduler. */
-  sender(sms: NotificationChannel, random?: () => number): { run(system: typeof SCHEDULER): ReturnType<MessageSender['run']> };
+  sender(sms: NotificationChannel, random?: () => number, others?: readonly NotificationChannel[]): { run(system: typeof SCHEDULER): ReturnType<MessageSender['run']> };
   /** Delivers the outbox to every consumer until nothing is due, as the worker's dispatcher does. */
   dispatch(): Promise<void>;
   /** Publishes an event as ORD or DEL would, in its own committed transaction, and returns its id. */
@@ -80,8 +104,9 @@ export function ntfHarness(app: INestApplication, database: TestDatabase, clock:
     events,
     customerMessages: app.get(CustomerMessages),
     workerUow,
-    sender: (sms, random = () => 0) => {
-      const sender = new MessageSender(workerUow, store, recipients, new Map([['SMS', sms]]), events, clock, silent, random, app.get(MessageLinks));
+    sender: (sms, random = () => 0, others = []) => {
+      const channels = new Map<NotificationChannel['channel'], NotificationChannel>([['SMS', sms], ...others.map((c) => [c.channel, c] as const)]);
+      const sender = new MessageSender(workerUow, store, recipients, channels, events, clock, silent, random, app.get(MessageLinks), app.get(ReminderDeliveries));
       return { run: (system) => runAsSystem({ principalId: system.principalId, displayName: 'Scheduler' }, randomUUID(), () => sender.run(system)) };
     },
     async dispatch() {

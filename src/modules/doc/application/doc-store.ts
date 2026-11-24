@@ -88,6 +88,19 @@ export interface DocStore {
   archived(tx: Transaction, ids: readonly string[]): Promise<ArchivedRecord[]>;
   archivedOf(tx: Transaction, businessDocumentIds: readonly string[]): Promise<ArchivedRecord[]>;
   listArchived(tx: Transaction, filter: ArchiveFilter, afterId: string | null, limit: number): Promise<ArchivedRecord[]>;
+  /** A document link made for a message (B11 continued 13): only its token's hash is stored, never the token. */
+  insertLink(tx: Transaction, link: NewDocumentLink): Promise<void>;
+  /** The archived rendering a live link (not expired at `at`) opens, by its token's hash; null for anything else. */
+  liveLink(tx: Transaction, tokenHash: Buffer, at: Date): Promise<string | null>;
+}
+
+export interface NewDocumentLink {
+  readonly id: string;
+  readonly archivedDocumentId: string;
+  readonly tokenHash: Buffer;
+  readonly expiresAt: Date;
+  readonly at: Date;
+  readonly actorId: string;
 }
 
 export const DOC_STORE = Symbol('DOC_STORE');

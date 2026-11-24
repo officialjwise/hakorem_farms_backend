@@ -9,7 +9,14 @@ export interface DunningLevelRule {
   readonly templateCode: string;
 }
 
-export type DunningRule = 'LEVELS_NOT_CONSECUTIVE' | 'DAYS_NOT_INCREASING' | 'CHANNEL_REPEATED';
+export type DunningRule = 'LEVELS_NOT_CONSECUTIVE' | 'DAYS_NOT_INCREASING' | 'CHANNEL_REPEATED' | 'TEMPLATE_NOT_A_REMINDER';
+
+/**
+ * The reminder templates a level may pick (B11 continued 13, the owner 2026-11-23): the codes NTF lists under
+ * `listNotificationTemplates?category=REMINDER` and has triggers for, never a code typed in. Held by the database too
+ * (`ck_dunning_policy_template`).
+ */
+export const REMINDER_TEMPLATES: readonly string[] = ['PAYMENT_REMINDER_1', 'PAYMENT_REMINDER_2', 'PAYMENT_REMINDER_3'];
 
 /**
  * The level an invoice is due on a day (FR-WHL-011): the highest level whose days overdue it has reached, provided no
@@ -30,6 +37,7 @@ export function judgeLevels(levels: readonly DunningLevelRule[]): { readonly fie
     if (l.level !== position + 1) broken.push({ field: `/levels/${String(index)}/level`, rule: 'LEVELS_NOT_CONSECUTIVE' });
     else if (position > 0 && l.daysOverdue <= ordered[position - 1]!.l.daysOverdue) broken.push({ field: `/levels/${String(index)}/daysOverdue`, rule: 'DAYS_NOT_INCREASING' });
     if (new Set(l.channels).size !== l.channels.length) broken.push({ field: `/levels/${String(index)}/channels`, rule: 'CHANNEL_REPEATED' });
+    if (!REMINDER_TEMPLATES.includes(l.templateCode)) broken.push({ field: `/levels/${String(index)}/templateCode`, rule: 'TEMPLATE_NOT_A_REMINDER' });
   });
   return broken;
 }

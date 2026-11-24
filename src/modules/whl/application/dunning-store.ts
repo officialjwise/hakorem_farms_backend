@@ -27,6 +27,16 @@ export interface DunningNoticeRecord {
   readonly queuedAt: Date;
 }
 
+/** A `whl.dunning_notice_delivery` row (B11 continued 13): what NTF reported of a notice's reminder on a channel. */
+export interface NoticeDeliveryRecord {
+  readonly id: string;
+  readonly noticeId: string;
+  readonly channel: DunningChannel;
+  readonly status: 'SENT' | 'DELIVERED' | 'FAILED';
+  readonly messageRef: string;
+  readonly occurredAt: Date;
+}
+
 export interface DunningNoticeFilter {
   readonly branchIds: readonly string[];
   readonly customerId: string | null;
@@ -52,4 +62,8 @@ export interface DunningStore {
   /** Notices by id (B11 continued 11: NTF's reminder reads the notice it sends, never the event's copy). */
   noticesById(tx: Transaction, ids: readonly string[]): Promise<DunningNoticeRecord[]>;
   notices(tx: Transaction, filter: DunningNoticeFilter, beforeId: string | null, limit: number): Promise<DunningNoticeRecord[]>;
+  /** Writes what NTF reported; false when this message's status is already recorded (`uq_dunning_notice_delivery`). */
+  insertDelivery(tx: Transaction, delivery: NoticeDeliveryRecord, at: Date, actorId: string): Promise<boolean>;
+  /** Every delivery recorded for the notices, oldest first. */
+  deliveriesOf(tx: Transaction, noticeIds: readonly string[]): Promise<NoticeDeliveryRecord[]>;
 }

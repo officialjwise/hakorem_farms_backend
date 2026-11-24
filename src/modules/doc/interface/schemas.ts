@@ -24,3 +24,6 @@ export const TemplateVersionCreate = z.strictObject({
 export const TemplatePreviewRequest = z.strictObject({ data: z.record(z.string(), z.unknown()).optional() });
 
 export const DocumentDownloadRequest = z.strictObject({ reprint: z.boolean().optional() });
+
+/** `getSharedDocument`: a document link's token, read only by its hash (B11 continued 13). */
+export const DocumentLinkTokenParam = z.string().min(1).max(200);

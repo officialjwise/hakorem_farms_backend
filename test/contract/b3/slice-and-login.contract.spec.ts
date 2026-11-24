@@ -151,7 +151,7 @@ import {
   TillInvoicePaymentCreate as PosTillInvoicePaymentCreate,
   DriverCashHandInCreate as PosDriverCashHandInCreate,
 } from '../../../src/modules/pos/interface/schemas';
-import { AccountCreate as WhlAccountCreate, AccountUpdate as WhlAccountUpdate, ReasonBody as WhlReasonBody, StatementCreate as WhlStatementCreate, DunningPolicyReplace as WhlDunningPolicyReplace, StandingOrderCreate as WhlStandingOrderCreate, StandingOrderUpdate as WhlStandingOrderUpdate, BadDebtWriteOff as WhlBadDebtWriteOff } from '../../../src/modules/whl/interface/schemas';
+import { AccountCreate as WhlAccountCreate, AccountUpdate as WhlAccountUpdate, ReasonBody as WhlReasonBody, StatementCreate as WhlStatementCreate, DunningPolicyReplace as WhlDunningPolicyReplace, StandingOrderCreate as WhlStandingOrderCreate, StandingOrderUpdate as WhlStandingOrderUpdate, BadDebtWriteOff as WhlBadDebtWriteOff, DocumentSendRequest as StatementSendRequest } from '../../../src/modules/whl/interface/schemas';
 import {
   PublicQuoteRequest as QuoPublicQuoteRequest,
   QuoteAcceptanceRecord as QuoAcceptanceRecord,
@@ -169,7 +169,7 @@ import {
 import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
 import { MessagingWebhookBody, PreferencesReplace, TemplateCreate, TemplatePreview, TriggerUpdate } from '../../../src/modules/ntf/interface/schemas';
 import { DeliveryAssign, DeliveryFailure, DeliveryReschedule, DriverSyncBatch, OnTheWay, ProofOfDeliveryCreate, RouteCreate, RouteStopsReplace, SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
-import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
+import { CreditNoteCreate, DebitNoteCreate, DocumentSendRequest, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
 import {
   ConsentRecordBody,
   FulfilmentCreateBody,
@@ -579,6 +579,8 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     receivePaymentWebhook: ProviderWebhookBody,
     issueDebitNote: DebitNoteCreate,
     reprintBillingDocument: ReprintRequest,
+    sendBillingDocument: DocumentSendRequest,
+    sendStatement: StatementSendRequest,
     createTemplateVersion: TemplateVersionCreate,
     previewTemplateVersion: TemplatePreviewRequest,
     downloadArchivedDocument: DocumentDownloadRequest,

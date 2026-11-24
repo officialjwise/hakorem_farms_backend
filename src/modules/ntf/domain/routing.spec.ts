@@ -119,6 +119,9 @@ describe('a change to a trigger (updateNotificationTrigger, FR-NTF-002)', () => 
     expect(judgeTriggerUpdate(customer, { channels: ['SMS', 'SMS'] })).toEqual([{ field: '/channels', rule: 'DUPLICATE_CHANNEL' }]);
     expect(judgeTriggerUpdate(customer, { channels: ['IN_APP'] })).toEqual([{ field: '/channels', rule: 'CHANNEL_NOT_FOR_RECIPIENT' }]);
     expect(judgeTriggerUpdate(staff, { channels: ['SMS'] })).toEqual([{ field: '/channels', rule: 'CHANNEL_NOT_FOR_RECIPIENT' }]);
+    // A supplier's remittance advice goes by phone or email, never to the console (B11 continued 13).
+    expect(judgeTriggerUpdate({ recipientKind: 'SUPPLIER', templateCode: 'REMITTANCE_ADVICE' }, { channels: ['EMAIL', 'SMS'] })).toEqual([]);
+    expect(judgeTriggerUpdate({ recipientKind: 'SUPPLIER', templateCode: 'REMITTANCE_ADVICE' }, { channels: ['IN_APP'] })).toEqual([{ field: '/channels', rule: 'CHANNEL_NOT_FOR_RECIPIENT' }]);
     expect(judgeTriggerUpdate(customer, { templateCode: 'DELIVERY_COMPLETED' })).toEqual([{ field: '/templateCode', rule: 'TEMPLATE_FIXED' }]);
   });
 });

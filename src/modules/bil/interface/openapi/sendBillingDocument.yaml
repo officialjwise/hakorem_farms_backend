@@ -1,0 +1,70 @@
+operationId: sendBillingDocument
+tags:
+  - bil
+summary: "Send a document by SMS, WhatsApp or email"
+description: "Sends an issued billing document to its own customer (2.42.0, ADR-0062, ADR-0099): 202 `QUEUED`, through the outbox. A copy is logged in the document's reprints (`listBillingDocumentReprints`) with the first channel asked and the next copy number; never a new document, never a new number, nothing rendered again. NTF then sends one message (`DOCUMENT_SENT`, transactional) by the first of `channels` its trigger allows, to the customer's own phone or email as MDM holds it when the message goes. An SMS or WhatsApp message carries a link of its own (`getSharedDocument`): a `doc_` token made at each attempt, stored only as its hash, opening exactly the archived document. An email carries the archived PDF itself and the same link. WhatsApp and email have no provider adapter yet (B13), so a message routed to either fails visibly in the message log. A failed message is retried (`retryNotificationMessage`) without a second archive row or copy. `recipient` is optional and only checked: it must be a phone or email the document's customer holds (a Ghanaian number in any usual form), else 422 `RECIPIENT_NOT_DOCUMENT_PARTY` on `/recipient`; it is never stored and never used as the address. Refusals: 404 for a document that is not issued; 422 `DOCUMENT_NOT_ARCHIVED` (`RENDERING`) while it is still rendering; 422 `RECIPIENT_NOT_DOCUMENT_PARTY` (`DOCUMENT_HAS_NO_PARTY`) for a document with no customer (a walk-in receipt).\n\nPermission: `bil.document.send` at the document's branch."
+x-permission: bil.document.send
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - DOCUMENT_NOT_ARCHIVED
+  - RECIPIENT_NOT_DOCUMENT_PARTY
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DocumentSendRequest"
+      example:
+        channels:
+          - WHATSAPP
+        recipient: "+233244512876"
+responses:
+  "202":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Accepted"
+        example:
+          status: QUEUED
+          message: "Queued. The document goes to its customer by the first channel that can reach them."
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

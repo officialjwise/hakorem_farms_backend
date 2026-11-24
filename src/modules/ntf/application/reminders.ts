@@ -51,6 +51,32 @@ export class Reminders {
   }
 }
 
+/** What becomes of a message, as WHL's dunning notice shows it per channel (B11 continued 13). */
+export type DeliveryStatus = 'SENT' | 'DELIVERED' | 'FAILED';
+
+/** A message whose delivery changed, as the sender or a signed delivery report saw it. */
+export interface DeliveredMessage {
+  readonly id: string;
+  readonly sourceEventType: string;
+  readonly recordId: string | null;
+  readonly channel: Channel;
+}
+
+/**
+ * Each reminder's delivery recorded on its dunning notice per channel (B11 continued 13; the owner, 2026-11-23, from the
+ * frontend's F12 and F10n): when NTF's sender sends or fails a payment reminder, or a signed delivery report says it was
+ * delivered or failed, WHL records it on the notice in the same transaction (`Dunning.recordDeliveryIn`, a command down),
+ * so a failed reminder shows as failed where WHL's dunning notice is read. Any other message records nothing.
+ */
+export class ReminderDeliveries {
+  constructor(private readonly dunning: Dunning) {}
+
+  async recordIn(tx: Transaction, message: DeliveredMessage, status: DeliveryStatus, at: Date, actorId: string): Promise<void> {
+    if (message.sourceEventType !== 'whl.DunningNoticeDue' || message.recordId === null || message.channel === 'IN_APP') return;
+    await this.dunning.recordDeliveryIn(tx, { noticeId: message.recordId, channel: message.channel, status, messageId: message.id, at, actorId });
+  }
+}
+
 /**
  * The console's notifications to staff (FR-NTF-008; B11 continued 11): a death report the malware scan sent back
  * (`liv.MortalityReturned`, B06r, A-175) reaches its own reporter, read from LIV's record, never the event's copy, with

@@ -1,0 +1,68 @@
+operationId: sendStatement
+tags:
+  - whl
+summary: "Send a statement by email or WhatsApp"
+description: "Sends an issued statement to its own customer (2.42.0, ADR-0062, ADR-0099): 202 `QUEUED`, through the outbox; nothing is rendered again and no statement is made. NTF sends one message (`DOCUMENT_SENT`, transactional) by the first of `channels` its trigger allows, to the customer's own phone or email as MDM holds it when the message goes, carrying a link of its own to the archived statement (`getSharedDocument`; an email also carries the archived PDF). A statement still rendering is sent once it is archived: the message waits, it does not fail. WhatsApp and email have no provider adapter yet (B13), so a message routed to either fails visibly in the message log. `recipient` is optional and only checked: it must be a phone or email the statement's customer holds, else 422 `RECIPIENT_NOT_DOCUMENT_PARTY` on `/recipient`; it is never stored. Refusals: 404 for a statement that does not exist or is a draft (a draft is never archived).\n\nPermission: `whl.statement.create` at the statement's branch."
+x-permission: whl.statement.create
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - PASSWORD_CHANGE_REQUIRED
+  - NOT_FOUND
+  - RECIPIENT_NOT_DOCUMENT_PARTY
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DocumentSendRequest"
+      example:
+        channels:
+          - EMAIL
+responses:
+  "202":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Accepted"
+        example:
+          status: QUEUED
+          message: "Queued. The document goes to its customer by the first channel that can reach them."
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

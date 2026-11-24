@@ -46,6 +46,15 @@ describe('a replacement set of levels', () => {
     expect(judgeLevels([SEED[0]!, { ...SEED[1]!, daysOverdue: 7 }])).toEqual([{ field: '/levels/1/daysOverdue', rule: 'DAYS_NOT_INCREASING' }]);
   });
 
+  it('refuses a level that names no reminder template NTF lists (B11 continued 13, the owner 2026-11-23)', () => {
+    expect(judgeLevels([{ ...SEED[0]!, templateCode: 'ORDER_DISPATCHED' }, { ...SEED[1]!, templateCode: 'PAYMENT_REMINDER_9' }])).toEqual([
+      { field: '/levels/0/templateCode', rule: 'TEMPLATE_NOT_A_REMINDER' },
+      { field: '/levels/1/templateCode', rule: 'TEMPLATE_NOT_A_REMINDER' },
+    ]);
+    // Any of the three may be picked at any level.
+    expect(judgeLevels([{ ...SEED[0]!, templateCode: 'PAYMENT_REMINDER_3' }])).toEqual([]);
+  });
+
   it('refuses a channel named twice in one level', () => {
     expect(judgeLevels([{ ...SEED[0]!, channels: ['SMS', 'SMS'] }])).toEqual([{ field: '/levels/0/channels', rule: 'CHANNEL_REPEATED' }]);
   });

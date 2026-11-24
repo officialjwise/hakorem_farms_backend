@@ -82,6 +82,8 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   createTemplateVersion: { body: '<p>Refused</p>' },
   previewTemplateVersion: { data: { title: 'Refused' } },
   reprintBillingDocument: { channel: 'PDF' },
+  sendBillingDocument: { channels: ['SMS'] },
+  sendStatement: { channels: ['SMS'] },
   createDepreciationRun: { periodId: randomUUID() },
   createProduct: { name: 'Goat meat, 5 kg pack', categoryId: randomUUID(), stockPolicy: 'CATCH_WEIGHT', baseUom: 'KG', saleUom: 'PACK', onlineMode: 'LISTED' },
   revokeSession: { reason: 'Tablet left unattended overnight' },
