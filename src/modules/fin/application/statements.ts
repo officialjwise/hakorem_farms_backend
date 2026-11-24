@@ -111,6 +111,16 @@ export class FinancialStatements {
     return profitAndLoss(await this.store.accounts(tx, { from, to, branchId: null })).netProfit;
   }
 
+  /**
+   * Total equity at the end of a day over every branch, in the caller's transaction (B12 continued, FR-CAP-014: an
+   * investor's closing value for the IRR is their share of it): the balance sheet's equity section, earnings not yet
+   * closed included, signed. The caller authorises.
+   */
+  async equityIn(tx: Transaction, asOf: string): Promise<bigint> {
+    const sheet = balanceSheet(await this.store.accounts(tx, { from: dayBefore(asOf), to: asOf, branchId: null }));
+    return sheet.sections.find((section) => section.key === 'EQUITY')!.total;
+  }
+
   trialBalance(actor: Actor | undefined, query: TrialBalanceQuery): Promise<TrialBalanceView> {
     return this.read(actor, query.branchId, async (tx, branchId) => {
       const accounts = await this.store.accounts(tx, { from: query.from, to: query.to, branchId });
