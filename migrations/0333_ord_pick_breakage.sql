@@ -2,7 +2,7 @@
 -- B11 continued 8 (CR-054 point 1, FR-ORD-009, A-370): eggs found broken while picking, written off from the pick
 -- location in the pick's own transaction through INV's stock adjustment and its STOCK_WRITE_OFF approval.
 --   ord.pick_breakage   (LEDGER) what one pick found broken: the quantity in the unit the picker counted it in and in
---                       the product's base unit, the STOCK_ADJUSTMENT reason, and the adjustment that writes it off (posted
+--                       the product's base unit, the STOCK_ADJUSTMENT reason, and the adjustment that writes it off (keyed to its business document: ADR-0011; posted
 --                       at once, or waiting for its approval). One per pick (uq_pick_breakage_pick); insert-only.
 -- Data category: INTERNAL (stock quantities; no personal data).
 -- Rollback: tested (`pnpm db:rollback`), safe before the first breakage; afterwards forward fix only (the adjustments stay).
@@ -19,7 +19,7 @@ CREATE TABLE ord.pick_breakage (
   uom                  text NOT NULL CONSTRAINT ck_pick_breakage_uom CHECK (length(btrim(uom)) BETWEEN 1 AND 20),
   qty_base             platform.qty NOT NULL CONSTRAINT ck_pick_breakage_qty_base CHECK (qty_base > 0),
   reason_code          text NOT NULL CONSTRAINT ck_pick_breakage_reason CHECK (length(btrim(reason_code)) BETWEEN 1 AND 40),
-  stock_adjustment_id  uuid NOT NULL CONSTRAINT fk_pick_breakage_adjustment REFERENCES inv.stock_adjustment (id) ON DELETE RESTRICT
+  stock_adjustment_id  uuid NOT NULL CONSTRAINT fk_pick_breakage_adjustment REFERENCES platform.business_document (id) ON DELETE RESTRICT
                          CONSTRAINT uq_pick_breakage_adjustment UNIQUE,
   branch_id            uuid NOT NULL CONSTRAINT fk_pick_breakage_branch REFERENCES mdm.branch (id) ON DELETE RESTRICT,
   recorded_at          timestamptz NOT NULL DEFAULT now(),

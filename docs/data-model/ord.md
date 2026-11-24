@@ -268,7 +268,7 @@ location in the pick's own transaction through INV's stock adjustment (`STOCK_WR
 | `qty`, `uom` | `platform.qty`, `text` | NOT NULL | As the picker counted it (a single egg on a line in crates) |
 | `qty_base` | `platform.qty` | NOT NULL | In the product's base unit; whole for a unit counted whole |
 | `reason_code` | `text` | NOT NULL | A `STOCK_ADJUSTMENT` reason (`BREAKAGE`) |
-| `stock_adjustment_id` | `uuid` | NOT NULL, FK `inv.stock_adjustment`, UNIQUE | Posted, or waiting for its approval |
+| `stock_adjustment_id` | `uuid` | NOT NULL, FK `platform.business_document` (the adjustment, ADR-0011), UNIQUE | Posted, or waiting for its approval |
 | `branch_id`, `recorded_at`, `actor_id` | | NOT NULL | LEDGER columns; insert-only (`platform.reject_change`) |
 
 ### `ord.order_return` · DOCUMENT
