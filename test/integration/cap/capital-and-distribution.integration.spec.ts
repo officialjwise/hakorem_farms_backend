@@ -129,9 +129,17 @@ describe('the investor register (FR-CAP-001)', () => {
     expect(await sqlStateOf(admin().query('UPDATE cap.investor SET deleted_at = now(), deleted_by = created_by, delete_reason = $2, version = version + 1 WHERE id = $1', [id('yaa'), 'gone']))).toBe(SQLSTATE.checkViolation);
     const stale = await consolePatch(api.server, accountant, `/v1/investors/${id('yaa')}`).send({ version: 7, email: 'yaa@example.com' });
     expect(stale.status).toBe(409);
-    // Payout details are B12 continued's: refused until then, nothing written.
+    // Payout details are judged since B12 continued (2.46.0, LOUD: FIELD_NOT_YET_SUPPORTED retired): incomplete ones are
+    // refused, and nothing is written.
     const payout = await post(accountant, '/investors', { kind: 'INDIVIDUAL', legalName: 'Too soon', joinedOn: period.start, payout: { method: 'BANK' } });
-    expect([payout.status, payout.body.error.details]).toEqual([422, [expect.objectContaining({ field: '/payout', code: 'FIELD_NOT_YET_SUPPORTED' })]]);
+    expect([payout.status, payout.body.error.details.map((d: { field: string; code: string }) => [d.field, d.code])]).toEqual([
+      422,
+      [
+        ['/payout/bankName', 'REQUIRED'],
+        ['/payout/accountName', 'REQUIRED'],
+        ['/payout/accountNumber', 'REQUIRED'],
+      ],
+    ]);
     expect((await admin().query('SELECT count(*)::int AS n FROM cap.investor')).rows[0].n).toBe(4);
   });
 });
