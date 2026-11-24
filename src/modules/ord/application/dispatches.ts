@@ -12,18 +12,24 @@ import type { Authoriser } from '../../iam';
 import type { Reservations, Stock, StockUnits } from '../../inv';
 import type { MasterDataRefs, Storefront } from '../../mdm';
 import type { Payments, Refunds } from '../../pay';
-import { planSettlement } from '../domain/dispatch';
+import { backorderLines, feesAtDispatch, judgeExtraDeliveryFee, planSettlement, type FeeAtDispatch } from '../domain/dispatch';
 import { canMove, type OrderStatus } from '../domain/order';
-import type { OrderDelivered, OrderDispatched } from '../events';
-import { FulfilmentInvalidError, type SaleRule } from './errors';
+import type { OrderCollected, OrderDelivered, OrderDispatched } from '../events';
+import { FulfilmentInvalidError, OrderInvalidError, type SaleRule } from './errors';
 import type { FulfilmentStore, PickRecord } from './fulfilment-store';
 import type { Fulfilments, FulfilmentView } from './fulfilments';
 import type { OrderHeaderRecord, OrderLineRecord, OrderStore } from './order-store';
+import type { Orders } from './orders';
 import type { VanReturns } from './van-returns';
 
 const DISPATCH = 'ord.fulfilment.dispatch';
+/** An extra delivery the customer asked for (the owner, 2026-11-23): its own permission, the Manager's and the Owner's. */
+const ADD_FEE = 'ord.delivery_fee.add';
+/** A backorder still to be sent: what the order's deposits hold beyond its documents stays held for it (FR-ORD-012). */
+const BEFORE_DISPATCH: ReadonlySet<OrderStatus> = new Set(['PLACED', 'CONFIRMED', 'PICKING', 'AWAITING_CUSTOMER', 'PACKED']);
 export const ORDER_DISPATCHED = 'ord.OrderDispatched';
 export const ORDER_DELIVERED = 'ord.OrderDelivered';
+export const ORDER_COLLECTED = 'ord.OrderCollected';
 /** Dispatch moves the picked goods onto the vehicle; they stay the farm's until delivered (FR-DEL-005, A-337). */
 const ONTO_VEHICLE = 'TRANSFER_INTERNAL';
 /** Delivered, they are issued for the sale from the vehicle (FR-DEL-008). */
@@ -37,6 +43,15 @@ const invalidState = (what: string, status: string) =>
   new InvalidStateTransitionError(`${what} is ${status}`, [{ field: null, code: status, message: translate('error.invalid_state_transition') }]);
 const activeOf = (picks: readonly PickRecord[]) => picks.filter((p) => p.withdrawnAt === null);
 const json = (pesewas: bigint) => Money.ofPesewas(pesewas).toJsonInteger();
+
+export interface ExtraDeliveryFeeView {
+  readonly id: string;
+  readonly order: { readonly id: string; readonly docType: 'SALES_ORDER'; readonly number: string | null };
+  readonly amountPesewas: number;
+  readonly currency: 'GHS';
+  readonly note: string;
+  readonly addedAt: string;
+}
 
 export interface DispatchRequest {
   readonly driverId?: string | undefined;
@@ -84,8 +99,43 @@ export class Dispatches {
     private readonly audit: AuditTrail,
     private readonly authoriser: Authoriser,
     private readonly clock: Clock,
+    private readonly orders: Orders,
   ) {
     this.nextId = createUuidV7Generator(clock);
+  }
+
+  /**
+   * addExtraDeliveryFee (the owner, 2026-11-23, A-331 (b)): an extra delivery the customer asked for, charged as its own
+   * fee line on the dispatch of a backorder, never inferred from a second dispatch. Only by staff holding
+   * `ord.delivery_fee.add` at the order's branch; only on a delivery backorder not yet dispatched, once, at its zone's own
+   * fee (staff never type the amount). Audited; the database holds the same rules (`ck_order_extra_fee_order`).
+   */
+  addExtraFee(actor: Actor | undefined, orderId: string, body: { readonly note: string }, key: string): Promise<StoredResponse<ExtraDeliveryFeeView>> {
+    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+      await this.authoriser.authorise(tx, actor, ADD_FEE);
+      const claim = await this.idempotency.claim(tx, { operationId: 'addExtraDeliveryFee', principalId: actor!.principalId, key, request: { orderId, ...body } });
+      if (claim.kind === 'REPLAY') return claim.response as StoredResponse<ExtraDeliveryFeeView>;
+      const header = await this.orderStore.lock(tx, orderId);
+      if (header === null) throw new NotFoundError('no such order');
+      await this.authoriser.authorise(tx, actor, ADD_FEE, { branchId: header.branchId });
+      const zone = header.deliveryZoneId === null ? undefined : (await this.storefront.deliveryZonesIn(tx, [header.deliveryZoneId])).get(header.deliveryZoneId);
+      const judged = judgeExtraDeliveryFee({
+        fulfilmentMode: header.fulfilmentMode,
+        isBackorder: header.parentOrderId !== null,
+        status: header.status,
+        alreadyAdded: (await this.orderStore.extraFeesOf(tx, [orderId])).length > 0,
+        zoneFeePesewas: zone?.feePesewas ?? 0n,
+      });
+      if (!judged.ok) throw new OrderInvalidError([{ field: judged.error === 'NOT_BEFORE_DISPATCH' ? '/status' : '', rule: judged.error }]);
+      const at = this.clock.now();
+      const fee = { id: this.nextId(), salesOrderId: orderId, deliveryZoneId: header.deliveryZoneId!, amountPesewas: judged.value, note: body.note, branchId: header.branchId, actorId: actor!.principalId };
+      await this.orderStore.insertExtraFee(tx, fee);
+      const view: ExtraDeliveryFeeView = { id: fee.id, order: { id: orderId, docType: 'SALES_ORDER', number: header.orderNo }, amountPesewas: json(fee.amountPesewas), currency: 'GHS', note: fee.note, addedAt: at.toISOString() };
+      await this.audit.record(tx, { module: 'ord', action: 'ADD_EXTRA_DELIVERY_FEE', entityType: 'SalesOrder', entityId: orderId, branchId: header.branchId, before: null, after: { ...view } });
+      const response = { status: 201, body: view };
+      await this.idempotency.complete(tx, claim.id, response);
+      return response;
+    });
   }
 
   dispatch(actor: Actor | undefined, id: string, body: DispatchRequest, key: string): Promise<StoredResponse<FulfilmentView>> {
@@ -101,7 +151,12 @@ export class Dispatches {
         this.uow.run(
           {
             isolation: 'serializable',
-            seriesLocks: [...this.billing.seriesLocksFor('INVOICE', branchId), ...this.billing.seriesLocksFor('RECEIPT', branchId), ...this.deliveries.locksFor(branchId)],
+            seriesLocks: [
+              ...this.billing.seriesLocksFor('INVOICE', branchId),
+              ...this.billing.seriesLocksFor('RECEIPT', branchId),
+              ...this.deliveries.locksFor(branchId),
+              ...this.orders.locksFor(branchId),
+            ],
           },
           (tx) => this.dispatchIn(tx, actor, id, body, key),
         ),
@@ -140,9 +195,15 @@ export class Dispatches {
     const lists = (await this.store.fulfilments(tx, (await this.store.ofOrders(tx, [header.id])).map((x) => x.id))).filter((x) => x.status === 'PACKED');
     const picks = lists.flatMap((x) => activeOf(x.picks).map((p) => ({ pick: p, list: x })));
     const open = order.lines.filter((l) => l.lineStatus === 'OPEN');
+    // A line back-ordered whole sends nothing now (FR-ORD-012); the rest of a short line goes on the backorder.
+    const sent = open.filter((l) => !Quantity.parse(l.qtyFulfilled).isZero());
+    const backorder = backorderLines(open);
+    const rootId = header.parentOrderId ?? header.id;
     const before = await this.fulfilments.viewIn(tx, id);
+    const fees = feesAtDispatch({ deliveryFeePesewas: header.deliveryFeePesewas, isBackorder: header.parentOrderId !== null, extraFees: await this.orderStore.extraFeesOf(tx, [header.id]) });
 
-    // The billing document on the weighed quantity (FR-BIL-005), with the delivery fee once (A-331 (b)).
+    // The billing document on the weighed quantity (FR-BIL-005), with the delivery fee once (A-331 (b)) and an extra
+    // delivery the customer asked for as its own line.
     const document = await this.billing.issueIn(tx, actor, {
       kind: header.customerId === null ? 'RECEIPT' : 'INVOICE',
       branchId: header.branchId,
@@ -150,15 +211,19 @@ export class Dispatches {
       orderDocumentId: header.id,
       taxInclusive: header.taxInclusive,
       occurredAt: at,
-      lines: [...(await this.billedLines(tx, open, picks.map((p) => p.pick), at)), ...(await this.feeLine(tx, header))],
+      lines: [...(await this.billedLines(tx, sent, picks.map((p) => p.pick), at)), ...(await this.feeLines(tx, fees))],
     });
     const gross = Money.fromJsonInteger(document.grossPesewas);
 
-    // The deposits applied oldest first, the rest refunded, what is left due on delivery (ADR-0021).
-    const paid = (await this.payments.ofOrderIn(tx, header.id)).filter((p) => p.status === 'CLEARED');
+    // The deposits applied oldest first, what is left due on delivery (ADR-0021); what they hold beyond the document is
+    // refunded, unless a backorder of the order is still to be sent: then it stays held for it (FR-ORD-012). The
+    // deposits of a backorder are its first order's.
+    const paid = (await this.payments.ofOrderIn(tx, rootId)).filter((p) => p.status === 'CLEARED');
+    const waiting = (await this.orderStore.backordersOf(tx, rootId)).some((b) => b.id !== header.id && BEFORE_DISPATCH.has(b.status));
     const settlement = planSettlement(
       gross,
       paid.map((p) => ({ paymentId: p.id, unallocated: Money.fromJsonInteger(p.unallocatedPesewas) })),
+      { holdForBackorder: backorder.length > 0 || waiting },
     );
     for (const a of settlement.allocations) await this.payments.allocateIn(tx, actor!, a.paymentId, [{ billingDocumentId: document.id, amountPesewas: a.amount.pesewas }]);
     const refundIds: string[] = [];
@@ -192,9 +257,13 @@ export class Dispatches {
       });
       await this.store.setPickMovement(tx, pick.id, posted.id, at, actorId);
     }
-    for (const line of open) await this.store.fixLine(tx, line.id, Quantity.parse(line.qtyFulfilled).compareTo(Quantity.parse(line.qtyOrdered)) < 0 && line.priceBasis !== 'PER_KG' ? 'PARTIAL' : 'FULFILLED');
+    for (const line of open) {
+      const back = backorder.find((b) => b.fromLineId === line.id);
+      await this.store.fixLine(tx, line.id, back !== undefined ? back.status : Quantity.parse(line.qtyFulfilled).compareTo(Quantity.parse(line.qtyOrdered)) < 0 && line.priceBasis !== 'PER_KG' ? 'PARTIAL' : 'FULFILLED');
+    }
     for (const list of lists) await this.store.dispatch(tx, list.id, { at, actorId });
     await this.store.invoiceOrder(tx, header.id, { billingDocumentId: document.id, finalTotalPesewas: gross.pesewas, at, actorId });
+    const backordered = backorder.length === 0 ? null : await this.orders.backorderIn(tx, actor!, order, backorder, at);
 
     const delivery = await this.deliveries.scheduleIn(tx, actor!, {
       orderDocumentId: header.id,
@@ -205,7 +274,7 @@ export class Dispatches {
       recipientName: address!.recipientName as string,
       recipientPhoneE164: address!.recipientPhone as string,
       address: address!,
-      contents: await this.contentsOf(tx, open),
+      contents: await this.contentsOf(tx, sent),
       driverId: body.driverId!,
       vehicleLocationId: body.vehicleLocationId!,
       codDuePesewas: settlement.due.pesewas,
@@ -228,6 +297,8 @@ export class Dispatches {
       deliveryId: delivery.id,
       deliveryNo: delivery.deliveryNo!,
       lines: delivery.contents.map((c) => ({ orderLineId: c.orderLineId, name: c.name, quantity: c.quantity, uom: c.uom, weightKg: c.weightKg })),
+      backorderId: backordered?.id ?? null,
+      backorderNo: backordered?.orderNo ?? null,
       dispatchedAt: at.toISOString(),
     };
     await this.events.publish<OrderDispatched>(tx, { type: ORDER_DISPATCHED, subjectType: 'SalesOrder', subjectId: header.id, branchId: header.branchId, payload: dispatched, occurredAt: at });
@@ -239,11 +310,191 @@ export class Dispatches {
       entityId: id,
       branchId: f.branchId,
       before: { ...before },
-      after: { ...view, billingDocumentId: document.id, deliveryId: delivery.id, codDuePesewas: settlement.due.toJsonInteger(), refundIds },
+      after: { ...view, billingDocumentId: document.id, deliveryId: delivery.id, codDuePesewas: settlement.due.toJsonInteger(), refundIds, backorderId: backordered?.id ?? null, fees: fees.map((f) => ({ ...f, amountPesewas: json(f.amountPesewas) })) },
     });
     const response = { status: 200, body: view };
     await this.idempotency.complete(tx, claim.id, response);
     return response;
+  }
+
+  /**
+   * collectFulfilment (FR-ORD-011, B11 continued 7): a packed collection order handed to the customer, in one serializable
+   * transaction: the billing document on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT`
+   * for a guest), the order's deposits allocated oldest first (what they hold beyond it refunded, unless a backorder of it
+   * is still to be sent), each pick issued for the sale from where it was picked to the customer (never below zero
+   * online), the order's reservations ended, a short line's rest back-ordered (FR-ORD-012), the pick lists `COLLECTED`
+   * and the order `READY_FOR_COLLECTION`. Nothing left to pay completes it at once; what is left is **paid at the till**
+   * (`payInvoiceAtTill`, a guest's receipt included) and the order completes when its document is settled (BL-097). An
+   * order on account is B11 continued 8's (`CREDIT_DISPATCH_NOT_AVAILABLE`). `ord.fulfilment.dispatch` at the branch.
+   */
+  collect(actor: Actor | undefined, id: string, key: string): Promise<StoredResponse<FulfilmentView>> {
+    return this.uow
+      .run({ isolation: 'read committed' }, async (tx) => {
+        await this.authoriser.authorise(tx, actor, DISPATCH);
+        const [found] = await this.store.fulfilments(tx, [id]);
+        if (found === undefined) throw new NotFoundError('no such pick list');
+        await this.authoriser.authorise(tx, actor, DISPATCH, { branchId: found.branchId });
+        return found.branchId;
+      })
+      .then((branchId) =>
+        this.uow.run(
+          { isolation: 'serializable', seriesLocks: [...this.billing.seriesLocksFor('INVOICE', branchId), ...this.billing.seriesLocksFor('RECEIPT', branchId), ...this.orders.locksFor(branchId)] },
+          (tx) => this.collectIn(tx, actor, id, key),
+        ),
+      );
+  }
+
+  private async collectIn(tx: Transaction, actor: Actor | undefined, id: string, key: string): Promise<StoredResponse<FulfilmentView>> {
+    await this.authoriser.authorise(tx, actor, DISPATCH);
+    const claim = await this.idempotency.claim(tx, { operationId: 'collectFulfilment', principalId: actor!.principalId, key, request: { id } });
+    if (claim.kind === 'REPLAY') return claim.response as StoredResponse<FulfilmentView>;
+    const f = await this.store.lock(tx, id);
+    if (f === null) throw new NotFoundError('no such pick list');
+    await this.authoriser.authorise(tx, actor, DISPATCH, { branchId: f.branchId });
+    if (f.status !== 'PACKED') throw invalidState(`pick list ${id}`, f.status);
+    const header = await this.orderStore.lock(tx, f.salesOrderId);
+    if (header === null) throw new NotFoundError('no such order');
+    if (header.status !== 'PACKED') throw invalidState(`order ${header.id}`, header.status);
+    const broken: SaleRule[] = [];
+    if (header.fulfilmentMode !== 'COLLECTION') broken.push({ field: '', rule: 'NOT_A_COLLECTION' });
+    // An order on account is credit-checked at its hand-over and invoiced with its terms' due date: B11 continued 8.
+    if (header.paymentTerms === 'CREDIT') broken.push({ field: '', rule: 'CREDIT_DISPATCH_NOT_AVAILABLE' });
+    if (broken.length > 0) throw new FulfilmentInvalidError(broken);
+
+    const at = this.clock.now();
+    const actorId = actor!.principalId;
+    const order = (await this.orderStore.orders(tx, [header.id]))[0]!;
+    const lists = (await this.store.fulfilments(tx, (await this.store.ofOrders(tx, [header.id])).map((x) => x.id))).filter((x) => x.status === 'PACKED');
+    const picks = lists.flatMap((x) => activeOf(x.picks).map((p) => ({ pick: p, list: x })));
+    const open = order.lines.filter((l) => l.lineStatus === 'OPEN');
+    const sent = open.filter((l) => !Quantity.parse(l.qtyFulfilled).isZero());
+    const backorder = backorderLines(open);
+    const rootId = header.parentOrderId ?? header.id;
+    const before = await this.fulfilments.viewIn(tx, id);
+
+    const document = await this.billing.issueIn(tx, actor, {
+      kind: header.customerId === null ? 'RECEIPT' : 'INVOICE',
+      branchId: header.branchId,
+      customerId: header.customerId,
+      orderDocumentId: header.id,
+      taxInclusive: header.taxInclusive,
+      occurredAt: at,
+      lines: await this.billedLines(tx, sent, picks.map((p) => p.pick), at),
+    });
+    const gross = Money.fromJsonInteger(document.grossPesewas);
+    const paid = (await this.payments.ofOrderIn(tx, rootId)).filter((p) => p.status === 'CLEARED');
+    const waiting = (await this.orderStore.backordersOf(tx, rootId)).some((b) => b.id !== header.id && BEFORE_DISPATCH.has(b.status));
+    const settlement = planSettlement(
+      gross,
+      paid.map((p) => ({ paymentId: p.id, unallocated: Money.fromJsonInteger(p.unallocatedPesewas) })),
+      { holdForBackorder: backorder.length > 0 || waiting },
+    );
+    for (const a of settlement.allocations) await this.payments.allocateIn(tx, actor!, a.paymentId, [{ billingDocumentId: document.id, amountPesewas: a.amount.pesewas }]);
+    const refundIds: string[] = [];
+    for (const r of settlement.refunds) {
+      const asked = await this.refunds.requestIn(tx, actor!, {
+        originalPaymentId: r.paymentId,
+        amountPesewas: r.amount.pesewas,
+        destination: 'ORIGINAL_METHOD',
+        reasonCode: WEIGHED_BELOW_PAID,
+        creditNoteId: null,
+        note: `Order ${header.orderNo!} weighed at ${document.documentNo ?? document.id}`,
+      });
+      refundIds.push(asked.subject.id);
+    }
+
+    // The goods go from where they were picked to the customer, once each; the order's promises end with them.
+    await this.reservations.releaseHeldByIn(tx, actorId, header.id, `Order ${header.orderNo!} collected`);
+    const customer = await this.refs.virtualLocationIn(tx, header.branchId, 'CUSTOMER');
+    if (customer === null) throw new Error(`branch ${header.branchId} has no CUSTOMER location`);
+    const lineMovement = new Map<string, string>();
+    for (const { pick, list } of picks) {
+      const line = order.lines.find((l) => l.id === pick.salesOrderLineId)!;
+      const posted = await this.stock.postIn(tx, actorId, {
+        movementType: SALE_ISSUE,
+        productId: line.productId,
+        stockUnitId: pick.stockUnitId,
+        branchId: header.branchId,
+        fromLocationId: list.pickLocationId,
+        toLocationId: customer,
+        qty: Quantity.parse(pick.qtyBase),
+        weight: pick.weightKg === null ? null : { kg: Weight.parseKg(pick.weightKg), source: pick.weightSource! },
+        sourceDocumentId: header.id,
+        sourceLineRef: line.id,
+        occurredAt: at,
+      });
+      await this.store.setPickMovement(tx, pick.id, posted.id, at, actorId);
+      await this.store.insertIssue(tx, { pickId: pick.id, movementId: posted.id, at, actorId });
+      if (!lineMovement.has(line.id)) lineMovement.set(line.id, posted.id);
+    }
+    for (const line of open) {
+      const back = backorder.find((b) => b.fromLineId === line.id);
+      await this.store.fixLine(tx, line.id, back !== undefined ? back.status : Quantity.parse(line.qtyFulfilled).compareTo(Quantity.parse(line.qtyOrdered)) < 0 && line.priceBasis !== 'PER_KG' ? 'PARTIAL' : 'FULFILLED');
+    }
+    for (const [lineId, movementId] of lineMovement) await this.store.setLineMovement(tx, lineId, movementId);
+    for (const list of lists) await this.store.collect(tx, list.id, { at, actorId });
+    await this.store.invoiceOrder(tx, header.id, { billingDocumentId: document.id, finalTotalPesewas: gross.pesewas, at, actorId });
+    const backordered = backorder.length === 0 ? null : await this.orders.backorderIn(tx, actor!, order, backorder, at);
+    await this.moveIn(tx, header, 'READY_FOR_COLLECTION', `Handed over on ${document.documentNo ?? document.id}`, at, actorId);
+    const completed = settlement.due.isZero();
+    if (completed) {
+      await this.moveIn(tx, header, 'COMPLETED', 'Collected and paid', at, actorId, async () =>
+        this.orderStore.complete(tx, header.id, { billingDocumentId: document.id, finalTotalPesewas: gross.pesewas, completedAt: at, actorId }),
+      );
+    }
+    const collected: OrderCollected = {
+      orderId: header.id,
+      orderNo: header.orderNo!,
+      branchId: header.branchId,
+      customerId: header.customerId,
+      contactPhone: header.contactPhone,
+      billingDocumentId: document.id,
+      billingDocumentNo: document.documentNo ?? '',
+      finalTotalPesewas: gross.toJsonInteger(),
+      allocatedPesewas: Money.sum(settlement.allocations.map((a) => a.amount)).toJsonInteger(),
+      refundRequestedPesewas: Money.sum(settlement.refunds.map((r) => r.amount)).toJsonInteger(),
+      dueAtTillPesewas: settlement.due.toJsonInteger(),
+      completed,
+      backorderId: backordered?.id ?? null,
+      collectedAt: at.toISOString(),
+    };
+    await this.events.publish<OrderCollected>(tx, { type: ORDER_COLLECTED, subjectType: 'SalesOrder', subjectId: header.id, branchId: header.branchId, payload: collected, occurredAt: at });
+    const view = await this.fulfilments.viewIn(tx, id);
+    await this.audit.record(tx, {
+      module: 'ord',
+      action: 'COLLECT',
+      entityType: 'Fulfilment',
+      entityId: id,
+      branchId: f.branchId,
+      before: { ...before },
+      after: { ...view, billingDocumentId: document.id, dueAtTillPesewas: settlement.due.toJsonInteger(), refundIds, backorderId: backordered?.id ?? null },
+    });
+    const response = { status: 200, body: view };
+    await this.idempotency.complete(tx, claim.id, response);
+    return response;
+  }
+
+  /**
+   * A delivered or handed-over order completed once its document is settled later (BL-097, B11 continued 7): on a payment
+   * allocated to the document (`pay.PaymentCleared`, `pay.DepositAllocated`) or a credit note against it
+   * (`bil.CreditNoteIssued`, a part delivery's credit issued after the proof), in that transaction, the order moves
+   * DELIVERED, or READY_FOR_COLLECTION once collected, to COMPLETED when nothing is outstanding. Any other order waits.
+   */
+  async settledIn(tx: Transaction, event: EventEnvelope, documentIds: readonly string[]): Promise<void> {
+    for (const documentId of [...new Set(documentIds)]) {
+      const orderId = await this.orderStore.orderOfBillingDocument(tx, documentId);
+      if (orderId === null) continue;
+      const header = await this.orderStore.lock(tx, orderId);
+      if (header === null || (header.status !== 'DELIVERED' && header.status !== 'READY_FOR_COLLECTION')) continue;
+      const outstanding = (await this.billing.settleableIn(tx, [documentId])).get(documentId)?.outstandingPesewas ?? null;
+      if (outstanding === null || outstanding > 0n) continue;
+      const at = event.occurredAt;
+      const from = header.status;
+      await this.moveIn(tx, header, 'COMPLETED', from === 'DELIVERED' ? 'Delivered and paid' : 'Collected and paid', at, event.actorId, async () =>
+        this.orderStore.complete(tx, header.id, { billingDocumentId: documentId, finalTotalPesewas: header.finalTotalPesewas!, completedAt: at, actorId: event.actorId }),
+      );
+      await this.audit.record(tx, { module: 'ord', action: 'COMPLETE', entityType: 'SalesOrder', entityId: header.id, branchId: header.branchId, before: { status: from }, after: { status: 'COMPLETED', billingDocumentId: documentId, settledBy: event.type } });
+    }
   }
 
   /**
@@ -413,10 +664,17 @@ export class Dispatches {
     });
   }
 
-  /** The order's delivery fee as a line of its own, taxed as a delivery service, when it has one. */
-  private async feeLine(tx: Transaction, header: OrderHeaderRecord): Promise<IssueLineRequest[]> {
-    if (header.deliveryFeePesewas === 0n) return [];
-    return [{ lineKind: 'DELIVERY_FEE', description: translate('ord.delivery_fee'), quantity: '1.000', unitPricePesewas: header.deliveryFeePesewas, taxCategoryId: await this.storefront.deliveryTaxCategoryIdIn(tx) }];
+  /** Each fee of the dispatch as a line of its own, taxed as a delivery service (A-331 (b)). */
+  private async feeLines(tx: Transaction, fees: readonly FeeAtDispatch[]): Promise<IssueLineRequest[]> {
+    if (fees.length === 0) return [];
+    const taxCategoryId = await this.storefront.deliveryTaxCategoryIdIn(tx);
+    return fees.map((f) => ({
+      lineKind: 'DELIVERY_FEE' as const,
+      description: translate(f.kind === 'DELIVERY' ? 'ord.delivery_fee' : 'ord.extra_delivery_fee'),
+      quantity: '1.000',
+      unitPricePesewas: f.amountPesewas,
+      taxCategoryId,
+    }));
   }
 
   /** What the delivery carries, line by line, for the driver and the delivery note (CR-055 point 1). */

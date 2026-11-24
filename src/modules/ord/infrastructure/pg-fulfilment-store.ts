@@ -327,6 +327,10 @@ export class PgFulfilmentStore implements FulfilmentStore {
     await tx.query("UPDATE ord.fulfilment SET status = 'DISPATCHED', dispatched_at = $2, updated_at = $2, updated_by = $3, version = version + 1 WHERE id = $1", [id, d.at, d.actorId]);
   }
 
+  async collect(tx: Transaction, id: string, d: { readonly at: Date; readonly actorId: string }): Promise<void> {
+    await tx.query("UPDATE ord.fulfilment SET status = 'COLLECTED', dispatched_at = $2, updated_at = $2, updated_by = $3, version = version + 1 WHERE id = $1", [id, d.at, d.actorId]);
+  }
+
   async setPickMovement(tx: Transaction, pickId: string, movementId: string, at: Date, actorId: string): Promise<void> {
     await tx.query('UPDATE ord.fulfilment_line SET stock_movement_id = $2, updated_at = $3, updated_by = $4 WHERE id = $1', [pickId, movementId, at, actorId]);
   }
@@ -341,8 +345,12 @@ export class PgFulfilmentStore implements FulfilmentStore {
     return new Map(rows.map((r) => [r.pick, r.movement]));
   }
 
-  async fixLine(tx: Transaction, lineId: string, status: 'FULFILLED' | 'PARTIAL'): Promise<void> {
+  async fixLine(tx: Transaction, lineId: string, status: 'FULFILLED' | 'PARTIAL' | 'BACKORDERED'): Promise<void> {
     await tx.query('UPDATE ord.sales_order_line SET line_status = $2 WHERE id = $1', [lineId, status]);
+  }
+
+  async backorderLine(tx: Transaction, lineId: string, qty: string): Promise<void> {
+    await tx.query('UPDATE ord.sales_order_line SET qty_backordered = $2 WHERE id = $1', [lineId, qty]);
   }
 
   async setLineMovement(tx: Transaction, lineId: string, movementId: string): Promise<void> {

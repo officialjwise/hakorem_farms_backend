@@ -132,11 +132,13 @@ export const PickRecordBody = z.strictObject({
   withdraw: z.array(z.uuid()).max(200).optional(),
 });
 
-export const PackRecordBody = z.strictObject({ packageCount: z.number().int().min(1).max(999) });
+export const PackRecordBody = z.strictObject({ packageCount: z.number().int().min(1).max(999), backorderLineIds: z.array(z.uuid()).min(1).max(200).optional() });
 
 export const DispatchRecordBody = z.strictObject({ driverId: z.uuid().optional(), vehicleLocationId: z.uuid().optional() });
 
 export const FulfilmentReasonBody = z.strictObject({ reason: Text(500) });
+
+export const ExtraDeliveryFeeBody = z.strictObject({ note: Text(500) });
 
 export const SubstitutionCreateBody = z.strictObject({
   lineId: z.uuid(),

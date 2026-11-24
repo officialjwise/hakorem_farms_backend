@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.35.0"
+  version: "2.36.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -53041,7 +53041,7 @@ paths:
       tags:
         - ord
       summary: "Mark a fulfilment packed"
-      description: "Seals a pick list (FR-ORD-011): every open line picked in full (`SHORT_PICK_NOT_AGREED` otherwise, unless the customer agreed to the smaller quantity, packed at exactly that), a catch-weight line with at least one pack weighed (`NOTHING_PICKED`) and within its tolerance or consented above it (`TOLERANCE_EXCEEDED`), each refusal naming `/pickList/<lineNo>`. While the order waits for its customer, 422 `CONSENT_PENDING`. The order moves to `PACKED` once no pick list of it is still being picked and every open line is packed. Publishes `ord.FulfilmentPacked`.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
+      description: "Seals a pick list (FR-ORD-011): every open line picked in full (`SHORT_PICK_NOT_AGREED` otherwise, unless the customer agreed to the smaller quantity, packed at exactly that), a catch-weight line with at least one pack weighed (`NOTHING_PICKED`) and within its tolerance or consented above it (`TOLERANCE_EXCEEDED`), each refusal naming `/pickList/<lineNo>`. While the order waits for its customer, 422 `CONSENT_PENDING`. A short line may instead have its rest back-ordered (2.36.0, FR-ORD-012, `backorderLineIds`): it packs at what was picked, and at dispatch the rest becomes a backorder linked to the order, with no delivery fee of its own; the refusals are on `/backorderLineIds` or the line. The order moves to `PACKED` once no pick list of it is still being picked and every open line is packed. Publishes `ord.FulfilmentPacked`.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
       x-permission: ord.fulfilment.pick
       parameters:
         - name: id
@@ -53155,7 +53155,7 @@ paths:
       tags:
         - ord
       summary: "Dispatch: load the vehicle and issue the invoice"
-      description: "Dispatches a packed delivery order onto a vehicle with its driver (B11 continued, FR-ORD-011, FR-BIL-005, ADR-0021, ADR-0091), in one serializable transaction: every packed pick list of the order goes (the order must be `PACKED`, else 422 `INVALID_STATE_TRANSITION`); the billing document is issued on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT` for a guest), a catch-weight line in kilograms at its price, with the order's delivery fee as its own line, charged once; the order's deposits are allocated to it oldest first, what they hold beyond it is asked back to the original method (`WEIGHED_BELOW_PAID`, a refund waiting for its approval), and what they do not cover becomes the cash due on delivery; the order's reservations end and each pick moves from its pick location onto the vehicle (never below zero online: 422 `INSUFFICIENT_STOCK`, nor stock promised to another order); the delivery is made (`DLN-...`, assigned to the driver and vehicle) and the order moves to `DISPATCHED`. `ord.OrderDispatched` is written to the outbox in the same transaction for the customer's message with the weights and the final total. Refusals: 422 `FULFILMENT_INVALID` with `NOT_A_DELIVERY` (a collection order is handed over with `collectFulfilment`, B11 continued 2), `CREDIT_DISPATCH_NOT_AVAILABLE` (an order on account, B11 continued 2), `DELIVERY_ADDRESS_REQUIRED`, `DRIVER_REQUIRED` or `VEHICLE_REQUIRED`; 422 `DELIVERY_INVALID` with `NOT_A_DRIVER` (not a driver at the branch) or `NOT_A_VEHICLE` (not a live vehicle of the branch).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.dispatch`."
+      description: "Dispatches a packed delivery order onto a vehicle with its driver (B11 continued, FR-ORD-011, FR-BIL-005, ADR-0021, ADR-0091), in one serializable transaction: every packed pick list of the order goes (the order must be `PACKED`, else 422 `INVALID_STATE_TRANSITION`); the billing document is issued on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT` for a guest), a catch-weight line in kilograms at its price, with the order's delivery fee as its own line, charged once, on the order's first dispatch: a backorder's dispatch carries no order fee, and an extra delivery the customer asked for (`addExtraDeliveryFee`) is its own `DELIVERY_FEE` line (2.36.0, A-331 (b)); a line packed with its rest back-ordered goes with what was picked and the rest becomes a backorder linked to the order (`parentOrderId`), what the deposits hold beyond the document then staying held for it rather than refunded; the order's deposits are allocated to it oldest first, what they hold beyond it is asked back to the original method (`WEIGHED_BELOW_PAID`, a refund waiting for its approval), and what they do not cover becomes the cash due on delivery; the order's reservations end and each pick moves from its pick location onto the vehicle (never below zero online: 422 `INSUFFICIENT_STOCK`, nor stock promised to another order); the delivery is made (`DLN-...`, assigned to the driver and vehicle) and the order moves to `DISPATCHED`. `ord.OrderDispatched` is written to the outbox in the same transaction for the customer's message with the weights and the final total. Refusals: 422 `FULFILMENT_INVALID` with `NOT_A_DELIVERY` (a collection order is handed over with `collectFulfilment`), `CREDIT_DISPATCH_NOT_AVAILABLE` (an order on account, B11 continued 8), `DELIVERY_ADDRESS_REQUIRED`, `DRIVER_REQUIRED` or `VEHICLE_REQUIRED`; 422 `DELIVERY_INVALID` with `NOT_A_DRIVER` (not a driver at the branch) or `NOT_A_VEHICLE` (not a live vehicle of the branch).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.dispatch`."
       x-permission: ord.fulfilment.dispatch
       parameters:
         - name: id
@@ -53270,7 +53270,7 @@ paths:
       tags:
         - ord
       summary: "Hand a collection order to the customer"
-      description: "Permission: `ord.fulfilment.dispatch`."
+      description: "Hands a packed collection order to the customer at the branch (2.36.0, B11 continued 7, FR-ORD-011, FR-BIL-005, ADR-0021), in one serializable transaction: every packed pick list of the order goes (the order must be `PACKED`, else 422 `INVALID_STATE_TRANSITION`); the billing document is issued on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT` for a guest), with no delivery fee; the order's deposits are allocated to it oldest first and what they hold beyond it is asked back to the original method (`WEIGHED_BELOW_PAID`), unless a backorder of the order is still to be sent; each pick is issued for the sale from where it was picked to the customer (never below zero online: 422 `INSUFFICIENT_STOCK`); the order's reservations end; a line packed with its rest back-ordered leaves a backorder (`parentOrderId`); the pick lists become `COLLECTED` and the order `READY_FOR_COLLECTION`. With nothing left to pay the order is `COMPLETED` at once; what is left is **paid at the till** (`payInvoiceAtTill`, a guest's receipt included) and the order completes when its document is settled. `ord.OrderCollected` is written to the outbox. Refusals: 422 `FULFILMENT_INVALID` with `NOT_A_COLLECTION` (a delivery order is dispatched with `dispatchFulfilment`) or `CREDIT_DISPATCH_NOT_AVAILABLE` (an order on account, B11 continued 8).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.dispatch`."
       x-permission: ord.fulfilment.dispatch
       parameters:
         - name: id
@@ -80786,6 +80786,70 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/orders/{id}/extra-delivery-fee":
+    post:
+      operationId: addExtraDeliveryFee
+      tags:
+        - ord
+      summary: "Charge an extra delivery the customer asked for on a backorder"
+      description: "An extra delivery the customer asked for is its own, explicit fee line (2.36.0, B11 continued 7; the owner, 2026-11-23; A-331 (b)): the delivery fee is otherwise charged once, on the order's first dispatch, and a backorder the farm sends to complete a short order carries none. Adds the backorder's zone fee (never an amount typed by staff) as an extra fee, charged as its own `DELIVERY_FEE` line on the backorder's dispatch document. Only on a delivery backorder (`parentOrderId` set) not yet dispatched (`CONFIRMED`, `PICKING`, `AWAITING_CUSTOMER` or `PACKED`), once. Refusals: 422 `ORDER_INVALID` with `NOT_A_DELIVERY`, `NOT_A_BACKORDER`, `NOT_BEFORE_DISPATCH`, `EXTRA_FEE_ALREADY_ADDED` or `ZONE_HAS_NO_FEE`; 404 for an order the caller cannot see; 403 at another branch. Audited.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.delivery_fee.add`."
+      x-permission: ord.delivery_fee.add
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - $ref: "#/components/parameters/IdempotencyKey"
+        - $ref: "#/components/parameters/CsrfToken"
+      security:
+        - staffSession: []
+        - apiKey: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtraDeliveryFeeCreate"
+            example:
+              note: "The customer asked for the last two crates to come on Saturday"
+      responses:
+        "201":
+          description: Created
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtraDeliveryFee"
+              example:
+                id: "019a7b20-11aa-7c3e-9d41-5f0e2b7a1c01"
+                order:
+                  id: "019a7b1f-0d22-7a41-8c19-3e5b9f2d4a77"
+                  docType: SALES_ORDER
+                  number: SO-2026-DDW-004231
+                amountPesewas: 1500
+                currency: GHS
+                note: "The customer asked for the last two crates to come on Saturday"
+                addedAt: "2026-11-24T10:15:00.000Z"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/BusinessRuleViolation"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
   "/orders/{id}/fulfilment-view":
     get:
       operationId: getOrderFulfilmentView
@@ -81790,7 +81854,7 @@ paths:
       tags:
         - pos
       summary: "Take a customer's cash for an invoice at the till"
-      description: "A customer pays an issued invoice in cash at the till (2.26.0, the owner on A-212 (a): cash enters only through a till shift; ADR-0077, A-285 (g)). Taken by the cashier onto their **own open shift** from an enrolled device of that till (`X-Device-Credential`), recorded as a cleared cash payment into the till, allocated to the invoice (Dr 1000 the till, Cr 1200 the customer), and **counted at the shift's close** as any cash the shift took: it raises the shift's expected cash by exactly the amount. Part payment is allowed; never beyond what is outstanding; what was handed over beyond the amount is change. Cash only: mobile money and card for an invoice go through the provider. **Cash outside an open shift is refused:** a closing, closed or force-closed shift answers 422 `SHIFT_NOT_OPEN` with nothing recorded, another cashier's shift 403, and PAY's `recordPayment` still refuses cash (`TENDER_NOT_AVAILABLE`) with or without a shift. Refusals: 422 `TILL_INVOICE_PAYMENT_INVALID` with `AMOUNT_NOT_POSITIVE`, `NOT_AN_INVOICE`, `INVOICE_NOT_ISSUED`, `INVOICE_OTHER_BRANCH`, `INVOICE_SETTLED`, `AMOUNT_EXCEEDS_OUTSTANDING` or `TENDERED_BELOW_AMOUNT`; 404 for a shift or document the caller cannot see; 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`. Audited.\n\nPermission: `pos.sale.create`."
+      description: "A customer pays an issued invoice in cash at the till (2.26.0, the owner on A-212 (a): cash enters only through a till shift; ADR-0077, A-285 (g)). Taken by the cashier onto their **own open shift** from an enrolled device of that till (`X-Device-Credential`), recorded as a cleared cash payment into the till, allocated to the invoice (Dr 1000 the till, Cr 1200 the customer), and **counted at the shift's close** as any cash the shift took: it raises the shift's expected cash by exactly the amount. **A guest's receipt of a sales order is paid the same way** (2.36.0, B11 continued 7, LOUD: a collection guest pays what is left at the till; A-338 (a), A-366 (d)): only an `ISSUED` `RECEIPT` that bills an order and has something outstanding; any other receipt, and every other kind, is still `NOT_AN_INVOICE`. Part payment is allowed; never beyond what is outstanding; what was handed over beyond the amount is change. Cash only: mobile money and card for an invoice go through the provider. **Cash outside an open shift is refused:** a closing, closed or force-closed shift answers 422 `SHIFT_NOT_OPEN` with nothing recorded, another cashier's shift 403, and PAY's `recordPayment` still refuses cash (`TENDER_NOT_AVAILABLE`) with or without a shift. Refusals: 422 `TILL_INVOICE_PAYMENT_INVALID` with `AMOUNT_NOT_POSITIVE`, `NOT_AN_INVOICE`, `INVOICE_NOT_ISSUED`, `INVOICE_OTHER_BRANCH`, `INVOICE_SETTLED`, `AMOUNT_EXCEEDS_OUTSTANDING` or `TENDERED_BELOW_AMOUNT`; 404 for a shift or document the caller cannot see; 401 `DEVICE_CREDENTIAL_INVALID`, 403 `DEVICE_REVOKED`. Audited.\n\nPermission: `pos.sale.create`."
       x-permission: pos.sale.create
       x-error-codes:
         - TILL_INVOICE_PAYMENT_INVALID
@@ -98508,8 +98572,55 @@ components:
       properties:
         packageCount:
           type: integer
+        backorderLineIds:
+          type: array
+          description: "Order lines of this pick list picked short whose rest is back-ordered (2.36.0, FR-ORD-012): at dispatch the order goes with what was picked, and the rest becomes a backorder linked to it (`parentOrderId`) with no delivery fee of its own. Never a line picked in full (`BACKORDER_NOT_SHORT`), a catch-weight line (`BACKORDER_NOT_BY_WEIGHT`), a line the customer already agreed to take less of (`SHORT_ALREADY_AGREED`), a discounted line (`BACKORDER_DISCOUNTED`), a line not on this pick list (`LINE_UNKNOWN`) or on another live one (`ON_ANOTHER_PICK_LIST`); a pick list back-ordered so that nothing is picked is `NOTHING_PICKED`."
+          minItems: 1
+          maxItems: 200
+          items:
+            type: string
+            format: uuid
       required:
         - packageCount
+      additionalProperties: false
+    ExtraDeliveryFeeCreate:
+      type: object
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Why the customer asked for the extra delivery."
+      required:
+        - note
+      additionalProperties: false
+    ExtraDeliveryFee:
+      type: object
+      description: "An extra delivery the customer asked for (2.36.0): the backorder's zone fee, charged as its own line on the backorder's dispatch document."
+      properties:
+        id:
+          type: string
+          format: uuid
+        order:
+          $ref: "#/components/schemas/DocumentRef"
+        amountPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        currency:
+          type: string
+          enum:
+            - GHS
+        note:
+          type: string
+        addedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - order
+        - amountPesewas
+        - currency
+        - note
+        - addedAt
       additionalProperties: false
     DispatchRecord:
       type: object
@@ -108591,6 +108702,7 @@ components:
         - mdm.weight_band.create
         - mdm.weight_band.read
         - mdm.weight_band.update
+        - ord.delivery_fee.add
         - ord.fulfilment.dispatch
         - ord.fulfilment.pick
         - ord.fulfilment.read
@@ -108846,6 +108958,7 @@ components:
         - mdm.weight_band.create
         - mdm.weight_band.read
         - mdm.weight_band.update
+        - ord.delivery_fee.add
         - ord.fulfilment.dispatch
         - ord.fulfilment.pick
         - ord.fulfilment.read

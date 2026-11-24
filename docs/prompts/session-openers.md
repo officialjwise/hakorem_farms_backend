@@ -109,6 +109,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B11 continued 5 | `B11c5-dispatch-returns-notifications.md` | `b11c5-dispatch-returns-notifications` | B4 to B12 | A failed delivery is reattempted, reassigned or cancelled and a part delivery credits what came back; partial dispatch charges the fee once; credit-terms dispatch is credit-checked and invoiced as dispatched; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued 4, A-361; built to reassignment and slot booking and split, A-363) |
 | B11 continued 6 | `B11c6-dispatch-returns-notifications.md` | `b11c6-dispatch-returns-notifications` | B4 to B12 | A dispatched delivery is cancelled and a part delivery credits what came back; partial dispatch charges the fee once and an extra delivery is its own fee line; credit-terms dispatch is credit-checked and invoiced as dispatched; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued 5, A-363); built to the cancellation, the part delivery and the driver's queue and split, A-365) |
 | B11 continued 7 | `B11c7-dispatch-returns-notifications.md` | `b11c7-dispatch-returns-notifications` | B4 to B12 | Partial dispatch charges the fee once and an extra delivery is its own fee line; credit-terms dispatch is credit-checked and invoiced as dispatched; a collection order is handed over and paid at the till; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued 6, A-365) |
+| B11 continued 8 | `B11c8-dispatch-returns-notifications.md` | `b11c8-dispatch-returns-notifications` | B4 to B12 | An order on credit terms is credit-checked at dispatch and at collection and invoiced on the quantities actually sent, with its terms' due date; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued 7, A-367) |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
 | B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
 | B13 | `B13-hardening-deploy.md` | `b13-hardening-deploy` | B13 — Hardening, smoke suite and deploy | Every non-functional target met and evidenced on the live server |
@@ -3912,7 +3913,7 @@ Stop at the gate and write docs/sessions/B11c6-dispatch-returns-notifications.md
 
 ## B11 continued 7 — The rest of dispatch, returns of part of a crate and notifications
 
-Branch `b11c7-dispatch-returns-notifications`. Report `docs/sessions/B11c7-dispatch-returns-notifications.md`. Inserted by B11 continued 6 (A-365, ADR-0026 Amendments), which built the cancellation of a dispatched delivery, the part delivery and the driver's offline queue (contract 2.35.0, A-364, ADR-0093). Gate: partial dispatch charges the fee once and an extra delivery is its own fee line; an order on credit terms is credit-checked at dispatch and invoiced on the quantities actually dispatched; a collection order is handed over and paid at the till; part of a crate returned as single eggs is refunded pro rata with the pieces adding up; the outbox's customer messages (dispatch, on the way, delivered, rescheduled, cancelled, part delivered, the receipt SMS and the tracking SMS) are sent, each once. Split again at a sub-domain boundary (the rest of dispatch, then returns, then notifications) if the context will not reach the gate; splitting early is better than late.
+Branch `b11c7-dispatch-returns-notifications`. Report `docs/sessions/B11c7-dispatch-returns-notifications.md`. **Built, then split inside its first sub-domain (A-366, A-367, ADR-0094, contract 2.36.0): partial dispatch with backorders and the delivery fee once, the extra delivery's fee line (`addExtraDeliveryFee`, `ord.delivery_fee.add`), `collectFulfilment` with what is left paid at the till (a guest's receipt included) and BL-097. The rest is B11 continued 8, below.** Inserted by B11 continued 6 (A-365, ADR-0026 Amendments), which built the cancellation of a dispatched delivery, the part delivery and the driver's offline queue (contract 2.35.0, A-364, ADR-0093). Gate: partial dispatch charges the fee once and an extra delivery is its own fee line; an order on credit terms is credit-checked at dispatch and invoiced on the quantities actually dispatched; a collection order is handed over and paid at the till; part of a crate returned as single eggs is refunded pro rata with the pieces adding up; the outbox's customer messages (dispatch, on the way, delivered, rescheduled, cancelled, part delivered, the receipt SMS and the tracking SMS) are sent, each once. Split again at a sub-domain boundary (the rest of dispatch, then returns, then notifications) if the context will not reach the gate; splitting early is better than late.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -3990,6 +3991,77 @@ report.
 Stop at the gate and write docs/sessions/B11c7-dispatch-returns-notifications.md.
 ```
 
+## B11 continued 8 — An order on account, the rest of dispatch, returns of part of a crate and notifications
+
+Branch `b11c8-dispatch-returns-notifications`. Report `docs/sessions/B11c8-dispatch-returns-notifications.md`. Inserted by B11 continued 7 (A-367, ADR-0026 Amendments), which built partial dispatch with backorders and the fee once, the extra delivery's fee line, collection paid at the till and BL-097 (contract 2.36.0, A-366, ADR-0094). Gate: an order on credit terms is credit-checked at dispatch and at collection through WHL's credit control and invoiced on the quantities actually sent, with its due date from the customer's terms and nothing due to the driver; part of a crate returned as single eggs is refunded pro rata with the pieces adding up; the outbox's customer messages (dispatch, on the way, delivered, rescheduled, cancelled, part delivered, collected, the receipt SMS and the tracking SMS) are sent, each once. Split again at a sub-domain boundary (the rest of dispatch, then returns, then notifications) if the context will not reach the gate; splitting early is better than late.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B11c7-dispatch-returns-notifications.md,
+B11 continued 7, which this phase continues), and the "Deferred" section of docs/sessions/B11b-dispatch-delivery.md (B11 continued).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the ORD (fulfilment), DEL and NTF requirement blocks of docs/SRS.md (nothing else
+from the SRS), docs/data-model/ord.md, del.md and ntf.md, the ORD, DEL, NTF, WHL and PAY cards in
+docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0021, ADR-0026 (the abandoned-cart assignment), ADR-0074 (a link
+sent by message gets its own token from the sending worker, never one stored in the outbox), ADR-0075 (the egg cost
+rule's running-total rounding), ADR-0077 (cash through a till only through its open shift), ADR-0088 (credit control
+reads exposure live), ADR-0091, ADR-0092, ADR-0093 and ADR-0094 (dispatch loads the vehicle; the driver's cash is a
+payment held by the driver; a part delivery is credited at the door; a short order's rest is a linked backorder), and
+the abuse cases 6, 43, 44, 48, 51, 52 and 53 in docs/security/THREAT_MODEL.md. Use docs/prompts/module-build-prompt.md
+as the recipe. Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B11 continued 8 only, on branch b11c8-dispatch-returns-notifications. B11 continued 7 built partial dispatch
+with backorders (ADR-0094: a short line's rest back-ordered at packing becomes a backorder order naming the first, with
+no delivery fee; the deposits beyond a document held for it), the extra delivery's fee line (`addExtraDeliveryFee`,
+`ord.delivery_fee.add`), `collectFulfilment` (what is left paid at the till with `payInvoiceAtTill`, a guest's receipt
+included) and BL-097 (a delivered or collected order completed when a later payment or credit note settles it); 2.36.0,
+A-366: build on them, never again. The rest, in this order:
+1. The rest of dispatch: an order on account (the owner, 2026-11-23: the credit check runs at dispatch, WHL's credit
+   control through a port, ORD sitting below WHL, and the invoice is issued from the quantities actually dispatched):
+   staff delivery orders (`createOrder` with `fulfilmentMode` `DELIVERY`, refused today `FULFILMENT_NOT_AVAILABLE`: the
+   customer's own address, its zone and fee), the credit check at dispatch and at collection (a new port method that
+   judges the dispatched gross without counting the order's own estimate twice; an approved override covers it as at
+   confirmation), the invoice's due date from the customer's terms, nothing due to the driver on an order on account,
+   a backorder of a credit order judged again at its own dispatch; remove `CREDIT_DISPATCH_NOT_AVAILABLE` LOUD (from
+   dispatch and collection). Then the checkout's chosen slot carried onto the delivery at dispatch and booked (A-362
+   (e)); PAY's `Payment.driver` (BL-096); the checkout's store-credit choice for a lighter total (ADR-0021, A-338 (c));
+   cracked eggs written off on the pick (CR-054 point 1, through INV's adjustment path and its approval).
+2. Returns of eggs (owner, 2026-11-18, ORD, test-first with exact pesewas): a return is refunded at the price actually
+   paid on that sale line, never the current price list. Part of a crate returned as single eggs (five cracked eggs) is
+   refunded pro rata at the crate's price per egg, never at the single-egg price, with the running-total rounding of the
+   egg cost rule (ADR-0075, half-up, never half-to-even): each return's refund is round(paid x cumulative returned / per
+   crate) less round(paid x previously returned / per crate), so the pieces always add up. Tests by SQL: a GH₵55.00 crate
+   (5,500 pesewas) with five eggs returned refunds exactly 917 (5,500 x 5 / 30 = 916.67, half-up); a crate returned one
+   egg at a time, all 30, refunds exactly 5,500 in total, never more; a mutation using the single-egg price, or rounding
+   each egg on its own, turns a test red. Extend createReturn's description to a part of a crate returned as single eggs.
+3. Notifications (NTF): through the outbox (SMS, WhatsApp, email, in-app) with templates, triggers, preferences, opt-out,
+   quiet hours, the message log and retry: the customer's messages from `ord.OrderDispatched` (one, with the weights and
+   the final total, FR-ORD-011; it names a backorder from 2.36.0), `ord.OrderCollected` (from 2.36.0), the on-the-way
+   (`del.DeliveryOnTheWay`, from 2.32.0), the rescheduled (`del.DeliveryRescheduled`, from 2.34.0, FR-DEL-003), the
+   cancelled (`del.DeliveryCancelled`, from 2.35.0) and delivered messages (FR-DEL-012, once per event and recipient;
+   `del.DeliveryCompleted` names a part delivery's returned lines from 2.35.0), abandoned-cart messaging (ADR-0026), the
+   death report sent back by the malware scan (B06r, A-175: liv.MortalityReturned names the reporter and the reason),
+   the document sends (ADR-0062, A-204: sendBillingDocument and sendStatement, 202 through the outbox, a bil.reprint_log
+   row with the channel, the archived bytes or a lasting link, never a new document; the remittance advice from
+   pur.SupplierRemittanceReady, once per payment; a send reaches only the document's own customer or supplier and a
+   failed send is retried without a second archive row), CR-033 point 3 (the receipt SMS once when a counter sale with
+   customerPhone syncs, with a fresh server-made token for a sale whose till token was refused, ADR-0074; the refused
+   till token still opens nothing), and the guest's SMS tracking link with its own long random token (a guessed token or
+   the order's id answers 404). The owner, 2026-11-23 (from the frontend's F12 and F10n): list the message templates so a
+   reminder level picks one instead of typing a code, and record each reminder's delivery per channel (sent, delivered,
+   failed), so a failed reminder shows as failed. CR-039 at the shop (the crate and the single egg, each at its own
+   price; CartLineAdd.uom; test-first with exact pesewas).
+Run steps 1.11 to 1.16 of docs/UAT.md, the driver case in scenario 5 and scenario 2 from step 2.12 as a dry run and
+record every difference.
+For B12's reused photographs (the owner, 2026-11-23): `platform.stored_file` already keeps each upload's SHA-256; record
+on the proof of delivery whether its photograph or signature matches an earlier upload (as liv.MortalityPhotoReused
+does for a death photograph) and publish it for the exception report. If this phase does not, B12 must; say which in the
+report.
+Stop at the gate and write docs/sessions/B11c8-dispatch-returns-notifications.md.
+```
+
 ## B12 — Capital, costing, reporting and the public API, and the daily exception report
 
 Branch `b12-capital-costing-reporting`. Report `docs/sessions/B12-capital-costing-reporting.md`. Gate: a distribution matches a hand calculation on unit-days and ties exactly to the ledger.
@@ -4060,7 +4132,7 @@ the egg report codes, the VAT return, and the statement and exception report exp
 - "quotes accepted in a staff session" is the possible staff acceptance of B10 continued 6 (the decision's address and
   browser matched against staff sessions active from the same address in the last 24 hours, never a cookie);
 - "reused photographs" means a proof-of-delivery photograph or signature whose content hash matches an earlier upload
-  (beside case 2's death photographs); if B11 continued 6 or 7 did not record that match, this phase must (its report says);
+  (beside case 2's death photographs); if B11 continued 6, 7 or 8 did not record that match, this phase must (its report says);
 - each existing exception kind keeps working, and any rename is LOUD.
 Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
 ```
@@ -4145,7 +4217,7 @@ Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 From 2026-11-17 the remaining phases before B12 run in two lanes at once, each in its own worktree and branch.
 
 - **Lane A:** the rest of B9b (B09b continued to B09b continued 4, and any split of them), then B09c.
-- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11, then B11 continued, then B10 continued 6 (inserted by the owner, 2026-11-23), then B11 continued 2, then B11 continued 3 (inserted by B11 continued 2, A-346), then B11 continued 4 (inserted by B11 continued 3, A-348), then B11 continued 5 (inserted by B11 continued 4, A-361), then B11 continued 6 (inserted by B11 continued 5, A-363), then B11 continued 7 (inserted by B11 continued 6, A-365) (and any split of them). B08 continued 2d moves into lane B because
+- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11, then B11 continued, then B10 continued 6 (inserted by the owner, 2026-11-23), then B11 continued 2, then B11 continued 3 (inserted by B11 continued 2, A-346), then B11 continued 4 (inserted by B11 continued 3, A-348), then B11 continued 5 (inserted by B11 continued 4, A-361), then B11 continued 6 (inserted by B11 continued 5, A-363), then B11 continued 7 (inserted by B11 continued 6, A-365), then B11 continued 8 (inserted by B11 continued 7, A-367) (and any split of them). B08 continued 2d moves into lane B because
   B10 reads its report and it needs only PAY's payments (B9a) and WHL, which lane B opens.
 - **B12, then B13, start only when both lanes have merged.** B09r still waits for the owner's real files.
 

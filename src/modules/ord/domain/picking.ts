@@ -94,19 +94,31 @@ export interface LineToPack {
   readonly tolerance: ToleranceState | null;
   /** The customer accepted the higher total of this line (a HIGHER_TOTAL consent accepted at or above it). */
   readonly consentedAbove: boolean;
+  /** The packer asked for what is not picked of this line to be back-ordered (FR-ORD-012). */
+  readonly backorder?: boolean;
 }
 
-export type PackRefusal = 'NOTHING_PICKED' | 'SHORT_PICK_NOT_AGREED' | 'TOLERANCE_EXCEEDED';
+export type PackRefusal = 'NOTHING_PICKED' | 'SHORT_PICK_NOT_AGREED' | 'TOLERANCE_EXCEEDED' | 'BACKORDER_NOT_SHORT' | 'BACKORDER_NOT_BY_WEIGHT' | 'SHORT_ALREADY_AGREED';
 
 /**
  * Whether a pick list may be packed (FR-ORD-011, FR-ORD-010, CR-054). A line sold by the unit or the head is packed at
  * exactly its quantity to pick, or at exactly the smaller quantity the customer agreed to. A catch-weight line needs at
  * least one pack weighed; above its tolerance only with the customer's consent; below it, it goes at the lower total.
+ * A line sold by the unit or the head picked short may have its rest back-ordered (FR-ORD-012, B11 continued 7): never a
+ * line picked in full, a catch-weight line (it goes by its weight) or a line the customer already agreed to take less of;
+ * a pick list back-ordered so that nothing at all is picked sends nothing and is refused.
  */
 export function readyToPack(lines: readonly LineToPack[]): Result<null, { readonly lineNo: number; readonly rule: PackRefusal }[]> {
   if (lines.length === 0) return err([{ lineNo: 0, rule: 'NOTHING_PICKED' }]);
+  if (lines.some((l) => l.backorder === true) && lines.every((l) => l.picked.isZero())) return err([{ lineNo: 0, rule: 'NOTHING_PICKED' }]);
   const refused: { lineNo: number; rule: PackRefusal }[] = [];
   for (const line of lines) {
+    if (line.backorder === true) {
+      if (line.catchWeight) refused.push({ lineNo: line.lineNo, rule: 'BACKORDER_NOT_BY_WEIGHT' });
+      else if (line.agreedShort !== null) refused.push({ lineNo: line.lineNo, rule: 'SHORT_ALREADY_AGREED' });
+      else if (judgePickedQuantity(line.toPick, line.picked) !== 'SHORT') refused.push({ lineNo: line.lineNo, rule: 'BACKORDER_NOT_SHORT' });
+      continue;
+    }
     if (line.catchWeight) {
       if (line.picked.isZero()) refused.push({ lineNo: line.lineNo, rule: 'NOTHING_PICKED' });
       else if (line.tolerance === 'ABOVE' && !line.consentedAbove) refused.push({ lineNo: line.lineNo, rule: 'TOLERANCE_EXCEEDED' });

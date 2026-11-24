@@ -495,6 +495,7 @@ export class Billing {
             customerId: r.customerId,
             documentNo: r.documentNo,
             outstandingPesewas: settlement?.outstandingPesewas ?? 0n,
+            orderDocumentId: r.orderDocumentId,
             originalDocumentId: r.originalDocumentId,
             createdBy: r.createdBy,
             refundablePesewas: refundable,
@@ -1257,6 +1258,8 @@ export interface SettleableDocument {
   readonly customerId: string | null;
   readonly documentNo: string | null;
   readonly outstandingPesewas: bigint;
+  /** The sales order the document bills, if any (B11 continued 7: a guest's receipt of an order is paid at the till). */
+  readonly orderDocumentId: string | null;
   /** The document a credit or debit note corrects. */
   readonly originalDocumentId: string | null;
   /** Who raised it: a credit note's maker never approves a refund against it (ADR-0066). */

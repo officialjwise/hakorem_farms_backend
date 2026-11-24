@@ -106,6 +106,20 @@ export interface NewOrder extends Omit<OrderHeaderRecord, 'status' | 'finalTotal
   /** An online order's delivery as the checkout took it (A-232); null for every other order. */
   readonly deliveryAddressSnapshot?: unknown;
   readonly deliveryZoneId?: string | null;
+  /** The order a backorder completes (FR-ORD-012); never itself a backorder. */
+  readonly parentOrderId?: string | null;
+}
+
+/** An extra delivery the customer asked for, as staff added it (the owner, 2026-11-23). */
+export interface ExtraFeeRecord {
+  readonly id: string;
+  readonly salesOrderId: string;
+  readonly deliveryZoneId: string;
+  readonly amountPesewas: bigint;
+  readonly note: string;
+  readonly branchId: string;
+  readonly recordedAt: Date;
+  readonly actorId: string;
 }
 
 /** A line as written: open, or (a sale fulfilled at once) fulfilled with its movement. */
@@ -197,6 +211,12 @@ export interface OrderStore {
   ofCustomer(tx: Transaction, customerId: string, beforeId: string | null, limit: number): Promise<string[]>;
   /** The ONLINE order placed from a checkout (its source document), under its row lock, or null. */
   lockOnlineBySource(tx: Transaction, sourceDocumentId: string): Promise<OrderHeaderRecord | null>;
+  /** The backorders of an order (FR-ORD-012), oldest first, with their status. */
+  backordersOf(tx: Transaction, parentOrderId: string): Promise<Array<{ readonly id: string; readonly orderNo: string | null; readonly status: OrderStatus }>>;
+  /** The order a billing document bills (its `billing_document_id`), or null. */
+  orderOfBillingDocument(tx: Transaction, billingDocumentId: string): Promise<string | null>;
+  insertExtraFee(tx: Transaction, fee: Omit<ExtraFeeRecord, 'recordedAt'>): Promise<void>;
+  extraFeesOf(tx: Transaction, orderIds: readonly string[]): Promise<ExtraFeeRecord[]>;
 }
 
 export interface OrderFilter {

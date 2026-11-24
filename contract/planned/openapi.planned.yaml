@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.35.0"
+  version: "2.36.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -2579,112 +2579,7 @@ paths:
   "/fulfilments/{id}/picks": {}
   "/fulfilments/{id}/pack": {}
   "/fulfilments/{id}/dispatch": {}
-  "/fulfilments/{id}/collect":
-    post:
-      operationId: collectFulfilment
-      tags:
-        - ord
-      summary: "Hand a collection order to the customer"
-      description: "Permission: `ord.fulfilment.dispatch`."
-      x-permission: ord.fulfilment.dispatch
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Fulfilment"
-              example:
-                id: "019a7af3-e7fa-73e6-a91e-473729c3c015"
-                fulfilmentNo: PCK-2026-DDW-000415
-                order:
-                  id: "019a7af0-a4c5-78e8-be21-975d5418103b"
-                  docType: SALES_ORDER
-                  number: SO-2026-DDW-004198
-                status: COLLECTED
-                pickLocation:
-                  id: "019a7a84-4156-72e2-a81a-36fbeee7afd9"
-                  code: COLD-1
-                  name: "Cold room"
-                  kind: COLD_ROOM
-                picker:
-                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                  displayName: "Yaw Boateng"
-                pickList:
-                  - orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-0001
-                      name: "Full chicken, 15 kg pack"
-                    qtyToPick: "1.000"
-                    uom: PACK
-                    estimatedWeightKg: "15.000"
-                    suggestedStockUnits:
-                      - id: "019a7a91-104c-7b12-804a-b9f4523132d2"
-                        identifier: MEAT-CHK-261106-02
-                        tracking: LOT
-                    status: OPEN
-                    pickedQty: "0.000"
-                    pickedWeightKg: null
-                    minimumWeightKg: "13.500"
-                    maximumWeightKg: "16.500"
-                    toleranceState: null
-                lines:
-                  - id: "019a7af4-06e9-7dc9-b302-e56ea3745e4c"
-                    orderLineId: "019a7af0-66e7-7521-9a5a-5aee60b6d3cc"
-                    product:
-                      id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                      sku: MEAT-0001
-                      name: "Full chicken, 15 kg pack"
-                    stockUnit:
-                      id: "019a7a91-104c-7b12-804a-b9f4523132d2"
-                      identifier: MEAT-CHK-261106-02
-                      tracking: LOT
-                    packBarcode: "226110602014650"
-                    qty: "1.000"
-                    weightKg: "14.650"
-                    weightSource: SCALE
-                    linePricePesewas: 29300
-                weighedTotalPesewas: 44300
-                withinTolerance: true
-                pickedAt: "2026-11-13T10:04:00Z"
-                packedAt: "2026-11-13T10:20:00Z"
-                dispatchedAt: null
-                packageCount: 2
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 2
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/fulfilments/{id}/collect": {}
   "/fulfilments/{id}/cancel": {}
   "/returns":
     get:
@@ -28880,8 +28775,55 @@ components:
       properties:
         packageCount:
           type: integer
+        backorderLineIds:
+          type: array
+          description: "Order lines of this pick list picked short whose rest is back-ordered (2.36.0, FR-ORD-012): at dispatch the order goes with what was picked, and the rest becomes a backorder linked to it (`parentOrderId`) with no delivery fee of its own. Never a line picked in full (`BACKORDER_NOT_SHORT`), a catch-weight line (`BACKORDER_NOT_BY_WEIGHT`), a line the customer already agreed to take less of (`SHORT_ALREADY_AGREED`), a discounted line (`BACKORDER_DISCOUNTED`), a line not on this pick list (`LINE_UNKNOWN`) or on another live one (`ON_ANOTHER_PICK_LIST`); a pick list back-ordered so that nothing is picked is `NOTHING_PICKED`."
+          minItems: 1
+          maxItems: 200
+          items:
+            type: string
+            format: uuid
       required:
         - packageCount
+      additionalProperties: false
+    ExtraDeliveryFeeCreate:
+      type: object
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Why the customer asked for the extra delivery."
+      required:
+        - note
+      additionalProperties: false
+    ExtraDeliveryFee:
+      type: object
+      description: "An extra delivery the customer asked for (2.36.0): the backorder's zone fee, charged as its own line on the backorder's dispatch document."
+      properties:
+        id:
+          type: string
+          format: uuid
+        order:
+          $ref: "#/components/schemas/DocumentRef"
+        amountPesewas:
+          $ref: "#/components/schemas/Pesewas"
+        currency:
+          type: string
+          enum:
+            - GHS
+        note:
+          type: string
+        addedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - order
+        - amountPesewas
+        - currency
+        - note
+        - addedAt
       additionalProperties: false
     DispatchRecord:
       type: object

@@ -354,8 +354,9 @@ import { PgVanReturnStore } from './infrastructure/pg-van-return-store';
         audit: AuditTrail,
         authoriser: Authoriser,
         clock: Clock,
-      ) => new Dispatches(uow, store, orderStore, fulfilments, refs, storefront, units, stock, reservations, billing, payments, refunds, deliveries, vanReturns, events, idempotency, audit, authoriser, clock),
-      inject: [UnitOfWork, FULFILMENT_STORE, ORDER_STORE, Fulfilments, MasterDataRefs, Storefront, StockUnits, Stock, Reservations, Billing, Payments, Refunds, Deliveries, VanReturns, DomainEvents, Idempotency, AuditTrail, Authoriser, CLOCK],
+        orders: Orders,
+      ) => new Dispatches(uow, store, orderStore, fulfilments, refs, storefront, units, stock, reservations, billing, payments, refunds, deliveries, vanReturns, events, idempotency, audit, authoriser, clock, orders),
+      inject: [UnitOfWork, FULFILMENT_STORE, ORDER_STORE, Fulfilments, MasterDataRefs, Storefront, StockUnits, Stock, Reservations, Billing, Payments, Refunds, Deliveries, VanReturns, DomainEvents, Idempotency, AuditTrail, Authoriser, CLOCK, Orders],
     },
   ],
   exports: [SalePosting, Orders, OrderReversals, Returns, OnlineOrders, Fulfilments, Dispatches, ORDER_CONFIRMATION_POLICIES],
@@ -385,6 +386,15 @@ export class OrdModule implements OnModuleInit {
     this.events.subscribeInTransaction('inv.ReservationReleased', (tx, event) => this.online.holdEndedIn(tx, event));
     this.events.subscribeInTransaction(DELIVERY_COMPLETED, (tx, event) => this.dispatches.deliveredIn(tx, event));
     this.events.subscribeInTransaction(DELIVERY_FAILED, (tx, event) => this.dispatches.failedIn(tx, event));
+    // BL-097: a delivered or handed-over order completes once a later payment or credit note settles its document.
+    this.events.subscribeInTransaction('pay.PaymentCleared', (tx, event) =>
+      this.dispatches.settledIn(tx, event, ((event.payload as { allocations?: readonly { billingDocumentId: string }[] }).allocations ?? []).map((a) => a.billingDocumentId)),
+    );
+    this.events.subscribeInTransaction('pay.DepositAllocated', (tx, event) => this.dispatches.settledIn(tx, event, [(event.payload as { billingDocumentId: string }).billingDocumentId]));
+    this.events.subscribeInTransaction('bil.CreditNoteIssued', (tx, event) => {
+      const original = (event.payload as { originalDocumentId: string | null }).originalDocumentId;
+      return this.dispatches.settledIn(tx, event, original === null ? [] : [original]);
+    });
     // A van write-off's stock approval, and a van return's credit note approval, carry its goods and money on (A-360).
     this.events.subscribeInTransaction('iam.ApprovalDecided', (tx, event) => this.vanReturns.decidedIn(tx, event));
     // A reassigned delivery's goods follow it van to van; a reattempt sends the order out again (A-362).

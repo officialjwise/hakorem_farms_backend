@@ -591,8 +591,13 @@ describe('a part delivery: the customer keeps two of three crates, the third com
     expect(way).toMatchObject({ status: 'POSTED', way_out: 'RETURN_TO_STOCK', refund_id: null, created_by: id('driver') });
     const credit = await creditOf(way.credit_note_id!);
     expect(credit).toMatchObject({ status: 'DRAFT', asked: String(crate), original: three.billingDocumentId, reason: 'DELIVERY_RETURNED', created_by: id('driver') });
+    const statusOf = async () => (await one<{ status: string }>('SELECT status FROM ord.sales_order WHERE id = $1', [three.orderId])).status;
+    // Until the credit note is issued the crate's price is still owed, so the order waits DELIVERED (BL-097).
+    expect(await statusOf()).toBe('DELIVERED');
     expect((await decide('owner', credit.approval, 'approve')).status).toBe(200);
     expect(await creditOf(way.credit_note_id!)).toMatchObject({ status: 'ISSUED', gross: String(crate) });
+    // The credit note issued later settles the document: the order completes then (BL-097, B11 continued 7).
+    expect(await statusOf()).toBe('COMPLETED');
     expect((await wayOut(three.deliveryId)).refund_id).toBeNull();
     const event = await one<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'del.DeliveryCompleted' AND subject_id = $1", [three.deliveryId]);
     expect(event.payload).toMatchObject({ returnedReasonCode: 'CUSTOMER_REFUSED', returnedCreditPesewas: crate, returnedLines: [{ orderLineId: lineOf, returnedQty: '1.000', weighed: false }] });

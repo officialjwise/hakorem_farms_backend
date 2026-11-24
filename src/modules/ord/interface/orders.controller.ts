@@ -8,9 +8,10 @@ import { zodPipe } from '../../../platform/http/validation';
 import type { StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { BillingDocumentView } from '../../bil';
 import type { CreditOverridePending } from '../application/order-confirmation-policy';
+import { Dispatches, type ExtraDeliveryFeeView } from '../application/dispatches';
 import { OrderReversals, type ApprovalPendingView } from '../application/order-reversals';
 import { Orders, type OrderFulfilmentView, type OrderStatusChangeView, type Page, type SalesOrderView } from '../application/orders';
-import { IdParam, OrderConfirmBody, OrderCreateBody, OrderPageQuery, PageQuery, ReasonCodeBody } from './schemas';
+import { ExtraDeliveryFeeBody, IdParam, OrderConfirmBody, OrderCreateBody, OrderPageQuery, PageQuery, ReasonCodeBody } from './schemas';
 
 const READ = { access: 'SESSION', realms: ['STAFF'], idempotent: false, csrf: false, rateLimit: 'console' } as const;
 const WRITE = { access: 'SESSION', realms: ['STAFF'], idempotent: true, csrf: true, rateLimit: 'console' } as const;
@@ -32,7 +33,19 @@ export class OrdersController {
   constructor(
     @Inject(Orders) private readonly orders: Orders,
     @Inject(OrderReversals) private readonly reversals: OrderReversals,
+    @Inject(Dispatches) private readonly dispatches: Dispatches,
   ) {}
+
+  @Post(':id/extra-delivery-fee')
+  @Operation({ operationId: 'addExtraDeliveryFee', ...WRITE, permission: 'ord.delivery_fee.add' })
+  addExtraDeliveryFee(
+    @CurrentActor() actor: Actor | undefined,
+    @Param('id', zodPipe(IdParam)) id: string,
+    @Body(zodPipe(ExtraDeliveryFeeBody)) body: z.infer<typeof ExtraDeliveryFeeBody>,
+    @IdempotencyKeyHeader() key: string,
+  ): Promise<ExtraDeliveryFeeView> {
+    return this.dispatches.addExtraFee(actor, id, body, key).then((r) => r.body);
+  }
 
   @Get()
   @Operation({ operationId: 'listOrders', ...READ, permission: 'ord.order.read' })

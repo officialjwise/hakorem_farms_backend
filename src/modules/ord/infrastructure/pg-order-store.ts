@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { NewOrder, NewOrderLine, OrderFilter, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, OrderVoidRecord, ShiftSalesSummary, StatusChangeRecord, TrackingTokenRecord } from '../application/order-store';
+import type { ExtraFeeRecord, NewOrder, NewOrderLine, OrderFilter, OrderHeaderRecord, OrderLineRecord, OrderRecord, OrderStore, OrderVoidRecord, ShiftSalesSummary, StatusChangeRecord, TrackingTokenRecord } from '../application/order-store';
 
 const big = (value: string | null): bigint | null => (value === null ? null : BigInt(value));
 
@@ -9,8 +9,8 @@ export class PgOrderStore implements OrderStore {
     await tx.query(
       `INSERT INTO ord.sales_order (id, order_no, channel, customer_id, contact_name, contact_phone_e164, status, payment_terms, fulfilment_mode, source_document_id,
                                     shift_document_id, salesperson_id, tax_inclusive, delivery_fee_pesewas, estimated_total_pesewas, maximum_total_pesewas,
-                                    is_offline, placed_at, notes, branch_id, created_by, updated_by, delivery_address_snapshot, delivery_zone_id)
-       VALUES ($1, $2, $3, $4, $5, $6, 'PLACED', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $20, $21::jsonb, $22)`,
+                                    is_offline, placed_at, notes, branch_id, created_by, updated_by, delivery_address_snapshot, delivery_zone_id, parent_order_id)
+       VALUES ($1, $2, $3, $4, $5, $6, 'PLACED', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $20, $21::jsonb, $22, $23)`,
       [
         o.id,
         o.orderNo,
@@ -34,6 +34,7 @@ export class PgOrderStore implements OrderStore {
         o.actorId,
         o.deliveryAddressSnapshot === undefined || o.deliveryAddressSnapshot === null ? null : JSON.stringify(o.deliveryAddressSnapshot),
         o.deliveryZoneId ?? null,
+        o.parentOrderId ?? null,
       ],
     );
   }
@@ -328,6 +329,35 @@ export class PgOrderStore implements OrderStore {
       [customerId, beforeId, limit],
     );
     return rows.map((r) => r.id);
+  }
+
+  async backordersOf(tx: Transaction, parentOrderId: string): Promise<Array<{ readonly id: string; readonly orderNo: string | null; readonly status: OrderHeaderRecord['status'] }>> {
+    const { rows } = await tx.query<{ id: string; order_no: string | null; status: OrderHeaderRecord['status'] }>(
+      'SELECT id, order_no, status FROM ord.sales_order WHERE parent_order_id = $1 ORDER BY id',
+      [parentOrderId],
+    );
+    return rows.map((r) => ({ id: r.id, orderNo: r.order_no, status: r.status }));
+  }
+
+  async orderOfBillingDocument(tx: Transaction, billingDocumentId: string): Promise<string | null> {
+    const { rows } = await tx.query<{ id: string }>('SELECT id FROM ord.sales_order WHERE billing_document_id = $1', [billingDocumentId]);
+    return rows[0]?.id ?? null;
+  }
+
+  async insertExtraFee(tx: Transaction, f: Omit<ExtraFeeRecord, 'recordedAt'>): Promise<void> {
+    await tx.query(
+      'INSERT INTO ord.order_extra_fee (id, sales_order_id, delivery_zone_id, amount_pesewas, note, branch_id, actor_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [f.id, f.salesOrderId, f.deliveryZoneId, f.amountPesewas.toString(), f.note, f.branchId, f.actorId],
+    );
+  }
+
+  async extraFeesOf(tx: Transaction, orderIds: readonly string[]): Promise<ExtraFeeRecord[]> {
+    if (orderIds.length === 0) return [];
+    const { rows } = await tx.query<{ id: string; sales_order_id: string; delivery_zone_id: string; amount_pesewas: string; note: string; branch_id: string; recorded_at: Date; actor_id: string }>(
+      'SELECT id, sales_order_id, delivery_zone_id, amount_pesewas::text, note, branch_id, recorded_at, actor_id FROM ord.order_extra_fee WHERE sales_order_id = ANY($1::uuid[]) ORDER BY id',
+      [orderIds],
+    );
+    return rows.map((r) => ({ id: r.id, salesOrderId: r.sales_order_id, deliveryZoneId: r.delivery_zone_id, amountPesewas: BigInt(r.amount_pesewas), note: r.note, branchId: r.branch_id, recordedAt: r.recorded_at, actorId: r.actor_id }));
   }
 
   async lockOnlineBySource(tx: Transaction, sourceDocumentId: string): Promise<OrderHeaderRecord | null> {
