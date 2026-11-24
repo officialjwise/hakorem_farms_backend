@@ -96786,6 +96786,7 @@ components:
             - "null"
           format: uuid
         driver:
+          description: "The driver who holds a cash-on-delivery payment until it is handed in at a till (2.37.0, BL-096, ADR-0092); null for every other payment."
           anyOf:
             - $ref: "#/components/schemas/PrincipalRef"
             - type: "null"

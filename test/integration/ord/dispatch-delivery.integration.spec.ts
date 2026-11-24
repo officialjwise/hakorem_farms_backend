@@ -316,6 +316,9 @@ describe('dispatch issues the invoice on the weighed quantity and fixes the cash
         ['1200', 'C', 2_000, 'Walk-in customer'],
       ]);
       expect(await outbox('pay.PaymentCleared', payment.id)).toBe(0);
+      // BL-096: the payment's view names the driver who holds it.
+      const view = await get('manager', `/payments/${payment.id}`);
+      expect([view.status, view.body.driver]).toEqual([200, { id: id('driver'), displayName: 'Kwabena Asare' }]);
       expect(await trialBalanceSum(database)).toBe('0');
     });
 

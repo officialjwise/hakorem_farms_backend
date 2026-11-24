@@ -48,11 +48,12 @@ interface PaymentRow {
   branch_id: string;
   created_by: string;
   created_at: Date;
+  driver_id: string | null;
 }
 
 const PAYMENT_COLUMNS = `id, payment_method_id, method_kind, amount_pesewas::text, allocated_pesewas::text, refunded_pesewas::text, customer_id,
   order_document_id, shift_document_id, register_ref, register_code, provider, provider_reference, external_reference, payer_phone_masked,
-  verification, status, received_at, cleared_at, failure_reason, reverses_payment_id, bank_account_id, cheque_due_on::text, clearance_ref, branch_id, created_by, created_at`;
+  verification, status, received_at, cleared_at, failure_reason, reverses_payment_id, bank_account_id, cheque_due_on::text, clearance_ref, branch_id, created_by, created_at, driver_id`;
 
 function toRecord(row: PaymentRow): PaymentRecord {
   return {
@@ -83,6 +84,7 @@ function toRecord(row: PaymentRow): PaymentRecord {
     branchId: row.branch_id,
     createdBy: row.created_by,
     createdAt: row.created_at,
+    heldByDriverId: row.driver_id,
   };
 }
 

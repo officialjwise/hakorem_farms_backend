@@ -9,7 +9,7 @@ import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Billing } from '../../bil';
 import type { BankAccounts } from '../../fin';
-import type { Authoriser } from '../../iam';
+import type { Authoriser, PrincipalNames } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
 import { judgeClearedTender } from '../domain/cleared-tender';
 import { clearingOf, planTender, type MethodKind } from '../domain/tender';
@@ -125,7 +125,7 @@ export interface PaymentDocumentView {
   readonly customer: { readonly id: string; readonly publicId: string; readonly name: string } | null;
   readonly order: DocumentRefView | null;
   readonly shiftId: string | null;
-  readonly driver: null;
+  readonly driver: { readonly id: string; readonly displayName: string } | null;
   readonly bankAccount: { readonly id: string; readonly name: string; readonly kind: string; readonly last4: string } | null;
   readonly provider: string | null;
   readonly providerReference: string | null;
@@ -189,6 +189,7 @@ export class Payments {
     private readonly cursors: Cursors,
     private readonly bankAccounts: BankAccounts,
     private readonly tills: TillShiftRegistry,
+    private readonly principals: PrincipalNames,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -610,6 +611,8 @@ export class Payments {
     const orderOf = (r: PaymentRecord): string | null => r.orderDocumentId ?? linked.get(r.id) ?? null;
     const orders = await this.documents.numberedRefs(tx, records.flatMap((r) => (orderOf(r) === null ? [] : [orderOf(r)!])));
     const banks = await this.bankAccounts.payoutAccountsIn(tx, records.flatMap((r) => (r.bankAccountId === null ? [] : [r.bankAccountId])));
+    // A cash-on-delivery payment names the driver who holds it (BL-096, ADR-0092).
+    const drivers = await this.principals.refs(tx, [...new Set(records.flatMap((r) => (r.heldByDriverId === undefined || r.heldByDriverId === null ? [] : [r.heldByDriverId])))]);
     return records.map((r) => {
       const bank = r.bankAccountId === null ? undefined : banks.get(r.bankAccountId);
       const method = methods.get(r.paymentMethodId)!;
@@ -624,7 +627,7 @@ export class Payments {
         customer: customer === undefined ? null : { id: customer.id, publicId: customer.publicId, name: customer.name },
         order: orderOf(r) === null ? null : (orders.get(orderOf(r)!) ?? null),
         shiftId: r.shiftDocumentId,
-        driver: null,
+        driver: r.heldByDriverId === undefined || r.heldByDriverId === null ? null : (drivers.get(r.heldByDriverId) ?? { id: r.heldByDriverId, displayName: 'Unknown' }),
         bankAccount: bank === undefined ? null : { id: bank.id, name: bank.name, kind: bank.kind, last4: bank.last4 },
         provider: r.provider,
         providerReference: r.providerReference,

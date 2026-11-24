@@ -114,8 +114,9 @@ import { MyStoreCreditController, PaymentsController, ReceivablesController, Ref
         cursors: Cursors,
         bankAccounts: BankAccounts,
         tills: TillShiftRegistry,
-      ) => new Payments(store, refs, billing, documents, events, audit, clock, uow, authoriser, idempotency, cursors, bankAccounts, tills),
-      inject: [PAYMENT_STORE, MasterDataRefs, Billing, DocumentRegistry, DomainEvents, AuditTrail, CLOCK, UnitOfWork, Authoriser, Idempotency, Cursors, BankAccounts, TillShiftRegistry],
+        principals: PrincipalNames,
+      ) => new Payments(store, refs, billing, documents, events, audit, clock, uow, authoriser, idempotency, cursors, bankAccounts, tills, principals),
+      inject: [PAYMENT_STORE, MasterDataRefs, Billing, DocumentRegistry, DomainEvents, AuditTrail, CLOCK, UnitOfWork, Authoriser, Idempotency, Cursors, BankAccounts, TillShiftRegistry, PRINCIPAL_NAMES],
     },
     { provide: TillShiftRegistry, useFactory: () => new TillShiftRegistry() },
     {
