@@ -4443,6 +4443,8 @@ reach the exception report's sources. Rerun scenario 2 of docs/UAT.md at the des
 Stop at the gate and write docs/sessions/B11u2-uat-scenario-2-rest.md.
 ```
 
+**Built (A-356 to A-359, A-294 to A-296, migrations 0350 and 0351, contract 2.44.0).** UAT scenario 2 runs as written; no difference remains (A-355 resolved). This closes lane B; B12 reads this phase's report.
+
 ## B12 — Capital, costing, reporting and the public API, and the daily exception report
 
 Branch `b12-capital-costing-reporting`. Report `docs/sessions/B12-capital-costing-reporting.md`. Gate: a distribution matches a hand calculation on unit-days and ties exactly to the ledger.
@@ -4490,7 +4492,7 @@ started and expired per address a day from shp.CheckoutStarted and shp.CheckoutE
 address holds stock repeatedly without placing an order.
 It must include case 34, inflated rejections at the door (B09e continued 3, A-272, ADR-0076): a RECEIPT_CLAIM item for
 each pur.SupplierClaimRaised, with the receipt, the receiver, the claim's maker, the supplier, the rejected quantity,
-its reason and its value. And every exception source B9b, B09c, B11 and B11u add (their reports name each one; B11u: `quo.QuoteIssued.holds` for case 64 and `quo.QuoteWithdrawn` for case 65), at least
+its reason and its value. And every exception source B9b, B09c, B11 and B11u add (their reports name each one; B11u: `quo.QuoteIssued.holds` for case 64 and `quo.QuoteWithdrawn` for case 65; B11u continued: `quo.AcceptedQuoteLapsed` for case 66 and `backorderHeldQty` on `ord.OrderDispatched` and `ord.OrderCollected` for case 67), at least
 each reused till receipt token (a possible till fault or tampering, owner 2026-11-17) and each supervisor's PIN
 sign-out of a locked cashier (CR-032).
 Write the five tests of ADR-0028 under the names the ADR gives them, and run scenario 4 of

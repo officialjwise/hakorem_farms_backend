@@ -145,6 +145,7 @@ Carries the full pricing record the brief requires on every sale line. Published
 | `price_basis` | `text` | NOT NULL, CHECK in (`PER_HEAD`, `PER_KG`, `PER_UNIT`) | |
 | `price_list_entry_id` | `uuid` | NULL, FK `mdm.price_list_entry`; required for `ENGINE` | The rule that produced the price |
 | `quote_line_ref` | `uuid` | NULL; required for `QUOTE` | The quote line |
+| `weight_band_id` | `uuid` | NULL, FK `mdm.weight_band` | The band of the quote line a converted line of animals came from (B11u continued, migration 0350, A-359): confirmation reserves and the picker names only animals weighed in it; never changes (`ck_sales_order_line_weight_band`, HK004); null on every other line |
 | `resolved_unit_price_pesewas` | `pesewas` | NOT NULL | List price resolved |
 | `floor_unit_price_pesewas` | `pesewas` | NOT NULL | |
 | `ceiling_unit_price_pesewas` | `pesewas` | NOT NULL | |
@@ -169,6 +170,7 @@ Carries the full pricing record the brief requires on every sale line. Published
 - CHECK: `variance_requires_approval` implies `variance_approval_request_id` and `variance_approved_by` (neither the order's writer nor its salesperson) once the order is past `PLACED` and not `CANCELLED`. For an offline sale synced with an override beyond the limit, the approval is requested after the fact and the line is listed as an exception until decided.
 - CHECK: when the order is `COMPLETED`, a product line with stock has `stock_movement_id` or `stock_exception_id`.
 - Trigger: a line for a serialised product has `stock_unit_id` set and `qty_ordered = 1`. **As changed in B11u (migration 0349, the owner 2026-11-23, A-351, ADR-0098):** a `QUOTE` line may wait for its animal (`stock_unit_id` null) while `OPEN`, `BACKORDERED`, `CANCELLED` or `SUBSTITUTED`; the picker names it and dispatch or collection writes it before the line is fulfilled (`ck_sales_order_line_serial`), and once named it never changes (`ck_sales_order_line_animal_named`, HK004). A converted quote's line keeps as `resolved_unit_price_pesewas` the list its quote line recorded at issue, its quoted price as `agreed_unit_price_pesewas` and the difference as its variance under `QUOTED_PRICE` (migration 0348, A-350); floor and ceiling hold both prices.
+- **As changed in B11u continued (the owner, 2026-11-24, A-356, A-357, A-295):** a converted order may be a delivery (`fulfilment_mode` `DELIVERY` with the address snapshot and zone, as `createOrder`'s); its `estimated_total_pesewas` includes the accepted version's tax on a tax-exclusive quote; a backorder holds, in `inv.stock_reservation`, what its first order held of the stock not sent.
 
 ### `ord.sales_order_adjustment` · DOCUMENT
 

@@ -1434,6 +1434,7 @@ Default session: B10. Brief bullets: public form and internal creation (001 to 0
 - Rule: An accepted quote converts to exactly one sales order (unique), with each line carrying the quoted price as its rule reference; the order, and later the invoice, keep the link to the quote, version and request. A partial delivery bills only what was fulfilled.
 - Outcome: The order lines show the quote line as their price rule.
 - Acceptance: Converting an accepted quote of 20 goats creates one order at 85,000 each; converting it again returns 409; after delivering 12 goats the invoice is for 12 x 85,000 = 1,020,000 and still references the quote.
+- Amended 2026-11-24 (the owner, 2026-11-24: "BL-123 and BL-124: fix them in one small phase before B12" and "An accepted quote's hold ends 7 days after acceptance."; B11u continued, A-356, A-357, A-294): the order may be a delivery to the customer's saved address at the quote's fee; its estimate includes the quote's tax; an accepted quote converts only within 7 days of its acceptance, after which its hold is released and it stands expired.
 - Test: `test/int/quo/quote-conversion.int.spec.ts › creates exactly one order that keeps the links`
 
 **FR-QUO-012** Reserved stock for a quoted animal
@@ -1675,6 +1676,7 @@ Default session: B9a. B9a builds the order record, state machine, sale posting a
 - Rule: Fulfilment is tracked on lines. A partly fulfilled order moves forward with the fulfilled lines; the remainder is a linked backorder with its own passage through the machine. A partial fulfilment bills only what was fulfilled.
 - Outcome: Fulfilled, outstanding and backordered quantities are visible per line.
 - Acceptance: Order of 20, fulfilled 12: invoice for 12, backorder for 8 linked to the order; fulfilling the 8 later completes the backorder only.
+- Amended 2026-11-24 (the owner, BL-123, B11u continued, A-295): the backorder keeps the stock its first order held for what was not sent, handed over in the same transaction.
 - Test: `test/int/ord/partial-fulfilment.int.spec.ts › bills only the fulfilled quantity`
 
 **FR-ORD-013** Substitution with customer consent

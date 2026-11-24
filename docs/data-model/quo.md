@@ -103,6 +103,8 @@ A line is **subject to stock** when `available_qty` is below its `base_qty`; a v
 
 **As changed in B11u (the owner, 2026-11-23, A-351, A-353, ADR-0098):** a line of animals that names none holds its count at issue, oldest first, capped at what is free, of its weight band when it names one (an animal never weighed is not held for a banded line), so `held_qty` is the animals held and `available_qty` counts only animals of the band; the hold ends with the quote (expiry, a new issued version, a decline, a withdrawal) and passes to the order at conversion. The buyer's `PublicQuoteLine.availableNowQuantity` is read live, never stored: what the quote holds for the line and what is free now, capped at the line's base quantity.
 
+**As changed in B11u continued (the owner, 2026-11-24, A-294, A-358; migration 0351):** an accepted quote no order took within 7 days of acceptance is moved `ACCEPTED` to `EXPIRED` by the quote-expiry job, keeping its `accepted_version_id` (`ck_quote_accepted` and `quo.quote_guard()` replaced), its hold released; a line of animals' `estimated_unit_cost_pesewas` is the cost of the animals it holds or would hold (its band's average for heads it cannot hold), and a revision holds its last version's animals first.
+
 ### `quo.quote_line` · DOCUMENT
 
 Frozen with its version.
