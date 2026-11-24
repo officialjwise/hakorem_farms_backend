@@ -1,0 +1,217 @@
+operationId: listCapitalTransactions
+tags:
+  - cap
+summary: "List capital contributions and withdrawals"
+description: "FR-CAP-003, FR-CAP-004. Contributions and withdrawals, latest value date first, filtered by investor, kind and a range of value dates. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.capital.read`."
+x-permission: cap.capital.read
+parameters:
+  - name: investorId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: kind
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CapitalTransactionPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b0d-4808-707e-85b6-10b8fcf58996"
+                  transactionNo: CAP-2026-DDW-000011
+                  investor:
+                    id: "019a7a92-45a2-7df4-a32d-e81f131b60fc"
+                    investorNo: INV-005
+                    name: "Akwaaba Diaspora Agro Fund"
+                  kind: CONTRIBUTION
+                  amountPesewas: 20000000
+                  valueDate: "2026-07-15"
+                  unitPricePesewas: 10000
+                  units: "2000.0000"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  externalReference: "SWIFT BARCGB22 0715"
+                  reversesTransactionId: null
+                  recordedAt: "2026-07-15T11:00:00Z"
+                  actor:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                  currency: GHS
+                - id: "019a7b0d-66f7-7a61-9f9a-aef076a627ce"
+                  transactionNo: CAP-2026-DDW-000010
+                  investor:
+                    id: "019a7a91-e8d5-704a-b582-0d78a6088656"
+                    investorNo: INV-002
+                    name: "Kofi Ampofo"
+                  kind: CONTRIBUTION
+                  amountPesewas: 5000000
+                  valueDate: "2026-08-15"
+                  unitPricePesewas: 10000
+                  units: "500.0000"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  externalReference: GCB-TRF-20260815-0031
+                  reversesTransactionId: null
+                  recordedAt: "2026-08-15T11:00:00Z"
+                  actor:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                  currency: GHS
+                - id: "019a7b0d-85e6-7445-a97d-4d27f057c605"
+                  transactionNo: CAP-2026-DDW-00009
+                  investor:
+                    id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
+                    investorNo: INV-003
+                    name: "Esi Bonsu"
+                  kind: CONTRIBUTION
+                  amountPesewas: 2500000
+                  valueDate: "2026-09-01"
+                  unitPricePesewas: 10000
+                  units: "250.0000"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  externalReference: GCB-TRF-20260901-0007
+                  reversesTransactionId: null
+                  recordedAt: "2026-09-01T11:00:00Z"
+                  actor:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                  currency: GHS
+                - id: "019a7b0d-a4d5-7e28-b361-eb5f6a08643d"
+                  transactionNo: CAP-2026-DDW-00008
+                  investor:
+                    id: "019a7a92-26b3-7411-9949-49e7996ac2c5"
+                    investorNo: INV-004
+                    name: "Yaw Frimpong"
+                  kind: CONTRIBUTION
+                  amountPesewas: 2000000
+                  valueDate: "2025-11-01"
+                  unitPricePesewas: 10000
+                  units: "200.0000"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  externalReference: MTN-6611040922
+                  reversesTransactionId: null
+                  recordedAt: "2025-11-01T11:00:00Z"
+                  actor:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                  currency: GHS
+                - id: "019a7b0d-c3c4-780c-8d44-8996e3b90274"
+                  transactionNo: CAP-2026-DDW-00007
+                  investor:
+                    id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+                    investorNo: INV-001
+                    name: "Ama Owusu-Ansah"
+                  kind: CONTRIBUTION
+                  amountPesewas: 10000000
+                  valueDate: "2025-06-01"
+                  unitPricePesewas: 10000
+                  units: "1000.0000"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  externalReference: GCB-TRF-20250601-0002
+                  reversesTransactionId: null
+                  recordedAt: "2025-06-01T11:00:00Z"
+                  actor:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                  currency: GHS
+                - id: "019a7b0d-e2b3-71ef-9728-27ce5d6aa0ac"
+                  transactionNo: CAP-2026-DDW-00006
+                  investor:
+                    id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
+                    investorNo: INV-003
+                    name: "Esi Bonsu"
+                  kind: CONTRIBUTION
+                  amountPesewas: 2500000
+                  valueDate: "2025-06-01"
+                  unitPricePesewas: 10000
+                  units: "250.0000"
+                  bankAccount:
+                    id: "019a7a92-6491-77d8-bd10-86568cccff34"
+                    name: "GCB current account"
+                    kind: BANK
+                    last4: "4821"
+                  externalReference: GCB-TRF-20250601-0003
+                  reversesTransactionId: null
+                  recordedAt: "2025-06-01T11:00:00Z"
+                  actor:
+                    id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+                    displayName: "Efua Asante"
+                  currency: GHS
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

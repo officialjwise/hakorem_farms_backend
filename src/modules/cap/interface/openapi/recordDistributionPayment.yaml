@@ -1,0 +1,68 @@
+operationId: recordDistributionPayment
+tags:
+  - cap
+summary: "Record a payout to an investor"
+description: "FR-CAP-012. Records money paid to an investor against a line of a posted run, from one of the farm's own active bank or mobile money accounts: Dr 2300 against the investor, Cr 1100 or 1110. A line is paid at most its net payable, which the database holds too; the run is `PAID` with its last payment. Refusals: 422 `DISTRIBUTION_PAYMENT_INVALID` (`RUN_NOT_POSTED`, `LINE_PAID`, `MORE_THAN_PAYABLE`, `BANK_ACCOUNT_UNKNOWN`, `BANK_ACCOUNT_INACTIVE`); 409 `DUPLICATE_VALUE` for an `externalReference` already recorded. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.distribution.pay`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: cap.distribution.pay
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/DistributionPaymentCreate"
+      example:
+        amountPesewas: 717853
+        bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
+        externalReference: GCB-TRF-20261115-0002
+        paidAt: "2026-11-15T11:00:00Z"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/DistributionLine"
+        example:
+          id: "019a7b0e-7d5e-7361-a899-3ee3bddfb7c1"
+          investor:
+            id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+            investorNo: INV-001
+            name: "Ama Owusu-Ansah"
+          unitDays: "92000.0000"
+          allocatedPesewas: 717853
+          receivedExtraPesewa: false
+          withheldPesewas: 0
+          netPayablePesewas: 717853
+          paidPesewas: 717853
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

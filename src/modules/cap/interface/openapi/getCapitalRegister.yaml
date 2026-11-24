@@ -1,0 +1,115 @@
+operationId: getCapitalRegister
+tags:
+  - cap
+summary: "The capital register: units and share per investor at a date"
+description: "FR-CAP-005. Each investor's units on `asOf` (today when absent): units issued on or before it less units redeemed on or before it, their share of the units in issue that day to four places, and what they had paid in and taken out by then. `totalUnits` and `totalNetCapitalPesewas` cover every investor, not the page. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.capital.read`."
+x-permission: cap.capital.read
+parameters:
+  - name: asOf
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CapitalRegister"
+        examples:
+          default:
+            value:
+              data:
+                - investor:
+                    id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+                    investorNo: INV-001
+                    name: "Ama Owusu-Ansah"
+                  units: "1000.0000"
+                  sharePercent: "23.81"
+                  contributedPesewas: 10000000
+                  withdrawnPesewas: 0
+                  netCapitalPesewas: 10000000
+                - investor:
+                    id: "019a7a91-e8d5-704a-b582-0d78a6088656"
+                    investorNo: INV-002
+                    name: "Kofi Ampofo"
+                  units: "500.0000"
+                  sharePercent: "11.90"
+                  contributedPesewas: 5000000
+                  withdrawnPesewas: 0
+                  netCapitalPesewas: 5000000
+                - investor:
+                    id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
+                    investorNo: INV-003
+                    name: "Esi Bonsu"
+                  units: "500.0000"
+                  sharePercent: "11.90"
+                  contributedPesewas: 5000000
+                  withdrawnPesewas: 0
+                  netCapitalPesewas: 5000000
+                - investor:
+                    id: "019a7a92-26b3-7411-9949-49e7996ac2c5"
+                    investorNo: INV-004
+                    name: "Yaw Frimpong"
+                  units: "200.0000"
+                  sharePercent: "4.76"
+                  contributedPesewas: 2000000
+                  withdrawnPesewas: 0
+                  netCapitalPesewas: 2000000
+                - investor:
+                    id: "019a7a92-45a2-7df4-a32d-e81f131b60fc"
+                    investorNo: INV-005
+                    name: "Akwaaba Diaspora Agro Fund"
+                  units: "2000.0000"
+                  sharePercent: "47.62"
+                  contributedPesewas: 20000000
+                  withdrawnPesewas: 0
+                  netCapitalPesewas: 20000000
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              asOf: "2026-11-13"
+              totalUnits: "4200.0000"
+              totalNetCapitalPesewas: 42000000
+              currency: GHS
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              asOf: "2026-11-13"
+              totalUnits: "0.0000"
+              totalNetCapitalPesewas: 0
+              currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,57 @@
+operationId: getInvestor
+tags:
+  - cap
+summary: "Get an investor"
+description: "FR-CAP-001. One investor with their units, share, and what they have paid in and taken out. Payout details, the identity number and the portal login are B12 continued's: until then `payoutMethod`, `payoutDetailsMasked` and `idNumberMasked` are null and `hasPortalLogin` false. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.investor.read`."
+x-permission: cap.investor.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Investor"
+        example:
+          id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+          investorNo: INV-001
+          kind: INDIVIDUAL
+          legalName: "Ama Owusu-Ansah"
+          phone: "+233244310221"
+          email: "ama.oa@example.com"
+          hasPortalLogin: true
+          idNumberMasked: "GHA-••••••••-3"
+          payoutMethod: BANK
+          payoutDetailsMasked: "GCB, ****1180"
+          joinedOn: "2025-06-01"
+          status: ACTIVE
+          units: "1000.0000"
+          sharePercent: "23.81"
+          contributedPesewas: 10000000
+          withdrawnPesewas: 0
+          currency: GHS
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

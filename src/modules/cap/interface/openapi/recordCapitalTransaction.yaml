@@ -1,0 +1,91 @@
+operationId: recordCapitalTransaction
+tags:
+  - cap
+summary: "Record a capital contribution or withdrawal"
+description: "FR-CAP-003, FR-CAP-004, ADR-0028. Capital arrives through CAP to one of the farm's own active bank or mobile money accounts, never as cash (A-212 (a)). A `CONTRIBUTION` issues units at its value date (the contribution day counts): the amount over the unit price (GHS 100.00 unless given), exactly, never rounded; it is numbered `CAP-...` and posts Dr 1100 or 1110 (by the account's kind), Cr 3000 against the investor, in the same transaction (201). A value date before the books begin posts on the ledger's first day, its units still counting from the value date (A-380). A `WITHDRAWAL` redeems units from its value date (that day is not a day held) and always waits for approval of kind `CAPITAL_WITHDRAWAL` by a different person holding `cap.capital.approve`, with step-up: 202, and nothing moves until then; on approval it posts Dr 3000, Cr the account. It can never redeem more units than the investor holds on its value date or any later day, checked when asked, at approval, and by the database. Refusals: 422 `CAPITAL_TRANSACTION_INVALID` with `details[].code` (`INVESTOR_UNKNOWN`, `INVESTOR_EXITED`, `BANK_ACCOUNT_UNKNOWN`, `BANK_ACCOUNT_INACTIVE`, `UNITS_NOT_EXACT`, `VALUE_DATE_IN_FUTURE`, `PERIOD_NOT_OPEN` for a value date in a locked, closed or missing period, `MORE_THAN_HELD`). The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.capital.record`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session.\n\nMay require approval of kind `CAPITAL_WITHDRAWAL`. When it does, the response is `202` with an `ApprovalPending` body and nothing takes effect until a different user approves."
+x-permission: cap.capital.record
+x-requires-step-up: true
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/CapitalTransactionCreate"
+      example:
+        kind: CONTRIBUTION
+        investorId: "019a7a91-e8d5-704a-b582-0d78a6088656"
+        amountPesewas: 5000000
+        valueDate: "2026-08-15"
+        unitPricePesewas: 10000
+        bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
+        externalReference: GCB-TRF-20260815-0031
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CapitalTransaction"
+        example:
+          id: "019a7b0d-66f7-7a61-9f9a-aef076a627ce"
+          transactionNo: CAP-2026-DDW-000010
+          investor:
+            id: "019a7a91-e8d5-704a-b582-0d78a6088656"
+            investorNo: INV-002
+            name: "Kofi Ampofo"
+          kind: CONTRIBUTION
+          amountPesewas: 5000000
+          valueDate: "2026-08-15"
+          unitPricePesewas: 10000
+          units: "500.0000"
+          bankAccount:
+            id: "019a7a92-6491-77d8-bd10-86568cccff34"
+            name: "GCB current account"
+            kind: BANK
+            last4: "4821"
+          externalReference: GCB-TRF-20260815-0031
+          reversesTransactionId: null
+          recordedAt: "2026-08-15T11:00:00Z"
+          actor:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+          currency: GHS
+  "202":
+    description: "Accepted for approval. Nothing has taken effect yet."
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ApprovalPending"
+        example:
+          status: PENDING_APPROVAL
+          approvalRequestId: "019a7b0e-01a2-7bd3-a10b-c605d71b3ee3"
+          kind: CAPITAL_WITHDRAWAL
+          subject:
+            id: "019a7b0e-2091-75b6-baef-643d50ccdd1b"
+            docType: STOCK_ADJUSTMENT
+            number: null
+          summary: "Awaiting approval by a different user with the approving permission"
+          requestedAt: "2026-11-13T10:12:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

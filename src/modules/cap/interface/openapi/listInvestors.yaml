@@ -1,0 +1,151 @@
+operationId: listInvestors
+tags:
+  - cap
+summary: "List investors"
+description: "FR-CAP-001. The investor register in investor-number order (INV-001, INV-002 and on, never reused), each with the units held now and their share of the units in issue, to four places, computed on request. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.investor.read`."
+x-permission: cap.investor.read
+parameters:
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InvestorPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+                  investorNo: INV-001
+                  kind: INDIVIDUAL
+                  legalName: "Ama Owusu-Ansah"
+                  phone: "+233244310221"
+                  email: "ama.oa@example.com"
+                  hasPortalLogin: true
+                  idNumberMasked: "GHA-••••••••-3"
+                  payoutMethod: BANK
+                  payoutDetailsMasked: "GCB, ****1180"
+                  joinedOn: "2025-06-01"
+                  status: ACTIVE
+                  units: "1000.0000"
+                  sharePercent: "23.81"
+                  contributedPesewas: 10000000
+                  withdrawnPesewas: 0
+                  currency: GHS
+                  version: 2
+                - id: "019a7a91-e8d5-704a-b582-0d78a6088656"
+                  investorNo: INV-002
+                  kind: INDIVIDUAL
+                  legalName: "Kofi Ampofo"
+                  phone: "+233201992710"
+                  email: "k.ampofo@example.com"
+                  hasPortalLogin: true
+                  idNumberMasked: "GHA-••••••••-4"
+                  payoutMethod: BANK
+                  payoutDetailsMasked: "Ecobank, ****7702"
+                  joinedOn: "2026-08-15"
+                  status: ACTIVE
+                  units: "500.0000"
+                  sharePercent: "11.90"
+                  contributedPesewas: 5000000
+                  withdrawnPesewas: 0
+                  currency: GHS
+                  version: 2
+                - id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
+                  investorNo: INV-003
+                  kind: INDIVIDUAL
+                  legalName: "Esi Bonsu"
+                  phone: "+233243118802"
+                  email: "esi.bonsu@example.com"
+                  hasPortalLogin: true
+                  idNumberMasked: "GHA-••••••••-5"
+                  payoutMethod: BANK
+                  payoutDetailsMasked: "Stanbic, ****3319"
+                  joinedOn: "2025-06-01"
+                  status: ACTIVE
+                  units: "500.0000"
+                  sharePercent: "11.90"
+                  contributedPesewas: 5000000
+                  withdrawnPesewas: 0
+                  currency: GHS
+                  version: 2
+                - id: "019a7a92-26b3-7411-9949-49e7996ac2c5"
+                  investorNo: INV-004
+                  kind: INDIVIDUAL
+                  legalName: "Yaw Frimpong"
+                  phone: "+233558870014"
+                  email: null
+                  hasPortalLogin: false
+                  idNumberMasked: "GHA-••••••••-6"
+                  payoutMethod: MOBILE_MONEY
+                  payoutDetailsMasked: "MTN MoMo, ****0014"
+                  joinedOn: "2025-11-01"
+                  status: ACTIVE
+                  units: "200.0000"
+                  sharePercent: "4.76"
+                  contributedPesewas: 2000000
+                  withdrawnPesewas: 0
+                  currency: GHS
+                  version: 2
+                - id: "019a7a92-45a2-7df4-a32d-e81f131b60fc"
+                  investorNo: INV-005
+                  kind: ENTITY
+                  legalName: "Akwaaba Diaspora Agro Fund"
+                  phone: "+447700900311"
+                  email: "invest@akwaabafund.example"
+                  hasPortalLogin: true
+                  idNumberMasked: null
+                  payoutMethod: BANK
+                  payoutDetailsMasked: "Barclays UK, ****4410"
+                  joinedOn: "2026-07-15"
+                  status: ACTIVE
+                  units: "2000.0000"
+                  sharePercent: "47.62"
+                  contributedPesewas: 20000000
+                  withdrawnPesewas: 0
+                  currency: GHS
+                  version: 2
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

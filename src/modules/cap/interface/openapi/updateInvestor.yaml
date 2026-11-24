@@ -1,0 +1,73 @@
+operationId: updateInvestor
+tags:
+  - cap
+summary: "Update an investor"
+description: "FR-CAP-001. Changes the phone, email or status at the `version` read (409 `VERSION_CONFLICT` otherwise). An investor is never deleted: one who leaves is `EXITED`, and only once they hold no units (422 `INVESTOR_INVALID` `INVESTOR_HAS_UNITS`). `payout` is B12 continued's (422 `FIELD_NOT_YET_SUPPORTED` until then). Audited with before and after. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: cap.investor.manage
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/InvestorUpdate"
+      example:
+        version: 2
+        email: "yaw.frimpong@example.com"
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Investor"
+        example:
+          id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+          investorNo: INV-001
+          kind: INDIVIDUAL
+          legalName: "Ama Owusu-Ansah"
+          phone: "+233244310221"
+          email: "ama.oa@example.com"
+          hasPortalLogin: true
+          idNumberMasked: "GHA-••••••••-3"
+          payoutMethod: BANK
+          payoutDetailsMasked: "GCB, ****1180"
+          joinedOn: "2025-06-01"
+          status: ACTIVE
+          units: "1000.0000"
+          sharePercent: "23.81"
+          contributedPesewas: 10000000
+          withdrawnPesewas: 0
+          currency: GHS
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

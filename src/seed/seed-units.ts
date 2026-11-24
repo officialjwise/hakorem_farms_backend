@@ -1,5 +1,6 @@
 import { farmSeedAud, farmSeedOfflineSettings } from './farm-aud';
 import { farmSeedBil } from './farm-bil';
+import { farmSeedCap } from './farm-cap';
 import { farmSeedFin, farmSeedFinAssets } from './farm-fin';
 import { farmSeedIam, seedLocationGrantsIam } from './farm-iam';
 import { farmSeedInv } from './farm-inv';
@@ -30,6 +31,12 @@ export interface SeedOptions {
    * the B5 hand count and every exact amount they assert.
    */
   readonly tradingDay?: boolean;
+  /**
+   * The investors, their capital and the trading summary of July to September 2026 (B12, UAT section 3.5, `farm-cap.ts`).
+   * `pnpm db:seed` always adds them; a test adds them only when it reads them, so the bank balance and the ledger every
+   * other test asserts stay as they were.
+   */
+  readonly investors?: boolean;
 }
 
 /**
@@ -51,12 +58,14 @@ export interface SeedOptions {
  * asked by one Owner or Manager and approved by another, Madina Market Traders held by the Accountant (B10 continued, `farm-whl.ts`); then the reminder levels of 7, 14 and 30 days
  * (B10 continued 2, `farm-whl.ts`); then the seeded Owner sets the business
  * profile through AUD, the shop's contact details among it (B09x continued, `farm-aud.ts`); then the seeded salesperson logs Madina Market
- * Traders' WhatsApp request for ten crates and drafts its quote through QUO, nothing reserved (B10, `farm-quo.ts`); last, with `tradingDay`, the seeded cashier posts
+ * Traders' WhatsApp request for ten crates and drafts its quote through QUO, nothing reserved (B10, `farm-quo.ts`); then, with `investors`, the Accountant registers the five investors of UAT section 3.5, records their
+ * contributions and the trading summary of July to September 2026, which the Owner approves (B12, `farm-cap.ts`); last, with `tradingDay`, the seeded cashier posts
  * the trading day's sales through ORD's `SalePosting` (B09a continued 2g, `farm-ord.ts`). Every date the units write comes from one
  * seed calendar per run, built from the application clock (B09t2, `seed-calendar.ts`).
  */
 export function seedUnits(env: SeedEnvironment, options: SeedOptions = {}): readonly SeedUnit[] {
   const calendar = seedRunCalendar();
   const farm = [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(calendar), seedLocationGrantsIam(), farmSeedInv(calendar), farmSeedLiv(calendar), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp(), farmSeedBil(), farmSeedWhl(calendar), farmSeedWhlAccounts(), farmSeedWhlDunning(), farmSeedAud(), farmSeedOfflineSettings(), farmSeedQuo(calendar)];
-  return options.tradingDay === true ? [...farm, farmSeedOrd(calendar)] : farm;
+  const withInvestors = options.investors === true ? [...farm, farmSeedCap()] : farm;
+  return options.tradingDay === true ? [...withInvestors, farmSeedOrd(calendar)] : withInvestors;
 }

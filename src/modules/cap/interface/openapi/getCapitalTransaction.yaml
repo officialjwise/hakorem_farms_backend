@@ -1,0 +1,62 @@
+operationId: getCapitalTransaction
+tags:
+  - cap
+summary: "Get a capital transaction"
+description: "FR-CAP-003, FR-CAP-004. One capital transaction. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.capital.read`."
+x-permission: cap.capital.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CapitalTransaction"
+        example:
+          id: "019a7b0d-4808-707e-85b6-10b8fcf58996"
+          transactionNo: CAP-2026-DDW-000011
+          investor:
+            id: "019a7a92-45a2-7df4-a32d-e81f131b60fc"
+            investorNo: INV-005
+            name: "Akwaaba Diaspora Agro Fund"
+          kind: CONTRIBUTION
+          amountPesewas: 20000000
+          valueDate: "2026-07-15"
+          unitPricePesewas: 10000
+          units: "2000.0000"
+          bankAccount:
+            id: "019a7a92-6491-77d8-bd10-86568cccff34"
+            name: "GCB current account"
+            kind: BANK
+            last4: "4821"
+          externalReference: "SWIFT BARCGB22 0715"
+          reversesTransactionId: null
+          recordedAt: "2026-07-15T11:00:00Z"
+          actor:
+            id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
+            displayName: "Efua Asante"
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
