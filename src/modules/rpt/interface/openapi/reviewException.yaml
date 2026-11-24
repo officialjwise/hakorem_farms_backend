@@ -1,0 +1,82 @@
+operationId: reviewException
+tags:
+  - rpt
+summary: "Mark an exception item reviewed with a note"
+description: "CR-059, ADR-0103 (2.48.0). Marks an item the caller may read reviewed, with a note of 1 to 500 characters, and answers the item with its `review`. Once: a second review is 409 `ALREADY_REVIEWED` and the first stands. Never by the person the item names: 422 `REVIEWER_IS_ACTOR` (the database holds it too). An item the caller cannot read (another branch's, or an investor item without `cap.capital.read`) answers 404 as one that does not exist. Audited. The same key answers the first review.\n\nPermission: `rpt.exceptions.review`."
+x-permission: rpt.exceptions.review
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/ExceptionReviewCreate"
+      example:
+        note: "Checked the void slip with Adwoa: a wrong goat was rung up."
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/ExceptionItem"
+        example:
+          id: "019a7b12-3c4f-75ec-9b24-679b7a4ee079"
+          exceptionDate: "2026-11-13"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          kind: SALE_VOID
+          severity: REVIEW
+          abuseCases:
+            - 1
+          actor:
+            id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
+            displayName: "Adwoa Darko"
+          subjectDocument:
+            id: "019a7b12-5b3e-7fd0-a508-05d2f3ff7eb0"
+            docType: SALES_ORDER
+            number: null
+          amountPesewas: 127500
+          currency: GHS
+          summary: "Void of SO-2026-DDW-004198, GHS 1,275.00, requested by Adwoa Darko"
+          details:
+            sourceEvent:
+              id: "019a7b12-0000-7000-8000-000000000000"
+              type: ord.OrderVoided
+          raisedAt: "2026-11-13T08:00:00Z"
+          sourceKind: VOIDED
+          review:
+            reviewedBy:
+              id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
+              displayName: "Kwabena Owusu"
+            reviewedAt: "2026-11-13T17:30:00Z"
+            note: "Checked the void slip with Adwoa: a wrong goat was rung up."
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

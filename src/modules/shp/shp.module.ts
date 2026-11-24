@@ -90,8 +90,10 @@ import { ShopController } from './interface/shop.controller';
         clock: Clock,
         online: OnlineOrders,
         providerPayments: ProviderPayments,
-      ) => new Checkouts(uow, store, carts, listing, storefront, pricing, tax, stock, reservations, slots, idempotency, audit, events, documents, settings, clock, online, providerPayments),
-      inject: [UnitOfWork, SHP_STORE, Carts, CatalogueListing, Storefront, PricingService, TaxService, StockQueries, Reservations, Slots, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, Settings, CLOCK, OnlineOrders, ProviderPayments],
+        config: AppConfig,
+      ) =>
+        new Checkouts(uow, store, carts, listing, storefront, pricing, tax, stock, reservations, slots, idempotency, audit, events, documents, settings, clock, online, providerPayments, Buffer.from(config.LOOKUP_HMAC_KEY, 'base64')),
+      inject: [UnitOfWork, SHP_STORE, Carts, CatalogueListing, Storefront, PricingService, TaxService, StockQueries, Reservations, Slots, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, Settings, CLOCK, OnlineOrders, ProviderPayments, APP_CONFIG],
     },
   ],
   exports: [CatalogueListing, Carts, Checkouts, AbandonedCarts],

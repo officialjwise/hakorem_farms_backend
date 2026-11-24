@@ -309,6 +309,8 @@ describe('a distribution run (ADR-0028, FR-CAP-006 to FR-CAP-012)', () => {
     await stepUp(api.server, accountant, clock);
     const posted = await post(accountant, `/distribution-runs/${runId}/post`);
     expect(posted.status, JSON.stringify(posted.body)).toBe(200);
+    const declared = await admin().query<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'cap.DistributionDeclared' AND subject_id = $1", [runId]);
+    expect(declared.rows[0]!.payload['retentionRatePercent'], 'for abuse case 69 on the exception report').toBe('40.00');
     const debits = await entryLines('3300', 'cap.DistributionDeclared', runId);
     expect(debits).toEqual([
       ['D', 630_474, 'INV-001'],

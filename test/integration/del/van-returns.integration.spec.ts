@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { UnitOfWork } from '../../../src/platform/database/unit-of-work';
+import { FileStore } from '../../../src/platform/storage/file-store';
 import { createUuidV7Generator, ManualClock, toBusinessDate } from '@hakorem/kernel';
 import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -616,6 +618,20 @@ describe('a part delivery: the customer keeps two of three crates, the third com
     expect((await decide('owner', credit.approval, 'approve')).status).toBe(200);
     const refund = await one<{ amount: string; destination: string; reason: string }>('SELECT amount_pesewas::text AS amount, destination, reason_code AS reason FROM pay.refund WHERE id = $1', [(await wayOut(paidTwo.deliveryId)).refund_id]);
     expect(refund).toEqual({ amount: String(crate), destination: 'ORIGINAL_METHOD', reason: 'ORDER_RETURNED' });
+  });
+
+  it('records a photograph used before on the proof, publishes it for the exception report (abuse case 44, CR-059), and matches another upload of the same bytes', async () => {
+    const flags = async (deliveryId: string) =>
+      one<{ photo: boolean; signature: boolean; id: string }>('SELECT id, photo_matches_earlier_upload AS photo, signature_matches_earlier_upload AS signature FROM del.proof_of_delivery WHERE delivery_id = $1', [deliveryId]);
+    const first = await flags(three.deliveryId);
+    expect(first).toMatchObject({ photo: false, signature: false });
+    const again = await flags(paidTwo.deliveryId);
+    expect(again).toMatchObject({ photo: true, signature: false });
+    const published = await admin().query<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'del.ProofFileReused' AND payload ->> 'proofId' = $1", [again.id]);
+    expect(published.rows.map((r) => r.payload)).toEqual([expect.objectContaining({ deliveryId: paidTwo.deliveryId, file: 'PHOTO', fileId: photoId, earlierFileIds: [], earlierProofIds: [first.id], matchedBy: 'SHA256', abuseCases: [44] })]);
+    const copy = await upload('driver', 41);
+    const earlier = await api.app.get(UnitOfWork).run({ isolation: 'read committed' }, (tx) => api.app.get(FileStore).earlierWithSameContent(tx, copy));
+    expect(earlier).toEqual([photoId]);
   });
 
   it('holds the part delivery in the database: never more kept than dispatched, and a returned reason exactly when a line was kept short', async () => {

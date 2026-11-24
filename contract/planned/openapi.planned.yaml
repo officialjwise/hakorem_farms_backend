@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.47.0"
+  version: "2.48.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -3910,574 +3910,8 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
-  "/exceptions":
-    get:
-      operationId: listExceptions
-      tags:
-        - rpt
-      summary: "List exception items"
-      description: "Permission: `rpt.exceptions.read`."
-      x-permission: rpt.exceptions.read
-      parameters:
-        - name: date
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-        - name: from
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-        - name: to
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-        - name: kind
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/ExceptionKind"
-        - name: severity
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: actorId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: branchId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ExceptionItemPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7b12-3c4f-75ec-9b24-679b7a4ee079"
-                        exceptionDate: "2026-11-13"
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        kind: SALE_VOID
-                        severity: REVIEW
-                        abuseCases:
-                          - 1
-                        actor:
-                          id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                          displayName: "Adwoa Darko"
-                        subjectDocument:
-                          id: "019a7b12-5b3e-7fd0-a508-05d2f3ff7eb0"
-                          docType: SALES_ORDER
-                          number: null
-                        amountPesewas: 127500
-                        currency: GHS
-                        summary: "Void of SO-2026-DDW-004198, GHS 1,275.00, requested by Adwoa Darko"
-                        details: {}
-                        raisedAt: "2026-11-13T08:00:00Z"
-                      - id: "019a7b12-7a2d-79b3-beeb-a40a6db01ce8"
-                        exceptionDate: "2026-11-13"
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        kind: PRICE_OVERRIDE
-                        severity: INFO
-                        abuseCases:
-                          - 3
-                        actor:
-                          id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                          displayName: "Adwoa Darko"
-                        subjectDocument:
-                          id: "019a7b12-991c-7397-88cf-4241e761bb1f"
-                          docType: SALES_ORDER
-                          number: null
-                        amountPesewas: 5000
-                        currency: GHS
-                        summary: "Goat G-0142 sold at GHS 800.00 against a list price of GHS 850.00"
-                        details: {}
-                        raisedAt: "2026-11-13T09:00:00Z"
-                      - id: "019a7b12-b80b-7d7a-92b2-e07961125957"
-                        exceptionDate: "2026-11-13"
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        kind: MORTALITY
-                        severity: REVIEW
-                        abuseCases:
-                          - 2
-                        actor:
-                          id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                          displayName: "Abena Quaye"
-                        subjectDocument:
-                          id: "019a7b12-d6fa-775d-ac96-7eb0dac3f78e"
-                          docType: MORTALITY_RECORD
-                          number: null
-                        amountPesewas: 58900
-                        currency: GHS
-                        summary: "Goat G-0171 reported dead by Abena Quaye; handler rate 1.48% against pen average 1.39%"
-                        details: {}
-                        raisedAt: "2026-11-13T10:00:00Z"
-                      - id: "019a7b12-f5e9-7141-b679-1ce8547495c6"
-                        exceptionDate: "2026-11-13"
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        kind: STOCK_EXCEPTION
-                        severity: URGENT
-                        abuseCases:
-                          - 11
-                        actor:
-                          id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
-                          displayName: "Nana Yeboah"
-                        subjectDocument:
-                          id: "019a7b13-14d8-7b24-805d-bb1fce2533fd"
-                          docType: STOCK_EXCEPTION
-                          number: null
-                        amountPesewas: 58900
-                        currency: GHS
-                        summary: "Goat G-0171 sold offline at till T2 after it was sold at till T1"
-                        details: {}
-                        raisedAt: "2026-11-13T11:00:00Z"
-                      - id: "019a7b13-33c7-7508-9a40-595747d6d235"
-                        exceptionDate: "2026-11-13"
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        kind: UNMATCHED_PAYMENT
-                        severity: REVIEW
-                        abuseCases:
-                          - 4
-                        actor:
-                          id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
-                          displayName: "Nana Yeboah"
-                        subjectDocument:
-                          id: "019a7b13-52b6-7eeb-a424-f78ec187706c"
-                          docType: PAYMENT
-                          number: null
-                        amountPesewas: 25000
-                        currency: GHS
-                        summary: "Mobile money of GHS 250.00 taken offline and not yet verified"
-                        details: {}
-                        raisedAt: "2026-11-13T12:00:00Z"
-                      - id: "019a7b13-71a5-78cf-be07-95c63b380ea4"
-                        exceptionDate: "2026-11-13"
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        kind: DRIVER_VARIANCE
-                        severity: URGENT
-                        abuseCases:
-                          - 6
-                        actor:
-                          id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
-                          displayName: "Kwesi Appiah"
-                        subjectDocument:
-                          id: "019a7b13-9094-72b2-87eb-33fdb4e9acdb"
-                          docType: DRIVER_CASH_RECONCILIATION
-                          number: null
-                        amountPesewas: 10000
-                        currency: GHS
-                        summary: "Kwesi Appiah handed in GHS 1,440.00 of GHS 1,540.00 collected"
-                        details: {}
-                        raisedAt: "2026-11-13T13:00:00Z"
-                      - id: "019a7b13-af83-7c96-91ce-d2352e9a4b13"
-                        exceptionDate: "2026-11-13"
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        kind: BULK_EXPORT
-                        severity: REVIEW
-                        abuseCases:
-                          - 9
-                        actor:
-                          id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                          displayName: "Efua Asante"
-                        subjectDocument:
-                          id: "019a7b13-ce72-7679-abb1-706ca84be94a"
-                          docType: REPORT_RUN
-                          number: null
-                        amountPesewas: null
-                        currency: GHS
-                        summary: "Customer list exported: 412 rows"
-                        details: {}
-                        raisedAt: "2026-11-13T14:00:00Z"
-                      - id: "019a7b13-ed61-705d-b595-0ea421fc8782"
-                        exceptionDate: "2026-11-13"
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        kind: PERMISSION_CHANGE
-                        severity: REVIEW
-                        abuseCases:
-                          - 16
-                        actor:
-                          id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                          displayName: "Kwabena Owusu"
-                        subjectDocument:
-                          id: "019a7b14-0c50-7a40-8f78-acdb9bad25b9"
-                          docType: ROLE_GRANT
-                          number: null
-                        amountPesewas: null
-                        currency: GHS
-                        summary: "Kwabena Owusu granted role SHOP_SUPERVISOR to Nana Yeboah"
-                        details: {}
-                        raisedAt: "2026-11-13T15:00:00Z"
-                    page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                      limit: 25
-                      hasMore: true
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/exceptions/daily-report":
-    get:
-      operationId: getDailyExceptionReport
-      tags:
-        - rpt
-      summary: "The daily exception report"
-      description: "Every abuse case in the threat model is either blocked or appears here with enough detail to act on (B13 proves each one).\n\nPermission: `rpt.exceptions.read`."
-      x-permission: rpt.exceptions.read
-      parameters:
-        - name: date
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: branchId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DailyExceptionReport"
-              example:
-                date: "2026-11-13"
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                counts:
-                  - kind: SALE_VOID
-                    count: 1
-                    amountPesewas: 127500
-                  - kind: PRICE_OVERRIDE
-                    count: 3
-                    amountPesewas: 13000
-                  - kind: MORTALITY
-                    count: 1
-                    amountPesewas: 58900
-                  - kind: STOCK_EXCEPTION
-                    count: 2
-                    amountPesewas: 58900
-                  - kind: UNMATCHED_PAYMENT
-                    count: 1
-                    amountPesewas: 25000
-                  - kind: DRIVER_VARIANCE
-                    count: 1
-                    amountPesewas: 10000
-                  - kind: BULK_EXPORT
-                    count: 1
-                    amountPesewas: 0
-                  - kind: PERMISSION_CHANGE
-                    count: 1
-                    amountPesewas: 0
-                  - kind: SHIFT_OVER_SHORT
-                    count: 1
-                    amountPesewas: 12000
-                items:
-                  - id: "019a7b12-3c4f-75ec-9b24-679b7a4ee079"
-                    exceptionDate: "2026-11-13"
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    kind: SALE_VOID
-                    severity: REVIEW
-                    abuseCases:
-                      - 1
-                    actor:
-                      id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                      displayName: "Adwoa Darko"
-                    subjectDocument:
-                      id: "019a7b12-5b3e-7fd0-a508-05d2f3ff7eb0"
-                      docType: SALES_ORDER
-                      number: null
-                    amountPesewas: 127500
-                    currency: GHS
-                    summary: "Void of SO-2026-DDW-004198, GHS 1,275.00, requested by Adwoa Darko"
-                    details: {}
-                    raisedAt: "2026-11-13T08:00:00Z"
-                  - id: "019a7b12-7a2d-79b3-beeb-a40a6db01ce8"
-                    exceptionDate: "2026-11-13"
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    kind: PRICE_OVERRIDE
-                    severity: INFO
-                    abuseCases:
-                      - 3
-                    actor:
-                      id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                      displayName: "Adwoa Darko"
-                    subjectDocument:
-                      id: "019a7b12-991c-7397-88cf-4241e761bb1f"
-                      docType: SALES_ORDER
-                      number: null
-                    amountPesewas: 5000
-                    currency: GHS
-                    summary: "Goat G-0142 sold at GHS 800.00 against a list price of GHS 850.00"
-                    details: {}
-                    raisedAt: "2026-11-13T09:00:00Z"
-                  - id: "019a7b12-b80b-7d7a-92b2-e07961125957"
-                    exceptionDate: "2026-11-13"
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    kind: MORTALITY
-                    severity: REVIEW
-                    abuseCases:
-                      - 2
-                    actor:
-                      id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                      displayName: "Abena Quaye"
-                    subjectDocument:
-                      id: "019a7b12-d6fa-775d-ac96-7eb0dac3f78e"
-                      docType: MORTALITY_RECORD
-                      number: null
-                    amountPesewas: 58900
-                    currency: GHS
-                    summary: "Goat G-0171 reported dead by Abena Quaye; handler rate 1.48% against pen average 1.39%"
-                    details: {}
-                    raisedAt: "2026-11-13T10:00:00Z"
-                  - id: "019a7b12-f5e9-7141-b679-1ce8547495c6"
-                    exceptionDate: "2026-11-13"
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    kind: STOCK_EXCEPTION
-                    severity: URGENT
-                    abuseCases:
-                      - 11
-                    actor:
-                      id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
-                      displayName: "Nana Yeboah"
-                    subjectDocument:
-                      id: "019a7b13-14d8-7b24-805d-bb1fce2533fd"
-                      docType: STOCK_EXCEPTION
-                      number: null
-                    amountPesewas: 58900
-                    currency: GHS
-                    summary: "Goat G-0171 sold offline at till T2 after it was sold at till T1"
-                    details: {}
-                    raisedAt: "2026-11-13T11:00:00Z"
-                  - id: "019a7b13-33c7-7508-9a40-595747d6d235"
-                    exceptionDate: "2026-11-13"
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    kind: UNMATCHED_PAYMENT
-                    severity: REVIEW
-                    abuseCases:
-                      - 4
-                    actor:
-                      id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
-                      displayName: "Nana Yeboah"
-                    subjectDocument:
-                      id: "019a7b13-52b6-7eeb-a424-f78ec187706c"
-                      docType: PAYMENT
-                      number: null
-                    amountPesewas: 25000
-                    currency: GHS
-                    summary: "Mobile money of GHS 250.00 taken offline and not yet verified"
-                    details: {}
-                    raisedAt: "2026-11-13T12:00:00Z"
-                  - id: "019a7b13-71a5-78cf-be07-95c63b380ea4"
-                    exceptionDate: "2026-11-13"
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    kind: DRIVER_VARIANCE
-                    severity: URGENT
-                    abuseCases:
-                      - 6
-                    actor:
-                      id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
-                      displayName: "Kwesi Appiah"
-                    subjectDocument:
-                      id: "019a7b13-9094-72b2-87eb-33fdb4e9acdb"
-                      docType: DRIVER_CASH_RECONCILIATION
-                      number: null
-                    amountPesewas: 10000
-                    currency: GHS
-                    summary: "Kwesi Appiah handed in GHS 1,440.00 of GHS 1,540.00 collected"
-                    details: {}
-                    raisedAt: "2026-11-13T13:00:00Z"
-                  - id: "019a7b13-af83-7c96-91ce-d2352e9a4b13"
-                    exceptionDate: "2026-11-13"
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    kind: BULK_EXPORT
-                    severity: REVIEW
-                    abuseCases:
-                      - 9
-                    actor:
-                      id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                      displayName: "Efua Asante"
-                    subjectDocument:
-                      id: "019a7b13-ce72-7679-abb1-706ca84be94a"
-                      docType: REPORT_RUN
-                      number: null
-                    amountPesewas: null
-                    currency: GHS
-                    summary: "Customer list exported: 412 rows"
-                    details: {}
-                    raisedAt: "2026-11-13T14:00:00Z"
-                  - id: "019a7b13-ed61-705d-b595-0ea421fc8782"
-                    exceptionDate: "2026-11-13"
-                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                    kind: PERMISSION_CHANGE
-                    severity: REVIEW
-                    abuseCases:
-                      - 16
-                    actor:
-                      id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                      displayName: "Kwabena Owusu"
-                    subjectDocument:
-                      id: "019a7b14-0c50-7a40-8f78-acdb9bad25b9"
-                      docType: ROLE_GRANT
-                      number: null
-                    amountPesewas: null
-                    currency: GHS
-                    summary: "Kwabena Owusu granted role SHOP_SUPERVISOR to Nana Yeboah"
-                    details: {}
-                    raisedAt: "2026-11-13T15:00:00Z"
-                voidsByCashier:
-                  - actor:
-                      id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                      displayName: "Adwoa Darko"
-                    count: 1
-                    amountPesewas: 127500
-                    ratePercent: "2.63"
-                    comparisonRatePercent: "1.10"
-                  - actor:
-                      id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
-                      displayName: "Nana Yeboah"
-                    count: 0
-                    amountPesewas: 0
-                    ratePercent: "0.00"
-                    comparisonRatePercent: "1.10"
-                overridesByUser:
-                  - actor:
-                      id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                      displayName: "Adwoa Darko"
-                    count: 2
-                    amountPesewas: 8000
-                    ratePercent: "0.61"
-                    comparisonRatePercent: "0.44"
-                  - actor:
-                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
-                      displayName: "Kojo Antwi"
-                    count: 1
-                    amountPesewas: 5000
-                    ratePercent: "1.70"
-                    comparisonRatePercent: "0.44"
-                refundsByUser: []
-                mortalityByHandler:
-                  - actor:
-                      id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                      displayName: "Abena Quaye"
-                    count: 1
-                    amountPesewas: 58900
-                    ratePercent: "1.48"
-                    comparisonRatePercent: "1.39"
-                adjustmentsByUser:
-                  - actor:
-                      id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                      displayName: "Yaw Boateng"
-                    count: 0
-                    amountPesewas: 0
-                    ratePercent: null
-                    comparisonRatePercent: null
-                driverVariances:
-                  - actor:
-                      id: "019a7a87-46ad-7a19-bf51-aa66d1302344"
-                      displayName: "Kwesi Appiah"
-                    count: 1
-                    amountPesewas: 10000
-                    ratePercent: "6.49"
-                    comparisonRatePercent: "0.80"
-                exportsByUser:
-                  - actor:
-                      id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                      displayName: "Efua Asante"
-                    count: 1
-                    amountPesewas: 0
-                    ratePercent: null
-                    comparisonRatePercent: null
-                shiftOverShort:
-                  - actor:
-                      id: "019a7a86-caf1-728b-b7c3-3188ea6caa66"
-                      displayName: "Nana Yeboah"
-                    count: 1
-                    amountPesewas: 12000
-                    ratePercent: "1.46"
-                    comparisonRatePercent: "0.30"
-                approvalPairs:
-                  - maker:
-                      id: "019a7a86-ac02-78a8-ade0-935170bb0c2f"
-                      displayName: "Adwoa Darko"
-                    checker:
-                      id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                      displayName: "Kwabena Owusu"
-                    count: 6
-                    amountPesewas: 166800
-                  - maker:
-                      id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                      displayName: "Abena Quaye"
-                    checker:
-                      id: "019a7a86-4f35-7afd-b035-b8ab03a83188"
-                      displayName: "Kwabena Owusu"
-                    count: 3
-                    amountPesewas: 112400
-                currency: GHS
-                generatedAt: "2026-11-13T21:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/exceptions": {}
+  "/exceptions/daily-report": {}
   "/reports":
     get:
       operationId: listReportDefinitions
@@ -32222,7 +31656,51 @@ components:
         - SYNC_REJECTED
         - LATE_POSTING
         - QUOTE_ACCEPTED_BY_STAFF
-      description: "One kind per detection in the threat model. Every abuse case lands here as at least one kind."
+        - CASH_DROP
+        - MORTALITY_PHOTO_REUSED
+        - DELIVERY_PHOTO_REUSED
+        - CASH_HANDED_IN_LATE
+        - NEGATIVE_STOCK
+        - GOODS_RECEIPT_UNMATCHED
+        - ORDER_SPLITTING
+        - SUPPLIER_VARIANCE
+        - SUPPLIER_CREDIT_NOTE
+        - PROCESSING_REVERSAL
+        - ASSET_DISPOSAL
+        - CREDIT_NOTE
+        - PAYMENT_REVERSAL
+        - RECEIPT_CLAIM
+        - RECEIPT_TOKEN_REFUSED
+        - OFFLINE_SALE_REVIEW
+        - BAD_DEBT_WRITE_OFF
+        - WRITTEN_OFF_CUSTOMER_PAID
+        - CONSENT_RECORDED_BY_STAFF
+        - DELIVERY_FAILURE
+        - DELIVERY_WRITE_OFF
+        - DELIVERY_RETURN
+        - DELIVERY_REASSIGNED
+        - PART_DELIVERY
+        - DELIVERY_CANCELLED
+        - BACKORDER_HELD
+        - SALE_RETURN
+        - MESSAGE_REPORT_REJECTED
+        - MESSAGE_SUPPRESSED
+        - MESSAGE_FAILED
+        - DOCUMENT_SENT
+        - QUOTE_HOLD
+        - QUOTE_WITHDRAWN
+        - ACCEPTED_QUOTE_LAPSED
+        - PAYMENT_AFTER_PAYOUT_CHANGE
+        - CAPITAL_WITHDRAWAL
+        - DISTRIBUTION
+        - BACKDATED_CONTRIBUTION
+        - RETENTION_RATE
+        - LOAN_OR_GRANT
+        - ACCRUAL_BLOCKED
+        - OVERHEAD_ALLOCATION
+        - PROJECTION_DRIFT
+        - CHECKOUT_HOLDING
+      description: "One kind per detection in the threat model; every abuse case lands as at least one kind (FR-RPT-007). The first twenty-two since 1.0.0; 2.48.0 (B12 continued 3, ADR-0103) adds the rest, CR-059's five controls among them (`CASH_DROP`, `MORTALITY_PHOTO_REUSED` beside `DELIVERY_PHOTO_REUSED`, `QUOTE_ACCEPTED_BY_STAFF`, `CASH_HANDED_IN_LATE`, `NEGATIVE_STOCK`). A kind the client does not know is shown by its code. The source's own finer kind is `sourceKind`."
     ExceptionItem:
       type: object
       properties:
@@ -32233,8 +31711,11 @@ components:
           type: string
           format: date
         branchId:
-          type: string
+          type:
+            - string
+            - "null"
           format: uuid
+          description: "The branch the item belongs to; a company-wide item (a supplier, a webhook, a permission) is kept at the head office branch. Null only before a head office is set."
         kind:
           $ref: "#/components/schemas/ExceptionKind"
         severity:
@@ -32267,9 +31748,20 @@ components:
         details:
           type: object
           additionalProperties: true
+          description: "What the item needs to be acted on, by kind: always `sourceEvent` ({id, type}) or the record it was swept from; a break also `breakId` and, as read now, `breakState` ({status, ageDays})."
         raisedAt:
           type: string
           format: date-time
+        sourceKind:
+          type:
+            - string
+            - "null"
+          description: "The source's own finer kind where it has one: a till finding's `exceptionKind` (`TILL_PIN_LOCKED`, `LOCKED_CASHIER_SIGNED_OUT`, `OFFLINE_LATE_CASH`), a break's kind (`PROVIDER_PAID_AFTER_FAILURE`, `REFUND_FAILED`), `UNWITNESSED_CASH_DROP` or `WITNESSED_CASH_DROP`, `SHIFT_FORCE_CLOSED`, a void's `VOID_REQUESTED` or `VOIDED`, and so on."
+        review:
+          anyOf:
+            - $ref: "#/components/schemas/ExceptionReview"
+            - type: "null"
+          description: "Who marked the item reviewed, when, and their note (CR-059); null until then."
       required:
         - id
         - exceptionDate
@@ -32284,6 +31776,9 @@ components:
         - summary
         - details
         - raisedAt
+        - sourceKind
+        - review
+      description: "One thing a manager must look at (FR-RPT-007, ADR-0103), raised by an event or a record the report reads. Its id is fixed by its source, so it is the same after a rebuild. No contact or identity details are ever copied into `details`."
     ExceptionItemPage:
       type: object
       description: "A page of `ExceptionItem` results."
@@ -32348,14 +31843,19 @@ components:
           type: integer
         amountPesewas:
           $ref: "#/components/schemas/Pesewas"
+        frequencyPercent:
+          allOf:
+            - $ref: "#/components/schemas/Percent"
+          description: "The pair's decisions over every decision on the maker's requests that day: two people approving each other's requests 9 times of 10 show 90.00 (R1, FR-RPT-008)."
       required:
         - maker
         - checker
         - count
         - amountPesewas
+        - frequencyPercent
     DailyExceptionReport:
       type: object
-      description: "The detection side of every abuse case in the threat model, for one day. Sent to the owner, not to the approvers."
+      description: "The detection side of every abuse case in the threat model, for one Africa/Accra day (FR-RPT-007, FR-RPT-008, ADR-0103). Sent to the owner, not to the approvers. Items are urgent first; counts are by kind; each rate table lists people with a count, a value and, where the report has a base for it, a rate beside everyone's."
       properties:
         date:
           type: string
@@ -33821,3 +33321,31 @@ components:
         - quantity
         - note
       additionalProperties: false
+    ExceptionReview:
+      type: object
+      description: "An exception item marked reviewed (CR-059): once, by a holder of `rpt.exceptions.review` other than the person the item names."
+      properties:
+        reviewedBy:
+          $ref: "#/components/schemas/PrincipalRef"
+        reviewedAt:
+          type: string
+          format: date-time
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+        - reviewedBy
+        - reviewedAt
+        - note
+    ExceptionReviewCreate:
+      type: object
+      additionalProperties: false
+      properties:
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "What was done or found, as `ReasonRequest.reason`."
+      required:
+        - note

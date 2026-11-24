@@ -244,7 +244,7 @@ export class Approvals {
       subjectType: 'ApprovalRequest',
       subjectId: id,
       branchId: request.branchId,
-      payload: { kind: request.kind, decision, requestedBy: request.requestedBy, decidedBy: actor.principalId, subjectDocumentId: request.subjectDocumentId },
+      payload: { kind: request.kind, decision, requestedBy: request.requestedBy, decidedBy: actor.principalId, subjectDocumentId: request.subjectDocumentId, amountPesewas: request.amountPesewas === null ? null : Number(request.amountPesewas) },
     });
     return decided;
   }

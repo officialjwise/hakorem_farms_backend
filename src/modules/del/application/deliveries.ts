@@ -18,7 +18,7 @@ import { codVariance, dueAtDoor, judgePartDelivery, judgeProof, syncOutcomeOfPro
 import { nextAttemptNo, pageProbe } from '../domain/numbering';
 import { judgeFailure, judgeOnTheWay, takesFailure } from '../domain/routes';
 import { judgeBooking, judgeCancellation } from '../domain/scheduling';
-import type { CodCollected, DeliveryCancelled, DeliveryCompleted, DeliveryFailed, DeliveryOnTheWay, DeliveryReturned, DeliveryWrittenOff } from '../events';
+import type { CodCollected, DeliveryCancelled, DeliveryCompleted, DeliveryFailed, DeliveryOnTheWay, DeliveryReturned, DeliveryWrittenOff, ProofFileReused } from '../events';
 import { remaining } from '../domain/slots';
 import { DeliveryInvalidError } from './errors';
 import type { SlotRecord, SlotStore } from './slot-store';
@@ -34,6 +34,9 @@ export const DELIVERY_FAILED = 'del.DeliveryFailed';
 /** Who may drive a delivery: a holder of the driver's proof permission at the delivery's branch (CR-056 item 1). */
 const DRIVES = PROOF;
 export const DELIVERY_COMPLETED = 'del.DeliveryCompleted';
+export const PROOF_FILE_REUSED = 'del.ProofFileReused';
+/** A proof for goods not handed over (THREAT_MODEL abuse case 44). */
+const ABUSE_CASE_FALSE_DELIVERY = 44;
 export const DELIVERY_RETURNED = 'del.DeliveryReturned';
 export const DELIVERY_WRITTEN_OFF = 'del.DeliveryWrittenOff';
 export const DELIVERY_CANCELLED = 'del.DeliveryCancelled';
@@ -530,7 +533,12 @@ export class Deliveries {
       capturedAt: body.capturedAt,
       createdBy: actor.principalId,
     };
-    await this.store.insertProof(tx, proof);
+    // A file reused: other uploads with the same bytes, or earlier proofs that carry this very file (abuse case 44).
+    const reusedOf = async (fileId: string | undefined) =>
+      fileId === undefined ? { files: [], proofs: [] } : { files: await this.files.earlierWithSameContent(tx, fileId), proofs: await this.store.proofsWithFile(tx, fileId) };
+    const matched = { PHOTO: await reusedOf(body.photoFileId), SIGNATURE: await reusedOf(body.signatureFileId) };
+    const reused = { PHOTO: [...matched.PHOTO.files, ...matched.PHOTO.proofs], SIGNATURE: [...matched.SIGNATURE.files, ...matched.SIGNATURE.proofs] };
+    await this.store.insertProof(tx, { ...proof, photoMatchesEarlierUpload: reused.PHOTO.length > 0, signatureMatchesEarlierUpload: reused.SIGNATURE.length > 0 });
     const named: ProofLineRecord[] = (body.lines ?? []).map((l) => ({ orderLineId: l.orderLineId, dispatchedQty: delivery.contents.find((c) => c.orderLineId === l.orderLineId)!.quantity, deliveredQty: l.deliveredQty }));
     await this.store.insertProofLines(tx, proof.id, named, actor.principalId);
     await this.store.markDelivered(tx, id, { collectedPesewas: collected.pesewas, at, actorId: actor.principalId });
@@ -568,6 +576,27 @@ export class Deliveries {
       deliveredAt: body.capturedAt.toISOString(),
     };
     await this.events.publish<DeliveryCompleted>(tx, { type: DELIVERY_COMPLETED, subjectType: 'Delivery', subjectId: id, branchId: delivery.branchId, payload: completed, occurredAt: body.capturedAt });
+    // A photograph or signature with the bytes of an earlier upload goes to the exception report (abuse case 44, CR-059).
+    for (const file of ['PHOTO', 'SIGNATURE'] as const) {
+      const fileId = file === 'PHOTO' ? body.photoFileId : body.signatureFileId;
+      if (fileId === undefined || reused[file].length === 0) continue;
+      const stored = (await this.files.find(tx, fileId))!;
+      const flagged: ProofFileReused = {
+        deliveryId: id,
+        deliveryNo: delivery.deliveryNo,
+        branchId: delivery.branchId,
+        driverId: actor.principalId,
+        proofId: proof.id,
+        file,
+        fileId,
+        sha256: stored.sha256.toString('hex'),
+        earlierFileIds: matched[file].files,
+        earlierProofIds: matched[file].proofs,
+        matchedBy: 'SHA256',
+        abuseCases: [ABUSE_CASE_FALSE_DELIVERY],
+      };
+      await this.events.publish<ProofFileReused>(tx, { type: PROOF_FILE_REUSED, subjectType: 'Delivery', subjectId: id, branchId: delivery.branchId, payload: flagged, occurredAt: body.capturedAt });
+    }
     const after = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
     await this.audit.record(tx, { module: 'del', action: 'DELIVER', entityType: 'Delivery', entityId: id, branchId: delivery.branchId, before: { ...before }, after: { ...after } });
     return { status: 200, body: after };

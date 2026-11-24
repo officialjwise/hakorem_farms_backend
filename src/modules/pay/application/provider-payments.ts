@@ -63,6 +63,8 @@ export interface CardPage {
 
 /** Abuse case 45: card money moved outside the order's flow (paid after failing, or disputed) (B09c). */
 export const CARD_MONEY_ABUSE_CASE = 45;
+/** Mobile money moved outside the order's flow: a success the provider reports after the payment failed (BL-108). */
+export const MOBILE_MONEY_ABUSE_CASE = 73;
 
 /** The tender a charge is written for: mobile money by its phone and network, or a card on the hosted page. */
 type ChargeTender = { readonly kind: 'MOBILE_MONEY'; readonly phone: string; readonly network: MobileMoneyRequest['network'] } | { readonly kind: 'CARD' };
@@ -302,6 +304,11 @@ export class ProviderPayments {
       await this.paidAfterFailureIn(tx, charge, payment.id, payment.branchId, answer, actorId);
       return null;
     }
+    // BL-108 (B12 continued 3): a mobile money success after the payment had failed is raised the same way (case 73).
+    if (payment !== undefined && charge.channel !== 'CARD' && paidAfterFailure(payment.status, answer)) {
+      await this.paidAfterFailureIn(tx, charge, payment.id, payment.branchId, answer, actorId, MOBILE_MONEY_ABUSE_CASE);
+      return null;
+    }
     if (payment === undefined || payment.status !== 'PENDING' || (charge.status !== 'INITIATED' && charge.status !== 'PENDING')) return null;
     const now = this.clock.now();
     const decision = (charge.channel === 'CARD' ? judgeCardAnswer : judgeProviderAnswer)({ requestedPesewas: charge.requestedPesewas, createdAt: charge.createdAt, awaitedUntil: charge.awaitedUntil, releasedAt: charge.releasedAt }, answer, now);
@@ -374,7 +381,15 @@ export class ProviderPayments {
    * after its grace ended. The payment stays FAILED and nothing is posted; the money is raised once, URGENT, for a
    * person to refund through the provider, and reaches the daily exception report.
    */
-  private async paidAfterFailureIn(tx: Transaction, charge: ChargeRecord, paymentId: string, branchId: string, answer: ProviderAnswer, actorId: string): Promise<void> {
+  private async paidAfterFailureIn(
+    tx: Transaction,
+    charge: ChargeRecord,
+    paymentId: string,
+    branchId: string,
+    answer: ProviderAnswer,
+    actorId: string,
+    abuseCase: number = CARD_MONEY_ABUSE_CASE,
+  ): Promise<void> {
     const raised = await this.breaks.raiseIn(
       tx,
       actorId,
@@ -388,7 +403,7 @@ export class ProviderPayments {
         amountPesewas: answer.amountPesewas,
         details: { requestedPesewas: json(charge.requestedPesewas), confirmedPesewas: json(answer.amountPesewas), currency: answer.currency, paidAt: answer.paidAt?.toISOString() ?? null, chargeStatus: charge.status },
       },
-      { severity: 'URGENT', abuseCases: [CARD_MONEY_ABUSE_CASE] },
+      { severity: 'URGENT', abuseCases: [abuseCase] },
     );
     if (raised) await this.audit.record(tx, { module: 'pay', action: 'HOLD', entityType: 'Payment', entityId: paymentId, branchId, before: { status: 'FAILED' }, after: { status: 'FAILED', paidAfterFailure: true } });
   }

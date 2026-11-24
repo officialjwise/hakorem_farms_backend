@@ -183,12 +183,18 @@ export class PgDeliveryStore implements DeliveryStore {
     );
   }
 
+  async proofsWithFile(tx: Transaction, fileId: string): Promise<string[]> {
+    const { rows } = await tx.query<{ id: string }>('SELECT id FROM del.proof_of_delivery WHERE photo_file_id = $1 OR signature_file_id = $1 ORDER BY recorded_at, id', [fileId]);
+    return rows.map((r) => r.id);
+  }
+
   async insertProof(tx: Transaction, p: ProofRecord): Promise<void> {
     await tx.query(
       `INSERT INTO del.proof_of_delivery (id, delivery_id, recipient_name, signature_file_id, photo_file_id, latitude, longitude, position_accuracy_m,
                                           cod_collected_pesewas, cod_variance_reason_code, cod_variance_note, payment_id, captured_at, created_by,
-                                          returned_reason_code, returned_credit_pesewas, returned_note)
-       VALUES ($1, $2, $3, $4, $5, $6::numeric, $7::numeric, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)`,
+                                          returned_reason_code, returned_credit_pesewas, returned_note, photo_matches_earlier_upload,
+                                          signature_matches_earlier_upload)
+       VALUES ($1, $2, $3, $4, $5, $6::numeric, $7::numeric, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)`,
       [
         p.id,
         p.deliveryId,
@@ -207,6 +213,8 @@ export class PgDeliveryStore implements DeliveryStore {
         p.returnedReasonCode,
         p.returnedCreditPesewas.toString(),
         p.returnedNote,
+        p.photoMatchesEarlierUpload ?? false,
+        p.signatureMatchesEarlierUpload ?? false,
       ],
     );
   }

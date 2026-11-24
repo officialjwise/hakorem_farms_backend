@@ -240,6 +240,29 @@ describe('the payment edge cases of the brief land exactly once, and the money i
     expect(await journalCount(database, started.body.id as string, 'pay.PaymentCleared')).toBe(1);
   });
 
+  it('BL-108: a mobile money success the provider reports after the payment had failed stays FAILED, posts nothing and is raised once as an URGENT PROVIDER_PAID_AFTER_FAILURE break for abuse case 73', async () => {
+    const started = await initiateCharge(api.server, as('cashier'), { amountPesewas: 41_000, customerId: id('tema') });
+    expect(started.status, JSON.stringify(started.body)).toBe(201);
+    const paymentId = started.body.id as string;
+    const reference = referenceFor(paymentId);
+    tick();
+    fake.declineCard(reference);
+    await runSweep(api);
+    expect((await paymentRow(paymentId)).status, 'the provider answered the charge failed').toBe('FAILED');
+    tick(60_000);
+    const paid = fake.approve(reference);
+    expect((await deliverWebhook(api.server, fake.webhook(paid))).status).toBe(200);
+    await runSweep(api);
+    expect((await paymentRow(paymentId)).status).toBe('FAILED');
+    expect(await openBreaks({ paymentId })).toEqual(['PROVIDER_PAID_AFTER_FAILURE']);
+    expect(await journalCount(database, paymentId, 'pay.PaymentCleared')).toBe(0);
+    const raised = await admin().query<{ payload: { kind: string; severity: string; abuseCases: number[]; amountPesewas: number } }>(
+      "SELECT payload FROM platform.outbox_message WHERE event_type = 'pay.ReconciliationBreakRaised' AND payload ->> 'paymentId' = $1",
+      [paymentId],
+    );
+    expect(raised.rows.map((r) => r.payload)).toEqual([expect.objectContaining({ kind: 'PROVIDER_PAID_AFTER_FAILURE', severity: 'URGENT', abuseCases: [73], amountPesewas: 41_000 })]);
+  });
+
   it('initiating twice with the same key creates one payment and one provider call; the same key with another body is 409', async () => {
     const key = randomUUID();
     const body = { id: randomUUID(), amountPesewas: 12_000, customerId: id('tema') };

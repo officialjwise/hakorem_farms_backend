@@ -318,6 +318,10 @@ describe('the guest cart (FR-SHP-003, FR-SHP-004)', () => {
       expect((await read(`/shop/carts/${cart.cartId}`, cart)).body.status).toBe('ACTIVE');
       const events = await database.pool('admin').query<{ n: string }>("SELECT count(*)::text AS n FROM platform.outbox_message WHERE event_type = 'shp.CheckoutExpired' AND subject_id = $1", [started.body.id]);
       expect(events.rows[0]!.n).toBe('1');
+      // The checkout's start carries its client address as a keyed hash only, for R18 (B12 continued 3), never the address.
+      const begun = await database.pool('admin').query<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'shp.CheckoutStarted' AND subject_id = $1", [started.body.id]);
+      expect(begun.rows[0]!.payload['clientAddressHash']).toMatch(/^[0-9a-f]{64}$/);
+      expect(JSON.stringify(begun.rows[0]!.payload)).not.toMatch(/127\.0\.0\.1|::1/);
       // A second run finds nothing more to release.
       expect(await runAsSystem({ principalId: SCHEDULER, displayName: 'Scheduler' }, randomUUID(), () => api.app.get(ReservationExpiry).run({ kind: 'SYSTEM', principalId: SCHEDULER }))).toEqual([]);
       const late = await write('patch', `/shop/checkouts/${started.body.id}`, cart, { paymentTerms: 'COD' });

@@ -9,6 +9,7 @@ import type { DocumentRegistry } from '../../../platform/documents/document-regi
 import type { NumberSeries } from '../../../platform/documents/number-series';
 import { NotFoundError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
+import type { FinancingAccrualBlocked } from '../events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { FileStore } from '../../../platform/storage/file-store';
@@ -31,6 +32,8 @@ export const GRANT_RECEIVED = 'cap.GrantReceived';
 export const INTEREST_ACCRUED = 'cap.InterestAccrued';
 export const GRANT_RECOGNISED = 'cap.GrantRecognised';
 export const LOAN_REPAID = 'cap.LoanRepaid';
+/** The daily accrual job found a finished month it could not accrue (abuse case 71, B12 continued 3). */
+export const FINANCING_ACCRUAL_BLOCKED = 'cap.FinancingAccrualBlocked';
 export const FINANCING_LEDGER_EVENTS = [LOAN_DRAWN, GRANT_RECEIVED, INTEREST_ACCRUED, GRANT_RECOGNISED, LOAN_REPAID] as const;
 
 const json = (n: bigint): number => Money.ofPesewas(n).toJsonInteger();
@@ -337,7 +340,13 @@ export class Financing {
     for (const id of ids) {
       const stopped = await this.uow.run({ isolation: 'serializable' }, async (tx) => {
         const financing = await this.books.financing(tx, id, true);
-        return financing === null || financing.status !== 'ACTIVE' ? null : this.accrueIn(tx, financing, system.principalId);
+        if (financing === null || financing.status !== 'ACTIVE') return null;
+        const month = await this.accrueIn(tx, financing, system.principalId);
+        if (month !== null) {
+          const payload: FinancingAccrualBlocked = { financingId: financing.id, financingNo: financing.financingNo, branchId: financing.branchId, monthEnd: month };
+          await this.events.publish(tx, { type: FINANCING_ACCRUAL_BLOCKED, subjectType: 'Financing', subjectId: financing.id, branchId: financing.branchId, payload: { ...payload } });
+        }
+        return month;
       });
       if (stopped !== null) {
         blocked = plusOne(blocked);

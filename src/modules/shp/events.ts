@@ -10,6 +10,12 @@ export interface CheckoutStarted {
   readonly reservedUntil: string;
   readonly estimatedTotalPesewas: number;
   readonly lineCount: number;
+  /**
+   * The keyed hash (HMAC-SHA-256 under the lookup key) of the client address the checkout came from, never the address
+   * itself, so RPT counts checkouts started and expired per address for residual risk R18 (B12 continued 3); null for
+   * a checkout with no address.
+   */
+  readonly clientAddressHash?: string | null;
 }
 
 /** `shp.CheckoutExpired` (FR-SHP-006) or `shp.CheckoutCancelled`: the checkout ended unpaid and its cart is ACTIVE again. */

@@ -9,6 +9,8 @@ export interface ApprovalDecided {
   readonly requestedBy: string;
   readonly decidedBy: string;
   readonly subjectDocumentId: string;
+  /** The amount the request was judged on, where it has one (B12 continued 3: the approval pairs' value). */
+  readonly amountPesewas?: number | null;
 }
 
 /**
