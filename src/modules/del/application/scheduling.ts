@@ -35,6 +35,9 @@ export interface RescheduleRequest {
 const invalidState = (what: string, status: string) =>
   new InvalidStateTransitionError(`${what} is ${status}`, [{ field: null, code: status, message: translate('error.invalid_state_transition') }]);
 
+/** The advisory lock bookings of one delivery slot queue on (`seriesLocks`, ADR-0005). */
+export const slotLockKey = (slotId: string): string => `del.delivery_slot:${slotId}`;
+
 /**
  * A delivery's driver, vehicle and slot after dispatch (FR-DEL-001 to FR-DEL-004, FR-DEL-011; A-362), each in one
  * serializable transaction, authorised in the application layer at the delivery's branch (ADR-0035,
@@ -67,7 +70,7 @@ export class Scheduling {
 
   /** assignDelivery (FR-DEL-004): another driver or vehicle for a delivery off any live run. */
   assign(actor: Actor | undefined, id: string, body: AssignRequest, key: string): Promise<StoredResponse<DeliveryView>> {
-    return this.command(actor, 'assignDelivery', id, body, key, async (tx, d) => {
+    return this.command(actor, 'assignDelivery', id, body, key, [], async (tx, d) => {
       const route = await this.store.routeOf(tx, id);
       const broken = judgeReassignment({ status: d.status, onLiveRun: route !== null && LIVE_RUN.has(route.status), sameDriver: d.driverId === body.driverId, sameVehicle: d.vehicleLocationId === body.vehicleLocationId });
       this.refuse(id, d, broken);
@@ -93,9 +96,13 @@ export class Scheduling {
     });
   }
 
-  /** rescheduleDelivery (FR-DEL-003, FR-DEL-011): another slot, booked under its row lock; for a failed delivery, the reattempt. */
+  /**
+   * rescheduleDelivery (FR-DEL-003, FR-DEL-011): another slot, booked under its row lock; for a failed delivery, the
+   * reattempt. Bookings of one slot queue on the slot's advisory lock, taken before the transaction begins (ADR-0005),
+   * so eight at once book in turn rather than fail each other's serializable snapshot until one runs out of retries.
+   */
   reschedule(actor: Actor | undefined, id: string, body: RescheduleRequest, key: string): Promise<StoredResponse<DeliveryView>> {
-    return this.command(actor, 'rescheduleDelivery', id, body, key, async (tx, d) => {
+    return this.command(actor, 'rescheduleDelivery', id, body, key, [slotLockKey(body.slotId)], async (tx, d) => {
       const slot = await this.slots.lock(tx, body.slotId);
       const zone = (await this.storefront.deliveryZonesIn(tx, [d.deliveryZoneId])).get(d.deliveryZoneId);
       const route = await this.store.routeOf(tx, id);
@@ -143,9 +150,10 @@ export class Scheduling {
     id: string,
     body: object,
     key: string,
+    seriesLocks: readonly string[],
     work: (tx: Transaction, d: DeliveryRecord) => Promise<StoredResponse<DeliveryView>>,
   ): Promise<StoredResponse<DeliveryView>> {
-    return this.uow.run({ isolation: 'serializable' }, async (tx) => {
+    return this.uow.run({ isolation: 'serializable', seriesLocks }, async (tx) => {
       await this.authoriser.authorise(tx, actor, ASSIGN);
       const claim = await this.idempotency.claim(tx, { operationId, principalId: actor!.principalId, key, request: { deliveryId: id, ...body } });
       if (claim.kind === 'REPLAY') return claim.response as StoredResponse<DeliveryView>;
