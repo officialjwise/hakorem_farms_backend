@@ -360,6 +360,7 @@ export class Dispatches {
       vehicleLocationId: body.vehicleLocationId!,
       codDuePesewas: cashDueOnDelivery(header.paymentTerms, settlement.due).pesewas,
       dispatchedAt: at,
+      slotId: header.deliverySlotId,
     });
     await this.moveIn(tx, header, 'DISPATCHED', `Dispatched on ${delivery.deliveryNo!}`, at, actorId);
 
@@ -378,6 +379,8 @@ export class Dispatches {
       dueDate,
       deliveryId: delivery.id,
       deliveryNo: delivery.deliveryNo!,
+      chosenSlotId: header.deliverySlotId,
+      bookedSlotId: delivery.slot?.id ?? null,
       lines: delivery.contents.map((c) => ({ orderLineId: c.orderLineId, name: c.name, quantity: c.quantity, uom: c.uom, weightKg: c.weightKg })),
       backorderId: backordered?.id ?? null,
       backorderNo: backordered?.orderNo ?? null,

@@ -59,7 +59,8 @@ Minor, LOUD on three operations' behaviour (an order on account delivered or col
 - **New optional request fields:** `DispatchRecord.creditOverrideReason`; `collectFulfilment` takes an optional body, the new `CollectRecord` (`creditOverrideReason`).
 - **LOUD, `getOrderCreditCheck`:** on an order already confirmed, `exposurePesewas` no longer counts the order's own estimate beside `orderPesewas` (it was counted twice).
 - **LOUD, `Payment.driver`** (every payment view): now filled for a cash-on-delivery payment held by its driver (BL-096); it was always null. No shape changed.
-- **Events:** `ord.OrderDispatched` and `ord.OrderCollected` gain `dueDate` (null but on account).
+- **LOUD, `Delivery.slot` after `dispatchFulfilment`:** the slot the customer chose at the checkout is now booked onto the delivery at dispatch while it is live, not started and not full (A-362 (e)); it was always null until `rescheduleDelivery`. No shape changed.
+- **Events:** `ord.OrderDispatched` and `ord.OrderCollected` gain `dueDate` (null but on account); `ord.OrderDispatched` gains `chosenSlotId` and `bookedSlotId`.
 - No new permission. No existing field removed, retyped or made required on a request.
 
 ## 2.36.0 (2026-11-24, B11 continued 7)

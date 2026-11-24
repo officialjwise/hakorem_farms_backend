@@ -55,13 +55,13 @@ interface Crate {
 }
 
 /** A guest's order of one crate of big eggs on cash on delivery, dispatched onto VAN1 to Kwabena Asare. */
-async function dispatchedCrate(): Promise<Crate> {
+async function dispatchedCrate(deliverySlotId?: string): Promise<Crate> {
   const created = await request(api.server).post('/v1/shop/carts').set('Origin', TEST_ORIGIN).set('Idempotency-Key', randomUUID());
   const cookie = (created.headers['set-cookie'] as unknown as string[]).find((c) => c.startsWith('__Host-hk_guest='))!.split(';')[0]!;
   const cartId = created.body.id as string;
   const guest = (path: string, body: object) => request(api.server).post(`/v1${path}`).set('Origin', TEST_ORIGIN).set('Idempotency-Key', randomUUID()).set('Cookie', cookie).send(body);
   expect((await guest(`/shop/carts/${cartId}/lines`, { productId: id('EGG-0003'), quantity: '1.000' })).status).toBe(200);
-  const started = await guest(`/shop/carts/${cartId}/checkout`, { contactName: 'Kofi Boateng', contactPhone: '0201234567', fulfilmentMode: 'DELIVERY', address: dodowa, paymentTerms: 'COD' });
+  const started = await guest(`/shop/carts/${cartId}/checkout`, { contactName: 'Kofi Boateng', contactPhone: '0201234567', fulfilmentMode: 'DELIVERY', address: dodowa, paymentTerms: 'COD', ...(deliverySlotId === undefined ? {} : { deliverySlotId }) });
   expect(started.status, JSON.stringify(started.body)).toBe(201);
   const placed = await guest(`/shop/checkouts/${started.body.id as string}/place`, { paymentMethod: 'COD' });
   expect(placed.status, JSON.stringify(placed.body)).toBe(201);
@@ -333,5 +333,27 @@ describe("a delivery's driver, vehicle and slot after dispatch: reassigned, book
 
   afterAll(async () => {
     await setCutoff(cutoff);
+  });
+});
+
+describe("the checkout's chosen slot is carried onto the delivery and booked at dispatch (A-362 (e), B11 continued 8)", () => {
+  it('books the chosen slot while it has room, and dispatches unbooked once it is full, naming both on the event', async () => {
+    const zone = (await one<{ id: string }>("SELECT z.id FROM mdm.delivery_zone z WHERE z.branch_id = $1 AND 'Dodowa' = ANY (z.areas)", [branchId])).id;
+    const later = toBusinessDate(new Date(clock.now().getTime() + 3 * 86_400_000));
+    const made = await post('manager', '/delivery-slots/generate', { zoneId: zone, from: later, to: later, weekdays: [1, 2, 3, 4, 5, 6, 7], times: [{ startsAt: '10:15', endsAt: '11:00', capacity: 1 }] });
+    expect(made.status, JSON.stringify(made.body)).toBe(201);
+    const slotId = (await one<{ id: string }>("SELECT id FROM del.delivery_slot WHERE delivery_zone_id = $1 AND slot_date = $2 AND to_char(starts_at, 'HH24:MI') = '10:15'", [zone, later])).id;
+    const first = await dispatchedCrate(slotId);
+    expect((await one<{ slot: string | null }>('SELECT delivery_slot_id AS slot FROM ord.sales_order WHERE id = $1', [first.orderId])).slot).toBe(slotId);
+    expect((await deliveryRow(first.deliveryId)).slot_id).toBe(slotId);
+    expect((await one<{ booked: number }>('SELECT booked FROM del.delivery_slot WHERE id = $1', [slotId])).booked).toBe(1);
+    const sent = (await one<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'ord.OrderDispatched' AND subject_id = $1", [first.orderId])).payload;
+    expect([sent['chosenSlotId'], sent['bookedSlotId']]).toEqual([slotId, slotId]);
+    // The second customer chose the same slot of one before the first was dispatched: it is full now.
+    const second = await dispatchedCrate(slotId);
+    expect((await deliveryRow(second.deliveryId)).slot_id).toBeNull();
+    expect((await one<{ booked: number }>('SELECT booked FROM del.delivery_slot WHERE id = $1', [slotId])).booked).toBe(1);
+    const unbooked = (await one<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'ord.OrderDispatched' AND subject_id = $1", [second.orderId])).payload;
+    expect([unbooked['chosenSlotId'], unbooked['bookedSlotId']]).toEqual([slotId, null]);
   });
 });

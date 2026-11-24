@@ -81,6 +81,7 @@ Posted statuses: `COMPLETED`, `CANCELLED`, `VOIDED`. The state machine is in `do
 | `delivery_address_id` | `uuid` | NULL, FK `mdm.customer_address` | |
 | `delivery_address_snapshot` | `jsonb` | NULL | As at order time |
 | `delivery_zone_id` | `uuid` | NULL, FK `mdm.delivery_zone` | |
+| `delivery_slot_id` | `uuid` | NULL, FK `del.delivery_slot` | The slot chosen at the checkout, booked at dispatch (B11 continued 8, migration 0332, A-369); `ck_sales_order_slot`: only on a delivery order |
 | `delivery_fee_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | |
 | `delivery_id` | `uuid` | NULL, FK `del.delivery` | Set when scheduled |
 | `currency` | `char(3)` | NOT NULL DEFAULT `'GHS'`, CHECK `= 'GHS'` | |

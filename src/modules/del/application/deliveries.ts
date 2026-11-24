@@ -17,7 +17,7 @@ import type { DriverCash } from '../../pay';
 import { codVariance, dueAtDoor, judgePartDelivery, judgeProof, syncOutcomeOfProof, takesProof, type SyncOutcome, type DeliveredLine, type DeliveryStatus, type ProofFile, type ReturnedLine, type VarianceReason } from '../domain/deliveries';
 import { nextAttemptNo, pageProbe } from '../domain/numbering';
 import { judgeFailure, judgeOnTheWay, takesFailure } from '../domain/routes';
-import { judgeCancellation } from '../domain/scheduling';
+import { judgeBooking, judgeCancellation } from '../domain/scheduling';
 import type { CodCollected, DeliveryCancelled, DeliveryCompleted, DeliveryFailed, DeliveryOnTheWay, DeliveryReturned, DeliveryWrittenOff } from '../events';
 import { remaining } from '../domain/slots';
 import { DeliveryInvalidError } from './errors';
@@ -74,6 +74,12 @@ export interface DeliveryRequest {
   /** The cash due on delivery, fixed by the server at dispatch from the billing document on the weighed quantity. */
   readonly codDuePesewas: bigint;
   readonly dispatchedAt: Date;
+  /**
+   * The slot the customer chose at the checkout (A-362 (e), B11 continued 8): booked onto the delivery when it is still a
+   * live slot of the delivery's zone and branch, not started and not full; otherwise the delivery is made unbooked and
+   * staff book one with `rescheduleDelivery`. The zone's cut-off governs what a customer is offered, not a dispatch.
+   */
+  readonly slotId?: string | null;
 }
 
 export interface ProofRequest {
@@ -312,7 +318,7 @@ export class Deliveries {
       orderDocumentId: request.orderDocumentId,
       billingDocumentId: request.billingDocumentId,
       customerId: request.customerId,
-      slotId: null,
+      slotId: await this.bookableSlotIn(tx, request),
       deliveryZoneId: request.deliveryZoneId,
       recipientName: request.recipientName,
       recipientPhoneE164: request.recipientPhoneE164,
@@ -329,6 +335,25 @@ export class Deliveries {
     const view = (await this.viewsIn(tx, await this.store.deliveries(tx, [id])))[0]!;
     await this.audit.record(tx, { module: 'del', action: 'CREATE', entityType: 'Delivery', entityId: id, branchId: request.branchId, before: null, after: { ...view } });
     return view;
+  }
+
+  /** The chosen slot when it can still be booked at dispatch, under its row lock (the database counts the booking); else null. */
+  private async bookableSlotIn(tx: Transaction, request: DeliveryRequest): Promise<string | null> {
+    if (request.slotId === undefined || request.slotId === null) return null;
+    const slot = await this.slots.lock(tx, request.slotId);
+    if (slot === null || slot.branchId !== request.branchId) return null;
+    const broken = judgeBooking({
+      status: request.driverId === null ? 'SCHEDULED' : 'ASSIGNED',
+      deliveryZoneId: request.deliveryZoneId,
+      currentSlotId: null,
+      slotId: slot.id,
+      slot,
+      cutoffTime: '00:00',
+      runDate: null,
+      now: this.clock.now(),
+    });
+    // The cut-off decides what a customer is offered; the farm sending an order already booked for today is not refused.
+    return broken.every((b) => b.rule === 'PAST_CUT_OFF') ? slot.id : null;
   }
 
   /**

@@ -48,6 +48,7 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0332_ord_order_delivery_slot',
       '0331_iam_grant_delivery_fee_add_permission',
       '0330_iam_seed_delivery_fee_add_permission',
       '0329_ord_backorders',

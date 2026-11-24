@@ -255,6 +255,9 @@ export interface OrderDispatched {
   readonly dueDate: string | null;
   readonly deliveryId: string;
   readonly deliveryNo: string;
+  /** The slot chosen at the checkout (B11 continued 8), else null; `bookedSlotId` is it when dispatch could book it, else null. */
+  readonly chosenSlotId: string | null;
+  readonly bookedSlotId: string | null;
   readonly lines: readonly { readonly orderLineId: string; readonly name: string; readonly quantity: string; readonly uom: string; readonly weightKg: string | null }[];
   /** The backorder this dispatch left for what was not sent (FR-ORD-012, B11 continued 7), else null. */
   readonly backorderId: string | null;
