@@ -102,7 +102,7 @@ Existing specs changed only for what this phase added: the rollback walk (0358 t
 
 ## CI
 
-A report cannot name the runs of the commit that adds it. Pull request #145. On `2e26a8d` (the report's first push) one run exists: **45456103931, `pull_request`, success**; no `push` run was created for that commit (the branch matches the push pattern `b[0-9]*-*`, and the API listed none after twenty minutes), so this note was pushed as a new head. Every run on the final head is named in the session's closing message to the parent session, and the pull request merges only when each is green.
+A report cannot name the runs of the commit that adds it. Pull request #145. On `2e26a8d` (the report's first push) one run exists: **45456103931, `pull_request`, success**; no `push` run was created for that commit (the branch matches the push pattern `b[0-9]*-*`, and the API listed none after twenty minutes), so this note was pushed as a new head (`2ce04bd`). On `2ce04bd`: **45457569783, `pull_request`, success**; **45457556129, `push`, cancelled (red)**: GitHub delivered the first push's event late, its run (45457990474, `push`, on `2e26a8d`) was created two minutes after `2ce04bd`'s and the workflow's concurrency group (`ci-refs/heads/b12c-cap-cst-rpt-api`, cancel in progress) cancelled `2ce04bd`'s shards ("Canceling since a higher priority waiting request ... exists"), so its coverage gate failed on the missing shards. No test failed; nothing was re-run: this note is pushed as a new head instead. Every run on the final head is named in the session's closing message to the parent session, and the pull request merges only when each is green.
 
 ## Next session
 
