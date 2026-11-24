@@ -45,7 +45,7 @@ Phase, scope and gate, as confirmed at the start:
 | SHP | the checkout's `deliverySlotId` passed to the order. |
 | PAY (additive) | `Payment.driver` from `pay.payment.driver_id` through `PrincipalNames` (BL-096). |
 | MDM (additive) | `MasterDataRefs.customerAddressIn`. |
-| Schema | 0332 (ORD): `ord.sales_order.delivery_slot_id` (FK `del.delivery_slot`), `ck_sales_order_slot`, `ix_sales_order_delivery_slot`. 0333 (ORD): `ord.pick_breakage` (LEDGER, insert-only, one per pick and per adjustment). Both roll back (the rollback walk names them). |
+| Schema | 0332 (ORD): `ord.sales_order.delivery_slot_id` (FK `del.delivery_slot`), `ck_sales_order_slot`, `ix_sales_order_delivery_slot`. 0333 (ORD): `ord.pick_breakage` (LEDGER, insert-only, one per pick and per adjustment, the adjustment keyed through its `platform.business_document` row, ADR-0011). Both roll back (the rollback walk names them). |
 | Docs | ADR-0095 (proposed) and the decision index; A-368 to A-371; BL-096 marked done, BL-116; abuse cases 54 and 55; ADR-0026 Amendments; `data-model/ord.md`, `del.md`; the `OrderConfirmationPolicy` row of MODULE_BOUNDARIES; API.md (ORD); the 2.37.0 changelog; the openers (B11 continued 8 built and split, B11 continued 9 inserted, the reference table, the lane B order, B12's reused-photograph line). |
 
 ## The gate, proved by running it
@@ -64,7 +64,7 @@ Phase, scope and gate, as confirmed at the start:
 
 `test/integration/ord/dispatch-delivery.integration.spec.ts` (+1 assertion, BL-096): the cash-on-delivery payment's view names Kwabena Asare.
 
-Unit: `whl/domain/credit.spec.ts` (+8: the dispatch override at, below and one pesewa above the approved amount, one pesewa more over, a new reason; the due date across a month and a year end; terms negative or fractional refused); `ord/domain/dispatch.spec.ts` (+4: the zone fee at the threshold and one pesewa above, a zone without one; nothing due on account).
+Unit: `whl/domain/credit.spec.ts` (+7: the dispatch override at, below and one pesewa above the approved amount, one pesewa more over, a new reason; the due date across a month and a year end; terms negative or fractional refused); `ord/domain/dispatch.spec.ts` (+4: the zone fee at the threshold and one pesewa above, a zone without one; nothing due on account).
 
 ## Mutation checks (each applied alone, the spec run, the source restored)
 
@@ -117,7 +117,15 @@ Not recorded here; B11 continued 9's opener carries it, and B12's says B12 must 
 
 ## Tests (this machine)
 
-See the closing table in the pull request for the figures of the final run (`pnpm test:coverage`, the whole integration suite included), contract tests and lint. Before the report: unit 2,021 passed (169 files); contract 139 passed (55 files) on 2.37.0; ORD, WHL, DEL and QUO integration 361 passed (29 files) on the first commit, and every spec touched rerun after each later one; lint (module boundaries, fixtures, placement, schema names), typecheck and Redocly clean; `contract:generate` 548 operations from code, 117 planned.
+Run on the fix commit just below the report (the code of the final head; the report commit adds only this file) with Docker's Testcontainers; see CI below for the runs on the pushed commits. `main` had not moved from `254e596`, so no rebase or renumbering was needed.
+
+| Layer | Result |
+| --- | --- |
+| Unit and integration (`pnpm test:coverage`) | **4,182 passed, 349 files, none skipped, exit 0**, the whole integration suite included. Coverage, whole: statements 94.10, branches 83.71, functions 97.86, lines 97.16 (each gate 80). **Every full-coverage gate holds at 100 percent** (the run exits 0 on them; `ord/domain` and `whl/domain` among them). Unit alone: 2,009 passed (169 files). |
+| Contract (`pnpm test:contract`) | 139 passed, 55 files, on 2.37.0 |
+| Lint (ESLint with module boundaries, fixtures, placement, schema names), typecheck, Redocly (no errors, no warnings), `contract:generate` | Clean (548 operations from code, 117 planned) |
+
+**A red local run, and its cause fixed:** the first whole run (before the fix commit) failed 2 tests of `platform/database-roles.integration.spec.ts`, ADR-0011's cross-schema key check: `fk_pick_breakage_adjustment` pointed at `inv.stock_adjustment`, which INV does not publish. Fixed in its own commit by keying the breakage to the adjustment's `platform.business_document` row, as `ord.delivery_return` does; the second whole run is the one above. Nothing was retried or skipped.
 
 ## Deferred
 
