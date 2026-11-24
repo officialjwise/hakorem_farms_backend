@@ -115,6 +115,22 @@ export interface LinePicked {
 }
 
 /** ORD's fulfilment tables (schema `ord`): pick lists, picks and the customer's answers. Nothing is ever deleted. */
+/** What a pick found broken and the adjustment that writes it off (CR-054 point 1, `ord.pick_breakage`). */
+export interface BreakageRecord {
+  readonly id: string;
+  readonly fulfilmentLineId: string;
+  readonly fulfilmentId: string;
+  readonly salesOrderLineId: string;
+  readonly stockUnitId: string | null;
+  readonly qty: string;
+  readonly uom: string;
+  readonly qtyBase: string;
+  readonly reasonCode: string;
+  readonly stockAdjustmentId: string;
+  readonly branchId: string;
+  readonly actorId: string;
+}
+
 export interface FulfilmentStore {
   insertFulfilment(tx: Transaction, f: Omit<FulfilmentHeaderRecord, 'status' | 'pickerId' | 'pickedAt' | 'packedAt' | 'dispatchedAt' | 'packageCount' | 'cancelReason' | 'version'>): Promise<void>;
   insertPickListLines(tx: Transaction, lines: readonly PickListLineRecord[], actorId: string): Promise<void>;
@@ -134,6 +150,9 @@ export interface FulfilmentStore {
   /** The stored picks of these client ids, whatever pick list they are on. */
   picksById(tx: Transaction, ids: readonly string[]): Promise<PickRecord[]>;
   insertPicks(tx: Transaction, picks: readonly PickRecord[]): Promise<void>;
+  /** A pick's breakage written off (CR-054 point 1): insert-only, one per pick. */
+  insertBreakage(tx: Transaction, b: BreakageRecord): Promise<void>;
+  breakagesOf(tx: Transaction, fulfilmentIds: readonly string[]): Promise<BreakageRecord[]>;
   withdrawPicks(tx: Transaction, ids: readonly string[], at: Date, actorId: string): Promise<void>;
   /** Every pick not withdrawn of the order, on pick lists not cancelled (all of its fulfilments). */
   activePicksOfOrder(tx: Transaction, orderId: string): Promise<PickRecord[]>;

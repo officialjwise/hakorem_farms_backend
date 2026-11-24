@@ -36,6 +36,8 @@ export interface PaymentRecord {
   readonly branchId: string;
   readonly createdBy: string;
   readonly createdAt: Date;
+  /** The driver a cash-on-delivery payment is held by (ADR-0092, BL-096), read back for the payment's view; else null. */
+  readonly heldByDriverId?: string | null;
 }
 
 export interface AllocationRecord {

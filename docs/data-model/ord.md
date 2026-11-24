@@ -81,6 +81,7 @@ Posted statuses: `COMPLETED`, `CANCELLED`, `VOIDED`. The state machine is in `do
 | `delivery_address_id` | `uuid` | NULL, FK `mdm.customer_address` | |
 | `delivery_address_snapshot` | `jsonb` | NULL | As at order time |
 | `delivery_zone_id` | `uuid` | NULL, FK `mdm.delivery_zone` | |
+| `delivery_slot_id` | `uuid` | NULL, FK `del.delivery_slot` | The slot chosen at the checkout, booked at dispatch (B11 continued 8, migration 0332, A-369); `ck_sales_order_slot`: only on a delivery order |
 | `delivery_fee_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | |
 | `delivery_id` | `uuid` | NULL, FK `del.delivery` | Set when scheduled |
 | `currency` | `char(3)` | NOT NULL DEFAULT `'GHS'`, CHECK `= 'GHS'` | |
@@ -251,6 +252,24 @@ What was picked for an order line, with weight.
 | `qty_base` | `qty` | NOT NULL, CHECK `> 0` (B11) | In the product's base unit: a catch-weight pack's weighed kilograms |
 | `withdrawn_at`, `withdrawn_by` | | NULL; both or neither (B11) | A pick taken back (a pack swapped); kept, never counted again |
 | `recorded_at` | `timestamptz` | NOT NULL (B11) | From the application's clock |
+
+### `ord.pick_breakage` · LEDGER
+
+B11 continued 8 (CR-054 point 1, migration 0333, A-370): what one pick found broken beside it, written off from the pick
+location in the pick's own transaction through INV's stock adjustment (`STOCK_WRITE_OFF` approval above the threshold).
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | `uuid` | NOT NULL | PK |
+| `fulfilment_line_id` | `uuid` | NOT NULL, FK `ord.fulfilment_line`, UNIQUE | The pick |
+| `fulfilment_id` | `uuid` | NOT NULL, FK `ord.fulfilment` | |
+| `sales_order_line_id` | `uuid` | NOT NULL, FK `ord.sales_order_line` | |
+| `stock_unit_id` | `uuid` | NULL, FK `inv.stock_unit` | The lot the pick named |
+| `qty`, `uom` | `platform.qty`, `text` | NOT NULL | As the picker counted it (a single egg on a line in crates) |
+| `qty_base` | `platform.qty` | NOT NULL | In the product's base unit; whole for a unit counted whole |
+| `reason_code` | `text` | NOT NULL | A `STOCK_ADJUSTMENT` reason (`BREAKAGE`) |
+| `stock_adjustment_id` | `uuid` | NOT NULL, FK `platform.business_document` (the adjustment, ADR-0011), UNIQUE | Posted, or waiting for its approval |
+| `branch_id`, `recorded_at`, `actor_id` | | NOT NULL | LEDGER columns; insert-only (`platform.reject_change`) |
 
 ### `ord.order_return` · DOCUMENT
 

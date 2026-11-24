@@ -9,8 +9,8 @@ export class PgOrderStore implements OrderStore {
     await tx.query(
       `INSERT INTO ord.sales_order (id, order_no, channel, customer_id, contact_name, contact_phone_e164, status, payment_terms, fulfilment_mode, source_document_id,
                                     shift_document_id, salesperson_id, tax_inclusive, delivery_fee_pesewas, estimated_total_pesewas, maximum_total_pesewas,
-                                    is_offline, placed_at, notes, branch_id, created_by, updated_by, delivery_address_snapshot, delivery_zone_id, parent_order_id)
-       VALUES ($1, $2, $3, $4, $5, $6, 'PLACED', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $20, $21::jsonb, $22, $23)`,
+                                    is_offline, placed_at, notes, branch_id, created_by, updated_by, delivery_address_snapshot, delivery_zone_id, parent_order_id, delivery_slot_id)
+       VALUES ($1, $2, $3, $4, $5, $6, 'PLACED', $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $20, $21::jsonb, $22, $23, $24)`,
       [
         o.id,
         o.orderNo,
@@ -35,6 +35,7 @@ export class PgOrderStore implements OrderStore {
         o.deliveryAddressSnapshot === undefined || o.deliveryAddressSnapshot === null ? null : JSON.stringify(o.deliveryAddressSnapshot),
         o.deliveryZoneId ?? null,
         o.parentOrderId ?? null,
+        o.deliverySlotId ?? null,
       ],
     );
   }
@@ -135,12 +136,13 @@ export class PgOrderStore implements OrderStore {
     );
   }
 
-  async uninvoicedCreditTotal(tx: Transaction, customerId: string): Promise<bigint> {
+  async uninvoicedCreditTotal(tx: Transaction, customerId: string, excludingOrderId: string | null): Promise<bigint> {
     const { rows } = await tx.query<{ total: string }>(
       `SELECT COALESCE(sum(estimated_total_pesewas), 0)::text AS total FROM ord.sales_order
         WHERE customer_id = $1 AND payment_terms = 'CREDIT' AND billing_document_id IS NULL
-          AND status IN ('CONFIRMED', 'PICKING', 'AWAITING_CUSTOMER', 'PACKED', 'READY_FOR_COLLECTION', 'DISPATCHED', 'DELIVERED', 'DELIVERY_FAILED')`,
-      [customerId],
+          AND status IN ('CONFIRMED', 'PICKING', 'AWAITING_CUSTOMER', 'PACKED', 'READY_FOR_COLLECTION', 'DISPATCHED', 'DELIVERED', 'DELIVERY_FAILED')
+          AND ($2::uuid IS NULL OR id <> $2::uuid)`,
+      [customerId, excludingOrderId],
     );
     return BigInt(rows[0]!.total);
   }
@@ -390,7 +392,7 @@ export class PgOrderStore implements OrderStore {
 const HEADER_COLUMNS = `id, order_no, channel, customer_id, contact_name, contact_phone_e164, status, payment_terms, fulfilment_mode, source_document_id, shift_document_id,
               salesperson_id, tax_inclusive, delivery_fee_pesewas::text, estimated_total_pesewas::text, maximum_total_pesewas::text, final_total_pesewas::text,
               billing_document_id, is_offline, placed_at, completed_at, recorded_at, notes, branch_id, version,
-              parent_order_id, credit_check, delivery_address_snapshot, delivery_zone_id, created_by, proforma_document_id`;
+              parent_order_id, credit_check, delivery_address_snapshot, delivery_zone_id, delivery_slot_id, created_by, proforma_document_id`;
 
 function header(r: Record<string, unknown>): OrderHeaderRecord {
   return {
@@ -423,6 +425,7 @@ function header(r: Record<string, unknown>): OrderHeaderRecord {
     creditCheck: r['credit_check'] as OrderHeaderRecord['creditCheck'],
     deliveryAddressSnapshot: r['delivery_address_snapshot'] ?? null,
     deliveryZoneId: r['delivery_zone_id'] as string | null,
+    deliverySlotId: (r['delivery_slot_id'] as string | null | undefined) ?? null,
     createdBy: r['created_by'] as string,
     proformaDocumentId: r['proforma_document_id'] as string | null,
   };

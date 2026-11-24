@@ -126,6 +126,7 @@ export const PickRecordBody = z.strictObject({
         qty: Positive,
         weightKg: Kilograms.optional(),
         weightSource: z.enum(['SCALE', 'MANUAL', 'ESTIMATE']).optional(),
+        damaged: z.strictObject({ qty: Positive, uom: z.string().min(1).max(20).optional(), reasonCode: ReasonCode, note: Text(500).optional() }).optional(),
       }),
     )
     .max(200),
@@ -134,7 +135,10 @@ export const PickRecordBody = z.strictObject({
 
 export const PackRecordBody = z.strictObject({ packageCount: z.number().int().min(1).max(999), backorderLineIds: z.array(z.uuid()).min(1).max(200).optional() });
 
-export const DispatchRecordBody = z.strictObject({ driverId: z.uuid().optional(), vehicleLocationId: z.uuid().optional() });
+export const DispatchRecordBody = z.strictObject({ driverId: z.uuid().optional(), vehicleLocationId: z.uuid().optional(), creditOverrideReason: Text(500).optional() });
+
+/** The contract's `CollectRecord` (B11 continued 8): optional, the written reason for an order on account's override. */
+export const CollectRecordBody = z.strictObject({ creditOverrideReason: Text(500).optional() }).optional();
 
 export const FulfilmentReasonBody = z.strictObject({ reason: Text(500) });
 

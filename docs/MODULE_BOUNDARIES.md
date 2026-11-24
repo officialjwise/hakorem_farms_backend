@@ -406,7 +406,7 @@ Any other reference upward, from a lower layer to a document in a higher one, us
 | Port | Defined by | Implemented by | Purpose |
 | --- | --- | --- | --- |
 | `ProductUsageCheck` | MDM | INV | MDM asks whether a product has stock history before allowing its stock-keeping policy to change |
-| `OrderConfirmationPolicy` | ORD | WHL | ORD asks registered policies whether an order may be confirmed; WHL answers for credit limit, terms and account hold with every reason and the figures, and asks the `CREDIT_OVERRIDE` approval with a written reason (built in B10 continued, ADR-0088) |
+| `OrderConfirmationPolicy` | ORD | WHL | ORD asks registered policies whether an order may be confirmed; WHL answers for credit limit, terms and account hold with every reason and the figures, and asks the `CREDIT_OVERRIDE` approval with a written reason (built in B10 continued, ADR-0088); at dispatch and hand-over `creditAtDispatchFor` judges the gross of what is sent, the order's estimate and document never counted twice, and `dueDateFor` gives the invoice's due date from the customer's terms (B11 continued 8, ADR-0095) |
 | Approval handlers | IAM | Every module with an approval kind | IAM calls the owning module's handler when a request is approved, in the same transaction |
 | Health contributors | platform | Any module | A module reports its own health item, such as last successful reconciliation |
 | `ScopeNames` | IAM | MDM | IAM asks for the codes of the branches and locations a session's grants name (ADR-0033) |

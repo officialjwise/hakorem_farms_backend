@@ -232,7 +232,7 @@ describe('createOrder (FR-ORD-001, FR-ORD-003, FR-ORD-004)', () => {
     expect((await admin().query('SELECT count(*)::int AS n FROM ord.sales_order')).rows[0].n).toBe(before);
   });
 
-  it('names every rule an order breaks: delivery, a coupon, an unknown customer, a repeated product, a goat on a line of two, a goat with no tag', async () => {
+  it('names every rule an order breaks: a delivery with no address, a coupon, an unknown customer, a repeated product, a goat on a line of two, a goat with no tag', async () => {
     const refused = await create(
       as('sales'),
       order({
@@ -244,7 +244,7 @@ describe('createOrder (FR-ORD-001, FR-ORD-003, FR-ORD-004)', () => {
     expect(refused.status).toBe(422);
     expect(refused.body.error.code).toBe('ORDER_INVALID');
     expect(refused.body.error.details.map((d: { field: string; code: string }) => `${d.field}:${d.code}`)).toEqual([
-      '/fulfilmentMode:FULFILMENT_NOT_AVAILABLE',
+      '/deliveryAddressId:DELIVERY_ADDRESS_REQUIRED',
       '/couponCode:COUPON_NOT_AVAILABLE',
       '/customerId:CUSTOMER_NOT_ACTIVE',
     ]);

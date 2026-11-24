@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.36.0"
+  version: "2.37.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -50842,7 +50842,7 @@ paths:
       tags:
         - ord
       summary: "Enter an order for a customer"
-      description: "Enters a PLACED order at the one branch where the caller enters orders, numbered from its `SALES_ORDER` series; nothing is reserved or charged until `confirmOrder`. Every line is priced by the pricing engine now and keeps the full pricing record. A line the pricing engine cannot price is refused with 422 QUOTE_REQUIRED naming the line; raise a quote instead. Every agreed price that differs from list needs a `PRICE_OVERRIDE` reason. A price above list up to the ceiling needs nothing more. A price below list within the band needs nothing more while the line's whole variance (the difference extended over the line) is at or under the seller's per-line limit (`PRICE_OVERRIDE_PER_LINE`, the largest among the roles they hold at the branch; with none set, every price below list waits). A price outside the band, or below list beyond that limit, makes the order wait for a different user: it is entered `PLACED` with those lines' `varianceApprovalRequestId` set, and the answer is 202 `ApprovalPending` (kind `PRICE_OVERRIDE`, its subject the order, with its number). The order cannot be confirmed, nor its proforma issued, until a holder of `ord.price_override.approve`, with a fresh step-up, who neither asked, nor sold, nor wrote the order, approves (422 MAKER_CANNOT_CHECK otherwise; the database refuses it too). A rejected override leaves the order `PLACED` and unconfirmable; cancelling it withdraws a waiting override (A-230). Until delivery scheduling, catch weight and promotions on staff orders are built, `DELIVERY`, a line priced per kilogram and a coupon are refused (422 ORDER_INVALID: `FULFILMENT_NOT_AVAILABLE`, `CATCH_WEIGHT_NOT_AVAILABLE`, `COUPON_NOT_AVAILABLE`); every other rule a line breaks is also named in `details[].code` (A-224).\n\nPermission: `ord.order.create`."
+      description: "Enters a PLACED order at the one branch where the caller enters orders, numbered from its `SALES_ORDER` series; nothing is reserved or charged until `confirmOrder`. Every line is priced by the pricing engine now and keeps the full pricing record. A line the pricing engine cannot price is refused with 422 QUOTE_REQUIRED naming the line; raise a quote instead. Every agreed price that differs from list needs a `PRICE_OVERRIDE` reason. A price above list up to the ceiling needs nothing more. A price below list within the band needs nothing more while the line's whole variance (the difference extended over the line) is at or under the seller's per-line limit (`PRICE_OVERRIDE_PER_LINE`, the largest among the roles they hold at the branch; with none set, every price below list waits). A price outside the band, or below list beyond that limit, makes the order wait for a different user: it is entered `PLACED` with those lines' `varianceApprovalRequestId` set, and the answer is 202 `ApprovalPending` (kind `PRICE_OVERRIDE`, its subject the order, with its number). The order cannot be confirmed, nor its proforma issued, until a holder of `ord.price_override.approve`, with a fresh step-up, who neither asked, nor sold, nor wrote the order, approves (422 MAKER_CANNOT_CHECK otherwise; the database refuses it too). A rejected override leaves the order `PLACED` and unconfirmable; cancelling it withdraws a waiting override (A-230). A `DELIVERY` order (2.37.0, B11 continued 8) names one of the customer's own saved addresses in `deliveryAddressId` (422 ORDER_INVALID `DELIVERY_ADDRESS_REQUIRED`; another customer's, an archived or an unknown address `ADDRESS_NOT_OF_CUSTOMER`), which is snapshotted on the order with its zone (the zone it is filed under, else the zone delivering to its area or city; none from this branch `NO_DELIVERY_ZONE`), and the zone's own fee is added (`deliveryFeePesewas`, waived when the goods come to more than the zone's threshold, as at the checkout); staff never type it. A slot on a staff order is refused `SLOT_NOT_AVAILABLE` (the slot is booked at dispatch). Until catch weight and promotions on staff orders are built, a line priced per kilogram and a coupon are refused (422 ORDER_INVALID: `CATCH_WEIGHT_NOT_AVAILABLE`, `COUPON_NOT_AVAILABLE`); every other rule a line breaks is also named in `details[].code` (A-224).\n\nPermission: `ord.order.create`."
       x-permission: ord.order.create
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -52404,6 +52404,7 @@ paths:
                             weightKg: "14.650"
                             weightSource: SCALE
                             linePricePesewas: 29300
+                            damaged: null
                         weighedTotalPesewas: 44300
                         withinTolerance: true
                         pickedAt: "2026-11-13T10:00:00Z"
@@ -52463,6 +52464,7 @@ paths:
                             weightKg: "14.650"
                             weightSource: SCALE
                             linePricePesewas: 29300
+                            damaged: null
                         weighedTotalPesewas: 44300
                         withinTolerance: true
                         pickedAt: "2026-11-13T10:01:00Z"
@@ -52566,6 +52568,7 @@ paths:
                             weightKg: "14.650"
                             weightSource: SCALE
                             linePricePesewas: 29300
+                            damaged: null
                         weighedTotalPesewas: 44300
                         withinTolerance: true
                         pickedAt: "2026-11-13T10:03:00Z"
@@ -52625,6 +52628,7 @@ paths:
                             weightKg: "14.650"
                             weightSource: SCALE
                             linePricePesewas: 29300
+                            damaged: null
                         weighedTotalPesewas: 44300
                         withinTolerance: true
                         pickedAt: "2026-11-13T10:04:00Z"
@@ -52684,6 +52688,7 @@ paths:
                             weightKg: "14.650"
                             weightSource: SCALE
                             linePricePesewas: 29300
+                            damaged: null
                         weighedTotalPesewas: 44300
                         withinTolerance: true
                         pickedAt: "2026-11-13T10:05:00Z"
@@ -52893,6 +52898,7 @@ paths:
                     weightKg: "14.650"
                     weightSource: SCALE
                     linePricePesewas: 29300
+                    damaged: null
                 weighedTotalPesewas: 44300
                 withinTolerance: true
                 pickedAt: "2026-11-13T10:00:00Z"
@@ -52920,7 +52926,7 @@ paths:
       tags:
         - ord
       summary: "Record picked packs or animals with their weights"
-      description: "Each pick by its client id (UUIDv7): a resubmitted pick with the same figures is stored once, an id used for another pick is 422 `FULFILMENT_INVALID` `PICK_ID_REUSED`. A pick is of an open line of this pick list (`LINE_NOT_ON_PICK_LIST`), in the line's unit, and the picks never come to more than the pick list asks (`PICK_OVER`; the database holds the cap). A lot is named (`STOCK_UNIT_REQUIRED`, `STOCK_UNIT_OTHER_PRODUCT`), an animal is the line's own (`STOCK_UNIT_OTHER_ANIMAL`, `ONE_ANIMAL_PER_LINE`), an untracked product names none (`STOCK_UNIT_NOT_TRACKED`). A catch-weight pick carries its weight and source (`WEIGHT_REQUIRED`, `WEIGHT_SOURCE_REQUIRED`) and takes its weighed kilograms of stock. A pick never takes more than the pick location holds that nobody else is promised, the order's own reservations counted as its own (`STOCK_SHORT`): a balance below zero offers nothing. `withdraw` takes picks of this pick list back first (a pack swapped).\n\nThe line is re-priced at its weighed quantity, `half_up(price per kg x weighed kg)` once over the line (FR-ORD-009): its `fulfilledWeightKg`, `weightSource` (the least trusted pack's) and `finalLineTotalPesewas`. A catch-weight line above the estimate plus its tolerance, or above the most the customer was shown, makes the order ask the customer (`HIGHER_TOTAL`, the order `AWAITING_CUSTOMER`, `withinTolerance` false); a swap that brings it back within withdraws the question. Below the estimate less the tolerance the line shows `toleranceState` `BELOW`, the prompt to add a pack; it may still be packed at the lower total. Only a `PICK_LIST` or `PICKING` pick list of a `PICKING` or `AWAITING_CUSTOMER` order (else 422 `INVALID_STATE_TRANSITION`).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`.\n\nAccepted from an offline queue: the client supplies the pick id (UUIDv7), and a resubmission with the same id stores nothing twice."
+      description: "Each pick by its client id (UUIDv7): a resubmitted pick with the same figures is stored once, an id used for another pick is 422 `FULFILMENT_INVALID` `PICK_ID_REUSED`. A pick is of an open line of this pick list (`LINE_NOT_ON_PICK_LIST`), in the line's unit, and the picks never come to more than the pick list asks (`PICK_OVER`; the database holds the cap). A lot is named (`STOCK_UNIT_REQUIRED`, `STOCK_UNIT_OTHER_PRODUCT`), an animal is the line's own (`STOCK_UNIT_OTHER_ANIMAL`, `ONE_ANIMAL_PER_LINE`), an untracked product names none (`STOCK_UNIT_NOT_TRACKED`). A catch-weight pick carries its weight and source (`WEIGHT_REQUIRED`, `WEIGHT_SOURCE_REQUIRED`) and takes its weighed kilograms of stock. A pick never takes more than the pick location holds that nobody else is promised, the order's own reservations counted as its own (`STOCK_SHORT`): a balance below zero offers nothing. `withdraw` takes picks of this pick list back first (a pack swapped).\n\nThe line is re-priced at its weighed quantity, `half_up(price per kg x weighed kg)` once over the line (FR-ORD-009): its `fulfilledWeightKg`, `weightSource` (the least trusted pack's) and `finalLineTotalPesewas`. A catch-weight line above the estimate plus its tolerance, or above the most the customer was shown, makes the order ask the customer (`HIGHER_TOTAL`, the order `AWAITING_CUSTOMER`, `withinTolerance` false); a swap that brings it back within withdraws the question. Below the estimate less the tolerance the line shows `toleranceState` `BELOW`, the prompt to add a pack; it may still be packed at the lower total. Only a `PICK_LIST` or `PICKING` pick list of a `PICKING` or `AWAITING_CUSTOMER` order (else 422 `INVALID_STATE_TRANSITION`).\n\n**Broken on the pick (2.37.0, CR-054 point 1):** a pick may name `damaged` (`qty` in `uom`, the line's unit when left out, so five single eggs on a line in crates; a `STOCK_ADJUSTMENT` reason such as `BREAKAGE`): those units are written off from the pick location in this transaction through a stock adjustment and its STOCK_WRITE_OFF approval, posted at once under the threshold, else waiting for a different person; the fulfilment line names it (`damaged`, with the adjustment). The goods picked are counted as before. Refused: `BREAKAGE_NOT_BY_WEIGHT` (a catch-weight line), `UNIT_NOT_SOLD`, `INEXACT_QUANTITY`; the adjustment's own refusals (422 `STOCK_ADJUSTMENT_INVALID`, `REASON_NOT_ALLOWED`; 422 `INSUFFICIENT_STOCK` when the location does not hold them).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`.\n\nAccepted from an offline queue: the client supplies the pick id (UUIDv7), and a resubmission with the same id stores nothing twice."
       x-permission: ord.fulfilment.pick
       parameters:
         - name: id
@@ -53010,6 +53016,7 @@ paths:
                     weightKg: "14.650"
                     weightSource: SCALE
                     linePricePesewas: 29300
+                    damaged: null
                 weighedTotalPesewas: 44300
                 withinTolerance: true
                 pickedAt: "2026-11-13T10:00:00Z"
@@ -53124,6 +53131,7 @@ paths:
                     weightKg: "14.650"
                     weightSource: SCALE
                     linePricePesewas: 29300
+                    damaged: null
                 weighedTotalPesewas: 44300
                 withinTolerance: true
                 pickedAt: "2026-11-13T10:01:00Z"
@@ -53155,7 +53163,7 @@ paths:
       tags:
         - ord
       summary: "Dispatch: load the vehicle and issue the invoice"
-      description: "Dispatches a packed delivery order onto a vehicle with its driver (B11 continued, FR-ORD-011, FR-BIL-005, ADR-0021, ADR-0091), in one serializable transaction: every packed pick list of the order goes (the order must be `PACKED`, else 422 `INVALID_STATE_TRANSITION`); the billing document is issued on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT` for a guest), a catch-weight line in kilograms at its price, with the order's delivery fee as its own line, charged once, on the order's first dispatch: a backorder's dispatch carries no order fee, and an extra delivery the customer asked for (`addExtraDeliveryFee`) is its own `DELIVERY_FEE` line (2.36.0, A-331 (b)); a line packed with its rest back-ordered goes with what was picked and the rest becomes a backorder linked to the order (`parentOrderId`), what the deposits hold beyond the document then staying held for it rather than refunded; the order's deposits are allocated to it oldest first, what they hold beyond it is asked back to the original method (`WEIGHED_BELOW_PAID`, a refund waiting for its approval), and what they do not cover becomes the cash due on delivery; the order's reservations end and each pick moves from its pick location onto the vehicle (never below zero online: 422 `INSUFFICIENT_STOCK`, nor stock promised to another order); the delivery is made (`DLN-...`, assigned to the driver and vehicle) and the order moves to `DISPATCHED`. `ord.OrderDispatched` is written to the outbox in the same transaction for the customer's message with the weights and the final total. Refusals: 422 `FULFILMENT_INVALID` with `NOT_A_DELIVERY` (a collection order is handed over with `collectFulfilment`), `CREDIT_DISPATCH_NOT_AVAILABLE` (an order on account, B11 continued 8), `DELIVERY_ADDRESS_REQUIRED`, `DRIVER_REQUIRED` or `VEHICLE_REQUIRED`; 422 `DELIVERY_INVALID` with `NOT_A_DRIVER` (not a driver at the branch) or `NOT_A_VEHICLE` (not a live vehicle of the branch).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.dispatch`."
+      description: "Dispatches a packed delivery order onto a vehicle with its driver (B11 continued, FR-ORD-011, FR-BIL-005, ADR-0021, ADR-0091), in one serializable transaction: every packed pick list of the order goes (the order must be `PACKED`, else 422 `INVALID_STATE_TRANSITION`); the billing document is issued on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT` for a guest), a catch-weight line in kilograms at its price, with the order's delivery fee as its own line, charged once, on the order's first dispatch: a backorder's dispatch carries no order fee, and an extra delivery the customer asked for (`addExtraDeliveryFee`) is its own `DELIVERY_FEE` line (2.36.0, A-331 (b)); a line packed with its rest back-ordered goes with what was picked and the rest becomes a backorder linked to the order (`parentOrderId`), what the deposits hold beyond the document then staying held for it rather than refunded; the order's deposits are allocated to it oldest first, what they hold beyond it is asked back to the original method (`WEIGHED_BELOW_PAID`, a refund waiting for its approval), and what they do not cover becomes the cash due on delivery, nil on an order on account (nothing is ever due to the driver on account); the order's reservations end and each pick moves from its pick location onto the vehicle (never below zero online: 422 `INSUFFICIENT_STOCK`, nor stock promised to another order); the delivery is made (`DLN-...`, assigned to the driver and vehicle) and the order moves to `DISPATCHED`. `ord.OrderDispatched` is written to the outbox in the same transaction for the customer's message with the weights and the final total. Refusals: 422 `FULFILMENT_INVALID` with `NOT_A_DELIVERY` (a collection order is handed over with `collectFulfilment`), `DELIVERY_ADDRESS_REQUIRED`, `DRIVER_REQUIRED` or `VEHICLE_REQUIRED`; 422 `DELIVERY_INVALID` with `NOT_A_DRIVER` (not a driver at the branch) or `NOT_A_VEHICLE` (not a live vehicle of the branch).\n\nAn order on account (`CREDIT`, 2.37.0, B11 continued 8, the owner 2026-11-23) is credit-checked here through WHL's credit control on the gross of the document on what is sent, against everything else the customer owes (the order's own estimate is never counted beside it): within the limit and terms it goes, its `INVOICE` due on the customer's payment terms (`dueDate`, the business date plus `paymentTermsDays`); an approved credit override covers it when the gross is no more than it was approved for. Refused, nothing is written and the answer is 422 `CREDIT_LIMIT_EXCEEDED`, `ACCOUNT_ON_HOLD` or `CREDIT_TERMS_EXCEEDED` with the figures in words (`details[]`: each reason, then `OVERRIDE_REASON_REQUIRED` or `APPROVAL_PENDING`); sent again with `creditOverrideReason` and none waiting, the override is asked for that gross instead (202 `CreditOverridePending`, a holder of `whl.credit.override` who did not ask approves it), and once approved the same request goes. A backorder of an order on account is judged again at its own dispatch, on its own quantities. With no open account the order is refused `CREDIT_CHECK_UNAVAILABLE`.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.dispatch`."
       x-permission: ord.fulfilment.dispatch
       parameters:
         - name: id
@@ -53239,6 +53247,7 @@ paths:
                     weightKg: "14.650"
                     weightSource: SCALE
                     linePricePesewas: 29300
+                    damaged: null
                 weighedTotalPesewas: 44300
                 withinTolerance: true
                 pickedAt: "2026-11-13T10:03:00Z"
@@ -53248,6 +53257,53 @@ paths:
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
+        "202":
+          description: "Accepted for approval. Nothing has taken effect yet."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditOverridePending"
+              example:
+                status: PENDING_APPROVAL
+                approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+                kind: CREDIT_OVERRIDE
+                subject:
+                  id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                  docType: SALES_ORDER
+                  number: SO-2026-DDW-004198
+                summary: "Credit override for SO-2026-DDW-004198 of GH₵920.00 to Asantewaa Chop Bar: GH₵420.00 over its GH₵5,000.00 limit. Reason: Pays every Friday"
+                requestedAt: "2026-11-13T10:12:00Z"
+                creditCheck:
+                  order:
+                    id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004198
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  outcome: OVER_LIMIT
+                  reasons:
+                    - OVER_LIMIT
+                  creditLimitPesewas: 500000
+                  exposurePesewas: 450000
+                  orderPesewas: 92000
+                  overLimitPesewas: 42000
+                  overduePesewas: 0
+                  oldestOverdueDays: null
+                  paymentTermsDays: 14
+                  override:
+                    approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+                    status: PENDING_APPROVAL
+                    reason: "Pays every Friday"
+                    requestedBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    requestedAt: "2026-11-13T10:12:00Z"
+                    decidedBy: null
+                    decidedAt: null
+                  checkedAt: "2026-11-13T10:12:00Z"
+                  currency: GHS
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -53270,7 +53326,7 @@ paths:
       tags:
         - ord
       summary: "Hand a collection order to the customer"
-      description: "Hands a packed collection order to the customer at the branch (2.36.0, B11 continued 7, FR-ORD-011, FR-BIL-005, ADR-0021), in one serializable transaction: every packed pick list of the order goes (the order must be `PACKED`, else 422 `INVALID_STATE_TRANSITION`); the billing document is issued on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT` for a guest), with no delivery fee; the order's deposits are allocated to it oldest first and what they hold beyond it is asked back to the original method (`WEIGHED_BELOW_PAID`), unless a backorder of the order is still to be sent; each pick is issued for the sale from where it was picked to the customer (never below zero online: 422 `INSUFFICIENT_STOCK`); the order's reservations end; a line packed with its rest back-ordered leaves a backorder (`parentOrderId`); the pick lists become `COLLECTED` and the order `READY_FOR_COLLECTION`. With nothing left to pay the order is `COMPLETED` at once; what is left is **paid at the till** (`payInvoiceAtTill`, a guest's receipt included) and the order completes when its document is settled. `ord.OrderCollected` is written to the outbox. Refusals: 422 `FULFILMENT_INVALID` with `NOT_A_COLLECTION` (a delivery order is dispatched with `dispatchFulfilment`) or `CREDIT_DISPATCH_NOT_AVAILABLE` (an order on account, B11 continued 8).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.dispatch`."
+      description: "Hands a packed collection order to the customer at the branch (2.36.0, B11 continued 7, FR-ORD-011, FR-BIL-005, ADR-0021), in one serializable transaction: every packed pick list of the order goes (the order must be `PACKED`, else 422 `INVALID_STATE_TRANSITION`); the billing document is issued on the weighed quantity (an `INVOICE` for a customer with an account, a `RECEIPT` for a guest), with no delivery fee; the order's deposits are allocated to it oldest first and what they hold beyond it is asked back to the original method (`WEIGHED_BELOW_PAID`), unless a backorder of the order is still to be sent; each pick is issued for the sale from where it was picked to the customer (never below zero online: 422 `INSUFFICIENT_STOCK`); the order's reservations end; a line packed with its rest back-ordered leaves a backorder (`parentOrderId`); the pick lists become `COLLECTED` and the order `READY_FOR_COLLECTION`. With nothing left to pay the order is `COMPLETED` at once; what is left is **paid at the till** (`payInvoiceAtTill`, a guest's receipt included) and the order completes when its document is settled. `ord.OrderCollected` is written to the outbox. Refusals: 422 `FULFILMENT_INVALID` with `NOT_A_COLLECTION` (a delivery order is dispatched with `dispatchFulfilment`).\n\nAn order on account (`CREDIT`, 2.37.0, B11 continued 8, the owner 2026-11-23) is credit-checked here through WHL's credit control on the gross of the document on what is handed over, against everything else the customer owes (the order's own estimate is never counted beside it): within the limit and terms it goes, its `INVOICE` due on the customer's payment terms (`dueDate`, the business date plus `paymentTermsDays`); an approved credit override covers it when the gross is no more than it was approved for. Refused, nothing is written and the answer is 422 `CREDIT_LIMIT_EXCEEDED`, `ACCOUNT_ON_HOLD` or `CREDIT_TERMS_EXCEEDED` with the figures in words (`details[]`: each reason, then `OVERRIDE_REASON_REQUIRED` or `APPROVAL_PENDING`); sent again with `creditOverrideReason` and none waiting, the override is asked for that gross instead (202 `CreditOverridePending`, a holder of `whl.credit.override` who did not ask approves it), and once approved the same request goes. A backorder of an order on account is judged again at its own hand-over, on its own quantities. With no open account the order is refused `CREDIT_CHECK_UNAVAILABLE`. On account nothing is paid at the till (`dueAtTillPesewas` nil): the order waits `READY_FOR_COLLECTION` until its invoice is settled.\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.dispatch`."
       x-permission: ord.fulfilment.dispatch
       parameters:
         - name: id
@@ -53284,6 +53340,14 @@ paths:
       security:
         - staffSession: []
         - apiKey: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CollectRecord"
+            example:
+              creditOverrideReason: "Pays every Friday; the cheque is promised"
       responses:
         "200":
           description: OK
@@ -53345,6 +53409,7 @@ paths:
                     weightKg: "14.650"
                     weightSource: SCALE
                     linePricePesewas: 29300
+                    damaged: null
                 weighedTotalPesewas: 44300
                 withinTolerance: true
                 pickedAt: "2026-11-13T10:04:00Z"
@@ -53354,6 +53419,53 @@ paths:
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 2
+        "202":
+          description: "Accepted for approval. Nothing has taken effect yet."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreditOverridePending"
+              example:
+                status: PENDING_APPROVAL
+                approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+                kind: CREDIT_OVERRIDE
+                subject:
+                  id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                  docType: SALES_ORDER
+                  number: SO-2026-DDW-004198
+                summary: "Credit override for SO-2026-DDW-004198 of GH₵920.00 to Asantewaa Chop Bar: GH₵420.00 over its GH₵5,000.00 limit. Reason: Pays every Friday"
+                requestedAt: "2026-11-13T10:12:00Z"
+                creditCheck:
+                  order:
+                    id: "019a7af0-a4c5-78e8-be21-975d5418103b"
+                    docType: SALES_ORDER
+                    number: SO-2026-DDW-004198
+                  customer:
+                    id: "019a7a87-c269-71a7-b6df-2344b7f49c22"
+                    publicId: cus_TS4VEDD3ZZNAAQGD
+                    name: "Asantewaa Chop Bar"
+                  outcome: OVER_LIMIT
+                  reasons:
+                    - OVER_LIMIT
+                  creditLimitPesewas: 500000
+                  exposurePesewas: 450000
+                  orderPesewas: 92000
+                  overLimitPesewas: 42000
+                  overduePesewas: 0
+                  oldestOverdueDays: null
+                  paymentTermsDays: 14
+                  override:
+                    approvalRequestId: "019a7af2-93b5-7720-bc58-7ad4ef28f3b2"
+                    status: PENDING_APPROVAL
+                    reason: "Pays every Friday"
+                    requestedBy:
+                      id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
+                      displayName: "Kojo Antwi"
+                    requestedAt: "2026-11-13T10:12:00Z"
+                    decidedBy: null
+                    decidedAt: null
+                  checkedAt: "2026-11-13T10:12:00Z"
+                  currency: GHS
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -53459,6 +53571,7 @@ paths:
                     weightKg: "14.650"
                     weightSource: SCALE
                     linePricePesewas: 29300
+                    damaged: null
                 weighedTotalPesewas: 44300
                 withinTolerance: true
                 pickedAt: "2026-11-13T10:00:00Z"
@@ -96684,6 +96797,7 @@ components:
             - "null"
           format: uuid
         driver:
+          description: "The driver who holds a cash-on-delivery payment until it is handed in at a till (2.37.0, BL-096, ADR-0092); null for every other payment."
           anyOf:
             - $ref: "#/components/schemas/PrincipalRef"
             - type: "null"
@@ -98387,6 +98501,11 @@ components:
                 - $ref: "#/components/schemas/Pesewas"
               description: "Price at the weighed quantity."
             - type: "null"
+        damaged:
+          description: "What the picker found broken beside this pick (2.37.0, CR-054 point 1), written off from the pick location by `stockAdjustmentId` (posted, or waiting for its STOCK_WRITE_OFF approval); null when nothing was."
+          anyOf:
+            - $ref: "#/components/schemas/PickDamage"
+            - type: "null"
       required:
         - id
         - orderLineId
@@ -98397,6 +98516,25 @@ components:
         - weightKg
         - weightSource
         - linePricePesewas
+        - damaged
+    PickDamage:
+      type: object
+      description: "Units found broken on a pick and written off (2.37.0, CR-054 point 1)."
+      properties:
+        qty:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+        reasonCode:
+          type: string
+        stockAdjustmentId:
+          type: string
+          format: uuid
+      required:
+        - qty
+        - uom
+        - reasonCode
+        - stockAdjustmentId
     Fulfilment:
       type: object
       properties:
@@ -98545,10 +98683,33 @@ components:
           $ref: "#/components/schemas/Kilograms"
         weightSource:
           $ref: "#/components/schemas/WeightSource"
+        damaged:
+          $ref: "#/components/schemas/PickDamageInput"
       required:
         - id
         - orderLineId
         - qty
+      additionalProperties: false
+    PickDamageInput:
+      type: object
+      description: "Optional (2.37.0, CR-054 point 1): units found broken beside this pick, in `uom` (the line's unit when left out; a single egg on a line in crates), with a `STOCK_ADJUSTMENT` reason such as `BREAKAGE`. They are written off from the pick location in the pick's own transaction through a stock adjustment and its STOCK_WRITE_OFF approval: posted at once under the threshold, else waiting for a different person. Refused on a catch-weight line (`BREAKAGE_NOT_BY_WEIGHT`), in a unit the product is not sold by (`UNIT_NOT_SOLD`) or not a whole number of base units (`INEXACT_QUANTITY`)."
+      properties:
+        qty:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+          minLength: 1
+          maxLength: 20
+        reasonCode:
+          type: string
+          pattern: "^[A-Z][A-Z_]{1,39}$"
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+        - qty
+        - reasonCode
       additionalProperties: false
     PickRecord:
       type: object
@@ -98631,6 +98792,20 @@ components:
         vehicleLocationId:
           type: string
           format: uuid
+        creditOverrideReason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: "Optional (2.37.0, B11 continued 8). An order on account refused for credit at dispatch is dispatched only under an approved override; with a written reason, and none waiting, the override is asked for the gross of what is sent instead (202)."
+      additionalProperties: false
+    CollectRecord:
+      type: object
+      description: "Optional (2.37.0, B11 continued 8). An order on account refused for credit at the hand-over is handed over only under an approved override; with a written reason, and none waiting, the override is asked for the gross of what is handed over instead (202)."
+      properties:
+        creditOverrideReason:
+          type: string
+          minLength: 1
+          maxLength: 500
       additionalProperties: false
     ReturnLine:
       type: object

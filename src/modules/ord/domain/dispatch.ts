@@ -123,3 +123,20 @@ export function judgeExtraDeliveryFee(f: {
   if (f.zoneFeePesewas <= 0n) return err('ZONE_HAS_NO_FEE');
   return ok(f.zoneFeePesewas);
 }
+
+/**
+ * A staff delivery order's fee (B11 continued 8): its zone's exact fee, waived only when the goods come to more than the
+ * zone's threshold, the rule the checkout applies (FR-SHP-008). Staff never type it.
+ */
+export function zoneFee(zone: { readonly feePesewas: bigint; readonly freeOverPesewas: bigint | null }, goods: Money): Money {
+  if (zone.freeOverPesewas !== null && goods.pesewas > zone.freeOverPesewas) return Money.zero();
+  return Money.ofPesewas(zone.feePesewas);
+}
+
+/**
+ * What the driver collects at the door (ADR-0092): what the deposits do not cover, except on an order on account, whose
+ * balance is the invoice itself, due on the customer's terms, and never cash in the driver's hands (B11 continued 8).
+ */
+export function cashDueOnDelivery(paymentTerms: 'IMMEDIATE' | 'PREPAID' | 'COD' | 'CREDIT', due: Money): Money {
+  return paymentTerms === 'CREDIT' ? Money.zero() : due;
+}

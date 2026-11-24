@@ -153,7 +153,7 @@ function creditReasonText(reason: keyof typeof CREDIT_CODES, a: CreditPolicyAnsw
 export class CreditRefusedError extends BusinessRuleError {
   readonly code: string;
   readonly messageKey: string;
-  constructor(answer: CreditPolicyAnswer) {
+  constructor(answer: CreditPolicyAnswer, step: 'confirm' | 'dispatch' | 'hand over' = 'confirm') {
     const first = answer.reasons[0] ?? 'OVER_LIMIT';
     super(
       `credit order refused: ${answer.reasons.join(', ')}`,
@@ -161,7 +161,7 @@ export class CreditRefusedError extends BusinessRuleError {
         ...answer.reasons.map((r) => ({ field: '/paymentTerms', code: r, message: creditReasonText(r, answer) })),
         answer.overridePending
           ? { field: null, code: 'APPROVAL_PENDING', message: 'A credit override for this order is waiting for an Owner or Manager other than the person who asked.' }
-          : { field: '/creditOverrideReason', code: 'OVERRIDE_REASON_REQUIRED', message: 'To ask for a credit override, confirm again with a written reason.' },
+          : { field: '/creditOverrideReason', code: 'OVERRIDE_REASON_REQUIRED', message: `To ask for a credit override, ${step} again with a written reason.` },
       ],
     );
     this.code = CREDIT_CODES[first][0];

@@ -64,6 +64,8 @@ export interface OnlinePlacement {
   readonly fulfilmentMode: 'COLLECTION' | 'DELIVERY';
   readonly deliveryAddressSnapshot: unknown;
   readonly deliveryZoneId: string | null;
+  /** The slot the customer chose (FR-SHP-009), booked onto the delivery at dispatch (A-362 (e)); null for none. */
+  readonly deliverySlotId?: string | null;
   readonly deliveryFeePesewas: bigint;
   readonly estimatedTotalPesewas: bigint;
   readonly maximumTotalPesewas: bigint;
@@ -275,6 +277,7 @@ export class OnlineOrders {
       actorId,
       deliveryAddressSnapshot: p.deliveryAddressSnapshot,
       deliveryZoneId: p.deliveryZoneId,
+      deliverySlotId: p.deliverySlotId ?? null,
     });
     await this.store.recordStatus(tx, orderId, { id: this.nextId(), fromStatus: null, toStatus: 'PLACED', reason: null, occurredAt: at, actorId });
     await this.store.insertLines(tx, lines);

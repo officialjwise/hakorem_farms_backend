@@ -12,8 +12,9 @@ import type { Billing } from '../../bil';
 import type { ApprovalHandler, ApprovalListing, ApprovalRecord, Approvals, Authoriser, PrincipalNames } from '../../iam';
 import type { MasterDataRefs } from '../../mdm';
 import type { CreditOrder, CreditOverridePending, CreditPolicyAnswer, OrderConfirmationPolicy, Orders } from '../../ord';
-import { judgeCredit, overrideCovers, type CreditJudgement, type CreditReason, type OpenItem } from '../domain/credit';
+import { judgeCredit, overrideCovers, overrideCoversDispatch, type CreditJudgement, type CreditReason, type OpenItem } from '../domain/credit';
 import { pageProbe } from '../domain/paging';
+import { dueDateAfter } from '../domain/time';
 import type { AccountRecord, AccountStore, OverrideRecord } from './account-store';
 import { AskerCannotApproveError, CreditOverrideInvalidError } from './errors';
 
@@ -132,9 +133,14 @@ export class CreditControl implements OrderConfirmationPolicy {
 
   // --------------------------------------------------------------------------------------- the figures
 
-  /** The account's credit figures with an order of `order` pesewas (nil to read the account alone), as at now. */
-  async judgeIn(tx: Transaction, account: AccountRecord, order: bigint): Promise<CreditJudgement> {
-    const openItems: OpenItem[] = (await this.billing.customerOpenItemsIn(tx, account.customerId)).map((i) => ({
+  /**
+   * The account's credit figures with an order of `order` pesewas (nil to read the account alone), as at now. The order
+   * being judged (`orderId`) is never counted among the uninvoiced orders beside its own amount (B11 continued 8): at
+   * dispatch it is still uninvoiced, and its estimate would otherwise be counted twice; nor is its own document
+   * (`orderDocumentId`), issued at dispatch just before it is judged.
+   */
+  async judgeIn(tx: Transaction, account: AccountRecord, order: bigint, orderId: string | null = null, orderDocumentId: string | null = null): Promise<CreditJudgement> {
+    const openItems: OpenItem[] = (await this.billing.customerOpenItemsIn(tx, account.customerId)).filter((i) => i.id !== orderDocumentId).map((i) => ({
       documentId: i.id,
       documentNo: i.documentNo,
       issueDate: i.issueDate,
@@ -145,7 +151,7 @@ export class CreditControl implements OrderConfirmationPolicy {
       status: account.status === 'ON_HOLD' ? 'ON_HOLD' : 'ACTIVE',
       limit: Money.ofPesewas(account.creditLimitPesewas),
       openItems,
-      uninvoicedOrders: Money.ofPesewas(await this.orders.uninvoicedCreditIn(tx, account.customerId)),
+      uninvoicedOrders: Money.ofPesewas(await this.orders.uninvoicedCreditIn(tx, account.customerId, orderId)),
       order: Money.ofPesewas(order),
       today: toBusinessDate(this.clock.now()),
     });
@@ -162,7 +168,7 @@ export class CreditControl implements OrderConfirmationPolicy {
     if (order.customerId === null) return null;
     const account = await this.store.account(tx, order.customerId, true);
     if (account === null || account.status === 'CLOSED') return null;
-    const judged = await this.judgeIn(tx, account, order.estimatedTotalPesewas);
+    const judged = await this.judgeIn(tx, account, order.estimatedTotalPesewas, order.id);
     const covered = judged.reasons.length > 0 && (await this.store.overridesOfOrder(tx, order.id)).some((o) => overrideCovers(o, judged, Money.ofPesewas(order.estimatedTotalPesewas)));
     const pending = judged.reasons.length > 0 && !covered && (await this.pendingOf(tx, order.id)) !== null;
     const customer = (await this.refs.customersIn(tx, [order.customerId])).get(order.customerId);
@@ -179,10 +185,38 @@ export class CreditControl implements OrderConfirmationPolicy {
     };
   }
 
+  async creditAtDispatchFor(tx: Transaction, order: CreditOrder, documentId: string | null): Promise<CreditPolicyAnswer | null> {
+    if (order.customerId === null) return null;
+    const account = await this.store.account(tx, order.customerId, true);
+    if (account === null || account.status === 'CLOSED') return null;
+    const gross = Money.ofPesewas(order.estimatedTotalPesewas);
+    const judged = await this.judgeIn(tx, account, gross.pesewas, order.id, documentId);
+    const covered = judged.reasons.length > 0 && (await this.store.overridesOfOrder(tx, order.id)).some((o) => overrideCoversDispatch(o, judged, gross));
+    const pending = judged.reasons.length > 0 && !covered && (await this.pendingOf(tx, order.id)) !== null;
+    const customer = (await this.refs.customersIn(tx, [order.customerId])).get(order.customerId);
+    return {
+      verdict: judged.reasons.length === 0 ? 'PASSED' : covered ? 'OVERRIDDEN' : 'REFUSED',
+      reasons: judged.reasons,
+      customerName: customer?.name ?? 'The customer',
+      limitPesewas: account.creditLimitPesewas,
+      exposurePesewas: judged.exposure.pesewas,
+      overLimitPesewas: judged.overLimit.pesewas,
+      overduePesewas: judged.overdue.pesewas,
+      oldestOverdueDays: judged.oldestOverdueDays,
+      overridePending: pending,
+    };
+  }
+
+  async dueDateFor(tx: Transaction, customerId: string): Promise<string | null> {
+    const account = await this.store.account(tx, customerId, false);
+    if (account === null || account.status === 'CLOSED') return null;
+    return dueDateAfter(toBusinessDate(this.clock.now()), account.paymentTermsDays);
+  }
+
   async requestOverrideIn(tx: Transaction, actor: Actor, order: CreditOrder, reason: string): Promise<CreditOverridePending> {
     const account = order.customerId === null ? null : await this.store.account(tx, order.customerId, true);
     if (account === null || account.status === 'CLOSED') throw new CreditOverrideInvalidError('CREDIT_CHECK_UNAVAILABLE');
-    const judged = await this.judgeIn(tx, account, order.estimatedTotalPesewas);
+    const judged = await this.judgeIn(tx, account, order.estimatedTotalPesewas, order.id);
     if (judged.reasons.length === 0) throw new CreditOverrideInvalidError('CREDIT_OVERRIDE_NOT_NEEDED');
     const at = this.clock.now();
     const customer = (await this.refs.customersIn(tx, [account.customerId])).get(account.customerId);
@@ -245,7 +279,7 @@ export class CreditControl implements OrderConfirmationPolicy {
       if (order.paymentTerms !== 'CREDIT') return this.checkView(tx, order, null, null);
       const account = order.customerId === null ? null : await this.store.account(tx, order.customerId, false);
       if (account === null || account.status === 'CLOSED') return this.checkView(tx, order, null, null);
-      return this.checkView(tx, order, account, await this.judgeIn(tx, account, order.estimatedTotalPesewas));
+      return this.checkView(tx, order, account, await this.judgeIn(tx, account, order.estimatedTotalPesewas, order.id));
     });
   }
 
@@ -300,7 +334,12 @@ export class CreditControl implements OrderConfirmationPolicy {
       if (order === null) throw new NotFoundError(`no order ${orderId}`);
       const account = order.customerId === null ? null : await this.store.account(tx, order.customerId, true);
       if (account === null) throw new NotFoundError(`no business account for order ${orderId}`);
-      return overrideHash(order, (await this.judgeIn(tx, account, order.estimatedTotalPesewas)).reasons);
+      // An override asked at dispatch or hand-over is bound to the gross of what is sent, which only the request keeps
+      // (B11 continued 8); one asked for a PLACED order to its estimate, as before.
+      const pending = order.status === 'PLACED' ? null : await this.pendingOf(tx, orderId);
+      const asked = pending === null ? null : await this.store.overrideRequestByApproval(tx, pending.id);
+      const bound = asked === null ? order : { ...order, estimatedTotalPesewas: asked.orderPesewas };
+      return overrideHash(bound, (await this.judgeIn(tx, account, bound.estimatedTotalPesewas, orderId)).reasons);
     },
     onApproved: async (tx: Transaction, approval: ApprovalRecord) => {
       const request = await this.store.overrideRequestByApproval(tx, approval.id);

@@ -37,6 +37,8 @@ export interface OrderHeaderRecord {
   readonly creditCheck: 'PASSED' | 'OVERRIDDEN' | 'NOT_REQUIRED' | null;
   readonly deliveryAddressSnapshot: unknown;
   readonly deliveryZoneId: string | null;
+  /** The delivery slot chosen at the checkout (A-362 (e), B11 continued 8), booked at dispatch; null on every other order. */
+  readonly deliverySlotId: string | null;
   /** Who wrote the order: for a counter sale, the cashier who posted it (a void's approver is never this person). */
   readonly createdBy: string;
   /** The order's proforma (issueProforma, A-201), once issued; never replaced. */
@@ -97,7 +99,7 @@ export interface StatusChangeRecord {
   readonly actorId: string;
 }
 
-type ReadOnlyHeader = 'parentOrderId' | 'creditCheck' | 'deliveryAddressSnapshot' | 'deliveryZoneId' | 'createdBy' | 'proformaDocumentId';
+type ReadOnlyHeader = 'parentOrderId' | 'creditCheck' | 'deliveryAddressSnapshot' | 'deliveryZoneId' | 'deliverySlotId' | 'createdBy' | 'proformaDocumentId';
 type ReadOnlyLine = 'stockExceptionId' | 'estimatedWeightKg' | 'tolerancePercent' | 'qtyBackordered' | 'quoteLineRef';
 
 export interface NewOrder extends Omit<OrderHeaderRecord, 'status' | 'finalTotalPesewas' | 'billingDocumentId' | 'completedAt' | 'recordedAt' | 'version' | 'orderNo' | ReadOnlyHeader> {
@@ -106,6 +108,8 @@ export interface NewOrder extends Omit<OrderHeaderRecord, 'status' | 'finalTotal
   /** An online order's delivery as the checkout took it (A-232); null for every other order. */
   readonly deliveryAddressSnapshot?: unknown;
   readonly deliveryZoneId?: string | null;
+  /** An online delivery order's slot as the checkout took it (B11 continued 8); null for every other order. */
+  readonly deliverySlotId?: string | null;
   /** The order a backorder completes (FR-ORD-012); never itself a backorder. */
   readonly parentOrderId?: string | null;
 }
@@ -172,7 +176,7 @@ export interface OrderStore {
   /** The summary of the sales a till shift took. */
   shiftSales(tx: Transaction, shiftDocumentId: string): Promise<ShiftSalesSummary>;
   /** The customer's confirmed credit orders not yet invoiced, at their estimated totals, summed (SA-21, WHL's exposure). */
-  uninvoicedCreditTotal(tx: Transaction, customerId: string): Promise<bigint>;
+  uninvoicedCreditTotal(tx: Transaction, customerId: string, excludingOrderId: string | null): Promise<bigint>;
   insertOrder(tx: Transaction, order: NewOrder): Promise<void>;
   insertTrackingToken(tx: Transaction, token: TrackingTokenRecord): Promise<void>;
   /** The token stored under this hash that has not expired at `at`, by the unique hash (a point read). */

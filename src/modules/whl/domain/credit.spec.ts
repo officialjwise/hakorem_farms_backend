@@ -1,7 +1,7 @@
 import { Money } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { availableCredit, holdTrigger, judgeCredit, overrideCovers, releasesOnPayment, type CreditFacts, type OpenItem } from './credit';
-import { daysPastDue } from './time';
+import { availableCredit, holdTrigger, judgeCredit, overrideCovers, overrideCoversDispatch, releasesOnPayment, type CreditFacts, type OpenItem } from './credit';
+import { daysPastDue, dueDateAfter } from './time';
 
 const TODAY = '2026-11-14';
 const p = (n: bigint) => Money.ofPesewas(n);
@@ -132,6 +132,38 @@ describe('an approved override covers the order it was approved for (CR-046)', (
   it('does not cover a reason it was not approved for', () => {
     expect(overrideCovers(approved, now(60_000n, 450_000n, 'ACTIVE', '2026-11-13'), p(60_000n))).toBe(false);
     expect(overrideCovers(approved, now(60_000n, 450_000n, 'ON_HOLD'), p(60_000n))).toBe(false);
+  });
+});
+
+describe('an approved override covers a dispatch of no more than it was approved for (B11 continued 8)', () => {
+  const approved = { orderPesewas: 60_000n, overLimitPesewas: 10_000n, reasons: ['OVER_LIMIT'] as const };
+  const now = (gross: bigint, open: bigint, status: 'ACTIVE' | 'ON_HOLD' = 'ACTIVE', due = TODAY) => judgeCredit(facts({ status, openItems: [item(open, due)], order: p(gross) }));
+
+  it('covers the dispatch of exactly the amount approved', () => {
+    expect(overrideCoversDispatch(approved, now(60_000n, 450_000n), p(60_000n))).toBe(true);
+  });
+  it('covers a dispatch weighed lighter than the approved amount', () => {
+    expect(overrideCoversDispatch(approved, now(59_999n, 450_000n), p(59_999n))).toBe(true);
+  });
+  it('does not cover a dispatch one pesewa above the approved amount', () => {
+    expect(overrideCoversDispatch(approved, now(60_001n, 449_999n), p(60_001n))).toBe(false);
+  });
+  it('does not cover one pesewa more over the limit than approved', () => {
+    expect(overrideCoversDispatch(approved, now(60_000n, 450_001n), p(60_000n))).toBe(false);
+  });
+  it('does not cover a reason it was not approved for', () => {
+    expect(overrideCoversDispatch(approved, now(60_000n, 450_000n, 'ACTIVE', '2026-11-13'), p(60_000n))).toBe(false);
+    expect(overrideCoversDispatch(approved, now(60_000n, 450_000n, 'ON_HOLD'), p(60_000n))).toBe(false);
+  });
+});
+
+describe('the due date from the terms (FR-WHL-001, B11 continued 8)', () => {
+  it('is the issue date plus the terms in calendar days, across a month and a year end', () => {
+    expect([dueDateAfter('2026-11-24', 30), dueDateAfter('2026-12-15', 30), dueDateAfter('2026-11-24', 0)]).toEqual(['2026-12-24', '2027-01-14', '2026-11-24']);
+  });
+  it('refuses terms that are negative or not whole days', () => {
+    expect(() => dueDateAfter('2026-11-24', -1)).toThrow(RangeError);
+    expect(() => dueDateAfter('2026-11-24', 1.5)).toThrow(RangeError);
   });
 });
 

@@ -23,10 +23,10 @@ import {
   type StockQueries,
   type StockUnits,
 } from '../../inv';
-import { extendPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts } from '../../mdm';
+import { extendPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts, type DeliveryZoneFacts, type Storefront } from '../../mdm';
 import type { Payments, PaymentView } from '../../pay';
 import { judgeConfirmation, planLineReservation, receivedForOrder } from '../domain/confirmation';
-import type { BackorderLine } from '../domain/dispatch';
+import { zoneFee, type BackorderLine } from '../domain/dispatch';
 import { judgeOverride } from '../domain/price-override';
 import { lineNumber } from '../domain/line-numbers';
 import { paymentStatusOf, type OrderStatus, type PaymentStatus } from '../domain/order';
@@ -74,6 +74,12 @@ export interface OrderCreateRequest {
   readonly lines: readonly OrderLineInput[];
   readonly couponCode?: string | null;
   readonly notes?: string | null;
+}
+
+/** A staff delivery order's address snapshot and zone (B11 continued 8). */
+interface StaffDelivery {
+  readonly zone: DeliveryZoneFacts;
+  readonly snapshot: Readonly<Record<string, string | null>>;
 }
 
 /** A line of an accepted quote, as QUO converts it (FR-QUO-011): priced by the quote line it names. */
@@ -321,6 +327,7 @@ export class Orders {
     private readonly overrides: PriceOverrides,
     private readonly fulfilmentStore: FulfilmentStore,
     private readonly deliveries: Deliveries,
+    private readonly storefront: Storefront,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -423,17 +430,20 @@ export class Orders {
 
       const at = this.clock.now();
       const broken: SaleRule[] = [];
-      if (request.fulfilmentMode === 'DELIVERY') broken.push({ field: '/fulfilmentMode', rule: 'FULFILMENT_NOT_AVAILABLE' });
+      if (request.fulfilmentMode === 'DELIVERY' && !isSet(request.deliveryAddressId)) broken.push({ field: '/deliveryAddressId', rule: 'DELIVERY_ADDRESS_REQUIRED' });
+      // A slot is booked from the checkout's choice at dispatch (A-362 (e)); a staff order's slot is not built (A-368 (a)).
+      if (request.fulfilmentMode === 'DELIVERY' && isSet(request.deliverySlotId)) broken.push({ field: '/deliverySlotId', rule: 'SLOT_NOT_AVAILABLE' });
       if (request.fulfilmentMode === 'COLLECTION' && isSet(request.deliveryAddressId)) broken.push({ field: '/deliveryAddressId', rule: 'NOT_FOR_COLLECTION' });
       if (request.fulfilmentMode === 'COLLECTION' && isSet(request.deliverySlotId)) broken.push({ field: '/deliverySlotId', rule: 'NOT_FOR_COLLECTION' });
       if (isSet(request.couponCode)) broken.push({ field: '/couponCode', rule: 'COUPON_NOT_AVAILABLE' });
       if (request.lines.length === 0) broken.push({ field: '/lines', rule: 'NO_LINES' });
       const customer = (await this.refs.customersIn(tx, [request.customerId])).get(request.customerId);
       if (customer === undefined || !customer.isLive) broken.push({ field: '/customerId', rule: 'CUSTOMER_NOT_ACTIVE' });
+      const delivery = request.fulfilmentMode === 'DELIVERY' && isSet(request.deliveryAddressId) ? await this.staffDeliveryIn(tx, branchId, request.customerId, request.deliveryAddressId, broken) : null;
       if (broken.length > 0) throw new OrderInvalidError(broken);
 
       const limit = await this.overrides.lineLimitIn(tx, actor!, branchId);
-      const { view, approval } = await this.placeIn(tx, actor!, { branchId, request, at, limit, salespersonId: actor!.principalId, sourceDocumentId: null });
+      const { view, approval } = await this.placeIn(tx, actor!, { branchId, request, at, limit, salespersonId: actor!.principalId, sourceDocumentId: null, delivery });
       const response: StoredResponse<SalesOrderView | ApprovalPendingView> =
         approval === null ? { status: 201, body: view } : { status: 202, body: this.overrides.pendingView(approval, { id: view.id, number: view.orderNo! }) };
       await this.idempotency.complete(tx, claim.id, response);
@@ -449,7 +459,7 @@ export class Orders {
   private async placeIn(
     tx: Transaction,
     actor: Actor,
-    p: { readonly branchId: string; readonly request: OrderCreateRequest; readonly at: Date; readonly limit: bigint; readonly salespersonId: string; readonly sourceDocumentId: string | null },
+    p: { readonly branchId: string; readonly request: OrderCreateRequest; readonly at: Date; readonly limit: bigint; readonly salespersonId: string; readonly sourceDocumentId: string | null; readonly delivery?: StaffDelivery | null },
   ): Promise<{ readonly view: SalesOrderView; readonly approval: Awaited<ReturnType<PriceOverrides['requestIn']>> | null }> {
     const { branchId, request, at, limit } = p;
     const branch = (await this.refs.branchesIn(tx, [branchId])).get(branchId)!;
@@ -462,7 +472,10 @@ export class Orders {
         ? null
         : await this.overrides.requestIn(tx, actor, { orderId, orderNo, branchId, customerId: request.customerId, salespersonId: p.salespersonId, lines: flagged });
     const lines = priced.map((l) => (l.varianceRequiresApproval ? { ...l, varianceApprovalRequestId: approval!.id } : l));
-    const estimated = Money.sum(lines.map((l) => Money.ofPesewas(l.estimatedLineTotalPesewas)));
+    const goods = Money.sum(lines.map((l) => Money.ofPesewas(l.estimatedLineTotalPesewas)));
+    // A staff delivery order pays its zone's own fee, waived over the zone's threshold, as at the checkout (B11 continued 8).
+    const fee = p.delivery === undefined || p.delivery === null ? Money.zero() : zoneFee(p.delivery.zone, goods);
+    const estimated = goods.plus(fee);
     await this.store.insertOrder(tx, {
       id: orderId,
       orderNo,
@@ -476,7 +489,7 @@ export class Orders {
       shiftDocumentId: null,
       salespersonId: p.salespersonId,
       taxInclusive: true,
-      deliveryFeePesewas: 0n,
+      deliveryFeePesewas: fee.pesewas,
       estimatedTotalPesewas: estimated.pesewas,
       maximumTotalPesewas: estimated.pesewas,
       isOffline: false,
@@ -484,6 +497,8 @@ export class Orders {
       notes: request.notes ?? null,
       branchId,
       actorId: actor.principalId,
+      deliveryAddressSnapshot: p.delivery?.snapshot ?? null,
+      deliveryZoneId: p.delivery?.zone.id ?? null,
     });
     await this.store.recordStatus(tx, orderId, { id: this.nextId(), fromStatus: null, toStatus: 'PLACED', reason: null, occurredAt: at, actorId: actor.principalId });
     await this.store.insertLines(tx, lines);
@@ -945,9 +960,67 @@ export class Orders {
     return this.store.holdLine(tx, lineId, reservationId);
   }
 
+  /**
+   * A staff delivery order's delivery (B11 continued 8): the customer's own saved, live address, snapshotted as the
+   * checkout snapshots one, and its zone (the one it is filed under, else the zone delivering to its area or city), which
+   * must deliver from the order's branch. Every rule broken is added to `broken`.
+   */
+  private async staffDeliveryIn(tx: Transaction, branchId: string, customerId: string, addressId: string, broken: SaleRule[]): Promise<StaffDelivery | null> {
+    const address = await this.refs.customerAddressIn(tx, addressId);
+    if (address === null || !address.isLive || address.customerId !== customerId) {
+      broken.push({ field: '/deliveryAddressId', rule: 'ADDRESS_NOT_OF_CUSTOMER' });
+      return null;
+    }
+    const zone = address.deliveryZoneId === null ? await this.storefront.deliveryZoneForIn(tx, address) : ((await this.storefront.deliveryZonesIn(tx, [address.deliveryZoneId])).get(address.deliveryZoneId) ?? null);
+    if (zone === null || zone.branchId !== branchId) {
+      broken.push({ field: '/deliveryAddressId', rule: 'NO_DELIVERY_ZONE' });
+      return null;
+    }
+    return {
+      zone,
+      snapshot: {
+        recipientName: address.recipientName,
+        recipientPhone: address.recipientPhone,
+        line1: address.line1,
+        area: address.area,
+        city: address.city,
+        region: address.region,
+        digitalAddress: address.digitalAddress,
+        directions: address.directions,
+      },
+    };
+  }
+
   /** The branches where the caller holds the permission for the whole branch; a grant at one location adds none. */
   private async wholeBranches(tx: Transaction, actor: Actor, permission: string): Promise<string[]> {
     return [...new Set((await this.authoriser.scopes(tx, actor, permission)).filter((s) => s.locationId === null).map((s) => s.branchId))].sort();
+  }
+
+  /**
+   * An order on account at its dispatch or hand-over (B11 continued 8, the owner, 2026-11-23): the registered policies'
+   * judgement of the gross of what is sent (WHL's credit control, through the port: ORD sits below WHL), the order's own
+   * estimate never counted beside it. Null when no policy answers, which the caller refuses, never waves through.
+   */
+  async creditAtDispatchIn(tx: Transaction, order: OrderHeaderRecord, grossPesewas: bigint, documentId: string): Promise<{ readonly policy: OrderConfirmationPolicy; readonly answer: CreditPolicyAnswer } | null> {
+    for (const policy of this.policies) {
+      const answer = await policy.creditAtDispatchFor(tx, { ...creditOrderOf(order), estimatedTotalPesewas: grossPesewas }, documentId);
+      if (answer !== null) return { policy, answer };
+    }
+    return null;
+  }
+
+  /** The due date of an invoice issued today to an order on account, from the customer's terms (WHL), or null. */
+  async dueDateIn(tx: Transaction, customerId: string): Promise<string | null> {
+    for (const policy of this.policies) {
+      const due = await policy.dueDateFor(tx, customerId);
+      if (due !== null) return due;
+    }
+    return null;
+  }
+
+  /** A credit override asked at dispatch or hand-over, bound to the gross of what is sent, in the caller's transaction. */
+  requestDispatchOverrideIn(tx: Transaction, actor: Actor, policy: OrderConfirmationPolicy, order: OrderHeaderRecord, grossPesewas: bigint, reason: string): Promise<CreditOverridePending> {
+    return policy.requestOverrideIn(tx, actor, { ...creditOrderOf(order), estimatedTotalPesewas: grossPesewas }, reason);
   }
 
   private async creditFor(tx: Transaction, order: OrderHeaderRecord): Promise<{ readonly policy: OrderConfirmationPolicy; readonly answer: CreditPolicyAnswer } | null> {
@@ -1106,9 +1179,12 @@ export class Orders {
     return header === null ? null : { ...creditOrderOf(header), status: header.status, paymentTerms: header.paymentTerms };
   }
 
-  /** The customer's confirmed credit orders not yet invoiced, summed at their estimates (SA-21), in the caller's transaction. */
-  uninvoicedCreditIn(tx: Transaction, customerId: string): Promise<bigint> {
-    return this.store.uninvoicedCreditTotal(tx, customerId);
+  /**
+   * The customer's confirmed credit orders not yet invoiced, summed at their estimates (SA-21), in the caller's
+   * transaction, leaving out `excludingOrderId` (the order being judged, never counted twice: B11 continued 8).
+   */
+  uninvoicedCreditIn(tx: Transaction, customerId: string, excludingOrderId: string | null = null): Promise<bigint> {
+    return this.store.uninvoicedCreditTotal(tx, customerId, excludingOrderId);
   }
 
   async shiftSalesIn(tx: Transaction, shiftDocumentId: string): Promise<ShiftSalesSummary> {

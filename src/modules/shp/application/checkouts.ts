@@ -310,6 +310,7 @@ export class Checkouts {
         fulfilmentMode: checkout.fulfilmentMode,
         deliveryAddressSnapshot: checkout.addressSnapshot,
         deliveryZoneId: checkout.deliveryZoneId,
+        deliverySlotId: checkout.deliverySlotId,
         deliveryFeePesewas: checkout.deliveryFeePesewas,
         estimatedTotalPesewas: checkout.estimatedTotalPesewas,
         maximumTotalPesewas: checkout.maximumTotalPesewas,

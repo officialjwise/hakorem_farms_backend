@@ -53,6 +53,19 @@ export interface OrderConfirmationPolicy {
    * an approval by someone other than the asker. Called only after `creditFor` answered REFUSED with none pending.
    */
   requestOverrideIn(tx: Transaction, actor: Actor, order: CreditOrder, reason: string): Promise<CreditOverridePending>;
+  /**
+   * The judgement of an order on account at its dispatch or hand-over (B11 continued 8), `order.estimatedTotalPesewas`
+   * being the gross of the document on what is sent, or null when this policy has nothing to say about its customer.
+   * `documentId` is that document, issued in the caller's transaction just before: it is the order judged, never counted
+   * again among the customer's open items. An approved override covers it when the gross is no more than the amount it
+   * was approved for. `requestOverrideIn` with the same amount asks for a new one.
+   */
+  creditAtDispatchFor(tx: Transaction, order: CreditOrder, documentId: string | null): Promise<CreditPolicyAnswer | null>;
+  /**
+   * The due date (`YYYY-MM-DD`) of an invoice issued today to the customer on account: the business date plus the
+   * customer's payment terms (B11 continued 8), or null when this policy keeps no open account for them.
+   */
+  dueDateFor(tx: Transaction, customerId: string): Promise<string | null>;
 }
 
 export const ORDER_CONFIRMATION_POLICIES = Symbol('ORDER_CONFIRMATION_POLICIES');

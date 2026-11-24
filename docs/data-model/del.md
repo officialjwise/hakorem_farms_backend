@@ -208,7 +208,8 @@ Only `del.delivery_slot` exists, as above, plus `ck_delivery_slot_capacity` (1 t
 
 ## As built (B11 continued 5, migration 0326; FR-DEL-001, FR-DEL-003, A-362)
 
-- `del.delivery.slot_id` is booked by `rescheduleDelivery` (dispatch still writes it NULL). `trg_delivery_slot_booking`
+- `del.delivery.slot_id` is booked by `rescheduleDelivery`, and from B11 continued 8 (A-369) at dispatch with the slot the
+  customer chose at the checkout (`ord.sales_order.delivery_slot_id`) while it is live, not started and not full, else NULL. `trg_delivery_slot_booking`
   (AFTER INSERT OR UPDATE OF `slot_id`, `status`): a delivery naming a slot holds one unit of it while it is not
   `CANCELLED`, `RETURNED` or `WRITTEN_OFF`; a move frees one in the old slot and takes one in the new in the same
   statement, so `ck_delivery_slot_booked` (`booked <= capacity`) refuses an overbooking whoever writes (23514).
