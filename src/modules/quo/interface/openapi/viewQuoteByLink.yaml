@@ -41,6 +41,8 @@ responses:
               unitPricePesewas: 95000
               lineNetPesewas: 1710000
               subjectToStock: false
+              availableNowQuantity: "18.000"
+              availableNowUom: HEAD
           deliveryFeePesewas: 6000
           netPesewas: 1716000
           taxPesewas: 1200

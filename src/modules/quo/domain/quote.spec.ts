@@ -1,6 +1,6 @@
 import { Quantity } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { canMoveQuote, canMoveVersion, inWeightBand, judgeMargin, linkState, lineCost, lineNet, marginPercent, markupPercent, planHold, unitCost, versionFigures } from './quote';
+import { availableToBuyer, canMoveQuote, canMoveVersion, inWeightBand, judgeMargin, linkState, lineCost, lineNet, marginPercent, markupPercent, planHold, unitCost, versionFigures } from './quote';
 
 const q = (text: string) => Quantity.parse(text);
 
@@ -137,6 +137,18 @@ describe('an animal is held for a banded line only when its last weighing is in 
   });
   it('holds no animal never weighed for a banded line, and any animal for a line with no band', () => {
     expect([inWeightBand(null, band), inWeightBand(null, null), inWeightBand('40.000', null)]).toEqual([false, true, true]);
+  });
+});
+
+describe('the buyer sees how much of their own quantity is available now, never the stock (the owner, 2026-11-23, A-328 (c))', () => {
+  it('shows what the quote holds and what is free now, never more than the buyer asked for', () => {
+    expect(availableToBuyer(q('20.000'), q('4.000'), q('1.000')).toDecimalString()).toBe('5.000');
+    expect(availableToBuyer(q('2.000'), q('0.000'), q('900.000')).toDecimalString()).toBe('2.000');
+    expect(availableToBuyer(q('2.000'), q('2.000'), q('0.000')).toDecimalString()).toBe('2.000');
+  });
+  it('shows nothing below zero, and nothing for a line nothing is free for', () => {
+    expect(availableToBuyer(q('3.000'), q('0.000'), q('-5.000')).toDecimalString()).toBe('0.000');
+    expect(availableToBuyer(q('3.000'), q('0.000'), q('0.000')).toDecimalString()).toBe('0.000');
   });
 });
 

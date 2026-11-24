@@ -230,3 +230,14 @@ export function inWeightBand(weightKg: string | null, band: { readonly minKg: st
   const w = Quantity.parse(weightKg);
   return w.compareTo(Quantity.parse(band.minKg)) >= 0 && w.compareTo(Quantity.parse(band.maxKg)) < 0;
 }
+
+/**
+ * What the buyer is shown of a line (the owner, 2026-11-23, A-328 (c)): how much of their own requested quantity is
+ * available now, what the quote holds for them and what is free to promise now, never more than they asked for and never
+ * below nothing, so the farm's stock level is never shown.
+ */
+export function availableToBuyer(requested: Quantity, held: Quantity, freeNow: Quantity): Quantity {
+  const free = freeNow.isNegative() ? Quantity.zero() : freeNow;
+  const there = held.plus(free);
+  return there.compareTo(requested) > 0 ? requested : there;
+}

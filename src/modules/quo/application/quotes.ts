@@ -31,6 +31,7 @@ import type { Orders, QuoteOrderLine, SalesOrderView } from '../../ord';
 import { countOf, lineNumber, nextVersionNo } from '../domain/numbering';
 import { pageProbe } from '../domain/paging';
 import {
+  availableToBuyer,
   DEFAULT_MARGIN_FLOOR_BASIS_POINTS,
   inWeightBand,
   linkState,
@@ -257,7 +258,22 @@ export interface PublicQuoteView {
   readonly acceptedName: string | null;
   /** CR-047 point 2: when the quote was accepted or declined, or null. */
   readonly decidedAt: string | null;
-  readonly lines: readonly { readonly description: string; readonly quantity: string; readonly uom: string; readonly priceBasis: PriceBasis; readonly unitPricePesewas: number; readonly lineNetPesewas: number; readonly subjectToStock: boolean }[];
+  readonly lines: readonly {
+    readonly description: string;
+    readonly quantity: string;
+    readonly uom: string;
+    readonly priceBasis: PriceBasis;
+    readonly unitPricePesewas: number;
+    readonly lineNetPesewas: number;
+    readonly subjectToStock: boolean;
+    /**
+     * How much of this line's own quantity is available now, in the product's base unit (`availableNowUom`): what the
+     * quote holds for it and what is free to promise now, never more than the line asks for (the owner, 2026-11-23,
+     * A-328 (c)); null for a free-text line, and once the quote is no longer open or accepted.
+     */
+    readonly availableNowQuantity: string | null;
+    readonly availableNowUom: string | null;
+  }[];
   /** A line was not wholly on hand when the quote was issued: it is supplied subject to stock (A-328). */
   readonly subjectToStock: boolean;
   readonly deliveryFeePesewas: number;
@@ -1078,6 +1094,46 @@ export class Quotes {
     };
   }
 
+  /**
+   * What the buyer is shown of each product line now (the owner, 2026-11-23, A-328 (c)), in the base unit: what the quote
+   * holds for it, taken line by line from its active reservations (a named animal only its own), plus what is free to
+   * promise now from the balances the line may be held from (`eligibilityIn`), never more than the line asks for. The
+   * staff's figures recorded at issue (`availableQuantity`, `heldQuantity`) are not shown, and no total on hand is.
+   */
+  private async availableNowIn(tx: Transaction, quote: QuoteRecord, lines: readonly LineRecord[]): Promise<Map<string, { qty: Quantity; uom: string }>> {
+    const productLines = lines.filter((l) => l.productId !== null && l.baseQty !== null);
+    const shown = new Map<string, { qty: Quantity; uom: string }>();
+    if (productLines.length === 0) return shown;
+    const products = await this.refs.productsIn(
+      tx,
+      productLines.map((l) => l.productId!),
+    );
+    const held = (await this.reservations.activeOfHolderIn(tx, quote.id)).map((r) => ({ productId: r.productId, stockUnitId: r.stockUnitId, left: Quantity.parse(r.qty) }));
+    const balances = await this.stock.promisableIn(tx, quote.branchId, [...products.keys()]);
+    const eligible = await this.eligibilityIn(tx, productLines, products, balances);
+    const left = balances.map((b) => b.availableQty);
+    for (const line of productLines) {
+      const product = products.get(line.productId!);
+      if (product === undefined) continue;
+      const wanted = Quantity.parse(line.baseQty!);
+      let mine = Quantity.zero();
+      for (const h of held) {
+        if (h.productId !== product.id || (line.stockUnitId !== null && h.stockUnitId !== line.stockUnitId) || h.left.isZero()) continue;
+        const take = h.left.compareTo(wanted.minus(mine)) >= 0 ? wanted.minus(mine) : h.left;
+        h.left = h.left.minus(take);
+        mine = mine.plus(take);
+      }
+      const offered = balances.map((b, index) => ({ b, index })).filter(({ b, index }) => b.productId === product.id && (line.stockUnitId === null ? eligible(line, index) : b.stockUnitId === line.stockUnitId));
+      const plan = planHold(
+        wanted.minus(mine),
+        offered.map(({ index }) => left[index]!),
+      );
+      for (const p of plan.pieces) left[offered[p.index]!.index] = left[offered[p.index]!.index]!.minus(p.qty);
+      shown.set(line.id, { qty: availableToBuyer(wanted, mine, plan.held), uom: product.baseUom });
+    }
+    return shown;
+  }
+
   /** What the quote's template prints, every figure formatted here and the template computing nothing (FR-QUO-007). */
   private async renderDataIn(tx: Transaction, quote: QuoteRecord, version: VersionRecord, at: Date): Promise<Record<string, unknown>> {
     const lines = await this.store.linesOf(tx, [version.id]);
@@ -1680,6 +1736,7 @@ export class Quotes {
     const customer = quote.customerId === null ? undefined : (await this.refs.customersIn(tx, [quote.customerId])).get(quote.customerId);
     const [acceptance] = status === 'ACCEPTED' ? await this.store.acceptancesOf(tx, [version.id]) : [];
     const [declined] = status === 'DECLINED' ? await this.store.linkDecisionsOf(tx, [version.id]) : [];
+    const now = status === 'ISSUED' || status === 'ACCEPTED' ? await this.availableNowIn(tx, quote, lines) : new Map<string, { qty: Quantity; uom: string }>();
     return {
       quoteNo: quote.quoteNo,
       versionNo: version.versionNo,
@@ -1690,7 +1747,17 @@ export class Quotes {
       // A decline through the link is dated by the link's decision; one staff recorded (declineQuote) has no time the
       // buyer gave, so it is null (A-325).
       decidedAt: (acceptance?.acceptedAt ?? declined?.decidedAt ?? null)?.toISOString() ?? null,
-      lines: lines.map((l) => ({ description: l.description, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, unitPricePesewas: json(l.unitPricePesewas), lineNetPesewas: json(l.lineNetPesewas), subjectToStock: isSubjectToStock(l, stock) })),
+      lines: lines.map((l) => ({
+        description: l.description,
+        quantity: l.qty,
+        uom: l.uom,
+        priceBasis: l.priceBasis,
+        unitPricePesewas: json(l.unitPricePesewas),
+        lineNetPesewas: json(l.lineNetPesewas),
+        subjectToStock: isSubjectToStock(l, stock),
+        availableNowQuantity: now.get(l.id)?.qty.toDecimalString() ?? null,
+        availableNowUom: now.get(l.id)?.uom ?? null,
+      })),
       subjectToStock: lines.some((l) => isSubjectToStock(l, stock)),
       deliveryFeePesewas: json(version.deliveryFeePesewas),
       netPesewas: json(version.netPesewas),

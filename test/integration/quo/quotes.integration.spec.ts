@@ -319,7 +319,7 @@ describe('the acceptance link is a random token, stored only as its hash, openin
     const live = await publicGet(`/shop/quotes/${id('v2Token')}`);
     expect(live.status, JSON.stringify(live.body)).toBe(200);
     expect([live.body.versionNo, live.body.status, live.body.grossPesewas, live.body.lines[0].lineNetPesewas]).toEqual([2, 'ISSUED', 266_668, 266_668]);
-    expect(Object.keys(live.body.lines[0]).sort()).toEqual(['description', 'lineNetPesewas', 'priceBasis', 'quantity', 'subjectToStock', 'unitPricePesewas', 'uom']);
+    expect(Object.keys(live.body.lines[0]).sort()).toEqual(['availableNowQuantity', 'availableNowUom', 'description', 'lineNetPesewas', 'priceBasis', 'quantity', 'subjectToStock', 'unitPricePesewas', 'uom']);
     const replaced = await publicGet(`/shop/quotes/${id('v1Token')}`);
     expect([replaced.status, replaced.body.error?.code, replaced.body.error?.details?.[0]?.code, replaced.body.lines]).toEqual([422, 'QUOTE_LINK_CLOSED', 'REPLACED', undefined]);
     const acceptOld = await publicPost(`/shop/quotes/${id('v1Token')}/accept`, { acceptedName: 'Kofi Mensah' });

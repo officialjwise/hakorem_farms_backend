@@ -30599,6 +30599,17 @@ components:
         subjectToStock:
           type: boolean
           description: "2.23.0 (the owner, 2026-11-18, A-328): not all of this line was on hand when the quote was issued; the farm holds what is there and confirms the rest. The farm's stock level is not shown."
+        availableNowQuantity:
+          type:
+            - string
+            - "null"
+          pattern: "^(0|[1-9][0-9]{0,10})\\.[0-9]{3}$"
+          description: "2.43.0 (the owner, 2026-11-23, A-328 (c)): how much of this line's own quantity is available now, in the product's base unit (`availableNowUom`): what the quote holds for it and what is free to promise now, never more than the line asks for, so never the farm's stock level. Null for a free-text line, and once the quote is declined or expired."
+        availableNowUom:
+          type:
+            - string
+            - "null"
+          description: "2.43.0: the unit of `availableNowQuantity`, the product's base unit (`HEAD`, `EGG`, `KG`); null with it."
       required:
         - description
         - quantity
@@ -30607,6 +30618,8 @@ components:
         - unitPricePesewas
         - lineNetPesewas
         - subjectToStock
+        - availableNowQuantity
+        - availableNowUom
     SharedDocument:
       type: object
       description: "What a document link opens (2.42.0, `getSharedDocument`): a short-lived signed link to the archived PDF. Carries no id of anything."

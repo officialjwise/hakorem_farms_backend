@@ -236,14 +236,19 @@ describe('a quote for stock not on hand is issued subject to stock, holding only
     // A-351; this was A-309 (f)'s "held by nobody").
     const herd = await issued('sales', [goats('2.000')]);
     expect([herd.version.subjectToStock, herd.version.lines[0].availableQuantity, herd.version.lines[0].heldQuantity, await heldBy(herd.quoteId)]).toEqual([false, '3.000', '2.000', '2.000']);
-    // The recorded rows match INV's reservations, and the buyer sees the flag, never the farm's stock level.
+    // The recorded rows match INV's reservations; the buyer sees how much of their own quantity is available now, never
+    // more than they asked for, and never the farm's stock level (the owner, 2026-11-23, A-328 (c)).
     const rows = await admin().query('SELECT s.available_qty::text AS a, s.held_qty::text AS h FROM quo.quote_line_stock s WHERE s.quote_version_id = $1', [part.versionId]);
     expect(rows.rows).toEqual([{ a: left, h: left }]);
     const shown = await publicGet(`/shop/quotes/${part.token}`);
     expect([shown.status, shown.body.subjectToStock, shown.body.lines[0].subjectToStock]).toEqual([200, true, true]);
-    expect(JSON.stringify(shown.body)).not.toContain(left);
+    // Asked for 30,000 eggs, the buyer sees the ones held for them: what of their own quantity is there now.
+    expect([shown.body.lines[0].availableNowQuantity, shown.body.lines[0].availableNowUom]).toEqual([left, 'EGG']);
     const shownFull = await publicGet(`/shop/quotes/${full.token}`);
     expect([shownFull.body.subjectToStock, shownFull.body.lines[0].subjectToStock]).toEqual([false, false]);
+    // Asked for 30 eggs with more than 60 there, the buyer sees 30, never what the farm holds.
+    expect(shownFull.body.lines[0].availableNowQuantity).toBe('30.000');
+    expect(JSON.stringify(shownFull.body)).not.toContain(`"${there.toFixed(3)}"`);
     // A replay answers the same stock, held once.
     const key = randomUUID();
     const again = await draft('sales', [eggs('3.000')]);
