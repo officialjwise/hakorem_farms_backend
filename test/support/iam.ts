@@ -128,6 +128,22 @@ export async function createUser(
   return { principalId, identifier, password, realm };
 }
 
+/**
+ * An investor's portal login as CAP opens it (B12 continued: its password random and never shown), given a known password
+ * here as the investor would set one through the password reset. Answers the login with its email or phone.
+ */
+export async function setPortalPassword(database: TestDatabase, principalId: string): Promise<TestUser> {
+  const password = `Pw-${randomUUID()}`;
+  const passwordHash = await hash(password, { algorithm: 2, memoryCost: 19_456, timeCost: 2, parallelism: 1 });
+  const { rows } = await database.pool('admin').query<{ identifier: string }>(
+    `UPDATE iam.user_account SET password_hash = $2, must_change_password = false, version = version + 1 WHERE principal_id = $1 AND realm = 'INVESTOR'
+     RETURNING COALESCE(email, phone_e164) AS identifier`,
+    [principalId, passwordHash],
+  );
+  if (rows[0] === undefined) throw new Error(`no investor login ${principalId}`);
+  return { principalId, identifier: rows[0].identifier, password, realm: 'INVESTOR' };
+}
+
 /** Cookies as a browser would hold them for the API host: name to value, from Set-Cookie headers. */
 export class CookieJar {
   private readonly cookies = new Map<string, string>();

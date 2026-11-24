@@ -1,0 +1,80 @@
+operationId: createFinancing
+tags:
+  - cap
+summary: "Record a loan or grant"
+description: "FR-CAP-015, ADR-0101 (2.46.0). Records a loan or grant as a numbered `DRAFT` waiting for a different person holding `cap.financing.approve` (`FINANCING`, step-up); on approval it is drawn into the bank on `startDate` (a loan Dr 1100 or 1110, Cr 2400 against the lender, an INVESTOR party: the registered investor, or the financing itself; a grant Cr 2450). A loan's interest is simple, actual/365, accrued each finished month on its last day and rounded half-up once (Dr 6930, Cr 2410); a grant is recognised in equal monthly parts over `termMonths` (Dr 2450, Cr 4910). The schedule splits the principal into equal instalments by largest remainder, so it sums exactly to the principal, the earliest instalments taking any leftover pesewa. 422 `FINANCING_INVALID`: `LENDER_UNKNOWN`, `INTEREST_BASIS_NOT_SUPPORTED` (`FLAT`), `GRANT_HAS_NO_INTEREST`, `TERM_REQUIRED`, `START_DATE_IN_FUTURE`, `PERIOD_NOT_OPEN`, `BANK_ACCOUNT_UNKNOWN`, `BANK_ACCOUNT_INACTIVE`, `FILE_NOT_USABLE`. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.financing.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: cap.financing.manage
+x-requires-step-up: true
+parameters:
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/FinancingCreate"
+      example:
+        kind: LOAN
+        lenderName: "Agricultural Development Bank"
+        principalPesewas: 15000000
+        annualRatePercent: "24.00"
+        interestBasis: ACTUAL_365
+        startDate: "2026-03-01"
+        termMonths: 24
+        bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Financing"
+        example:
+          id: "019a7b10-6c4e-7198-a6d0-225b58ef9b39"
+          financingNo: FNC-2026-DDW-000001
+          status: ACTIVE
+          kind: LOAN
+          lenderInvestor: null
+          lenderName: "Agricultural Development Bank"
+          principalPesewas: 15000000
+          annualRatePercent: "24.00"
+          interestBasis: ACTUAL_365
+          startDate: "2026-03-01"
+          termMonths: 24
+          outstandingPesewas: 11250000
+          accruedInterestPesewas: 0
+          approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e01"
+          schedule:
+            - instalmentNo: 9
+              dueDate: "2026-12-01"
+              principalDuePesewas: 625000
+              interestDuePesewas: 225000
+              paidPesewas: 0
+            - instalmentNo: 10
+              dueDate: "2027-01-01"
+              principalDuePesewas: 625000
+              interestDuePesewas: 212700
+              paidPesewas: 0
+          currency: GHS
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

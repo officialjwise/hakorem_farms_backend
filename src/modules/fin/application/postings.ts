@@ -139,6 +139,39 @@ interface DistributionPaidPosting {
   readonly amountPesewas: number;
 }
 
+/** The fields of CAP's `cap.LoanDrawn` and `cap.GrantReceived` FIN reads (migration 0360, ADR-0101). */
+interface FinancingDrawnPosting {
+  readonly financingId: string;
+  readonly lenderPartyId: string;
+  readonly lenderName: string;
+  readonly bankAccountId: string;
+  readonly branchId: string;
+  readonly amountPesewas: number;
+  readonly postingDate: string;
+}
+
+/** The fields of CAP's `cap.InterestAccrued` and `cap.GrantRecognised` FIN reads (migration 0360). */
+interface FinancingAccrualPosting {
+  readonly accrualId: string;
+  readonly financingId: string;
+  readonly branchId: string;
+  readonly amountPesewas: number;
+  readonly postingDate: string;
+}
+
+/** The fields of CAP's `cap.LoanRepaid` FIN reads (migration 0360): interest first, then principal. */
+interface LoanRepaidPosting {
+  readonly repaymentId: string;
+  readonly financingId: string;
+  readonly lenderPartyId: string;
+  readonly lenderName: string;
+  readonly bankAccountId: string;
+  readonly branchId: string;
+  readonly principalPesewas: number;
+  readonly interestPesewas: number;
+  readonly postingDate: string;
+}
+
 /** POS's till events (migrations 0228 and 0281): one translator for all, each amount against the till's register. */
 export const TILL_POSTING_EVENTS = ['pos.ShiftOpened', 'pos.CashDropped', 'pos.CashPaidIn', 'pos.CashPaidOut', 'pos.ShiftClosed', 'pos.ShiftLateEntryPosted'] as const;
 
@@ -215,6 +248,11 @@ export class LedgerPostings {
       ['cap.CapitalWithdrawn', (tx, event) => this.capital(tx, event.payload as unknown as CapitalPosting)],
       ['cap.DistributionDeclared', async (_tx, event) => this.distributionDeclared(event.payload as unknown as DistributionDeclaredPosting)],
       ['cap.DistributionPaid', (tx, event) => this.distributionPaid(tx, event.payload as unknown as DistributionPaidPosting)],
+      ['cap.LoanDrawn', (tx, event) => this.financingDrawn(tx, event.payload as unknown as FinancingDrawnPosting)],
+      ['cap.GrantReceived', (tx, event) => this.financingDrawn(tx, event.payload as unknown as FinancingDrawnPosting)],
+      ['cap.InterestAccrued', async (_tx, event) => this.financingAccrual(event.payload as unknown as FinancingAccrualPosting)],
+      ['cap.GrantRecognised', async (_tx, event) => this.financingAccrual(event.payload as unknown as FinancingAccrualPosting)],
+      ['cap.LoanRepaid', (tx, event) => this.loanRepaid(tx, event.payload as unknown as LoanRepaidPosting)],
       ['fin.ManualJournalApproved', (tx, event) => this.manualJournal(tx, event.payload as unknown as ManualJournalApproved)],
       ['fin.YearClosed', async (_tx, event) => this.yearClose(event.payload as unknown as YearClosed)],
       ['fin.DepreciationRun', async (_tx, event) => this.depreciationRun(event.payload as unknown as DepreciationRunPosted)],
@@ -345,6 +383,41 @@ export class LedgerPostings {
       eventSubjectId: payload.paymentId,
       branchId: payload.branchId,
     };
+  }
+
+  /**
+   * `cap.LoanDrawn` and `cap.GrantReceived` (ADR-0003, ADR-0101): the money into the farm's own bank or mobile money
+   * account (1100 or 1110 by its kind), against 2400 for the lender (an INVESTOR party) or 2450 deferred, on the start date.
+   */
+  private async financingDrawn(tx: Transaction, payload: FinancingDrawnPosting): Promise<Translated> {
+    return {
+      amounts: [await this.investorCash(tx, payload.bankAccountId, payload.lenderPartyId, payload.lenderName, payload.amountPesewas)],
+      sourceDocumentId: payload.financingId,
+      eventSubjectId: payload.financingId,
+      branchId: payload.branchId,
+      postingDate: payload.postingDate,
+    };
+  }
+
+  /** `cap.InterestAccrued` (Dr 6930, Cr 2410) and `cap.GrantRecognised` (Dr 2450, Cr 4910), on the month's last day. */
+  private financingAccrual(payload: FinancingAccrualPosting): Translated {
+    return {
+      amounts: [{ key: 'amount', amount: Money.fromJsonInteger(payload.amountPesewas) }],
+      sourceDocumentId: payload.financingId,
+      eventSubjectId: payload.accrualId,
+      branchId: payload.branchId,
+      postingDate: payload.postingDate,
+    };
+  }
+
+  /** `cap.LoanRepaid` (ADR-0003): Dr 2400 the principal against the lender, Dr 2410 the interest, Cr the bank the total. */
+  private async loanRepaid(tx: Transaction, payload: LoanRepaidPosting): Promise<Translated> {
+    const lender: SubledgerRef = { kind: 'INVESTOR', refId: payload.lenderPartyId, displayName: payload.lenderName };
+    const total = Money.fromJsonInteger(payload.principalPesewas).plus(Money.fromJsonInteger(payload.interestPesewas));
+    const amounts: PostingAmount[] = [await this.investorCash(tx, payload.bankAccountId, payload.lenderPartyId, payload.lenderName, total.toJsonInteger())];
+    if (payload.principalPesewas > 0) amounts.push({ key: 'principal', amount: Money.fromJsonInteger(payload.principalPesewas), subledgers: [lender] });
+    if (payload.interestPesewas > 0) amounts.push({ key: 'interest', amount: Money.fromJsonInteger(payload.interestPesewas) });
+    return { amounts, sourceDocumentId: payload.financingId, eventSubjectId: payload.repaymentId, branchId: payload.branchId, postingDate: payload.postingDate };
   }
 
   private async investorCash(tx: Transaction, bankAccountId: string, investorId: string, investorName: string, amountPesewas: number): Promise<PostingAmount> {

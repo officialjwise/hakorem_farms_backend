@@ -195,6 +195,10 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   recordCapitalTransaction: { kind: 'CONTRIBUTION', investorId: randomUUID(), amountPesewas: 100_000, valueDate: '2026-11-01', bankAccountId: randomUUID() },
   createDistributionRun: { periodStart: '2026-07-01', periodEnd: '2026-09-30' },
   recordDistributionPayment: { amountPesewas: 100_000, bankAccountId: randomUUID() },
+  // B12 continued: documents, loans and grants.
+  addInvestorDocument: { kind: 'OTHER', name: 'Refused document', fileId: randomUUID() },
+  createFinancing: { kind: 'LOAN', lenderName: 'Refused Lender', principalPesewas: 100_000, startDate: '2026-11-01', bankAccountId: randomUUID() },
+  recordRepayment: { principalPesewas: 100, interestPesewas: 0, bankAccountId: randomUUID(), paidAt: '2026-11-01T09:00:00Z' },
   // B10 continued 4: one link of a quote version revoked with its reason.
   revokeQuoteLink: { reason: 'Sent to the wrong WhatsApp number' },
   draftSupplierClaimCreditNote: { originalInvoiceId: randomUUID(), supplierInvoiceNo: 'APF-CN-0701', invoiceDate: '2026-11-17' },

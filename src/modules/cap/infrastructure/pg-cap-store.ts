@@ -14,13 +14,13 @@ import type {
 import { formatUnits } from '../domain/distribution';
 
 /** A `numeric(…,4)` read back as text ("500.0000") in ten-thousandths. */
-const e4 = (text: string): bigint => {
+export const e4 = (text: string): bigint => {
   const [whole, fraction = ''] = text.split('.');
   return BigInt(whole! + fraction.padEnd(4, '0').slice(0, 4));
 };
 
-const INVESTOR = `id, investor_no, kind, legal_name, phone_e164, email, principal_id, payout_method, payout_last4, id_number_enc IS NOT NULL AS has_id, joined_on::text AS joined_on, status, version`;
-type RawInvestor = {
+export const INVESTOR = `id, investor_no, kind, legal_name, phone_e164, email, principal_id, payout_method, payout_last4, payout_masked, id_number_masked, id_number_enc IS NOT NULL AS has_id, joined_on::text AS joined_on, status, version`;
+export type RawInvestor = {
   id: string;
   investor_no: string;
   kind: InvestorRecord['kind'];
@@ -30,12 +30,14 @@ type RawInvestor = {
   principal_id: string | null;
   payout_method: InvestorRecord['payoutMethod'];
   payout_last4: string | null;
+  payout_masked: string | null;
+  id_number_masked: string | null;
   has_id: boolean;
   joined_on: string;
   status: InvestorRecord['status'];
   version: number;
 };
-const investorOf = (r: RawInvestor): InvestorRecord => ({
+export const investorOf = (r: RawInvestor): InvestorRecord => ({
   id: r.id,
   investorNo: r.investor_no,
   kind: r.kind,
@@ -45,6 +47,8 @@ const investorOf = (r: RawInvestor): InvestorRecord => ({
   principalId: r.principal_id,
   payoutMethod: r.payout_method,
   payoutLast4: r.payout_last4,
+  payoutMasked: r.payout_masked,
+  idNumberMasked: r.id_number_masked,
   hasIdNumber: r.has_id,
   joinedOn: r.joined_on,
   status: r.status,

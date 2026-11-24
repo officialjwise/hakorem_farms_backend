@@ -1,0 +1,59 @@
+operationId: getInvestorReturns
+tags:
+  - cap
+summary: "Return on investment, payback and IRR for an investor"
+description: "FR-CAP-014 (2.46.0). Computed on request, never stored, in integers. `contributedPesewas` is what was paid in, `distributedPesewas` what was paid out as distributions, `outstandingPesewas` what was allocated and not yet paid. ROI is distributions paid over net contributions (contributions less withdrawals), half-up to two places; payback the whole months from the first contribution to the first day distributions and withdrawals reached what was paid in by then (null until reached); IRR the XIRR of the dated flows (contributions out, withdrawals and distributions paid in, and a closing value of the investor's share of the farm's equity by units on `asOf`), actual/365, half-up to four places of a fraction (two of a percentage). A figure the `Percent` shape cannot carry (above 100 percent) is null (A-384). `asOf` defaults to today. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.read`."
+x-permission: cap.investor.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: asOf
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InvestorReturns"
+        example:
+          investor:
+            id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+            investorNo: INV-001
+            name: "Ama Owusu-Ansah"
+          asOf: "2026-11-13"
+          contributedPesewas: 10000000
+          distributedPesewas: 1584900
+          outstandingPesewas: 717853
+          roiPercent: "15.85"
+          roiIsNegative: false
+          paybackMonths: null
+          irrPercent: "12.40"
+          irrIsNegative: false
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

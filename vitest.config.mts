@@ -165,6 +165,8 @@ export default defineConfig({
         ...fullCoverage('src/modules/whl/domain/**/*.ts'), // B08 continued 2d: the customer statement ties opening to closing exactly (FR-WHL-009, ADR-0085)
         ...fullCoverage('src/modules/ntf/domain/**/*.ts'), // B11 continued 10: templates and their merge fields, the customer message of each event, masking, attempts and reports
         ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)
+        ...fullCoverage('src/modules/cap/domain/returns/**/*.ts'), // B12 continued: ROI, payback and IRR in fixed point, never a float (FR-CAP-014)
+        ...fullCoverage('src/modules/cap/domain/financing/**/*.ts'), // B12 continued: interest accrued monthly half-up, interest first, the schedule (FR-CAP-015)
       },
     },
   },

@@ -12,6 +12,17 @@ Owner: CAP module. Investors, capital and units, profit distribution, loans and 
 - `cap.distribution_line`: `computation_no` (UNIQUE run, computation, investor); `unit_days > 0` (an investor with none has no line); frozen once written but for `paid_pesewas`, which only grows (HK004 `ck_distribution_line_frozen`).
 - `cap.distribution_payment`: `journal_entry_id` (unique), `recorded_at`, `actor_id`; lands only on a current line of a `POSTED` run (HK010 `ck_distribution_payment_posted`).
 
+
+**As built in B12 continued (migration 0359, ADR-0101, A-384, A-385).** Built: `cap.investor_payout_change` (new), `cap.investor_document`, `cap.financing`, `cap.financing_schedule_line`, `cap.financing_accrual` (new), `cap.financing_repayment`, and the sealed columns' writers. Differences from the tables below:
+
+- `cap.investor` gains `payout_masked`, `payout_change_id` (the applied change, so the sealed details open only in their own place) and `id_number_masked`; the payout columns move together (`ck_investor_payout_set`) and are written only when a change is approved.
+- `cap.investor_payout_change` (DOCUMENT, an `INVESTOR_PAYOUT_CHANGE` business document): the details sealed with the investor's key, their masked form and last four digits, `approval_request_id` (unique), status `PENDING_APPROVAL`, `APPLIED`, `REJECTED` or `CANCELLED`, decided once (HK004 `ck_investor_payout_change_frozen`), never applied by its maker (`ck_investor_payout_change_checker`), one pending per investor (`uq_investor_payout_change_pending`).
+- `cap.investor_document`: also `name`; one row per investor and file.
+- `cap.financing`: `financing_no` required (`FNC-...`, allocated when recorded); `interest_basis` only `ACTUAL_365`; `bank_account_id`, `approval_request_id` (unique), `journal_entry_id` (unique, the drawing's); a grant has no rate and a term (`ck_financing_grant`); never drawn by its maker (`ck_financing_checker`); DRAFT to ACTIVE or CANCELLED, ACTIVE to SETTLED, its figures frozen (HK004 `ck_financing_frozen`). **No `outstanding_pesewas`:** what is outstanding is derived from the repayments and accruals.
+- `cap.financing_schedule_line`: written with the loan and never changed; **no `paid_pesewas`:** what was paid against an instalment is the repayments laid against the instalments in due order, on read.
+- `cap.financing_accrual` (LEDGER): a month's interest (`INTEREST`) or a grant's monthly part (`RECOGNITION`), once per financing and month (`uq_financing_accrual_month`), its journal named when the amount is above nothing.
+- `cap.financing_repayment`: `value_date` (the business date of `paid_at`), `journal_entry_id`; never more principal than drawn nor more interest than accrued (HK010 `ck_financing_repayment_owed`, the financing's row locked); `external_reference` unique.
+
 ---
 
 ### `cap.investor` · MASTER

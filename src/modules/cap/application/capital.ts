@@ -18,6 +18,8 @@ import type { CapitalMoved } from '../events';
 import { byInvestorNo, probe } from './counting';
 import type { CapitalTransactionRecord, CapStore, HoldingRecord, InvestorRecord, WithdrawalRequestRecord } from './cap-store';
 import { CapitalTransactionInvalidError, InvestorInvalidError, MakerCannotCheckError, type CapRule } from './errors';
+import type { InvestorProfiles, ProfileRequest } from './investor-profiles';
+import type { InvestorPayout } from '../domain/investor/payout';
 
 export const INVESTOR_READ = 'cap.investor.read';
 export const INVESTOR_MANAGE = 'cap.investor.manage';
@@ -54,6 +56,8 @@ export interface InvestorView {
   readonly idNumberMasked: string | null;
   readonly payoutMethod: InvestorRecord['payoutMethod'];
   readonly payoutDetailsMasked: string | null;
+  /** The approval a change of the payout details waits for (FR-CAP-002), or null. */
+  readonly pendingPayoutApprovalRequestId: string | null;
   readonly joinedOn: string;
   readonly status: InvestorRecord['status'];
   readonly units: string;
@@ -125,14 +129,15 @@ export interface InvestorUpdate {
   readonly email?: string | undefined;
   readonly status?: InvestorRecord['status'] | undefined;
   readonly payout?: unknown;
+  readonly idNumber?: string | undefined;
+  readonly createPortalLogin?: boolean | undefined;
 }
 
-/** The contract's investor fields B12 continued builds (A-380): named in a request, they are refused until then, nothing written. */
-const NOT_YET_SUPPORTED = ['idNumber', 'payout', 'agreementFileId', 'createPortalLogin'] as const;
-function refuseUnsupported(request: object): void {
-  const named = NOT_YET_SUPPORTED.filter((field) => (request as Record<string, unknown>)[field] !== undefined);
-  if (named.length > 0) throw new InvestorInvalidError(named.map((field) => ({ field: `/${field}`, rule: 'FIELD_NOT_YET_SUPPORTED' })));
-}
+/** The sealed and linked fields, handed to `InvestorProfiles` once it is attached (B12 continued, FR-CAP-002). */
+const profileFields = (request: InvestorCreate | InvestorUpdate): ProfileRequest => {
+  const r = request as InvestorCreate;
+  return { idNumber: r.idNumber, payout: r.payout as InvestorPayout | undefined, agreementFileId: r.agreementFileId, createPortalLogin: r.createPortalLogin };
+};
 
 export interface CapitalTransactionCreate {
   readonly kind: CapitalTransactionRecord['kind'];
@@ -168,6 +173,7 @@ const withdrawalHash = (w: { readonly id: string; readonly investorId: string; r
  */
 export class Capital {
   private readonly nextId: () => string;
+  private profiles: InvestorProfiles | null = null;
 
   constructor(
     private readonly uow: UnitOfWork,
@@ -188,6 +194,16 @@ export class Capital {
     private readonly clock: Clock,
   ) {
     this.nextId = createUuidV7Generator(clock);
+  }
+
+  /** The sealed and linked particulars (B12 continued), attached once both exist: they authorise through this class. */
+  attachProfiles(profiles: InvestorProfiles): void {
+    this.profiles = profiles;
+  }
+
+  private profilesOf(): InvestorProfiles {
+    if (this.profiles === null) throw new Error('the investor profiles are not attached');
+    return this.profiles;
   }
 
   /** The head office branch, where the investor books are kept and every CAP permission is checked. */
@@ -229,7 +245,6 @@ export class Capital {
   createInvestor(actor: Actor | undefined, request: InvestorCreate, key: string): Promise<StoredResponse<InvestorView>> {
     return this.uow.run({ isolation: 'serializable' }, async (tx) => {
       const branchId = await this.authoriseIn(tx, actor, INVESTOR_MANAGE);
-      refuseUnsupported(request);
       const claim = await this.idempotency.claim(tx, { operationId: 'createInvestor', principalId: actor!.principalId, key, request });
       if (claim.kind === 'REPLAY') return claim.response as StoredResponse<InvestorView>;
       const record: InvestorRecord = {
@@ -242,13 +257,16 @@ export class Capital {
         principalId: null,
         payoutMethod: null,
         payoutLast4: null,
+        payoutMasked: null,
+        idNumberMasked: null,
         hasIdNumber: false,
         joinedOn: request.joinedOn,
         status: 'ACTIVE',
         version: 1,
       };
       await this.store.insertInvestor(tx, record, actor!.principalId, this.clock.now());
-      const view = (await this.investorViews(tx, [record]))[0]!;
+      await this.profilesOf().applyIn(tx, actor!, branchId, record, profileFields(request));
+      const view = (await this.investorViews(tx, [(await this.store.investor(tx, record.id, false))!]))[0]!;
       await this.audit.record(tx, { module: 'cap', action: 'CREATE', entityType: 'Investor', entityId: record.id, branchId, before: null, after: { ...view } });
       const response: StoredResponse<InvestorView> = { status: 201, body: view };
       await this.idempotency.complete(tx, claim.id, response);
@@ -260,7 +278,6 @@ export class Capital {
   updateInvestor(actor: Actor | undefined, id: string, request: InvestorUpdate, key: string): Promise<StoredResponse<InvestorView>> {
     return this.uow.run({ isolation: 'serializable' }, async (tx) => {
       const branchId = await this.authoriseIn(tx, actor, INVESTOR_MANAGE);
-      refuseUnsupported(request);
       const claim = await this.idempotency.claim(tx, { operationId: 'updateInvestor', principalId: actor!.principalId, key, request: { id, ...request } });
       if (claim.kind === 'REPLAY') return claim.response as StoredResponse<InvestorView>;
       const investor = await this.store.investor(tx, id, true);
@@ -273,6 +290,7 @@ export class Capital {
       }
       const before = (await this.investorViews(tx, [investor]))[0]!;
       await this.store.updateInvestor(tx, id, { phone: request.phone ?? investor.phone, email: request.email ?? investor.email, status }, actor!.principalId, this.clock.now());
+      await this.profilesOf().applyIn(tx, actor!, branchId, (await this.store.investor(tx, id, true))!, profileFields(request));
       const view = (await this.investorViews(tx, [(await this.store.investor(tx, id, false))!]))[0]!;
       await this.audit.record(tx, { module: 'cap', action: 'UPDATE', entityType: 'Investor', entityId: id, branchId, before: { ...before }, after: { ...view } });
       const response: StoredResponse<InvestorView> = { status: 200, body: view };
@@ -332,6 +350,19 @@ export class Capital {
       const last = rows.at(-1);
       return { data: await this.transactionViews(tx, rows), page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { valueDate: last.valueDate, id: last.id }) : null, limit, hasMore } };
     });
+  }
+
+  /** One investor's capital transactions, a page, for the portal (the investor is the signed-in one, never a request's id). */
+  async transactionPageIn(tx: Transaction, actor: Actor, operationId: string, investorId: string, cursor: string | undefined, limit: number): Promise<Page<CapitalTransactionView>> {
+    const filter = { investorId, kind: null, from: null, to: null };
+    const binding = { operationId, principalId: actor.principalId, filters: filter };
+    const position = cursor === undefined ? null : this.cursors.decode(cursor, binding);
+    const after = position === null ? null : { key: position['valueDate']!, id: position['id']! };
+    const found = await this.store.transactions(tx, filter, after, probe(limit));
+    const rows = found.slice(0, limit);
+    const hasMore = found.length > limit;
+    const last = rows.at(-1);
+    return { data: await this.transactionViews(tx, rows), page: { nextCursor: hasMore && last !== undefined ? this.cursors.encode(binding, { valueDate: last.valueDate, id: last.id }) : null, limit, hasMore } };
   }
 
   /**
@@ -571,6 +602,7 @@ export class Capital {
     const holdings = await this.store.holdingsIn(tx, rows.map((r) => r.id));
     const total = await this.store.unitsInIssue(tx);
     const none: HoldingRecord = { investorId: '', unitsE4: 0n, contributedPesewas: 0n, withdrawnPesewas: 0n };
+    const pending = await this.profilesOf().pendingApprovalsIn(tx, rows.map((r) => r.id));
     return rows.map((r) => {
       const h = holdings.get(r.id) ?? none;
       return {
@@ -581,9 +613,10 @@ export class Capital {
         phone: r.phone,
         email: r.email,
         hasPortalLogin: r.principalId !== null,
-        idNumberMasked: r.hasIdNumber ? '****' : null,
+        idNumberMasked: r.idNumberMasked,
         payoutMethod: r.payoutMethod,
-        payoutDetailsMasked: r.payoutLast4 === null ? null : `****${r.payoutLast4}`,
+        payoutDetailsMasked: r.payoutMasked,
+        pendingPayoutApprovalRequestId: pending.get(r.id) ?? null,
         joinedOn: r.joinedOn,
         status: r.status,
         units: formatUnits(h.unitsE4),

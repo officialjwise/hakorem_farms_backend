@@ -375,6 +375,23 @@ export class AccessAdmin {
 
   // ---------------------------------------------------------------- the shared steps
 
+  /**
+   * An investor's portal login (B12 continued, FR-IAM-013, FR-CAP-013), opened by CAP in its own transaction after CAP
+   * authorised the change of the register: an INVESTOR account with the investor's email or phone, holding no role. Its
+   * password is random and never shown to anyone: the investor sets their own through the password reset (A-385). The
+   * caller authorises; refused when the identifier already belongs to another investor login.
+   */
+  async createInvestorLoginIn(tx: Transaction, actor: Actor, input: { readonly displayName: string; readonly email: string | null; readonly phone: string | null }): Promise<string> {
+    const email = input.email?.trim().toLowerCase() ?? null;
+    if (email === null && input.phone === null) throw new UserInvalidError(null, 'NO_IDENTIFIER');
+    await this.refuseTakenIdentifiers(tx, 'INVESTOR', email ?? undefined, input.phone ?? undefined, null);
+    const id = this.nextId();
+    const unusable = formatTemporaryPassword(randomBytes(TEMPORARY_PASSWORD_BYTES));
+    await this.store.insertUser(tx, { id, displayName: input.displayName.trim(), realm: 'INVESTOR', email, phone: input.phone, passwordHash: await this.hasher.hash(unusable) }, actor.principalId);
+    await this.auditUser(tx, 'CREATE', id, null, await this.userView(tx, (await this.store.user(tx, id))!), { realm: 'INVESTOR' });
+    return id;
+  }
+
   private async insertUser(tx: Transaction, actor: Actor, body: UserCreateRequest): Promise<{ id: string; password: string }> {
     const email = body.email?.trim().toLowerCase() ?? null;
     const phone = body.phone ?? null;

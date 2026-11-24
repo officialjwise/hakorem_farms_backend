@@ -21,3 +21,12 @@ export function daysCovered(period: { readonly start: string; readonly end: stri
   }
   return days;
 }
+
+/** One more of a count (blocked financings, months recognised). */
+export const plusOne = (n: number): number => n + 1;
+
+/** A page of rows after the one the cursor names (by `key`), and whether more follow. */
+export function pageAfter<T>(all: readonly T[], isAfter: ((row: T) => boolean) | null, limit: number): { readonly rows: T[]; readonly hasMore: boolean } {
+  const start = isAfter === null ? 0 : all.findIndex(isAfter) + 1;
+  return { rows: all.slice(start, start + limit), hasMore: all.length > start + limit };
+}

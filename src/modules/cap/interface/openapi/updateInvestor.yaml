@@ -2,7 +2,7 @@ operationId: updateInvestor
 tags:
   - cap
 summary: "Update an investor"
-description: "FR-CAP-001. Changes the phone, email or status at the `version` read (409 `VERSION_CONFLICT` otherwise). An investor is never deleted: one who leaves is `EXITED`, and only once they hold no units (422 `INVESTOR_INVALID` `INVESTOR_HAS_UNITS`). `payout` is B12 continued's (422 `FIELD_NOT_YET_SUPPORTED` until then). Audited with before and after. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+description: "FR-CAP-001, FR-CAP-002. Changes the phone, email or status at the `version` read (409 `VERSION_CONFLICT` otherwise). An investor is never deleted: one who leaves is `EXITED`, and only once they hold no units (422 `INVESTOR_INVALID` `INVESTOR_HAS_UNITS`). From 2.46.0 (LOUD: `FIELD_NOT_YET_SUPPORTED` is no longer answered): `payout` asks for a change that waits for a different person's approval (`INVESTOR_PAYOUT_CHANGE`; one at a time, `PAYOUT_CHANGE_PENDING`), `idNumber` is sealed, and `createPortalLogin` opens the portal login (`PORTAL_LOGIN_EXISTS`, `NO_CONTACT_FOR_LOGIN`). Audited with before and after. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
 x-permission: cap.investor.manage
 x-requires-step-up: true
 parameters:
@@ -47,6 +47,7 @@ responses:
           idNumberMasked: "GHA-••••••••-3"
           payoutMethod: BANK
           payoutDetailsMasked: "GCB, ****1180"
+          pendingPayoutApprovalRequestId: null
           joinedOn: "2025-06-01"
           status: ACTIVE
           units: "1000.0000"

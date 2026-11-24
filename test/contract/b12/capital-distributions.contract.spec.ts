@@ -6,11 +6,11 @@ import { seedUnits } from '../../../src/seed/seed-units';
 import { contractSchema } from '../../support/contract-schemas';
 import { documentWorker } from '../../support/documents';
 import { stepUp, type TotpSession } from '../../support/fin';
-import { consoleGet, consolePatch, consolePost, createUser, enrolAndLogin, relaxRateLimits, testStartTime } from '../../support/iam';
+import { consoleGet, consolePatch, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, setPortalPassword, testStartTime } from '../../support/iam';
 import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
-/** CAP's investor register, capital and distribution operations (B12) answer in the shapes of contract/openapi.yaml 2.45.0. */
+/** CAP's operations (B12, B12 continued) answer in the shapes of contract/openapi.yaml 2.46.0. */
 let database: TestDatabase;
 let api: TestApp;
 let clock: ManualClock;
@@ -93,5 +93,48 @@ describe('the CAP operations answer in the contract shapes', () => {
     const paid = await post(`/distribution-lines/${line.id}/payments`, { amountPesewas: 1_000, bankAccountId: bank, paidAt: clock.now().toISOString() });
     expect(paid.status, JSON.stringify(paid.body)).toBe(201);
     expectShape('DistributionLine', paid.body);
+  });
+
+  it('B12 continued: payout details, documents, statements, returns, loans and the investor portal', async () => {
+    const ama = (await get('/investors')).body.data[0] as { id: string; version: number };
+    const current = (await get(`/investors/${ama.id}`)).body as { version: number };
+    await stepUp(api.server, accountant, clock);
+    const opened = await consolePatch(api.server, accountant, `/v1/investors/${ama.id}`).send({
+      version: current.version,
+      createPortalLogin: true,
+      idNumber: 'GHA-723456789-3',
+      payout: { method: 'MOBILE_MONEY', momoNetwork: 'MTN', momoNumber: '+233244310221' },
+    });
+    expect(opened.status, JSON.stringify(opened.body)).toBe(200);
+    expectShape('Investor', opened.body);
+    await stepUp(api.server, owner, clock);
+    const revealed = await consoleGet(api.server, owner, `/v1/investors/${ama.id}/payout-details`);
+    expect(revealed.status, JSON.stringify(revealed.body)).toBe(200);
+    expectShape('InvestorPayoutDetails', revealed.body);
+    expectShape('InvestorDocumentPage', (await get(`/investors/${ama.id}/documents`)).body);
+    expectShape('InvestorStatement', (await get(`/investors/${ama.id}/statement?from=2026-01-01&to=2026-12-31`)).body);
+    expectShape('InvestorReturns', (await get(`/investors/${ama.id}/returns?asOf=2026-09-30`)).body);
+    expectShape('InvestorReturns', (await get('/capital/returns')).body);
+    const bank = (await database.pool('admin').query<{ id: string }>("SELECT id FROM fin.bank_account WHERE name = 'GCB current account (SEED)'")).rows[0]!.id;
+    await stepUp(api.server, accountant, clock);
+    const loan = await post('/financing', { kind: 'LOAN', lenderName: 'Agricultural Development Bank', principalPesewas: 100_000, annualRatePercent: '12', startDate: clock.now().toISOString().slice(0, 10), termMonths: 2, bankAccountId: bank });
+    expect(loan.status, JSON.stringify(loan.body)).toBe(201);
+    expectShape('Financing', loan.body);
+    expectShape('FinancingPage', (await get('/financing')).body);
+    expectShape('Financing', (await get(`/financing/${loan.body.id as string}`)).body);
+    const refused = await post(`/financing/${loan.body.id as string}/repayments`, { principalPesewas: 100, interestPesewas: 0, bankAccountId: bank, paidAt: clock.now().toISOString() });
+    expect(refused.status).toBe(422);
+    expectShape('Error', refused.body);
+    const principalId = (await database.pool('admin').query<{ principal_id: string }>('SELECT principal_id FROM cap.investor WHERE id = $1', [ama.id])).rows[0]!.principal_id;
+    const investor = await login(api.server, await setPortalPassword(database, principalId));
+    const mine = (path: string) => consoleGet(api.server, investor, `/v1${path}`);
+    expectShape('InvestorPortalSummary', (await mine('/investor/me')).body);
+    expectShape('CapitalTransactionPage', (await mine('/investor/capital-transactions')).body);
+    expectShape('InvestorDistributionLinePage', (await mine('/investor/distributions')).body);
+    expectShape('InvestorStatement', (await mine('/investor/statement?from=2026-01-01&to=2026-12-31')).body);
+    expectShape('InvestorDocumentPage', (await mine('/investor/documents')).body);
+    const missing = await consolePost(api.server, investor, `/v1/investor/documents/${randomUUID()}/download`).send({});
+    expect(missing.status).toBe(404);
+    expectShape('Error', missing.body);
   });
 });
