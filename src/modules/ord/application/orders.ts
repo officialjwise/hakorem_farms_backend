@@ -26,7 +26,8 @@ import {
 import { extendPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts, type DeliveryZoneFacts, type Storefront } from '../../mdm';
 import type { Payments, PaymentView } from '../../pay';
 import { judgeConfirmation, planLineReservation, receivedForOrder } from '../domain/confirmation';
-import { quotedLinePricing } from '../domain/quoted-line';
+import { quotedLinePricing, quotedOrderEstimate } from '../domain/quoted-line';
+import { inWeightBand } from '../domain/backorder-hold';
 import { zoneFee, type BackorderLine } from '../domain/dispatch';
 import { judgeOverride } from '../domain/price-override';
 import { lineNumber } from '../domain/line-numbers';
@@ -88,6 +89,8 @@ export interface QuoteOrderLine {
   readonly quoteLineId: string;
   readonly productId: string;
   readonly stockUnitId: string | null;
+  /** The quote line's weight band, for a line of animals naming none (B11u continued, BL-124): its animals are of it. */
+  readonly weightBandId: string | null;
   /** In `uom`: a crate, a single egg or the base unit (CR-045). */
   readonly quantity: string;
   readonly uom: string;
@@ -112,7 +115,13 @@ export interface QuoteOrderRequest {
   readonly salespersonId: string;
   readonly fulfilmentMode: 'COLLECTION' | 'DELIVERY';
   readonly paymentTerms: 'PREPAID' | 'COD' | 'CREDIT';
+  /** A delivery's address: one of the customer's own saved ones, as createOrder takes it (B11u continued, BL-123). */
+  readonly deliveryAddressId: string | null;
+  readonly deliverySlotId: string | null;
+  /** The fee the buyer accepted on the quote, in its pricing mode, charged once on the first dispatch (A-331 (b)). */
   readonly deliveryFeePesewas: bigint;
+  /** The tax the accepted version worked out on its lines and fee by the invoice's rule (A-352 (a)); counted when tax-exclusive. */
+  readonly taxPesewas: bigint;
   readonly taxInclusive: boolean;
   readonly lines: readonly QuoteOrderLine[];
 }
@@ -151,6 +160,8 @@ export interface OrderLineView {
   readonly priceBasis: PriceBasis;
   readonly priceListEntryId: string | null;
   readonly quoteLineId: string | null;
+  /** The quote line's weight band a converted line's animals are of (B11u continued, BL-124); null otherwise. */
+  readonly weightBandId: string | null;
   readonly resolvedUnitPricePesewas: number;
   readonly floorUnitPricePesewas: number;
   readonly ceilingUnitPricePesewas: number;
@@ -629,8 +640,10 @@ export class Orders {
       // line takes what is held of its product (and animal) first and reserves only the rest.
       const alreadyHeld = await this.reservations.activeOfHolderIn(tx, id);
       const heldLeft = alreadyHeld.map((r) => ({ productId: r.productId, stockUnitId: r.stockUnitId, qty: Quantity.parse(r.qty) }));
+      // A converted line of a weight band reserves only animals weighed in it (the owner, 2026-11-24, BL-124, A-359).
+      const ofBand = await this.bandFilterIn(tx, open, balances);
       for (const line of open) {
-        const offered = balances.map((b, index) => ({ b, index })).filter(({ b }) => b.productId === line.productId && (line.stockUnitId === null || b.stockUnitId === line.stockUnitId));
+        const offered = balances.map((b, index) => ({ b, index })).filter(({ b }) => b.productId === line.productId && (line.stockUnitId === null || b.stockUnitId === line.stockUnitId) && ofBand(line, b));
         // Stock is reserved in the base unit: a line of 4 crates holds 120 eggs (B09e). The shortfall is in the base unit too.
         const base = await this.refs.toBaseIn(tx, line.productId, line.uom, Quantity.parse(line.qtyOrdered));
         if (!base.ok) throw new Error(`order line ${line.id} in ${line.uom} has no exact base quantity (${base.error})`);
@@ -786,8 +799,9 @@ export class Orders {
    * fulfilment mode and delivery address, **no delivery fee** (charged once, on the first dispatch: A-331 (b), and the
    * database refuses one, `ck_sales_order_backorder`), and one line per line short at packing: what was not sent, at the
    * price agreed on the order and its pricing record, extended once. It is written PLACED and confirmed at once with the
-   * parent's credit check (an order on account is checked again at its own dispatch), holding no reservation: it waits
-   * for stock. The caller has authorised the dispatch.
+   * parent's credit check (an order on account is checked again at its own dispatch). It keeps what the first order
+   * held of the stock not sent (the owner, 2026-11-24, BL-123; A-366 (a) amended): the caller hands it over in the same
+   * transaction (`Dispatches.endPromisesIn`); what nothing held waits for stock. The caller has authorised the dispatch.
    */
   async backorderIn(tx: Transaction, actor: Actor, parent: OrderRecord, lines: readonly BackorderLine[], at: Date): Promise<{ readonly id: string; readonly orderNo: string }> {
     const rootId = parent.parentOrderId ?? parent.id;
@@ -862,7 +876,13 @@ export class Orders {
    */
   async createFromQuoteIn(tx: Transaction, actor: Actor, request: QuoteOrderRequest): Promise<SalesOrderView> {
     const broken: SaleRule[] = [];
-    if (request.fulfilmentMode === 'DELIVERY') broken.push({ field: '/fulfilmentMode', rule: 'FULFILMENT_NOT_AVAILABLE' });
+    // Delivery from a quote (the owner, 2026-11-24, BL-123; A-310 (e) lifted, A-356) as createOrder takes it (A-368 (a)):
+    // the customer's own saved address and its zone, no slot (it is booked at dispatch), never an address to collect.
+    if (request.fulfilmentMode === 'DELIVERY' && request.customerId === null) broken.push({ field: '/fulfilmentMode', rule: 'CUSTOMER_REQUIRED' });
+    else if (request.fulfilmentMode === 'DELIVERY' && request.deliveryAddressId === null) broken.push({ field: '/deliveryAddressId', rule: 'DELIVERY_ADDRESS_REQUIRED' });
+    if (request.fulfilmentMode === 'DELIVERY' && request.deliverySlotId !== null) broken.push({ field: '/deliverySlotId', rule: 'SLOT_NOT_AVAILABLE' });
+    if (request.fulfilmentMode === 'COLLECTION' && request.deliveryAddressId !== null) broken.push({ field: '/deliveryAddressId', rule: 'NOT_FOR_COLLECTION' });
+    if (request.fulfilmentMode === 'COLLECTION' && request.deliverySlotId !== null) broken.push({ field: '/deliverySlotId', rule: 'NOT_FOR_COLLECTION' });
     if (request.paymentTerms === 'CREDIT' && request.customerId === null) broken.push({ field: '/paymentTerms', rule: 'CUSTOMER_REQUIRED' });
     if (request.lines.length === 0) broken.push({ field: '/lines', rule: 'NO_LINES' });
     if (request.customerId !== null) {
@@ -891,6 +911,8 @@ export class Orders {
       if (line.stockUnitId !== null && (unit === undefined || unit.productId !== product.id)) broken.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_PRODUCT' });
       else if (unit !== undefined && (unit.status !== 'ACTIVE' || unit.branchId !== request.branchId)) broken.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_UNIT_NOT_AVAILABLE' });
     }
+    const delivery =
+      request.fulfilmentMode === 'DELIVERY' && request.customerId !== null && request.deliveryAddressId !== null ? await this.staffDeliveryIn(tx, request.branchId, request.customerId, request.deliveryAddressId, broken) : null;
     if (broken.length > 0) throw new OrderInvalidError(broken);
 
     const at = this.clock.now();
@@ -914,6 +936,7 @@ export class Orders {
         priceBasis: l.priceBasis,
         priceListEntryId: null,
         quoteLineRef: l.quoteLineId,
+        weightBandId: l.weightBandId,
         resolvedUnitPricePesewas: priced.resolvedUnitPricePesewas,
         floorUnitPricePesewas: priced.floorUnitPricePesewas,
         ceilingUnitPricePesewas: priced.ceilingUnitPricePesewas,
@@ -935,7 +958,8 @@ export class Orders {
     });
     await this.documents.register(tx, { id: orderId, docType: 'SALES_ORDER', ownerModule: 'ord', branchId: request.branchId, actorId: actor.principalId });
     const orderNo = await this.numbers.allocateIn(tx, { docType: 'SALES_ORDER', fiscalYear: Number(toBusinessDate(at).slice(0, 4)), branchId: request.branchId, branchCode: branch.code, documentId: orderId });
-    const estimated = Money.sum(lines.map((l) => Money.ofPesewas(l.estimatedLineTotalPesewas))).plus(Money.ofPesewas(request.deliveryFeePesewas));
+    // The credit check counts what will be invoiced: the lines, the fee and, tax-exclusive, their tax (A-357).
+    const estimated = Money.ofPesewas(quotedOrderEstimate({ lineTotalsPesewas: lines.map((l) => l.estimatedLineTotalPesewas), deliveryFeePesewas: request.deliveryFeePesewas, taxPesewas: request.taxPesewas, taxInclusive: request.taxInclusive }));
     await this.store.insertOrder(tx, {
       id: orderId,
       orderNo,
@@ -957,6 +981,8 @@ export class Orders {
       notes: null,
       branchId: request.branchId,
       actorId: actor.principalId,
+      deliveryAddressSnapshot: delivery?.snapshot ?? null,
+      deliveryZoneId: delivery?.zone.id ?? null,
     });
     await this.store.recordStatus(tx, orderId, { id: this.nextId(), fromStatus: null, toStatus: 'PLACED', reason: null, occurredAt: at, actorId: actor.principalId });
     await this.store.insertLines(tx, lines);
@@ -974,6 +1000,26 @@ export class Orders {
     await this.events.publish(tx, { type: ORDER_PLACED, subjectType: 'SalesOrder', subjectId: orderId, branchId: request.branchId, payload: placed, occurredAt: at });
     await this.audit.record(tx, { module: 'ord', action: 'CREATE_FROM_QUOTE', entityType: 'SalesOrder', entityId: orderId, branchId: request.branchId, before: null, after: { ...view } });
     return view;
+  }
+
+  /**
+   * Whether a balance may be reserved for a line (B11u continued, BL-124, A-359): any of its product's, except that a
+   * line of a weight band takes only an animal whose last weighing is in the band, half-open (`inWeightBand`); an animal
+   * never weighed is not of it.
+   */
+  private async bandFilterIn(tx: Transaction, lines: readonly OrderLineRecord[], balances: readonly PromisableStock[]): Promise<(line: OrderLineRecord, balance: PromisableStock) => boolean> {
+    const banded = lines.filter((l) => l.weightBandId !== null);
+    if (banded.length === 0) return () => true;
+    const bands = await this.refs.weightBandsIn(
+      tx,
+      banded.map((l) => l.weightBandId!),
+    );
+    const animals = await this.units.factsIn(
+      tx,
+      balances.flatMap((b) => (b.stockUnitId === null ? [] : [b.stockUnitId])),
+      this.clock.now(),
+    );
+    return (line, balance) => line.weightBandId === null || (balance.stockUnitId !== null && inWeightBand(animals.get(balance.stockUnitId)?.lastWeightKg ?? null, bands.get(line.weightBandId) ?? null));
   }
 
   /** Holds an order line on a reservation handed to the order (a quote's hold at conversion, B10). */
@@ -1331,6 +1377,7 @@ export class Orders {
             priceBasis: l.priceBasis,
             priceListEntryId: l.priceListEntryId,
             quoteLineId: l.quoteLineRef,
+            weightBandId: l.weightBandId,
             resolvedUnitPricePesewas: json(l.resolvedUnitPricePesewas),
             floorUnitPricePesewas: json(l.floorUnitPricePesewas),
             ceilingUnitPricePesewas: json(l.ceilingUnitPricePesewas),

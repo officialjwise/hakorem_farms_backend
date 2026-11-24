@@ -22,6 +22,7 @@ const PLATFORM_ENGLISH = {
   'error.idempotency_key_reused': 'This Idempotency-Key was already used for a different request. Use a new key for a new action.',
   'error.origin_not_allowed': 'Requests from this site are not accepted.',
   'error.invalid_state_transition': 'This record is not in a state that allows that action.',
+  'error.quote_acceptance_lapsed': 'This quote was accepted more than 7 days ago and no order took it: its hold has ended and it can no longer be converted. Make a new quote.',
   'error.field_invalid': 'This value is not valid.',
   'error.field_required': 'This field is required.',
   'error.field_unknown': 'This field is not accepted.',

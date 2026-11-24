@@ -1,6 +1,7 @@
 import { Quantity } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { availableToBuyer, canMoveQuote, canMoveVersion, inWeightBand, judgeMargin, linkState, lineCost, lineNet, marginPercent, markupPercent, planHold, unitCost, versionFigures } from './quote';
+import { acceptanceHoldEndsAt, acceptanceLapsed, ACCEPTED_HOLD_DAYS, acceptedLapsingBy } from './acceptance';
+import { animalLineUnitCost, availableToBuyer, canMoveQuote, canMoveVersion, inWeightBand, judgeMargin, linkState, lineCost, lineNet, marginPercent, markupPercent, planHold, unitCost, versionFigures } from './quote';
 
 const q = (text: string) => Quantity.parse(text);
 
@@ -169,6 +170,8 @@ describe('a quote link opens its version only while it is live (FR-QUO-008, CR-0
   it('answers accepted on the accepted version, even once converted, and declined on a declined quote', () => {
     expect(linkState({ ...live, versionStatus: 'ACCEPTED', quoteStatus: 'ACCEPTED' })).toBe('ACCEPTED');
     expect(linkState({ ...live, versionStatus: 'ACCEPTED', quoteStatus: 'CONVERTED' })).toBe('ACCEPTED');
+    // An accepted quote whose hold lapsed 7 days after acceptance (the owner, 2026-11-24) opens as expired.
+    expect(linkState({ ...live, versionStatus: 'ACCEPTED', quoteStatus: 'EXPIRED' })).toBe('EXPIRED');
     expect(linkState({ ...live, quoteStatus: 'DECLINED' })).toBe('DECLINED');
   });
   it('is withdrawn when the quote was cancelled, whatever its version', () => {
@@ -218,5 +221,49 @@ describe('the estimated unit cost of a line (FR-QUO-003)', () => {
   it('averages pools: two goats at 60,000 and 71,400 are 65,700 a head, and nothing to read is unknown', () => {
     const pools = [{ valuePesewas: 60_000n, qty: q('1.000') }, { valuePesewas: 71_400n, qty: q('1.000') }];
     expect([unitCost(pools, q('20.000'), q('20.000')), unitCost([], q('1.000'), q('1.000'))]).toEqual([65_700n, null]);
+  });
+});
+
+describe('a line of animals is costed by the animals it holds, its band for the rest (the owner, 2026-11-24, BL-124; A-309 (c) amended)', () => {
+  const pool = (valuePesewas: bigint, qty: string) => ({ valuePesewas, qty: q(qty) });
+  it('costs UAT step 2.2 at 66,000 a head: twenty goats held at 66,000 each, whatever the band holds besides', () => {
+    expect(animalLineUnitCost(Array.from({ length: 20 }, () => 66_000n), q('20.000'), q('20.000'), [pool(1_584_000n + 61_250n + 58_900n, '26.000')])).toBe(66_000n);
+  });
+  it('costs a line by its own animals, rounded half-up once: 24 at 66,000 and one at 60,000 is 65,760 a head', () => {
+    expect(animalLineUnitCost([...Array.from({ length: 24 }, () => 66_000n), 60_000n], q('25.000'), q('25.000'), [])).toBe(65_760n);
+    // 61,250 and 58,900 over 2 is 60,075; an exact half rounds up once (120,001 over 2 is 60,001), one pesewa less does not.
+    expect([animalLineUnitCost([60_001n, 60_000n], q('2.000'), q('2.000'), []), animalLineUnitCost([60_000n, 60_000n], q('2.000'), q('2.000'), [])]).toEqual([60_001n, 60_000n]);
+    expect([animalLineUnitCost([61_250n, 58_900n], q('2.000'), q('2.000'), []), animalLineUnitCost([30_001n, 30_000n, 0n], q('3.000'), q('3.000'), []), animalLineUnitCost([30_000n, 30_000n, 0n], q('3.000'), q('3.000'), [])]).toEqual([60_075n, 20_000n, 20_000n]);
+    expect(animalLineUnitCost([30_000n, 30_000n, 1n], q('3.000'), q('3.000'), [])).toBe(20_000n);
+    expect(animalLineUnitCost([30_000n, 30_000n, 2n], q('3.000'), q('3.000'), [])).toBe(20_001n);
+  });
+  it('costs the heads it cannot hold at the average of the band: 2 held at 66,000 and 1 short at the band 61,250 and 58,900', () => {
+    // (132,000 + 60,075) over 3 is 64,025.
+    expect(animalLineUnitCost([66_000n, 66_000n], q('3.000'), q('3.000'), [pool(120_150n, '2.000')])).toBe(64_025n);
+    // Nothing held: the band alone.
+    expect(animalLineUnitCost([], q('2.000'), q('2.000'), [pool(120_150n, '2.000')])).toBe(60_075n);
+  });
+  it('is unknown with heads short and nothing in the band to cost them, or with no heads', () => {
+    expect([animalLineUnitCost([66_000n], q('2.000'), q('2.000'), []), animalLineUnitCost([], q('1.000'), q('1.000'), [pool(0n, '0.000')]), animalLineUnitCost([], q('0.000'), q('0.000'), [])]).toEqual([null, null, null]);
+  });
+  it('never takes more animals than the line has heads', () => {
+    expect(animalLineUnitCost([66_000n, 66_000n, 1n], q('2.000'), q('2.000'), [])).toBe(66_000n);
+  });
+});
+
+describe("an accepted quote's hold ends 7 days after acceptance (the owner, 2026-11-24, A-310 (b) amended)", () => {
+  const accepted = new Date('2026-12-01T09:30:00.000Z');
+  it('ends at the acceptance instant plus seven days, by the application clock', () => {
+    expect(ACCEPTED_HOLD_DAYS).toBe(7);
+    expect(acceptanceHoldEndsAt(accepted)).toEqual(new Date('2026-12-08T09:30:00.000Z'));
+    expect(acceptedLapsingBy(new Date('2026-12-08T09:30:00.000Z'))).toEqual(accepted);
+  });
+  it('holds at 7 days less a minute and less a millisecond, and has lapsed at 7 days exactly and after', () => {
+    expect([
+      acceptanceLapsed(accepted, new Date('2026-12-08T09:29:00.000Z')),
+      acceptanceLapsed(accepted, new Date('2026-12-08T09:29:59.999Z')),
+      acceptanceLapsed(accepted, new Date('2026-12-08T09:30:00.000Z')),
+      acceptanceLapsed(accepted, new Date('2026-12-09T00:00:00.000Z')),
+    ]).toEqual([false, false, true, true]);
   });
 });

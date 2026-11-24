@@ -48,8 +48,8 @@ export class PgOrderStore implements OrderStore {
                                            variance_pesewas, variance_direction, variance_reason_code, variance_requires_approval, discount_pesewas,
                                            estimated_line_total_pesewas, reservation_id, qty_fulfilled, fulfilled_weight_kg, weight_source,
                                            final_line_total_pesewas, stock_movement_id, line_status, variance_approval_request_id, variance_approved_by,
-                                           variance_approved_at, estimated_weight_kg, tolerance_percent, quote_line_ref, stock_exception_id)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34)`,
+                                           variance_approved_at, estimated_weight_kg, tolerance_percent, quote_line_ref, stock_exception_id, weight_band_id)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33, $34, $35)`,
         [
           l.id,
           l.salesOrderId,
@@ -85,6 +85,7 @@ export class PgOrderStore implements OrderStore {
           l.tolerancePercent ?? null,
           l.quoteLineRef ?? null,
           l.stockExceptionId ?? null,
+          l.weightBandId ?? null,
         ],
       );
     }
@@ -179,7 +180,7 @@ export class PgOrderStore implements OrderStore {
               agreed_unit_price_pesewas::text, variance_pesewas::text, variance_direction, variance_reason_code, variance_requires_approval, discount_pesewas::text,
               estimated_line_total_pesewas::text, final_line_total_pesewas::text, reservation_id, stock_movement_id, stock_exception_id, line_status,
               estimated_weight_kg::text, tolerance_percent::text, qty_backordered::text, quote_line_ref, variance_approval_request_id,
-              variance_approved_by, variance_approved_at
+              variance_approved_by, variance_approved_at, weight_band_id
          FROM ord.sales_order_line WHERE sales_order_id = ANY($1::uuid[]) ORDER BY sales_order_id, line_no`,
       [ids],
     );
@@ -217,6 +218,7 @@ export class PgOrderStore implements OrderStore {
         tolerancePercent: r['tolerance_percent'] as string | null,
         qtyBackordered: r['qty_backordered'] as string,
         quoteLineRef: r['quote_line_ref'] as string | null,
+        weightBandId: r['weight_band_id'] as string | null,
         varianceApprovalRequestId: r['variance_approval_request_id'] as string | null,
         varianceApprovedBy: r['variance_approved_by'] as string | null,
         varianceApprovedAt: r['variance_approved_at'] as Date | null,

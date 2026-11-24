@@ -78,6 +78,8 @@ export interface OrderLineRecord {
   readonly tolerancePercent: string | null;
   readonly qtyBackordered: string;
   readonly quoteLineRef: string | null;
+  /** The weight band of the quote line a converted line came from (B11u continued, BL-124): its animals are of it. */
+  readonly weightBandId: string | null;
   /** The PRICE_OVERRIDE approval a flagged line waits for or holds, and who approved it and when (A-230). */
   readonly varianceApprovalRequestId: string | null;
   readonly varianceApprovedBy: string | null;
@@ -100,7 +102,7 @@ export interface StatusChangeRecord {
 }
 
 type ReadOnlyHeader = 'parentOrderId' | 'creditCheck' | 'deliveryAddressSnapshot' | 'deliveryZoneId' | 'deliverySlotId' | 'createdBy' | 'proformaDocumentId';
-type ReadOnlyLine = 'stockExceptionId' | 'estimatedWeightKg' | 'tolerancePercent' | 'qtyBackordered' | 'quoteLineRef';
+type ReadOnlyLine = 'stockExceptionId' | 'estimatedWeightKg' | 'tolerancePercent' | 'qtyBackordered' | 'quoteLineRef' | 'weightBandId';
 
 export interface NewOrder extends Omit<OrderHeaderRecord, 'status' | 'finalTotalPesewas' | 'billingDocumentId' | 'completedAt' | 'recordedAt' | 'version' | 'orderNo' | ReadOnlyHeader> {
   readonly orderNo: string;
@@ -130,6 +132,8 @@ export interface ExtraFeeRecord {
 export type NewOrderLine = Omit<OrderLineRecord, ReadOnlyLine> & {
   /** The quote line a QUOTE line is priced by (B10, FR-QUO-011); null on every other line. */
   readonly quoteLineRef?: string | null;
+  /** A converted quote line's weight band (B11u continued, BL-124); null on every other line. */
+  readonly weightBandId?: string | null;
   /** A catch-weight line's estimate at order time (ADR-0021): packs times the nominal pack, and the product's tolerance. */
   readonly estimatedWeightKg?: string | null;
   readonly tolerancePercent?: string | null;

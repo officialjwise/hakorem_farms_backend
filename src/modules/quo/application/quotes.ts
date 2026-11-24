@@ -23,6 +23,7 @@ import {
   StockUnitReservedError,
   type PromisableStock,
   type Reservations,
+  type StockReservationRecord,
   type StockQueries,
   type StockUnits,
 } from '../../inv';
@@ -30,7 +31,9 @@ import { defaultLineUom, type MasterDataRefs, type PricingService, type ProductF
 import type { Orders, QuoteOrderLine, SalesOrderView } from '../../ord';
 import { countOf, lineNumber, nextVersionNo } from '../domain/numbering';
 import { pageProbe } from '../domain/paging';
+import { acceptanceLapsed, ACCEPTED_HOLD_DAYS, acceptedLapsingBy } from '../domain/acceptance';
 import {
+  animalLineUnitCost,
   availableToBuyer,
   DEFAULT_MARGIN_FLOOR_BASIS_POINTS,
   inWeightBand,
@@ -46,10 +49,13 @@ import {
 } from '../domain/quote';
 import { matchStaff, STAFF_MATCH_WINDOW_HOURS, staffWindowStart, type StaffMatch } from '../domain/staff-match';
 import { offsetPage, pipelineFigures, pipelinePeriod } from '../domain/pipeline';
-import type { QuoteConverted, QuoteDecided, QuoteIssued, QuoteLinkDecidedFromStaffAddress, QuoteWithdrawn } from '../events';
+import type { AcceptedQuoteLapsed, QuoteConverted, QuoteDecided, QuoteIssued, QuoteLinkDecidedFromStaffAddress, QuoteWithdrawn } from '../events';
 import { QuoteAlreadyConvertedError, QuoteAlreadyDecidedError, QuoteAuthorCannotApproveError, QuoteInvalidError, QuoteLinkClosedError, type QuoteRule } from './errors';
 import { STOREFRONT_PRINCIPAL } from './public-actor';
 import type { AcceptanceRecord, LineRecord, LineStockRecord, LinkDecisionRecord, LinkRecord, QuoteFilter, QuoteRecord, QuoteStore, VersionRecord } from './quote-store';
+
+/** A reservation the quote holds, as a line of animals is planned from it (A-358). */
+type HeldRecord = Pick<StockReservationRecord, 'productId' | 'stockUnitId' | 'locationId' | 'qty'>;
 
 const READ = 'quo.quote.read';
 const CREATE = 'quo.quote.create';
@@ -64,6 +70,8 @@ export const QUOTE_DECLINED = 'quo.QuoteDeclined';
 export const QUOTE_EXPIRED = 'quo.QuoteExpired';
 export const QUOTE_CONVERTED = 'quo.QuoteConverted';
 export const QUOTE_WITHDRAWN = 'quo.QuoteWithdrawn';
+/** An accepted quote no order took within 7 days of acceptance: its hold released (the owner, 2026-11-24; abuse case 66). */
+export const ACCEPTED_QUOTE_LAPSED = 'quo.AcceptedQuoteLapsed';
 /**
  * For the exception report's source (B12, `QUOTE_ACCEPTED_BY_STAFF`, abuse case 40): a possible staff acceptance, found
  * by the decision's address and browser (the owner, 2026-11-23, A-343). It never blocks the decision. It replaces
@@ -303,6 +311,8 @@ export interface PipelineRowView {
   /** Quotes withdrawn after issue: their own outcome, neither won nor lost (the owner, 2026-11-23, A-329 (b)). */
   readonly withdrawn: number;
   readonly withdrawnValuePesewas: number;
+  /** Accepted quotes whose hold lapsed 7 days after acceptance (the owner, 2026-11-24): among `expired`, lost in the rate. */
+  readonly lapsedAfterAcceptance: number;
 }
 
 /** The contract's `QuotePipeline`. */
@@ -331,6 +341,11 @@ const json = (pesewas: bigint) => Money.ofPesewas(pesewas).toJsonInteger();
 const jsonOrNull = (pesewas: bigint | null) => (pesewas === null ? null : json(pesewas));
 const lineField = (i: number, name: string) => `/lines/${i}/${name}`;
 const isSet = <T>(v: T | null | undefined): v is T => v !== undefined && v !== null;
+
+/** An accepted quote whose hold ended 7 days after acceptance with no order (the owner, 2026-11-24): never converted. */
+function lapsedError(quoteId: string): InvalidStateTransitionError {
+  return new InvalidStateTransitionError(`quote ${quoteId}: its hold ended ${ACCEPTED_HOLD_DAYS} days after acceptance`, [{ field: null, code: 'ACCEPTANCE_LAPSED', message: translate('error.quote_acceptance_lapsed') }]);
+}
 
 function stateError(status: string): InvalidStateTransitionError {
   return new InvalidStateTransitionError(`the quote is ${status}`, [{ field: null, code: status, message: translate('error.invalid_state_transition') }]);
@@ -505,7 +520,7 @@ export class Quotes {
       const branch = (await this.refs.branchesIn(tx, [branchId])).get(branchId)!;
       const quoteId = this.nextId();
       const versionId = this.nextId();
-      const priced = await this.priceLines(tx, versionId, branchId, customerId, request.lines, at);
+      const priced = await this.priceLines(tx, versionId, branchId, customerId, request.lines, at, null);
       const figures = await this.figuresIn(tx, branchId, priced, { taxInclusive: request.taxInclusive, deliveryFeePesewas: request.deliveryFeePesewas ?? 0n, at });
       await this.registry.register(tx, { id: quoteId, docType: QUOTE, ownerModule: 'quo', branchId, actorId: actor!.principalId });
       const quoteNo = await this.numbers.allocateIn(tx, { docType: QUOTE, fiscalYear: Number(year), branchId, branchCode: branch.code, documentId: quoteId });
@@ -559,7 +574,7 @@ export class Quotes {
       const inputs = (await this.store.linesOf(tx, [from.id])).map(inputOf);
       const versionId = this.nextId();
       const versionNo = nextVersionNo(versions[0]!.versionNo);
-      const priced = await this.priceLines(tx, versionId, quote.branchId, quote.customerId, inputs, at);
+      const priced = await this.priceLines(tx, versionId, quote.branchId, quote.customerId, inputs, at, quote.id);
       const figures = await this.figuresIn(tx, quote.branchId, priced, { taxInclusive: from.taxInclusive, deliveryFeePesewas: from.deliveryFeePesewas, at });
       await this.store.insertVersion(tx, {
         id: versionId,
@@ -595,7 +610,7 @@ export class Quotes {
       if (validUntil <= at) throw new QuoteInvalidError([{ field: '/validUntil', rule: 'VALIDITY_PASSED' }]);
       const inputs = request.lines ?? (await this.store.linesOf(tx, [versionId])).map(inputOf);
       const fee = request.deliveryFeePesewas ?? version.deliveryFeePesewas;
-      const priced = await this.priceLines(tx, versionId, quote.branchId, quote.customerId, inputs, at);
+      const priced = await this.priceLines(tx, versionId, quote.branchId, quote.customerId, inputs, at, quote.id);
       const figures = await this.figuresIn(tx, quote.branchId, priced, { taxInclusive: version.taxInclusive, deliveryFeePesewas: fee, at });
       await this.store.replaceLines(tx, versionId, priced.lines);
       await this.store.setFigures(tx, versionId, { validUntil, terms: request.terms ?? version.terms, deliveryEstimate: request.deliveryEstimate ?? version.deliveryEstimate, deliveryFeePesewas: fee, ...figures }, actor!.principalId, at);
@@ -637,7 +652,7 @@ export class Quotes {
       if (version.validUntil <= at) broken.push({ field: '/validUntil', rule: 'VALIDITY_PASSED' });
       if (broken.length > 0) throw new QuoteInvalidError(broken);
       // Judged on the prices and costs of now, not of the last edit.
-      const priced = await this.priceLines(tx, versionId, quote.branchId, quote.customerId, inputs, at);
+      const priced = await this.priceLines(tx, versionId, quote.branchId, quote.customerId, inputs, at, quote.id);
       const figures = await this.figuresIn(tx, quote.branchId, priced, { taxInclusive: version.taxInclusive, deliveryFeePesewas: version.deliveryFeePesewas, at });
       await this.store.replaceLines(tx, versionId, priced.lines);
       await this.store.setFigures(tx, versionId, { validUntil: version.validUntil, terms: version.terms, deliveryEstimate: version.deliveryEstimate, deliveryFeePesewas: version.deliveryFeePesewas, ...figures }, actor!.principalId, at);
@@ -773,8 +788,13 @@ export class Quotes {
     const branchId = await this.uow.run({ isolation: 'read committed' }, async (tx) => (await this.readable(tx, actor, CONVERT, quoteId)).branchId);
     return this.write(actor, CONVERT, 'convertQuote', quoteId, { ...request, stockUnitIds: request.stockUnitIds ?? null }, key, async (tx, quote, at) => {
       if (quote.status === 'CONVERTED') throw new QuoteAlreadyConvertedError(`quote ${quoteId} converted to order ${quote.convertedOrderId}`);
+      if (quote.status === 'EXPIRED' && quote.acceptedVersionId !== null) throw lapsedError(quoteId);
       if (quote.status !== 'ACCEPTED') throw stateError(quote.status);
       const version = (await this.store.version(tx, quote.acceptedVersionId!))!;
+      // The hold ends 7 days after acceptance (the owner, 2026-11-24): from that instant the quote converts no more, even
+      // before the job has released it; nothing is written.
+      const acceptance = (await this.store.acceptancesOf(tx, [version.id]))[0]!;
+      if (acceptanceLapsed(acceptance.acceptedAt, at)) throw lapsedError(quoteId);
       const lines = await this.store.linesOf(tx, [version.id]);
       const products = await this.refs.productsIn(
         tx,
@@ -799,15 +819,12 @@ export class Quotes {
             continue;
           }
           const named: (string | null)[] = animals.length === 0 ? Array.from({ length: head }, () => null) : animals.splice(0, head);
-          for (const animal of named) orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: animal, quantity: '1.000', uom: l.uom, priceBasis: l.priceBasis, ...priceOf(l) });
+          for (const animal of named) orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: animal, weightBandId: l.weightBandId, quantity: '1.000', uom: l.uom, priceBasis: l.priceBasis, ...priceOf(l) });
           continue;
         }
-        orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: l.stockUnitId, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, ...priceOf(l) });
+        orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: l.stockUnitId, weightBandId: product.tracking === 'SERIAL' && l.stockUnitId === null ? l.weightBandId : null, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, ...priceOf(l) });
       }
       if (animals.length > 0) broken.push({ field: '/stockUnitIds', rule: 'ANIMALS_NOT_ON_QUOTE' });
-      // Delivery is B11's (ORD refuses it until then); an address or a slot is refused rather than ignored.
-      if (isSet(request.deliveryAddressId)) broken.push({ field: '/deliveryAddressId', rule: 'NOT_FOR_COLLECTION' });
-      if (isSet(request.deliverySlotId)) broken.push({ field: '/deliverySlotId', rule: 'NOT_FOR_COLLECTION' });
       if (broken.length > 0) throw new QuoteInvalidError(broken);
       const order = await this.orders.createFromQuoteIn(tx, actor!, {
         quoteId,
@@ -818,7 +835,13 @@ export class Quotes {
         salespersonId: quote.salespersonId,
         fulfilmentMode: request.fulfilmentMode,
         paymentTerms: request.paymentTerms,
+        // Delivery from a quote (the owner, 2026-11-24, BL-123, A-356): the address and its zone as createOrder takes
+        // them; the fee the buyer accepted, charged once on the first dispatch; the tax the version worked out on its
+        // lines and fee, so the order's credit estimate counts what will be invoiced (A-357).
+        deliveryAddressId: request.deliveryAddressId ?? null,
+        deliverySlotId: request.deliverySlotId ?? null,
         deliveryFeePesewas: version.deliveryFeePesewas,
+        taxPesewas: version.taxPesewas,
         taxInclusive: version.taxInclusive,
         lines: orderLines,
       });
@@ -941,7 +964,12 @@ export class Quotes {
     return this.uow.run({ isolation: 'serializable' }, async (tx) => {
       const at = this.clock.now();
       const expired: string[] = [];
-      for (const quote of await this.store.lockLapsed(tx, at, EXPIRY_BATCH)) {
+      for (const quote of await this.store.lockLapsed(tx, at, EXPIRY_BATCH, acceptedLapsingBy(at))) {
+        if (quote.status === 'ACCEPTED') {
+          await this.lapseAcceptedIn(tx, system.principalId, quote, at);
+          expired.push(quote.id);
+          continue;
+        }
         const live = await this.liveVersionIn(tx, quote);
         await this.reservations.releaseHeldByIn(tx, system.principalId, quote.id, `Quote ${quote.quoteNo} expired at ${live.validUntil.toISOString()}`);
         await this.store.updateQuote(tx, quote.id, { status: 'EXPIRED' }, system.principalId, at);
@@ -951,6 +979,36 @@ export class Quotes {
       }
       return expired;
     });
+  }
+
+  /**
+   * An accepted quote no order took within 7 days of its acceptance (the owner, 2026-11-24: "An accepted quote's hold
+   * ends 7 days after acceptance."; A-310 (b) amended, A-294), in the job's transaction, which holds the quote's row: its
+   * hold released with the reason, the quote EXPIRED with its accepted version (so it cannot be converted), published as
+   * `quo.QuoteExpired` and `quo.AcceptedQuoteLapsed` (abuse case 66) and audited. Nothing is deleted.
+   */
+  private async lapseAcceptedIn(tx: Transaction, actorId: string, quote: QuoteRecord, at: Date): Promise<void> {
+    const version = (await this.store.version(tx, quote.acceptedVersionId!))!;
+    const acceptance = (await this.store.acceptancesOf(tx, [version.id]))[0]!;
+    const reason = `Quote ${quote.quoteNo} accepted at ${acceptance.acceptedAt.toISOString()}: its hold ended ${ACCEPTED_HOLD_DAYS} days after acceptance with no order`;
+    const released = await this.reservations.releaseHeldByIn(tx, actorId, quote.id, reason);
+    await this.store.updateQuote(tx, quote.id, { status: 'EXPIRED' }, actorId, at);
+    await this.publishDecision(tx, QUOTE_EXPIRED, quote, version, 'EXPIRY', at);
+    const lapsed: AcceptedQuoteLapsed = {
+      quoteId: quote.id,
+      quoteNo: quote.quoteNo,
+      branchId: quote.branchId,
+      salespersonId: quote.salespersonId,
+      acceptedVersionId: version.id,
+      acceptedAt: acceptance.acceptedAt.toISOString(),
+      acceptanceMethod: acceptance.method,
+      grossPesewas: json(version.grossPesewas),
+      heldReleasedQty: Quantity.sum(released.map((r) => Quantity.parse(r.qty))).toDecimalString(),
+      abuseCase: 66,
+      at: at.toISOString(),
+    };
+    await this.events.publish(tx, { type: ACCEPTED_QUOTE_LAPSED, subjectType: 'Quote', subjectId: quote.id, branchId: quote.branchId, payload: lapsed, occurredAt: at });
+    await this.audit.record(tx, { module: 'quo', action: 'LAPSE_ACCEPTED', entityType: 'Quote', entityId: quote.id, branchId: quote.branchId, before: { status: 'ACCEPTED' }, after: { status: 'EXPIRED', reason, heldReleasedQty: lapsed.heldReleasedQty } });
   }
 
   // ------------------------------------------------------------------------------------------------------ inside
@@ -963,11 +1021,12 @@ export class Quotes {
     o: { readonly issuerId: string; readonly approvedBy: string | null; readonly channels: readonly string[]; readonly at: Date; readonly actorId: string },
   ): Promise<void> {
     const superseded = (await this.store.versionsOf(tx, [quote.id])).find((v) => v.status === 'ISSUED') ?? null;
+    const previous = await this.reservations.activeOfHolderIn(tx, quote.id);
     if (superseded !== null) {
       await this.store.setVersionStatus(tx, superseded.id, { status: 'SUPERSEDED' }, o.actorId, o.at);
       await this.reservations.releaseHeldByIn(tx, o.actorId, quote.id, `Quote ${quote.quoteNo} version ${superseded.versionNo} replaced by version ${version.versionNo}`);
     }
-    await this.reserveLinesIn(tx, quote, version, o.actorId, o.at);
+    await this.reserveLinesIn(tx, quote, version, o.actorId, o.at, previous);
     const issuedLines = await this.store.linesOf(tx, [version.id]);
     await this.store.setVersionStatus(
       tx,
@@ -1028,7 +1087,7 @@ export class Quotes {
    * count at issue, capped at what is available", B11u, A-351, replacing A-309 (f)'s "not held"); which animals go is
    * named at picking, not here: the order the quote converts to may pick any free animal or its own.
    */
-  private async reserveLinesIn(tx: Transaction, quote: QuoteRecord, version: VersionRecord, actorId: string, at: Date): Promise<void> {
+  private async reserveLinesIn(tx: Transaction, quote: QuoteRecord, version: VersionRecord, actorId: string, at: Date, previous: readonly HeldRecord[]): Promise<void> {
     const lines = await this.store.linesOf(tx, [version.id]);
     const products = await this.refs.productsIn(
       tx,
@@ -1042,13 +1101,27 @@ export class Quotes {
     const balances = await this.stock.promisableIn(tx, quote.branchId, [...products.keys()]);
     const eligible = await this.eligibilityIn(tx, lines, products, balances);
     const left = balances.map((b) => b.availableQty);
+    // A line of animals naming none holds by the plan its estimated cost was worked by (A-358): the animals the quote
+    // held for its last version first, in the order they were taken, then the free ones, oldest first, of its band.
+    const herd = lines.filter((l) => l.productId !== null && l.baseQty !== null && l.stockUnitId === null && products.get(l.productId)?.tracking === 'SERIAL');
+    const plan = herd.length === 0 ? new Map<string, PromisableStock[]>() : await this.animalPlanIn(tx, quote.branchId, herd.map((l) => ({ key: l.id, productId: l.productId!, weightBandId: l.weightBandId, heads: Quantity.parse(l.baseQty!) })), previous.filter((r) => balances.some((b) => b.stockUnitId === r.stockUnitId)));
     for (const [i, line] of lines.entries()) {
       const product = line.productId === null ? undefined : products.get(line.productId);
       if (product === undefined || line.baseQty === null) continue;
       const wanted = Quantity.parse(line.baseQty);
       const pieces: { productId: string; stockUnitId: string | null; locationId: string; qty: Quantity }[] = [];
       let available: Quantity;
-      if (line.stockUnitId !== null) {
+      if (herd.includes(line)) {
+        const mine = plan.get(line.id) ?? [];
+        for (const b of mine) pieces.push({ productId: b.productId, stockUnitId: b.stockUnitId, locationId: b.locationId, qty: b.availableQty });
+        // What was there to promise: the animals held now and those of its band still free beyond them.
+        const offered = balances.map((b, index) => ({ b, index })).filter(({ b, index }) => b.productId === product.id && eligible(line, index) && !mine.some((m) => m.stockUnitId === b.stockUnitId));
+        available = Quantity.sum([...mine.map((b) => b.availableQty), ...offered.map(({ index }) => left[index]!)]);
+        for (const b of mine) {
+          const index = balances.findIndex((x) => x.stockUnitId === b.stockUnitId && x.locationId === b.locationId);
+          if (index >= 0) left[index] = Quantity.zero();
+        }
+      } else if (line.stockUnitId !== null) {
         const unit = units.get(line.stockUnitId);
         const free = unit !== undefined && unit.currentLocationId !== null && unit.status === 'ACTIVE' && !unit.reserved && unit.holds.length === 0;
         available = free ? wanted : Quantity.zero();
@@ -1087,6 +1160,51 @@ export class Quotes {
         at,
       );
     }
+  }
+
+  /**
+   * The animals each line of animals naming none holds, or would hold now (B11u continued, A-358), one balance a head,
+   * never one twice: of the line's product and, naming a band, whose last weighing is in it (`inWeightBand`); first the
+   * animals the quote holds already (`own`, in the order they were taken), so a revision keeps the buyer's animals and its
+   * estimate is costed by them, then the free ones, oldest first (`promisableIn`). Lines take in order. It reserves nothing.
+   */
+  private async animalPlanIn(
+    tx: Transaction,
+    branchId: string,
+    lines: readonly { readonly key: string; readonly productId: string; readonly weightBandId: string | null; readonly heads: Quantity }[],
+    own: readonly HeldRecord[],
+  ): Promise<Map<string, PromisableStock[]>> {
+    const productIds = [...new Set(lines.map((l) => l.productId))];
+    const held = own.filter((r) => r.stockUnitId !== null && productIds.includes(r.productId));
+    const heldIds = new Set(held.map((r) => r.stockUnitId));
+    const free = (await this.stock.promisableIn(tx, branchId, productIds)).filter((b) => b.stockUnitId !== null && !heldIds.has(b.stockUnitId));
+    const candidates: PromisableStock[] = [
+      ...held.map((r) => ({ productId: r.productId, stockUnitId: r.stockUnitId, locationId: r.locationId, availableQty: Quantity.parse(r.qty), expiresOn: null, receivedAt: null })),
+      ...free,
+    ];
+    const animals = await this.units.factsIn(
+      tx,
+      candidates.map((b) => b.stockUnitId!),
+      this.clock.now(),
+    );
+    const bands = await this.refs.weightBandsIn(
+      tx,
+      lines.flatMap((l) => (l.weightBandId === null ? [] : [l.weightBandId])),
+    );
+    const taken = new Set<string>();
+    const plan = new Map<string, PromisableStock[]>();
+    for (const line of lines) {
+      const band = line.weightBandId === null ? null : (bands.get(line.weightBandId) ?? null);
+      const mine: PromisableStock[] = [];
+      for (const b of candidates) {
+        if (BigInt(mine.length) * 1_000n >= line.heads.thousandths) break;
+        if (b.productId !== line.productId || taken.has(b.stockUnitId!) || (line.weightBandId !== null && !inWeightBand(animals.get(b.stockUnitId!)?.lastWeightKg ?? null, band))) continue;
+        taken.add(b.stockUnitId!);
+        mine.push(b);
+      }
+      plan.set(line.key, mine);
+    }
+    return plan;
   }
 
   /**
@@ -1439,6 +1557,7 @@ export class Quotes {
     customerId: string | null,
     inputs: readonly QuoteLineInput[],
     at: Date,
+    holderId: string | null,
   ): Promise<{ readonly lines: LineRecord[]; readonly products: ReadonlyMap<string, ProductFacts> }> {
     const products = await this.refs.productsIn(
       tx,
@@ -1525,6 +1644,24 @@ export class Quotes {
       branchId,
       priced.map((c) => c.product!.id),
     );
+    // A line of animals naming none is costed by the animals it holds, or would hold now (the owner, 2026-11-24, BL-124,
+    // A-358): the same plan its issue holds by, the quote's own holds first; the heads it cannot hold at its band's pools.
+    const herd = priced.filter((c) => c.product!.tracking === 'SERIAL' && !isSet(c.input.stockUnitId));
+    const own = holderId === null || herd.length === 0 ? [] : await this.reservations.activeOfHolderIn(tx, holderId);
+    const plan =
+      herd.length === 0
+        ? new Map<string, PromisableStock[]>()
+        : await this.animalPlanIn(
+            tx,
+            branchId,
+            herd.map((c) => ({ key: String(c.i), productId: c.product!.id, weightBandId: c.input.weightBandId ?? null, heads: c.baseQty! })),
+            own,
+          );
+    const poolUnits = await this.units.factsIn(tx, herd.length === 0 ? [] : pools.flatMap((p) => (p.stockUnitId === null ? [] : [p.stockUnitId])), at);
+    const herdBands = await this.refs.weightBandsIn(
+      tx,
+      herd.flatMap((c) => (isSet(c.input.weightBandId) ? [c.input.weightBandId] : [])),
+    );
 
     const lines: LineRecord[] = [];
     for (const c of checked) {
@@ -1532,7 +1669,18 @@ export class Quotes {
       const band = resolved.find((r) => r.lineRef === String(c.i))?.resolved ?? null;
       if (band !== null && band.basis !== c.input.priceBasis) broken.push({ field: lineField(c.i, 'priceBasis'), rule: 'PRICE_BASIS_MISMATCH' });
       let cost: bigint | null = null;
-      if (c.product !== null && c.baseQty !== null) {
+      if (c.product !== null && c.baseQty !== null && herd.includes(c)) {
+        const value = new Map(pools.map((p) => [p.stockUnitId, p.valuePesewas] as const));
+        const ofProduct = pools.filter((p) => p.productId === c.product!.id);
+        const band = isSet(c.input.weightBandId) ? (herdBands.get(c.input.weightBandId) ?? null) : null;
+        const ofBand = ofProduct.filter((p) => p.stockUnitId !== null && inWeightBand(poolUnits.get(p.stockUnitId)?.lastWeightKg ?? null, band));
+        cost = animalLineUnitCost(
+          (plan.get(String(c.i)) ?? []).map((b) => value.get(b.stockUnitId) ?? 0n),
+          c.baseQty,
+          qty,
+          (ofBand.length > 0 ? ofBand : ofProduct).map((p) => ({ valuePesewas: p.valuePesewas, qty: Quantity.parse(p.qty) })),
+        );
+      } else if (c.product !== null && c.baseQty !== null) {
         const mine = pools.filter((p) => p.productId === c.product!.id && (!isSet(c.input.stockUnitId) || p.stockUnitId === c.input.stockUnitId));
         cost = unitCost(
           mine.map((p) => ({ valuePesewas: p.valuePesewas, qty: Quantity.parse(p.qty) })),

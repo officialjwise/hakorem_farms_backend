@@ -116,6 +116,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B11 continued 12 | `B11c12-notifications.md` | `b11c12-notifications` | B4 to B12 | The receipt SMS and the tracking SMS are sent once, only to the record's own contact, each with a fresh token from the sending worker; a document send reaches only the document's own party; a failed reminder shows as failed on its channel; CR-039's crate and single egg price exactly (inserted by B11 continued 11, A-377) |
 | B11 continued 13 | `B11c13-notifications.md` | `b11c13-notifications` | B4 to B12 | A document send reaches only the document's own customer or supplier and a failed send is retried without a second archive row; the remittance advice goes once per payment to its own supplier; a failed reminder shows as failed on its channel; CR-039's crate and single egg price exactly (inserted by B11 continued 12, A-379) |
 | B11u | `B11u-uat-scenario-2-corrections.md` | `b11u-uat-scenario-2-corrections` | B4 to B12 | A quoted line posts list to 4000 and the difference to 4210 (none at list) with the customer's document unchanged; a quote holds its count capped at what is available, released with the quote and handed to the order with no gap; the estimate taxes the delivery fee as the invoice does, to the pesewa; conversion takes no tags, picking names them; the buyer sees min(requested, available now); a withdrawn quote is its own outcome outside the win rate (inserted by the parent session on the owner's decision of 2026-11-23) |
+| B11u continued | `B11u2-uat-scenario-2-rest.md` | `b11u2-uat-scenario-2-rest` | B4 to B12 | UAT scenario 2 runs as written at the desk, including a delivery: a quote converts to a delivery order (its fee once, credit-checked at dispatch); the backorder keeps its first order's hold with no gap; the quote's cost is its animals', 13,200.00 and 30.75 exactly with other goats in the pens; the credit estimate includes the fee's tax, 17,172.00; an order line carries its band; an accepted quote's hold ends 7 days after acceptance (inserted by the parent session on the owner's decision of 2026-11-24) |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
 | B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
 | B13 | `B13-hardening-deploy.md` | `b13-hardening-deploy` | B13 — Hardening, smoke suite and deploy | Every non-functional target met and evidenced on the live server |
@@ -4340,7 +4341,7 @@ Stop at the gate and write docs/sessions/B11c13-notifications.md.
 
 Branch `b11u-uat-scenario-2-corrections`. Report `docs/sessions/B11u-uat-scenario-2-corrections.md`. Inserted by the parent session on the owner's decision of 2026-11-23 (ADR-0026 Amendments): the four UAT scenario 2 differences and the owner's answers to A-328 (c) and A-329 (b), built as one small lane B phase after B11 continued 13 and before B12. Gate: a quoted line posts its list price, recorded on the quote line at issue, to sales (4000) and the difference to price variance (4210) above or below list and nothing to 4210 at list, every journal balanced, while the customer's document, totals and tax stay as they were to the pesewa and every other line posts exactly as before; an issued quote holds its requested count, capped at what is available and never below zero, released in the same transaction when the quote expires, is replaced or is withdrawn, and handed to the order at conversion with no gap another buyer could take (proved under concurrency); the quote's estimate taxes its delivery fee by the invoice's rule, so a quote and the invoice for the same lines and fee agree to the pesewa, including a case where rounding would differ the other way; a quote for tagged stock converts with no tags and the tags are named at picking; the buyer sees min(their requested quantity, available now) per line, never the total on hand; a withdrawn quote is its own outcome with its reason, outside the win and loss rate and listed as withdrawn; every margin in the code, the contract and the documents is over the selling price and markup is named markup; every new read is authorised and every write refuses the wrong role; scenario 2 of docs/UAT.md rerun at the desk with every remaining difference listed.
 
-**Built (A-350 to A-355, ADR-0098, migrations 0348 and 0349, contract 2.43.0); BL-122 to BL-124 parked.** The four differences and the two answers are gone; the four that remain (a quote converted to delivery, a backorder's hold, a quote's cost by band and the credit check's fee tax) are A-355, for the owner. This closes lane B; B12 reads this phase's report.
+**Built (A-350 to A-355, ADR-0098, migrations 0348 and 0349, contract 2.43.0); BL-122 to BL-124 parked.** The four differences and the two answers are gone; the four that remain (a quote converted to delivery, a backorder's hold, a quote's cost by band and the credit check's fee tax) are A-355, for the owner. The owner scheduled them on 2026-11-24: B11u continued builds them and closes lane B.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md, and "Two lanes" below.
@@ -4394,14 +4395,64 @@ remaining difference.
 Stop at the gate and write docs/sessions/B11u-uat-scenario-2-corrections.md.
 ```
 
+## B11u continued — The rest of UAT scenario 2: delivery from a quote, the backorder's hold, the quote's cost, the credit estimate's tax and the accepted quote's hold
+
+Branch `b11u2-uat-scenario-2-rest`. Report `docs/sessions/B11u2-uat-scenario-2-rest.md`. Inserted by the parent session on the owner's decision of 2026-11-24 (ADR-0026 Amendments): BL-123, BL-124 and the accepted quote's hold, as one small lane B phase after B11u and before B12. Gate: UAT scenario 2 of docs/UAT.md runs exactly as written at the desk, including a delivery: an accepted quote converts to a delivery order with its address and zone, its delivery fee charged once on the first dispatch and the order on account credit-checked at dispatch; the 8 goats not sent stay reserved on the backorder, handed over in the dispatching transaction with no gap another buyer could take (proved under concurrency) and never below zero; the quote's estimated cost is the cost of the animals it holds or would hold, so step 2.2 reads 13,200.00 and 30.75 percent exactly with other goats in the pens; the order's estimate for the credit check includes the delivery fee's tax by the invoice's rule, so step 2.9 reads 17,172.00; an order line carries its quote line's band and confirmation reserves only animals of it; an accepted quote's hold ends 7 days after acceptance by the application clock, released in one transaction with an audited reason, after which the quote cannot be converted and the pipeline shows it lapsed after acceptance (7 days less a minute converts, at 7 days it is released, and a conversion racing the job is either converted with its hold or released, never both); every figure of every step matches to the pesewa; every new read is authorised and every write refuses the wrong role; any remaining difference listed (expected: none).
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md, and "Two lanes" below.
+List docs/sessions/ and read only the most recent report (docs/sessions/B11u-uat-scenario-2-corrections.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read section 6 of docs/UAT.md (scenario 2), the QUO and ORD requirement blocks of docs/SRS.md (nothing
+else from the SRS), docs/data-model/quo.md and ord.md, the QUO, ORD, WHL, INV and DEL cards in
+docs/MODULE_BOUNDARIES.md, ADR-0019, ADR-0021, ADR-0075, ADR-0091, ADR-0094, ADR-0095 and ADR-0098, BL-123 and BL-124
+in docs/BACKLOG.md, and A-309, A-310, A-351, A-352, A-355 and A-366 in docs/ASSUMPTIONS.md. Load hakorem-stock,
+hakorem-money, hakorem-pricing and hakorem-ledger before any of it, hakorem-security-review before the pull request.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B11u continued only, on branch b11u2-uat-scenario-2-rest from main, test-first with exact pesewas. The
+owner's decisions of 2026-11-24, verbatim: "BL-123 and BL-124: fix them in one small phase before B12, so UAT scenario 2
+runs exactly as written." and "An accepted quote's hold ends 7 days after acceptance." (A-310 (b) amended: the hold
+lasts until the order takes it, the quote is withdrawn, or 7 days pass since acceptance, whichever comes first.)
+1. BL-123, delivery from a quote: convertQuote takes a delivery order (address, zone and slot, as createOrder takes them
+   since B11 continued 8, A-368), its delivery fee charged once on the first dispatch (A-331 (b)) and the credit check
+   at dispatch (ADR-0095). Remove A-310 (e)'s refusal, LOUD. Test UAT steps 2.13 and 2.15 as a delivery.
+2. BL-123, the backorder keeps its hold: a backorder made from a short first order keeps the stock its first order held
+   (A-366 (a) amended), passed in the same transaction without a gap another buyer could take; nothing below zero
+   online. Test it under concurrency.
+3. BL-124, the quote's cost: a quote line's estimated cost is the cost of the animals it holds (or its band's, when only
+   a count is held), not the product's average pool cost (A-309 (c) amended). Margin stays over the selling price,
+   (price - cost) / price.
+4. BL-124, the credit estimate's tax: the order's estimate for the credit check includes the delivery fee's tax, by the
+   invoice's rule (A-352 (d) amended), so step 2.9 reads 17,172.00. Test-first with exact pesewas.
+5. BL-124, the band on the order line: an order line carries its quote line's band, so confirmation reserves only
+   animals of that band (A-351 (g) amended).
+6. The accepted quote's hold ends after 7 days: by the application clock (ADR-0067), measured from the acceptance
+   instant; released in one transaction with an audited reason, never by deleting rows; the quote then cannot be
+   converted (a clear error), and the pipeline shows it as lapsed after acceptance. Decide conservatively whether it
+   counts as lost in the win and loss rate, and record it. Test the boundary: 7 days less a minute converts; at 7 days
+   it is released. A quote converted in the same instant the job runs is either converted with its hold or released,
+   never both (test it).
+Record each item in docs/ASSUMPTIONS.md (A-310 (b) amended by the owner; BL-123 and BL-124 scheduled to this phase).
+Security: a quote converted after its hold lapsed, a backorder used to lock stock, a delivery added at conversion to
+dodge the credit check, a band switched at confirmation; new abuse paths get rows 66 and 67 of the threat model and
+reach the exception report's sources. Rerun scenario 2 of docs/UAT.md at the desk, including a delivery, with section
+3's other goats in the pens, and list any remaining difference (expected: none).
+Stop at the gate and write docs/sessions/B11u2-uat-scenario-2-rest.md.
+```
+
+**Built (A-356 to A-359, A-294 to A-296, migrations 0350 and 0351, contract 2.44.0).** UAT scenario 2 runs as written; no difference remains (A-355 resolved). This closes lane B; B12 reads this phase's report.
+
 ## B12 — Capital, costing, reporting and the public API, and the daily exception report
 
 Branch `b12-capital-costing-reporting`. Report `docs/sessions/B12-capital-costing-reporting.md`. Gate: a distribution matches a hand calculation on unit-days and ties exactly to the ledger.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read the last report of each lane (lane B: docs/sessions/B11u-uat-scenario-2-corrections.md,
-the UAT scenario 2 corrections, which closes lane B; lane A: docs/sessions/B09c-card-payment.md); B12 opens only when
+List docs/sessions/ and read the last report of each lane (lane B: docs/sessions/B11u2-uat-scenario-2-rest.md,
+the rest of UAT scenario 2, which closes lane B; lane A: docs/sessions/B09c-card-payment.md); B12 opens only when
 both lanes have merged (owner, 2026-11-17).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
@@ -4441,7 +4492,7 @@ started and expired per address a day from shp.CheckoutStarted and shp.CheckoutE
 address holds stock repeatedly without placing an order.
 It must include case 34, inflated rejections at the door (B09e continued 3, A-272, ADR-0076): a RECEIPT_CLAIM item for
 each pur.SupplierClaimRaised, with the receipt, the receiver, the claim's maker, the supplier, the rejected quantity,
-its reason and its value. And every exception source B9b, B09c, B11 and B11u add (their reports name each one; B11u: `quo.QuoteIssued.holds` for case 64 and `quo.QuoteWithdrawn` for case 65), at least
+its reason and its value. And every exception source B9b, B09c, B11 and B11u add (their reports name each one; B11u: `quo.QuoteIssued.holds` for case 64 and `quo.QuoteWithdrawn` for case 65; B11u continued: `quo.AcceptedQuoteLapsed` for case 66 and `backorderHeldQty` on `ord.OrderDispatched` and `ord.OrderCollected` for case 67), at least
 each reused till receipt token (a possible till fault or tampering, owner 2026-11-17) and each supervisor's PIN
 sign-out of a locked cashier (CR-032).
 Write the five tests of ADR-0028 under the names the ADR gives them, and run scenario 4 of
@@ -4549,7 +4600,7 @@ Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 From 2026-11-17 the remaining phases before B12 run in two lanes at once, each in its own worktree and branch.
 
 - **Lane A:** the rest of B9b (B09b continued to B09b continued 4, and any split of them), then B09c.
-- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11, then B11 continued, then B10 continued 6 (inserted by the owner, 2026-11-23), then B11 continued 2, then B11 continued 3 (inserted by B11 continued 2, A-346), then B11 continued 4 (inserted by B11 continued 3, A-348), then B11 continued 5 (inserted by B11 continued 4, A-361), then B11 continued 6 (inserted by B11 continued 5, A-363), then B11 continued 7 (inserted by B11 continued 6, A-365), then B11 continued 8 (inserted by B11 continued 7, A-367), then B11 continued 9 (inserted by B11 continued 8, A-371), then B11 continued 10 (inserted by B11 continued 9, A-373), then B11 continued 11 (inserted by B11 continued 10, A-375), then B11 continued 12 (inserted by B11 continued 11, A-377), then B11 continued 13 (inserted by B11 continued 12, A-379), then B11u, the UAT scenario 2 corrections (inserted by the parent session on the owner's decision of 2026-11-23) (and any split of them). B08 continued 2d moves into lane B because
+- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11, then B11 continued, then B10 continued 6 (inserted by the owner, 2026-11-23), then B11 continued 2, then B11 continued 3 (inserted by B11 continued 2, A-346), then B11 continued 4 (inserted by B11 continued 3, A-348), then B11 continued 5 (inserted by B11 continued 4, A-361), then B11 continued 6 (inserted by B11 continued 5, A-363), then B11 continued 7 (inserted by B11 continued 6, A-365), then B11 continued 8 (inserted by B11 continued 7, A-367), then B11 continued 9 (inserted by B11 continued 8, A-371), then B11 continued 10 (inserted by B11 continued 9, A-373), then B11 continued 11 (inserted by B11 continued 10, A-375), then B11 continued 12 (inserted by B11 continued 11, A-377), then B11 continued 13 (inserted by B11 continued 12, A-379), then B11u, the UAT scenario 2 corrections (inserted by the parent session on the owner's decision of 2026-11-23), then B11u continued, the rest of UAT scenario 2 (inserted by the parent session on the owner's decision of 2026-11-24) (and any split of them). B08 continued 2d moves into lane B because
   B10 reads its report and it needs only PAY's payments (B9a) and WHL, which lane B opens.
 - **B12, then B13, start only when both lanes have merged.** B09r still waits for the owner's real files.
 
