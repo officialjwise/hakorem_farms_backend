@@ -7,7 +7,7 @@ import { registerMessages, translate } from '../../../platform/i18n/messages';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Settings } from '../../../platform/settings/settings';
 import type { Authoriser, PrincipalNames } from '../../iam';
-import { judgeSetting } from '../domain/setting-catalogue';
+import { judgeSetting, SETTING_CATALOGUE } from '../domain/setting-catalogue';
 
 registerMessages({
   'aud.setting_invalid': 'This value is not allowed for this setting.',
@@ -71,6 +71,9 @@ export class SettingsAdmin {
     return this.uow
       .run({ isolation: 'serializable' }, async (tx) => {
         await this.authoriser.authorise(tx, actor, MANAGE, body.branchId === undefined ? {} : { branchId: body.branchId });
+        // A setting only one role may change names its own permission as well (A-390 approved, the owner 2026-11-24).
+        const own = Object.hasOwn(SETTING_CATALOGUE, key) ? SETTING_CATALOGUE[key]!.permission : undefined;
+        if (own !== undefined) await this.authoriser.authorise(tx, actor, own);
         const claim = await this.idempotency.claim(tx, { operationId: 'updateSetting', principalId: actor!.principalId, key: idempotencyKey, request: { key, ...body } });
         if (claim.kind === 'REPLAY') return claim.response as StoredResponse<SettingView>;
         const judged = judgeSetting(key, body.value);

@@ -17,6 +17,11 @@ export interface SettingDefinition {
   readonly max: number;
   /** Whether a branch may have its own value beside the farm-wide one. */
   readonly branchScoped: boolean;
+  /**
+   * A permission the person changing it must hold besides `aud.setting.manage`, for a setting only one role may change
+   * (the checkout holding threshold, the Owner's: A-390 approved by the owner, 2026-11-24). Absent for most.
+   */
+  readonly permission?: string;
 }
 
 export const SETTING_CATALOGUE: Readonly<Record<string, SettingDefinition>> = {
@@ -121,6 +126,19 @@ export const SETTING_CATALOGUE: Readonly<Record<string, SettingDefinition>> = {
     min: 1,
     max: 3,
     branchScoped: false,
+  },
+  // The daily exception report's R18 rule (A-390 (f), approved by the owner on 2026-11-24): an address that lets this
+  // many storefront checkouts end unpaid in a day, with none paid, is an item. The Owner's alone to change; the report
+  // reads the value in force at each checkout, so a later change never rewrites an earlier day's items.
+  'rpt.checkout_holding.unpaid_checkouts': {
+    key: 'rpt.checkout_holding.unpaid_checkouts',
+    valueType: 'INTEGER',
+    description: 'How many storefront checkouts one address may let end unpaid in a day, with none paid, before the daily exception report raises it (R18)',
+    defaultValue: 3,
+    min: 1,
+    max: Number.MAX_SAFE_INTEGER,
+    branchScoped: false,
+    permission: 'rpt.exception_rules.manage',
   },
 };
 

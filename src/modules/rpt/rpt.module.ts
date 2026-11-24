@@ -9,6 +9,7 @@ import { OutboxHistory } from '../../platform/events/outbox-history';
 import { Cursors } from '../../platform/http/cursor';
 import { Idempotency } from '../../platform/idempotency/idempotency';
 import { CLOCK } from '../../platform/platform.module';
+import { Settings } from '../../platform/settings/settings';
 import { Authoriser, IamModule, PRINCIPAL_NAMES, type PrincipalNames } from '../iam';
 import { MasterDataRefs, MdmModule } from '../mdm';
 import { PurchaseOrders, PurModule } from '../pur';
@@ -46,8 +47,8 @@ import { ExceptionsController } from './interface/exceptions.controller';
     },
     {
       provide: ExceptionProjector,
-      useFactory: (uow: UnitOfWork, store: ExceptionStore, refs: MasterDataRefs, history: OutboxHistory, clock: Clock) => new ExceptionProjector(uow, store, refs, history, clock),
-      inject: [UnitOfWork, EXCEPTION_STORE, MasterDataRefs, OutboxHistory, CLOCK],
+      useFactory: (uow: UnitOfWork, store: ExceptionStore, refs: MasterDataRefs, history: OutboxHistory, clock: Clock, settings: Settings) => new ExceptionProjector(uow, store, refs, history, clock, settings),
+      inject: [UnitOfWork, EXCEPTION_STORE, MasterDataRefs, OutboxHistory, CLOCK, Settings],
     },
     {
       provide: ExceptionSweep,

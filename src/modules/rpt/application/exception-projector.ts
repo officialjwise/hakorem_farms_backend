@@ -2,6 +2,7 @@ import { toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { AsyncConsumer, EventEnvelope } from '../../../platform/events/domain-events';
 import type { OutboxHistory } from '../../../platform/events/outbox-history';
+import type { Settings } from '../../../platform/settings/settings';
 import type { MasterDataRefs } from '../../mdm';
 import { classify, CLASSIFIED_EVENT_TYPES, type ExceptionDraft, type SourceEvent } from '../domain/classify';
 import { INVESTOR_ITEM_PERMISSION } from '../domain/exception-kinds';
@@ -11,8 +12,14 @@ export const EXCEPTION_PROJECTOR = 'rpt.exception-items';
 
 /** SA-17 and abuse case 70: a payment within 24 hours after the payee's payout details changed. */
 const PAYOUT_CHANGE_WINDOW_MS = 24 * 60 * 60 * 1000;
-/** R18: an address that ended this many checkouts unpaid in a day, with none completed, is an item. */
+/**
+ * R18: an address that ended this many checkouts unpaid in a day, with none completed, is an item. The default of AUD's
+ * setting `rpt.checkout_holding.unpaid_checkouts`, which only the Owner changes (A-390 approved by the owner,
+ * 2026-11-24); each checkout is judged by the value in force when it ended, so a later change, a redelivery or a
+ * rebuild never rewrites an earlier day's items.
+ */
 export const CHECKOUT_HOLDING_THRESHOLD = 3;
+export const CHECKOUT_HOLDING_SETTING = 'rpt.checkout_holding.unpaid_checkouts';
 const CHECKOUT_EVENTS = ['shp.CheckoutStarted', 'shp.CheckoutExpired', 'shp.CheckoutCancelled', 'shp.CheckoutCompleted'] as const;
 const STATE_EVENTS = ['iam.ApprovalDecided', 'pur.SupplierPaymentMade', ...CHECKOUT_EVENTS] as const;
 const REPLAY_PAGE = 500;
@@ -40,6 +47,7 @@ export class ExceptionProjector {
     private readonly refs: MasterDataRefs,
     private readonly history: OutboxHistory,
     private readonly clock: Clock,
+    private readonly settings: Settings,
   ) {}
 
   /** Every event type the projector reads. */
@@ -172,7 +180,8 @@ export class ExceptionProjector {
     const started = await this.store.checkoutsOf(tx, checkoutId);
     if (started === null || started.addressHash === null || outcome === 'COMPLETED') return [];
     const counts = await this.store.checkoutCounts(tx, started.addressHash, started.date);
-    if (counts.unpaid < CHECKOUT_HOLDING_THRESHOLD || counts.completed > 0) return [];
+    const threshold = await this.settings.integerAt(CHECKOUT_HOLDING_SETTING, CHECKOUT_HOLDING_THRESHOLD, e.recordedAt);
+    if (counts.unpaid < threshold || counts.completed > 0) return [];
     return [
       {
         // One item per address and day, its counts brought up to date by each later checkout that ends unpaid.
@@ -186,7 +195,7 @@ export class ExceptionProjector {
         subject: null,
         amountPesewas: null,
         summary: `One address started ${counts.started} storefront checkouts on ${started.date} and let ${counts.unpaid} end unpaid, holding stock each time`,
-        details: { sourceEvent: { id: e.id, type: e.type }, residualRisk: 'R18', addressHash: started.addressHash, started: counts.started, unpaid: counts.unpaid, completed: counts.completed },
+        details: { sourceEvent: { id: e.id, type: e.type }, residualRisk: 'R18', addressHash: started.addressHash, started: counts.started, unpaid: counts.unpaid, completed: counts.completed, threshold },
         raisedAt: e.recordedAt,
         restrictedTo: null,
       },
