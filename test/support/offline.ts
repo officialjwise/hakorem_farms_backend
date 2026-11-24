@@ -36,6 +36,8 @@ export interface TillSale {
   readonly receiptToken?: string;
   /** A business buyer named for the receipt (A-285 (c)). */
   readonly buyer?: { readonly name: string; readonly tin: string };
+  /** The number the buyer gave at the till, for the receipt SMS (CR-033 point 3). */
+  readonly customerPhone?: string;
   readonly payloadHash: string;
 }
 
@@ -59,7 +61,7 @@ export function tillHash(sale: Omit<TillSale, 'payloadHash'>): string {
  * A sale the till makes with no network: its id a UUIDv7 stamped at the till's time, its provisional reference
  * `P-<till>-<shift seq>-<counter>`, its hash over everything else. Nothing is sent.
  */
-export function tillSale(f: { readonly till: string; readonly shiftSeq: number; readonly counter: number; readonly at: Date; readonly lines: readonly TillLine[]; readonly tenders: readonly TillTender[]; readonly id?: string; readonly provisionalRef?: string; readonly receiptToken?: string; readonly buyer?: { readonly name: string; readonly tin: string } }): TillSale {
+export function tillSale(f: { readonly till: string; readonly shiftSeq: number; readonly counter: number; readonly at: Date; readonly lines: readonly TillLine[]; readonly tenders: readonly TillTender[]; readonly id?: string; readonly provisionalRef?: string; readonly receiptToken?: string; readonly buyer?: { readonly name: string; readonly tin: string }; readonly customerPhone?: string }): TillSale {
   const id = f.id ?? createUuidV7Generator(new ManualClock(f.at))();
   const content = {
     id,
@@ -70,6 +72,7 @@ export function tillSale(f: { readonly till: string; readonly shiftSeq: number; 
     tenders: f.tenders,
     ...(f.receiptToken === undefined ? {} : { receiptToken: f.receiptToken }),
     ...(f.buyer === undefined ? {} : { buyer: f.buyer }),
+    ...(f.customerPhone === undefined ? {} : { customerPhone: f.customerPhone }),
   };
   return { ...content, payloadHash: tillHash(content) };
 }

@@ -1,5 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { SortOrder } from '../../../platform/http/keyset-sort';
+import type { LinkKind } from '../domain/links';
 import type { AttemptOutcome, MessageStatus, SuppressedReason } from '../domain/messages';
 import type { RecipientKind } from '../domain/routing';
 import type { Category, Channel, TemplateStatus } from '../domain/templates';
@@ -50,6 +51,9 @@ export interface NewMessage {
   readonly renderedSubject?: string | null;
   /** Where an in-app notification takes its reader in the console: a path, never a URL (B11 continued 11). */
   readonly linkPath?: string | null;
+  /** The kind of record the message's link opens and the record, made when it is sent (B11 continued 12, ADR-0074). */
+  readonly linkKind?: LinkKind | null;
+  readonly linkRecordId?: string | null;
   readonly status: 'QUEUED' | 'DEFERRED_QUIET_HOURS' | 'SUPPRESSED';
   readonly suppressedReason: SuppressedReason | null;
   /** When a message deferred by quiet hours may go (B11 continued 11). */
@@ -114,6 +118,8 @@ export interface ClaimedMessage {
   readonly renderedBody: string;
   readonly renderedSubject: string | null;
   readonly linkPath: string | null;
+  readonly linkKind: LinkKind | null;
+  readonly linkRecordId: string | null;
   /** The attempt this send is: attempts already made plus one. */
   readonly attemptNo: number;
   readonly claimToken: string;

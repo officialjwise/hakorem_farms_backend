@@ -5,10 +5,12 @@ import type { DomainEvents } from '../../../platform/events/domain-events';
 import { scrubString } from '../../../platform/logging/log-scrubber';
 import { NotificationSendError, type NotificationChannel } from '../../../platform/notifications/notification-channel';
 import { afterAttempt, CLAIM_LEASE_MS, maskAddress, retryDelayMs, type AttemptOutcome } from '../domain/messages';
+import { withLink } from '../domain/links';
 import { quietHoursApply, quietUntil, suppressibleByOptOut } from '../domain/routing';
 import type { Channel } from '../domain/templates';
-import type { MessageFailed } from '../events';
-import type { RecipientFacts } from './message-queue';
+import type { MessageFailed, MessageSuppressed } from '../events';
+import { MessageLinks, type MadeLink } from './message-links';
+import { MESSAGE_SUPPRESSED, PUBLISHED_SUPPRESSIONS, type RecipientFacts } from './message-queue';
 import type { ClaimedMessage, NtfStore, SendResult } from './ntf-store';
 
 export const MESSAGE_FAILED = 'ntf.MessageFailed';
@@ -56,6 +58,7 @@ export class MessageSender {
     private readonly clock: Clock,
     private readonly logger: Logger,
     private readonly random: () => number = Math.random,
+    private readonly links: MessageLinks = new MessageLinks(null, {}),
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -74,7 +77,7 @@ export class MessageSender {
         await this.finish(message, null, null, { kind: 'QUEUED', sendAfter: this.clock.now(), reason: 'circuit open' }, system.principalId);
         continue;
       }
-      const { outcome, response, result } = await this.attempt(message);
+      const { outcome, response, result } = await this.attempt(message, system.principalId);
       await this.finish(message, outcome, response, result, system.principalId);
       if (result.kind === 'SENT') counts.sent += 1;
       if (result.kind === 'QUEUED') counts.retrying += 1;
@@ -86,7 +89,7 @@ export class MessageSender {
     return { claimed: claimed.length, ...counts, circuitOpen };
   }
 
-  private async attempt(message: ClaimedMessage): Promise<{ readonly outcome: AttemptOutcome | null; readonly response: string | null; readonly result: SendResult }> {
+  private async attempt(message: ClaimedMessage, actorId: string): Promise<{ readonly outcome: AttemptOutcome | null; readonly response: string | null; readonly result: SendResult }> {
     if (message.channel === 'IN_APP') {
       if (message.principalId === null) return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'NO_ADDRESS' } };
       const inApp = { id: this.nextId(), principalId: message.principalId, title: message.renderedSubject ?? message.renderedBody.slice(0, 80), body: message.renderedBody, link: message.linkPath };
@@ -97,16 +100,33 @@ export class MessageSender {
       const phone = await this.recipients.phoneIn(tx, message);
       const optedOut = suppressibleByOptOut(message.category) ? await this.recipients.optedOutIn(tx, phone) : new Set<Channel>();
       const own = quietHoursApply(message.category) && message.customerId !== null ? this.recipients.ownQuietHours(await this.recipients.preferencesIn(tx, { customerId: message.customerId }, message.category), message.channel) : null;
-      return { phone, optedOut, quietUntil: quietHoursApply(message.category) ? quietUntil(this.clock.now(), own) : null };
+      const consented = message.category !== 'MARKETING' || (await this.recipients.consentedIn(tx, message.customerId));
+      return { phone, optedOut, consented, quietUntil: quietHoursApply(message.category) ? quietUntil(this.clock.now(), own) : null };
     });
     const phone = gate.phone;
     if (phone === null) return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'NO_ADDRESS' } };
     if (gate.optedOut.has(message.channel)) return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'OPTED_OUT' } };
+    if (!gate.consented) return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'NO_CONSENT' } };
     if (gate.quietUntil !== null) return { outcome: null, response: null, result: { kind: 'DEFERRED', sendAfter: gate.quietUntil } };
     const channel = this.channels.get(message.channel);
     if (channel === undefined) return { outcome: 'PERMANENT_FAILURE', response: `no adapter sends ${message.channel}`, result: { kind: 'FAILED', reason: `no adapter sends ${message.channel}` } };
+    let text = message.renderedBody;
+    if (message.linkKind !== null && message.linkRecordId !== null) {
+      // The link is made now, in its own short transaction, by the record's own module (ADR-0074): a fresh token for
+      // each attempt, kept nowhere by NTF; the text with it goes only to the provider.
+      const { linkKind, linkRecordId } = message;
+      let made: MadeLink;
+      try {
+        made = await this.uow.run({ isolation: 'serializable' }, (tx) => this.links.linkIn(tx, linkKind, linkRecordId, actorId));
+      } catch (error) {
+        made = { kind: 'UNAVAILABLE', reason: `the link could not be made: ${describe(error)}` };
+      }
+      if (made.kind === 'NO_LINK') return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'NO_LINK' } };
+      if (made.kind === 'UNAVAILABLE') return { outcome: 'PERMANENT_FAILURE', response: made.reason, result: { kind: 'FAILED', reason: made.reason } };
+      text = withLink(text, made.url);
+    }
     try {
-      const sent = await channel.send({ to: phone, text: message.renderedBody, idempotencyKey: message.id });
+      const sent = await channel.send({ to: phone, text, idempotencyKey: message.id });
       return { outcome: 'ACCEPTED', response: null, result: { kind: 'SENT', providerRef: sent.providerReference, addressMasked: maskAddress(phone), addressHash: this.recipients.hash(phone) } };
     } catch (error) {
       const outcome: AttemptOutcome = error instanceof NotificationSendError && !error.retryable ? 'PERMANENT_FAILURE' : 'TEMPORARY_FAILURE';
@@ -125,6 +145,17 @@ export class MessageSender {
       if (!mine) {
         this.logger.warn({ messageId: message.id }, 'message claim lost before its attempt was recorded');
         return;
+      }
+      if (result.kind === 'SUPPRESSED' && (result.reason === 'NO_LINK' || result.reason === 'NO_CONSENT')) {
+        // A link refused or a consent withdrawn by the time of sending reaches the exception report (abuse cases 60, 61).
+        const record = (await this.store.message(tx, message.id, false))!;
+        await this.events.publish<MessageSuppressed>(tx, {
+          type: MESSAGE_SUPPRESSED,
+          subjectType: 'NotificationMessage',
+          subjectId: message.id,
+          branchId: record.branchId,
+          payload: { messageId: message.id, templateCode: record.templateCode, channel: message.channel, reason: result.reason, salesOrderId: record.salesOrderId, sourceEventType: record.sourceEventType, abuseCases: [PUBLISHED_SUPPRESSIONS[result.reason]!] },
+        });
       }
       if (result.kind === 'FAILED') {
         const record = (await this.store.message(tx, message.id, false))!;

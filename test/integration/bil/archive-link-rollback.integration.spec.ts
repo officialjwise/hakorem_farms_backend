@@ -48,6 +48,9 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0341_shp_abandoned_cart_notice',
+      '0340_pos_receipt_message_link',
+      '0339_ntf_message_links',
       '0338_ntf_preferences_opt_outs_triggers',
       '0337_iam_grant_ntf_permissions',
       '0336_iam_seed_ntf_permissions',

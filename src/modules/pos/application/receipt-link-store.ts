@@ -84,4 +84,19 @@ export interface ReceiptLinkStore {
   linkOfSale(tx: Transaction, saleId: string): Promise<ReceiptLinkOfSale | null>;
   /** Once per link (its primary key); `pos.receipt_link_revocation_guard` holds who may. */
   insertRevocation(tx: Transaction, revocation: NewReceiptLinkRevocation): Promise<void>;
+  /** The sale's till link live at an instant (not expired, not revoked): what a message link answers; null otherwise. */
+  liveTillLinkOfSale(tx: Transaction, saleId: string, at: Date): Promise<{ readonly id: string; readonly expiresAt: Date } | null>;
+  /** A link sent by message (B11 continued 12): the hash of a fresh token, of the sale's till link, expiring with it. */
+  insertMessageLink(tx: Transaction, link: NewReceiptMessageLink): Promise<void>;
+}
+
+/** A receipt link for a message (`pos.receipt_message_link`, B11 continued 12): never the token, only its hash. */
+export interface NewReceiptMessageLink {
+  readonly id: string;
+  readonly receiptLinkId: string;
+  readonly orderDocumentId: string;
+  readonly tokenHash: Buffer;
+  readonly expiresAt: Date;
+  readonly recordedAt: Date;
+  readonly actorId: string;
 }

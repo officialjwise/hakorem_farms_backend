@@ -72,12 +72,14 @@ describe('message templates: listed, versioned, two people to each change, no li
   it('lists the seeded messages, one active version of each, for every role that reads templates and no other', async () => {
     const listed = await get('accountant', '/notification-templates?status=ACTIVE&limit=100');
     expect(listed.status, JSON.stringify(listed.body)).toBe(200);
-    // The customer's messages (B11 continued 10), the payment reminders and the returned death report in the console (B11 continued 11).
+    // The customer's messages (B11 continued 10), the payment reminders and the returned death report in the console (B11 continued 11),
+    // the tracking and receipt SMS and the abandoned-cart reminder (B11 continued 12).
     expect(listed.body.data.map((t: { code: string; channel: string; versionNo: number }) => `${t.code}/${t.channel}/${String(t.versionNo)}`).sort()).toEqual(
       [
+        'CART_REMINDER/SMS/1',
         ...['DELIVERY_CANCELLED', 'DELIVERY_COMPLETED', 'DELIVERY_ON_THE_WAY', 'DELIVERY_PART_COMPLETED', 'DELIVERY_RESCHEDULED'].map((c) => `${c}/SMS/1`),
         'MORTALITY_RETURNED/IN_APP/1',
-        ...['ORDER_COLLECTED', 'ORDER_DISPATCHED', 'PAYMENT_REMINDER_1', 'PAYMENT_REMINDER_2', 'PAYMENT_REMINDER_3'].map((c) => `${c}/SMS/1`),
+        ...['ORDER_COLLECTED', 'ORDER_DISPATCHED', 'ORDER_TRACKING', 'PAYMENT_REMINDER_1', 'PAYMENT_REMINDER_2', 'PAYMENT_REMINDER_3', 'SALE_RECEIPT'].map((c) => `${c}/SMS/1`),
       ],
     );
     v1 = listed.body.data.find((t: { code: string }) => t.code === 'ORDER_DISPATCHED').id as string;

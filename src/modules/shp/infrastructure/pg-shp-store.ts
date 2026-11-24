@@ -8,6 +8,7 @@ import type {
   CheckoutLineRecord,
   CheckoutRecord,
   CheckoutWrite,
+  IdleCartRecord,
   ImageSetView,
   ListingRow,
   ShpStore,
@@ -124,6 +125,37 @@ interface CheckoutDbRow {
 
 /** SHP's persistence over its own schema (migration 0119). */
 export class PgShpStore implements ShpStore {
+  async idleCustomerCarts(tx: Transaction, before: Date, limit: number): Promise<IdleCartRecord[]> {
+    const { rows } = await tx.query<{ id: string; customer_id: string; branch_id: string; updated_at: Date }>(
+      `SELECT c.id, c.customer_id, c.branch_id, c.updated_at FROM shp.cart c
+        WHERE c.status = 'ACTIVE' AND c.customer_id IS NOT NULL AND c.updated_at <= $1
+          AND EXISTS (SELECT 1 FROM shp.cart_line l WHERE l.cart_id = c.id)
+          AND NOT EXISTS (SELECT 1 FROM shp.abandoned_cart_notice n WHERE n.cart_id = c.id)
+        ORDER BY c.updated_at, c.id
+        LIMIT $2
+        FOR UPDATE OF c SKIP LOCKED`,
+      [before, limit],
+    );
+    return rows.map((r) => ({ cartId: r.id, customerId: r.customer_id, branchId: r.branch_id, idleSince: r.updated_at }));
+  }
+
+  async remindableCart(tx: Transaction, cartId: string): Promise<boolean> {
+    const { rows } = await tx.query(
+      `SELECT 1 FROM shp.cart c WHERE c.id = $1 AND c.status = 'ACTIVE' AND c.customer_id IS NOT NULL AND EXISTS (SELECT 1 FROM shp.cart_line l WHERE l.cart_id = c.id)`,
+      [cartId],
+    );
+    return rows.length === 1;
+  }
+
+  async insertAbandonedCartNotice(tx: Transaction, n: { readonly id: string; readonly cartId: string; readonly idleSince: Date; readonly at: Date; readonly actorId: string }): Promise<boolean> {
+    const result = await tx.query(
+      `INSERT INTO shp.abandoned_cart_notice (id, cart_id, sequence_no, idle_since, recorded_at, actor_id) VALUES ($1, $2, 1, $3, $4, $5)
+       ON CONFLICT (cart_id, sequence_no) DO NOTHING`,
+      [n.id, n.cartId, n.idleSince, n.at, n.actorId],
+    );
+    return result.rowCount === 1;
+  }
+
   async replaceListing(tx: Transaction, branchId: string, rows: readonly ListingRow[]): Promise<number> {
     const payload = rows.map((row) => ({
       ...row,

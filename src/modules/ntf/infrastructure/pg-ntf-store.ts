@@ -192,8 +192,8 @@ export class PgNtfStore implements NtfStore {
     const result = await tx.query(
       `INSERT INTO ntf.message (id, idempotency_key, source_event_ref, source_event_type, branch_id, sales_order_id, template_id, channel, category, recipient_kind,
                                 customer_id, principal_id, address_masked, address_hash, rendered_body, rendered_subject, link_path, status, suppressed_reason, send_after,
-                                created_at, created_by, updated_at, updated_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $21, $22)
+                                created_at, created_by, updated_at, updated_by, link_kind, link_record_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $21, $22, $23, $24)
        ON CONFLICT (idempotency_key) DO NOTHING`,
       [
         m.id,
@@ -218,6 +218,8 @@ export class PgNtfStore implements NtfStore {
         m.sendAfter ?? null,
         m.at,
         m.actorId,
+        m.linkKind ?? null,
+        m.linkRecordId ?? null,
       ],
     );
     return result.rowCount === 1;
@@ -236,7 +238,7 @@ export class PgNtfStore implements NtfStore {
                         ORDER BY q.created_at, q.id
                         LIMIT $4
                         FOR UPDATE SKIP LOCKED)
-       RETURNING m.id, m.sales_order_id, m.customer_id, m.principal_id, m.category, m.channel, m.rendered_body, m.rendered_subject, m.link_path, m.attempts`,
+       RETURNING m.id, m.sales_order_id, m.customer_id, m.principal_id, m.category, m.channel, m.rendered_body, m.rendered_subject, m.link_path, m.link_kind, m.link_record_id, m.attempts`,
       [c.now, c.until, c.token, c.limit, c.actorId],
     );
     return rows
@@ -250,6 +252,8 @@ export class PgNtfStore implements NtfStore {
         renderedBody: r['rendered_body'] as string,
         renderedSubject: r['rendered_subject'] as string | null,
         linkPath: r['link_path'] as string | null,
+        linkKind: r['link_kind'] as ClaimedMessage['linkKind'],
+        linkRecordId: r['link_record_id'] as string | null,
         attemptNo: (r['attempts'] as number) + 1,
         claimToken: c.token,
       }))

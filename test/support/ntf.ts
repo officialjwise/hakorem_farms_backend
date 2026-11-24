@@ -3,6 +3,7 @@ import type { Clock } from '@hakorem/kernel';
 import type { INestApplication } from '@nestjs/common';
 import pino from 'pino';
 import { CustomerMessages } from '../../src/modules/ntf/application/customer-messages';
+import { MessageLinks } from '../../src/modules/ntf/application/message-links';
 import { RecipientFacts } from '../../src/modules/ntf/application/message-queue';
 import { MessageSender } from '../../src/modules/ntf/application/message-sender';
 import { NTF_STORE, type NtfStore } from '../../src/modules/ntf/application/ntf-store';
@@ -80,7 +81,7 @@ export function ntfHarness(app: INestApplication, database: TestDatabase, clock:
     customerMessages: app.get(CustomerMessages),
     workerUow,
     sender: (sms, random = () => 0) => {
-      const sender = new MessageSender(workerUow, store, recipients, new Map([['SMS', sms]]), events, clock, silent, random);
+      const sender = new MessageSender(workerUow, store, recipients, new Map([['SMS', sms]]), events, clock, silent, random, app.get(MessageLinks));
       return { run: (system) => runAsSystem({ principalId: system.principalId, displayName: 'Scheduler' }, randomUUID(), () => sender.run(system)) };
     },
     async dispatch() {

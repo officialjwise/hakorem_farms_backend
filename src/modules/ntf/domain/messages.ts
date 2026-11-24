@@ -20,8 +20,12 @@ export const CLAIM_LEASE_MS = 120_000;
 export const RECIPIENT_HOURLY_LIMIT = 10;
 export const RECIPIENT_WINDOW_MS = 3_600_000;
 
-/** Why a message was not sent; shown in the log (FR-NTF-005, FR-NTF-007; OPTED_OUT and PREFERENCE_OFF, B11 continued 11). */
-export type SuppressedReason = 'NO_ADDRESS' | 'RATE_LIMITED' | 'OPTED_OUT' | 'PREFERENCE_OFF';
+/**
+ * Why a message was not sent; shown in the log (FR-NTF-005, FR-NTF-007; OPTED_OUT and PREFERENCE_OFF, B11 continued 11;
+ * NO_LINK, the record's own module made no link for it, and NO_CONSENT, a marketing message to a customer who has not
+ * consented, B11 continued 12).
+ */
+export type SuppressedReason = 'NO_ADDRESS' | 'RATE_LIMITED' | 'OPTED_OUT' | 'PREFERENCE_OFF' | 'NO_LINK' | 'NO_CONSENT';
 
 /** The order and recipient facts a customer message is built on, read from ORD at queue time (never from the event). */
 export interface OrderContact {

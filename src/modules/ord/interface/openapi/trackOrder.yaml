@@ -2,7 +2,7 @@ operationId: trackOrder
 tags:
   - shp
 summary: "Track an order by its tracking link"
-description: "No session: the link's token is the only key (owner's decision 5, 2026-11-17; ADR-0074). The token is made when the order is placed, `trk_` and 43 base64url characters carrying 256 random bits; it is never the order id nor derived from it, is stored only as its hash, and reads its order for thirty days from when it was made. Anything else (a guessed, altered, expired or another order's token, the order id, or the signed form of 1.51.0 to 2.0.0) answers 404 NOT_FOUND, saying nothing about whether an order exists. The answer carries no name, phone or address."
+description: "No session: the link's token is the only key (owner's decision 5, 2026-11-17; ADR-0074). The token is made when the order is placed, `trk_` and 43 base64url characters carrying 256 random bits; it is never the order id nor derived from it, is stored only as its hash, and reads its order for thirty days from when it was made. Anything else (a guessed, altered, expired or another order's token, the order id, or the signed form of 1.51.0 to 2.0.0) answers 404 NOT_FOUND, saying nothing about whether an order exists. The answer carries no name, phone or address. **The tracking SMS (2.41.0, ADR-0084):** when an online order is placed, one SMS goes to the order's own contact with a token of its own, made by the sending worker just before the provider call (another for each attempt); the link is `<shop address>/track/<token>`."
 parameters:
   - name: token
     in: path
