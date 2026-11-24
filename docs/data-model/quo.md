@@ -48,7 +48,7 @@ The quote as a whole. Its content is in versions. Posted statuses: `ACCEPTED`, `
 | `accepted_version_id` | `uuid` | NULL, FK `quo.quote_version` | |
 | `converted_order_id` | `uuid` | NULL, UNIQUE, FK `ord.sales_order` | A quote converts to exactly one order |
 | `decline_reason` | `text` | NULL; set exactly when `DECLINED` | |
-| `cancel_reason` | `text` | NULL; set exactly when `CANCELLED` | B10 |
+| `cancel_reason` | `text` | NULL; set exactly when `CANCELLED` | B10. Answered as `Quote.cancelReason` (2.43.0); a quote cancelled after issue is the pipeline's `withdrawn` outcome (A-354) |
 
 Standard columns: `DOCUMENT` (`status` in `DRAFT`, `PENDING_APPROVAL`, `ISSUED`, `ACCEPTED`, `DECLINED`, `EXPIRED`, `CONVERTED`, `CANCELLED`).
 
@@ -68,7 +68,7 @@ One revision. Immutable once issued; a change is a new version. Posted statuses:
 | `delivery_fee_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | |
 | `tax_inclusive` | `boolean` | NOT NULL | |
 | `net_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | |
-| `tax_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Estimate from the tax calculator |
+| `tax_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | Estimate from the tax calculator; from B11u the delivery fee's tax is in it, a `DELIVERY_SERVICE` line in the version's pricing mode as the invoice takes it (A-352) |
 | `gross_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | |
 | `estimated_cost_pesewas` | `pesewas` | NULL | For margin |
 | `margin_percent` | `numeric(9,2)` | NULL | **Markup over cost, not margin** (the owner, 2026-11-23, migration 0307's comment): (the lines' net less cost) over cost; may be negative or above 100, so not `percent` (A-309 (c)). Answered as `markupPercent` and, deprecated, `marginPercent`; to be renamed `markup_percent` in the next release (BL-098). The margin over price is derived from `net_pesewas` and `estimated_cost_pesewas` on read, never stored (A-342) |
@@ -101,6 +101,8 @@ What a product line of a version found on hand and held when it was issued (B10 
 
 A line is **subject to stock** when `available_qty` is below its `base_qty`; a version when any line is (derived, never stored twice).
 
+**As changed in B11u (the owner, 2026-11-23, A-351, A-353, ADR-0098):** a line of animals that names none holds its count at issue, oldest first, capped at what is free, of its weight band when it names one (an animal never weighed is not held for a banded line), so `held_qty` is the animals held and `available_qty` counts only animals of the band; the hold ends with the quote (expiry, a new issued version, a decline, a withdrawal) and passes to the order at conversion. The buyer's `PublicQuoteLine.availableNowQuantity` is read live, never stored: what the quote holds for the line and what is free now, capped at the line's base quantity.
+
 ### `quo.quote_line` · DOCUMENT
 
 Frozen with its version.
@@ -120,7 +122,7 @@ Frozen with its version.
 | `uom` | `text` | NOT NULL, FK `mdm.uom` | The line's own unit: a crate or a single egg (CR-045) |
 | `base_qty` | `qty` | NULL exactly on a free-text line | The quantity in the product's base unit, what is reserved |
 | `price_basis` | `text` | NOT NULL, CHECK in (`PER_HEAD`, `PER_KG`, `PER_UNIT`) | |
-| `resolved_unit_price_pesewas` | `pesewas` | NULL | What the engine offered for the line's unit, if it resolved |
+| `resolved_unit_price_pesewas` | `pesewas` | NULL | What the engine offered for the line's unit, if it resolved; a banded line with no animal is priced at its band (B11u). The list price the converted order line books at (A-350) |
 | `resolved_floor_unit_price_pesewas` | `pesewas` | NULL, with the price | The engine's floor: a quoted price below it needs the approval |
 | `unit_price_pesewas` | `pesewas` | NOT NULL | The quoted price |
 | `line_net_pesewas` | `pesewas` | NOT NULL | |

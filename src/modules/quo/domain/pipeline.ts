@@ -4,8 +4,11 @@ import { halfUpDivide } from '@hakorem/kernel';
  * The quote pipeline (FR-QUO-013), in counts of quotes: no amount is computed here but sums of the gross of whole
  * versions, in bigint pesewas.
  */
-/** The statuses a quote ever issued can stand at in the pipeline; a withdrawn quote is neither won nor lost (A-329). */
-export type PipelineStatus = 'ISSUED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'CONVERTED';
+/**
+ * The statuses a quote ever issued can stand at in the pipeline. A withdrawn quote (`CANCELLED` after issue) is neither
+ * won nor lost: its own outcome, counted apart (the owner, 2026-11-23, A-329 (b)).
+ */
+export type PipelineStatus = 'ISSUED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'CONVERTED' | 'CANCELLED';
 
 export interface PipelineFigures {
   readonly issued: number;
@@ -16,13 +19,17 @@ export interface PipelineFigures {
   readonly winRatePercent: string;
   readonly issuedValuePesewas: bigint;
   readonly wonValuePesewas: bigint;
+  /** Quotes withdrawn after issue, and the gross of their last issued version (A-329 (b)). */
+  readonly withdrawn: number;
+  readonly withdrawnValuePesewas: bigint;
 }
 
 /**
  * One row of the quote pipeline (FR-QUO-013) from its cells, each a status with how many quotes and their gross: every
  * quote issued, accepted (a converted quote was accepted first), declined, expired and converted, the win rate
  * accepted over accepted plus declined plus expired, half-up once to two places ("0.00" with nothing closed), the value
- * of every quote issued and of those won.
+ * of every quote issued and of those won. A withdrawn quote is in neither the numerator nor the denominator, nor in
+ * `issued`: it is counted and valued apart, as `withdrawn` (the owner, 2026-11-23, A-329 (b)).
  */
 export function pipelineFigures(cells: readonly { readonly status: PipelineStatus; readonly count: number; readonly grossPesewas: bigint }[]): PipelineFigures {
   const n = (s: PipelineStatus) => cells.filter((c) => c.status === s).reduce((a, c) => a + c.count, 0);
@@ -31,7 +38,7 @@ export function pipelineFigures(cells: readonly { readonly status: PipelineStatu
   const closed = accepted + n('DECLINED') + n('EXPIRED');
   const hundredths = closed === 0 ? 0n : halfUpDivide(BigInt(accepted) * 10_000n, BigInt(closed));
   return {
-    issued: cells.reduce((a, c) => a + c.count, 0),
+    issued: cells.filter((c) => c.status !== 'CANCELLED').reduce((a, c) => a + c.count, 0),
     accepted,
     declined: n('DECLINED'),
     expired: n('EXPIRED'),
@@ -39,6 +46,8 @@ export function pipelineFigures(cells: readonly { readonly status: PipelineStatu
     winRatePercent: `${hundredths / 100n}.${(hundredths % 100n).toString().padStart(2, '0')}`,
     issuedValuePesewas: value(['ISSUED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CONVERTED']),
     wonValuePesewas: value(['ACCEPTED', 'CONVERTED']),
+    withdrawn: n('CANCELLED'),
+    withdrawnValuePesewas: value(['CANCELLED']),
   };
 }
 

@@ -168,7 +168,7 @@ Carries the full pricing record the brief requires on every sale line. Published
 - CHECK: `floor_unit_price_pesewas <= resolved_unit_price_pesewas <= ceiling_unit_price_pesewas`.
 - CHECK: `variance_requires_approval` implies `variance_approval_request_id` and `variance_approved_by` (neither the order's writer nor its salesperson) once the order is past `PLACED` and not `CANCELLED`. For an offline sale synced with an override beyond the limit, the approval is requested after the fact and the line is listed as an exception until decided.
 - CHECK: when the order is `COMPLETED`, a product line with stock has `stock_movement_id` or `stock_exception_id`.
-- Trigger: a line for a serialised product has `stock_unit_id` set and `qty_ordered = 1`.
+- Trigger: a line for a serialised product has `stock_unit_id` set and `qty_ordered = 1`. **As changed in B11u (migration 0349, the owner 2026-11-23, A-351, ADR-0098):** a `QUOTE` line may wait for its animal (`stock_unit_id` null) while `OPEN`, `BACKORDERED`, `CANCELLED` or `SUBSTITUTED`; the picker names it and dispatch or collection writes it before the line is fulfilled (`ck_sales_order_line_serial`), and once named it never changes (`ck_sales_order_line_animal_named`, HK004). A converted quote's line keeps as `resolved_unit_price_pesewas` the list its quote line recorded at issue, its quoted price as `agreed_unit_price_pesewas` and the difference as its variance under `QUOTED_PRICE` (migration 0348, A-350); floor and ceiling hold both prices.
 
 ### `ord.sales_order_adjustment` · DOCUMENT
 

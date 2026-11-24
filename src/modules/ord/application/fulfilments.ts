@@ -373,7 +373,12 @@ export class Fulfilments {
         const unitId = input.stockUnitId ?? null;
         const unit = unitId === null ? undefined : unitFacts.get(unitId);
         if (product.tracking === 'SERIAL') {
-          if (unitId !== line.stockUnitId) broken.push({ field: pickField(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_ANIMAL' });
+          // A converted quote's line of animals that names none takes the animal the picker names (the owner, 2026-11-23,
+          // B11u, A-351): one of the line's product; whether it is free or the order's own is checked below.
+          if (line.stockUnitId === null) {
+            if (unitId === null) broken.push({ field: pickField(i, 'stockUnitId'), rule: 'STOCK_UNIT_REQUIRED' });
+            else if (unit === undefined || unit.productId !== line.productId) broken.push({ field: pickField(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_PRODUCT' });
+          } else if (unitId !== line.stockUnitId) broken.push({ field: pickField(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_ANIMAL' });
           if (!qty.equals(Quantity.ofUnits(1n))) broken.push({ field: pickField(i, 'qty'), rule: 'ONE_ANIMAL_PER_LINE' });
         } else if (product.tracking === 'LOT') {
           if (unitId === null) broken.push({ field: pickField(i, 'stockUnitId'), rule: 'STOCK_UNIT_REQUIRED' });

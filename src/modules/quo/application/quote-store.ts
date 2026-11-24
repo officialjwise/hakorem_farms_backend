@@ -231,7 +231,8 @@ export interface PipelineFilter {
 /** One group and status: how many quotes and the gross of the version each shows (the accepted one, else the last issued). */
 export interface PipelineCell {
   readonly groupKey: string | null;
-  readonly status: 'ISSUED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'CONVERTED';
+  /** CANCELLED is a quote withdrawn after it was issued (A-329 (b)). */
+  readonly status: 'ISSUED' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED' | 'CONVERTED' | 'CANCELLED';
   readonly count: number;
   readonly grossPesewas: bigint;
 }

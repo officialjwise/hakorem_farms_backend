@@ -136,9 +136,10 @@ describe('reason codes are a fixed list (FR-MDM-011)', () => {
     // MOBILE_MONEY_NOT_RECEIVED for an unverified tender the provider never paid (0283, A-282 (d)); B11 continued's REFUND
     // WEIGHED_BELOW_PAID and its two COD_VARIANCE reasons (0302); B09b continued 4c's PRICE_OVERRIDE OFFLINE_PACK_PRICE,
     // the server's own reason for a synced difference the till gave none for (0306, A-286 (d)); B11 continued 4's
-    // STOCK_ADJUSTMENT UNACCOUNTED_ON_VAN and RETURN DELIVERY_RETURNED, the van's write-off and credit (0321, A-360).
-    expect(seen).toHaveLength(71);
-    expect(seen).toEqual(expect.arrayContaining(['ORDER_CANCELLED', 'SALE_VOIDED', 'ORDER_RETURNED', 'CRACKED', 'WRONG_ITEM_DELIVERED', 'BREAKAGE', 'SAFE_DROP', 'MOBILE_MONEY_NOT_RECEIVED', 'OFFLINE_PACK_PRICE', 'UNACCOUNTED_ON_VAN', 'DELIVERY_RETURNED']));
+    // STOCK_ADJUSTMENT UNACCOUNTED_ON_VAN and RETURN DELIVERY_RETURNED, the van's write-off and credit (0321, A-360);
+    // B11u's QUOTED_PRICE, in its own domain, a converted quote line's variance against its recorded list (0348, A-350).
+    expect(seen).toHaveLength(72);
+    expect(seen).toEqual(expect.arrayContaining(['ORDER_CANCELLED', 'SALE_VOIDED', 'ORDER_RETURNED', 'CRACKED', 'WRONG_ITEM_DELIVERED', 'BREAKAGE', 'SAFE_DROP', 'MOBILE_MONEY_NOT_RECEIVED', 'OFFLINE_PACK_PRICE', 'UNACCOUNTED_ON_VAN', 'DELIVERY_RETURNED', 'QUOTED_PRICE']));
     expect([...seen].sort()).toEqual(seen);
     const mortality = await get(cashier, '/reason-codes?domain=MORTALITY');
     expect(mortality.body.data).toContainEqual({ code: 'DISEASE_SUSPECTED', domain: 'MORTALITY', description: 'Died, disease suspected', requiresNote: true, lossAccountGroup: 'MORTALITY' });

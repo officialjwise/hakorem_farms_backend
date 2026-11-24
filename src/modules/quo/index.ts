@@ -4,6 +4,6 @@
  * application's wiring, the worker and the seed. Events are in `events.ts`.
  */
 export { QuoModule } from './quo.module';
-export { Quotes, QuoteExpiry, QUOTE, QUOTE_BELOW_MARGIN_KIND, QUOTE_ISSUED, QUOTE_ACCEPTED, QUOTE_DECLINED, QUOTE_EXPIRED, QUOTE_CONVERTED, type QuoteView, type QuoteVersionView } from './application/quotes';
+export { Quotes, QuoteExpiry, QUOTE, QUOTE_BELOW_MARGIN_KIND, QUOTE_ISSUED, QUOTE_ACCEPTED, QUOTE_DECLINED, QUOTE_EXPIRED, QUOTE_CONVERTED, QUOTE_WITHDRAWN, type QuoteView, type QuoteVersionView } from './application/quotes';
 export { Rfqs, RFQ, RFQ_RECEIVED, type RfqView } from './application/rfqs';
 export type { QuoteConverted, QuoteDecided, QuoteIssued, RfqReceived } from './events';

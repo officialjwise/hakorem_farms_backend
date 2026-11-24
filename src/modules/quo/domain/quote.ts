@@ -87,26 +87,30 @@ export interface VersionFigures {
 /**
  * A version's figures (FR-QUO-003): each line extended once at its anchor; the tax is the calculator's on those anchors.
  * Tax-exclusive, the lines are net and the tax is added; tax-inclusive, the lines carry their tax, so the net is the
- * lines less the tax. The delivery fee is added to the net untaxed (A-309 (d)). The margin shown is over that net; the
+ * lines less the tax. The delivery fee is taxed by the invoice's rule (the owner, 2026-11-23, B11u, A-352, replacing
+ * A-309 (d)): it is a line of the calculator's in the version's pricing mode, so `deliveryFeeTaxPesewas` is its tax,
+ * added on top of a tax-exclusive fee and taken out of a tax-inclusive one. The margin shown is over that net; the
  * floor is judged on the lines' net of tax alone, over that price (A-342: a delivery fee carries a delivery cost the
  * estimate does not hold, so it never lifts a version over the floor); a version needs approval below the floor or with
  * any line below the engine floor.
  */
 export function versionFigures(
   lines: readonly FigureLine[],
-  extra: { readonly deliveryFeePesewas: bigint; readonly taxPesewas: bigint; readonly floorBasisPoints: number; readonly taxInclusive?: boolean },
+  extra: { readonly deliveryFeePesewas: bigint; readonly deliveryFeeTaxPesewas?: bigint; readonly taxPesewas: bigint; readonly floorBasisPoints: number; readonly taxInclusive?: boolean },
 ): VersionFigures {
   const lineNets = lines.map((l) => lineNet(l.unitPricePesewas, l.qty));
   const anchors = lineNets.reduce((a, b) => a + b, 0n);
   const linesNet = extra.taxInclusive === true ? anchors - extra.taxPesewas : anchors;
   const costs = lines.map((l) => lineCost(l.unitCostPesewas, l.qty));
   const cost = costs.some((c) => c === null) ? null : costs.reduce<bigint>((a, b) => a + b!, 0n);
-  const net = linesNet + extra.deliveryFeePesewas;
+  const feeTax = extra.deliveryFeeTaxPesewas ?? 0n;
+  const net = linesNet + (extra.taxInclusive === true ? extra.deliveryFeePesewas - feeTax : extra.deliveryFeePesewas);
+  const tax = extra.taxPesewas + feeTax;
   return {
     lineNets,
     netPesewas: net,
-    taxPesewas: extra.taxPesewas,
-    grossPesewas: net + extra.taxPesewas,
+    taxPesewas: tax,
+    grossPesewas: net + tax,
     estimatedCostPesewas: cost,
     marginPercent: marginPercent(net, cost),
     markupPercent: markupPercent(linesNet, cost),
@@ -213,4 +217,27 @@ export function unitCost(pools: readonly { readonly valuePesewas: bigint; readon
   if (pools.length === 0 || held <= 0n) return null;
   // value / held(thousandths) per base thousandth, times baseQty(thousandths) over qty units (thousandths / 1,000).
   return halfUpDivide(value * baseQty.thousandths * 1_000n, held * qty.thousandths);
+}
+
+/**
+ * Whether an animal may be held for a line naming a weight band (B11u, A-351): its last weighing falls in the band,
+ * half-open [min, max) as the engine maps a weight to its band (FR-MDM-005). An animal never weighed is never held for a
+ * banded line, so a quote never promises an animal it cannot show is of the band; a line with no band takes any animal.
+ */
+export function inWeightBand(weightKg: string | null, band: { readonly minKg: string; readonly maxKg: string } | null): boolean {
+  if (band === null) return true;
+  if (weightKg === null) return false;
+  const w = Quantity.parse(weightKg);
+  return w.compareTo(Quantity.parse(band.minKg)) >= 0 && w.compareTo(Quantity.parse(band.maxKg)) < 0;
+}
+
+/**
+ * What the buyer is shown of a line (the owner, 2026-11-23, A-328 (c)): how much of their own requested quantity is
+ * available now, what the quote holds for them and what is free to promise now, never more than they asked for and never
+ * below nothing, so the farm's stock level is never shown.
+ */
+export function availableToBuyer(requested: Quantity, held: Quantity, freeNow: Quantity): Quantity {
+  const free = freeNow.isNegative() ? Quantity.zero() : freeNow;
+  const there = held.plus(free);
+  return there.compareTo(requested) > 0 ? requested : there;
 }

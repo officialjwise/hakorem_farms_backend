@@ -1439,7 +1439,7 @@ Default session: B10. Brief bullets: public form and internal creation (001 to 0
 **FR-QUO-012** Reserved stock for a quoted animal
 - Actor: System
 - Trigger: Quote issue with specific stock
-- Rule: Stock named on a quote line is reserved for the quote's validity; the reservation is consumed by the converted order and released on decline, cancellation or expiry.
+- Rule: Stock named on a quote line is reserved for the quote's validity; the reservation is consumed by the converted order and released on decline, cancellation or expiry. Since 2026-11-24 (the owner, 2026-11-23, B11u, A-351) a line of animals that names none holds that many free animals by count from issue, of its weight band, capped at what is free, released and handed over the same way.
 - Outcome: The animal shows as reserved for that quote.
 - Acceptance: A quote naming G-0142 reserves it; a counter sale of G-0142 is refused until the quote expires or is cancelled.
 - Test: `test/int/quo/quote-reservation.int.spec.ts › reserves named stock for the validity`
@@ -1610,6 +1610,7 @@ Default session: B9a. B9a builds the order record, state machine, sale posting a
 - Rule: A line for a serialised product names exactly one stock unit and has quantity one, enforced by a check. Selling five goats is five lines.
 - Outcome: Each animal sold is traceable to its line.
 - Acceptance: A line for "goat" with quantity 2 is refused; selling G-0142 and G-0143 creates two lines each with its tag.
+- Amended 2026-11-24 (the owner, 2026-11-23: "convert without tags; tags are named at picking", B11u, ADR-0098, A-351): a line converted from an accepted quote is one head and may wait for its animal until it is picked; the picker names it and it is written onto the line before the line is fulfilled, once. Every other line names its animal from the start.
 - Test: `test/int/ord/serialised-line.int.spec.ts › names one animal with quantity one`
 
 **FR-ORD-005** Confirmation and reservation

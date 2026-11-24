@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.42.0"
+  version: "2.43.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -30599,6 +30599,17 @@ components:
         subjectToStock:
           type: boolean
           description: "2.23.0 (the owner, 2026-11-18, A-328): not all of this line was on hand when the quote was issued; the farm holds what is there and confirms the rest. The farm's stock level is not shown."
+        availableNowQuantity:
+          type:
+            - string
+            - "null"
+          pattern: "^(0|[1-9][0-9]{0,10})\\.[0-9]{3}$"
+          description: "2.43.0 (the owner, 2026-11-23, A-328 (c)): how much of this line's own quantity is available now, in the product's base unit (`availableNowUom`): what the quote holds for it and what is free to promise now, never more than the line asks for, so never the farm's stock level. Null for a free-text line, and once the quote is declined or expired."
+        availableNowUom:
+          type:
+            - string
+            - "null"
+          description: "2.43.0: the unit of `availableNowQuantity`, the product's base unit (`HEAD`, `EGG`, `KG`); null with it."
       required:
         - description
         - quantity
@@ -30607,6 +30618,8 @@ components:
         - unitPricePesewas
         - lineNetPesewas
         - subjectToStock
+        - availableNowQuantity
+        - availableNowUom
     SharedDocument:
       type: object
       description: "What a document link opens (2.42.0, `getSharedDocument`): a short-lived signed link to the archived PDF. Carries no id of anything."
@@ -31258,12 +31271,14 @@ components:
             - "null"
         deliveryFeePesewas:
           $ref: "#/components/schemas/Pesewas"
+          description: "The delivery fee as entered, in the version's pricing mode (`taxInclusive`), as the order and its invoice carry it; taxed as a delivery service (2.43.0, A-352)."
         taxInclusive:
           type: boolean
         netPesewas:
           $ref: "#/components/schemas/Pesewas"
         taxPesewas:
           $ref: "#/components/schemas/Pesewas"
+          description: "The calculator's tax on the product lines and, from 2.43.0 (LOUD, the owner, 2026-11-23, A-352), on the delivery fee exactly as the invoice taxes it at dispatch: a `DELIVERY_SERVICE` line of the same calculation in the version's pricing mode (added on top of a tax-exclusive fee, taken out of a tax-inclusive one). Until 2.43.0 the fee was untaxed in the estimate. The quote's totals and the invoice's for the same lines and fee agree to the pesewa."
         grossPesewas:
           $ref: "#/components/schemas/Pesewas"
         estimatedCostPesewas:
@@ -31490,6 +31505,11 @@ components:
           type:
             - string
             - "null"
+        cancelReason:
+          type:
+            - string
+            - "null"
+          description: "2.43.0 (the owner, 2026-11-23, A-329 (b)): why the farm withdrew the quote (`cancelQuote`, required); null unless it is `CANCELLED`. A quote withdrawn after issue is its own outcome in `getQuotePipeline`."
         branchId:
           type: string
           format: uuid
@@ -31513,6 +31533,7 @@ components:
         - acceptedVersionId
         - convertedOrder
         - declineReason
+        - cancelReason
         - branchId
         - version
         - createdAt
@@ -31699,7 +31720,7 @@ components:
           items:
             type: string
             format: uuid
-          description: "The animals chosen for a line of live animals, one per head."
+          description: "The animals chosen for a line of live animals, one per head. Optional from 2.43.0 (the owner, 2026-11-23, A-351): left out, the line converts one order line per head with no animal, and the picker names each (`recordPicks`)."
       required:
         - fulfilmentMode
         - paymentTerms
@@ -31725,6 +31746,11 @@ components:
           $ref: "#/components/schemas/Pesewas"
         wonValuePesewas:
           $ref: "#/components/schemas/Pesewas"
+        withdrawn:
+          type: integer
+          description: "2.43.0 (the owner, 2026-11-23, A-329 (b)): quotes withdrawn after issue (`cancelQuote`, each with its reason): their own outcome, in neither `issued` nor the win rate's numerator or denominator."
+        withdrawnValuePesewas:
+          $ref: "#/components/schemas/Pesewas"
       required:
         - group
         - issued
@@ -31735,6 +31761,8 @@ components:
         - winRatePercent
         - issuedValuePesewas
         - wonValuePesewas
+        - withdrawn
+        - withdrawnValuePesewas
     PipelineGroup:
       type: object
       properties:

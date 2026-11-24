@@ -49,7 +49,7 @@ responses:
         example:
           id: "019a7a95-a7c6-72d5-a80e-36306277af0e"
           quoteNo: QUO-2026-DDW-000088
-          status: ISSUED
+          status: CANCELLED
           rfqId: "019a7aff-24cd-7b88-b0c1-c15e5f103a3c"
           customer:
             id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
@@ -127,6 +127,7 @@ responses:
           acceptedVersionId: null
           convertedOrder: null
           declineReason: null
+          cancelReason: "Counted twice in error at the morning check"
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 4
           createdAt: "2026-11-11T10:00:00Z"

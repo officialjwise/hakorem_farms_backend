@@ -143,10 +143,14 @@ describe('the quote pipeline reconciles to listQuotes (FR-QUO-013, the gate)', (
       winRatePercent: '40.00',
       issuedValuePesewas: await sum([...accepted, ...declined, ...expiring, ...open]),
       wonValuePesewas: await sum(accepted),
+      withdrawn: 0,
+      withdrawnValuePesewas: 0,
     });
-    // Esi's: one open, one converted (accepted first): 1 of 1 closed; the draft and the withdrawn quote are not counted.
+    // Esi's: one open, one converted (accepted first): 1 of 1 closed; the draft is not counted, and the withdrawn quote is
+    // its own outcome (the owner, 2026-11-23, A-329 (b)): counted and valued apart, outside the rate and outside `issued`.
     const esiRow = bySales.body.data.find((r: { group: { label: string } }) => r.group.label === 'Esi Appiah');
     expect([esiRow.issued, esiRow.accepted, esiRow.converted, esiRow.winRatePercent, esiRow.wonValuePesewas]).toEqual([2, 1, 1, '100.00', await gross(toConvert)]);
+    expect([esiRow.withdrawn, esiRow.withdrawnValuePesewas]).toEqual([1, await gross(withdrawn)]);
     expect(bySales.body.data.map((r: { group: { label: string } }) => r.group.label)).toEqual(['Esi Appiah', 'Kojo Antwi']);
     expect(bySales.body.currency).toBe('GHS');
 
@@ -167,9 +171,10 @@ describe('the quote pipeline reconciles to listQuotes (FR-QUO-013, the gate)', (
     const counts = Object.fromEntries(await Promise.all(['ISSUED', 'ACCEPTED', 'DECLINED', 'EXPIRED', 'CONVERTED', 'DRAFT', 'CANCELLED'].map(async (s) => [s, await listed(s)])));
     expect(total('issued')).toBe(counts['ISSUED'] + counts['ACCEPTED'] + counts['DECLINED'] + counts['EXPIRED'] + counts['CONVERTED']);
     expect([total('accepted'), total('declined'), total('expired'), total('converted')]).toEqual([counts['ACCEPTED'] + counts['CONVERTED'], counts['DECLINED'], counts['EXPIRED'], counts['CONVERTED']]);
-    // Esi's draft and the seed's (farm-quo), and the withdrawn quote: in listQuotes, never in the pipeline.
+    // Esi's draft and the seed's (farm-quo): in listQuotes, never in the pipeline; the withdrawn quote is in it as withdrawn.
     expect([counts['DRAFT'], counts['CANCELLED']]).toEqual([2, 1]);
     expect(total('issued')).toBe(14);
+    expect(total('withdrawn')).toBe(counts['CANCELLED']);
 
     // By product line: goats and eggs each their own row, reconciling to the same totals.
     const byLine = await get('sales', `/quotes/pipeline?from=${day(0)}&to=${day(0)}&groupBy=PRODUCT_LINE`);
@@ -222,23 +227,33 @@ describe('a quote for stock not on hand is issued subject to stock, holding only
     const none = await issued('sales', [eggs('2.000')]);
     expect([none.version.subjectToStock, none.version.lines[0].availableQuantity, none.version.lines[0].heldQuantity]).toEqual([true, '0.000', '0.000']);
     expect(await heldBy(none.quoteId)).toBe('0.000');
+    // The pipeline's goat quotes hold every goat now (B11u, A-351: a line of animals holds its count at issue, and an
+    // accepted quote keeps its hold, A-310 (b)); withdrawn, they give the goats back.
+    const holders = await admin().query<{ id: string }>("SELECT DISTINCT r.holder_document_id AS id FROM inv.stock_reservation r JOIN quo.quote q ON q.id = r.holder_document_id WHERE r.status = 'ACTIVE' AND r.product_id = $1", [id('goat')]);
+    for (const h of holders.rows) expect((await post('manager', `/quotes/${h.id}/cancel`, { reason: 'Goats needed for another buyer (TEST)' })).status).toBe(200);
     // A named animal already held by another quote: issued subject to stock, holding nothing; the first keeps it.
     const named = { productId: id('goat'), stockUnitId: id('G-0142'), description: 'Goat G-0142', quantity: '1.000', priceBasis: 'PER_HEAD', unitPricePesewas: 90_000 };
     const firstGoat = await issued('sales', [named]);
     expect([firstGoat.version.subjectToStock, firstGoat.version.lines[0].heldQuantity, await heldBy(firstGoat.quoteId)]).toEqual([false, '1.000', '1.000']);
     const rival = await issued('sales', [named]);
     expect([rival.version.subjectToStock, rival.version.lines[0].availableQuantity, rival.version.lines[0].heldQuantity, await heldBy(rival.quoteId)]).toEqual([true, '0.000', '0.000', '0.000']);
-    // An animal the line does not name is chosen at conversion and held by nobody (A-309 (f)), what is there shown.
+    // Animals the line does not name are held by count, two of the three goats still free (the owner, 2026-11-23, B11u,
+    // A-351; this was A-309 (f)'s "held by nobody").
     const herd = await issued('sales', [goats('2.000')]);
-    expect([herd.version.subjectToStock, herd.version.lines[0].heldQuantity, await heldBy(herd.quoteId)]).toEqual([false, '0.000', '0.000']);
-    // The recorded rows match INV's reservations, and the buyer sees the flag, never the farm's stock level.
+    expect([herd.version.subjectToStock, herd.version.lines[0].availableQuantity, herd.version.lines[0].heldQuantity, await heldBy(herd.quoteId)]).toEqual([false, '3.000', '2.000', '2.000']);
+    // The recorded rows match INV's reservations; the buyer sees how much of their own quantity is available now, never
+    // more than they asked for, and never the farm's stock level (the owner, 2026-11-23, A-328 (c)).
     const rows = await admin().query('SELECT s.available_qty::text AS a, s.held_qty::text AS h FROM quo.quote_line_stock s WHERE s.quote_version_id = $1', [part.versionId]);
     expect(rows.rows).toEqual([{ a: left, h: left }]);
     const shown = await publicGet(`/shop/quotes/${part.token}`);
     expect([shown.status, shown.body.subjectToStock, shown.body.lines[0].subjectToStock]).toEqual([200, true, true]);
-    expect(JSON.stringify(shown.body)).not.toContain(left);
+    // Asked for 30,000 eggs, the buyer sees the ones held for them: what of their own quantity is there now.
+    expect([shown.body.lines[0].availableNowQuantity, shown.body.lines[0].availableNowUom]).toEqual([left, 'EGG']);
     const shownFull = await publicGet(`/shop/quotes/${full.token}`);
     expect([shownFull.body.subjectToStock, shownFull.body.lines[0].subjectToStock]).toEqual([false, false]);
+    // Asked for 30 eggs with more than 60 there, the buyer sees 30, never what the farm holds.
+    expect(shownFull.body.lines[0].availableNowQuantity).toBe('30.000');
+    expect(JSON.stringify(shownFull.body)).not.toContain(`"${there.toFixed(3)}"`);
     // A replay answers the same stock, held once.
     const key = randomUUID();
     const again = await draft('sales', [eggs('3.000')]);

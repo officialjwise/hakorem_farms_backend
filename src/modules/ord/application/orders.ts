@@ -26,6 +26,7 @@ import {
 import { extendPrice, type MasterDataRefs, type PriceBasis, type PricingService, type ProductFacts, type DeliveryZoneFacts, type Storefront } from '../../mdm';
 import type { Payments, PaymentView } from '../../pay';
 import { judgeConfirmation, planLineReservation, receivedForOrder } from '../domain/confirmation';
+import { quotedLinePricing } from '../domain/quoted-line';
 import { zoneFee, type BackorderLine } from '../domain/dispatch';
 import { judgeOverride } from '../domain/price-override';
 import { lineNumber } from '../domain/line-numbers';
@@ -91,7 +92,14 @@ export interface QuoteOrderLine {
   readonly quantity: string;
   readonly uom: string;
   readonly priceBasis: PriceBasis;
+  /** The quoted price: what the buyer agreed and pays. */
   readonly unitPricePesewas: bigint;
+  /**
+   * The list price the quote line recorded at issue for its unit, and the engine's floor beside it (B11u, A-350); null
+   * where the engine did not price the line. The order line keeps it as its resolved price, the difference a variance.
+   */
+  readonly listUnitPricePesewas: bigint | null;
+  readonly engineFloorUnitPricePesewas: bigint | null;
 }
 
 /** An accepted quote converted to its one order (FR-QUO-011): the quote is the order's source document. */
@@ -846,8 +854,10 @@ export class Orders {
    * An accepted quote's one order (FR-QUO-011, A-310), in QUO's serializable transaction, which holds `locksFor`: entered
    * PLACED on channel QUOTE with the quote as its source document, each line priced `QUOTE` at the quoted price and
    * naming its quote line, nothing re-priced by the engine (the quote's price was the one agreed, approved below the
-   * margin floor where it had to be): the list, floor, ceiling and agreed prices are the quoted price and no variance is
-   * recorded. The quote's hold on its stock is handed to the order by QUO; the confirmation counts it as promised. The
+   * margin floor where it had to be). The owner, 2026-11-23 (B11u, A-350; A-310 (a) reversed in the booking only): the
+   * line keeps as its resolved price the list price the quote line recorded at issue, and the difference from the
+   * quoted price is its variance under `QUOTED_PRICE`, so the invoice credits sales at list and 4210 with the difference;
+   * the customer still pays the quoted price. A line the engine did not price keeps its quoted price as list. The quote's hold on its stock is handed to the order by QUO; the confirmation counts it as promised. The
    * caller has authorised the conversion; this checks the order's own rules as createOrder does.
    */
   async createFromQuoteIn(tx: Transaction, actor: Actor, request: QuoteOrderRequest): Promise<SalesOrderView> {
@@ -875,7 +885,7 @@ export class Orders {
         continue;
       }
       if (line.priceBasis === 'PER_KG') broken.push({ field: lineField(i, 'productId'), rule: 'CATCH_WEIGHT_NOT_AVAILABLE' });
-      if (product.tracking === 'SERIAL' && line.stockUnitId === null) broken.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_UNIT_REQUIRED' });
+      // A line of animals may name none: its animal is named at picking (the owner, 2026-11-23, B11u, A-351); one head a line.
       if (product.tracking === 'SERIAL' && !Quantity.parse(line.quantity).equals(Quantity.ofUnits(1n))) broken.push({ field: lineField(i, 'quantity'), rule: 'ONE_ANIMAL_PER_LINE' });
       const unit = line.stockUnitId === null ? undefined : units.get(line.stockUnitId);
       if (line.stockUnitId !== null && (unit === undefined || unit.productId !== product.id)) broken.push({ field: lineField(i, 'stockUnitId'), rule: 'STOCK_UNIT_OTHER_PRODUCT' });
@@ -888,6 +898,7 @@ export class Orders {
     const orderId = this.nextId();
     const lines: NewOrderLine[] = request.lines.map((l, i) => {
       const total = Money.ofPesewas(l.unitPricePesewas).timesQuantity(Quantity.parse(l.quantity)).pesewas;
+      const priced = quotedLinePricing({ quotedUnitPricePesewas: l.unitPricePesewas, listUnitPricePesewas: l.listUnitPricePesewas, engineFloorUnitPricePesewas: l.engineFloorUnitPricePesewas, quantity: Quantity.parse(l.quantity) });
       return {
         id: this.nextId(),
         salesOrderId: orderId,
@@ -903,13 +914,13 @@ export class Orders {
         priceBasis: l.priceBasis,
         priceListEntryId: null,
         quoteLineRef: l.quoteLineId,
-        resolvedUnitPricePesewas: l.unitPricePesewas,
-        floorUnitPricePesewas: l.unitPricePesewas,
-        ceilingUnitPricePesewas: l.unitPricePesewas,
-        agreedUnitPricePesewas: l.unitPricePesewas,
-        variancePesewas: 0n,
-        varianceDirection: null,
-        varianceReasonCode: null,
+        resolvedUnitPricePesewas: priced.resolvedUnitPricePesewas,
+        floorUnitPricePesewas: priced.floorUnitPricePesewas,
+        ceilingUnitPricePesewas: priced.ceilingUnitPricePesewas,
+        agreedUnitPricePesewas: priced.agreedUnitPricePesewas,
+        variancePesewas: priced.variancePesewas,
+        varianceDirection: priced.varianceDirection,
+        varianceReasonCode: priced.varianceReasonCode,
         varianceRequiresApproval: false,
         varianceApprovalRequestId: null,
         varianceApprovedBy: null,

@@ -1,6 +1,6 @@
 import { Quantity } from '@hakorem/kernel';
 import { describe, expect, it } from 'vitest';
-import { canMoveQuote, canMoveVersion, judgeMargin, linkState, lineCost, lineNet, marginPercent, markupPercent, planHold, unitCost, versionFigures } from './quote';
+import { availableToBuyer, canMoveQuote, canMoveVersion, inWeightBand, judgeMargin, linkState, lineCost, lineNet, marginPercent, markupPercent, planHold, unitCost, versionFigures } from './quote';
 
 const q = (text: string) => Quantity.parse(text);
 
@@ -111,6 +111,44 @@ describe("a version's figures (FR-QUO-003)", () => {
   it('takes the tax out of tax-inclusive lines: 20,700 with 2,700 tax is a net of 18,000, judged on 18,000', () => {
     const f = versionFigures([{ qty: q('3.000'), unitPricePesewas: 6_900n, unitCostPesewas: 3_500n, belowEngineFloor: false }], { deliveryFeePesewas: 500n, taxPesewas: 2_700n, floorBasisPoints: 1_000, taxInclusive: true });
     expect([f.lineNets, f.netPesewas, f.taxPesewas, f.grossPesewas, f.marginPercent, f.markupPercent]).toEqual([[20_700n], 18_500n, 2_700n, 21_200n, '43.24', '71.43']);
+  });
+});
+
+describe("the estimate's delivery fee is taxed by the invoice's rule (the owner, 2026-11-23, B11u, A-352)", () => {
+  const goats = { qty: q('20.000'), unitPricePesewas: 95_000n, unitCostPesewas: 66_000n, belowEngineFloor: false };
+  it("is UAT scenario 2's version 1 tax-exclusive: the fee 6,000 carries 1,200 of tax on top, net 1,906,000, gross 1,907,200, margin 30.75", () => {
+    const f = versionFigures([goats], { deliveryFeePesewas: 6_000n, deliveryFeeTaxPesewas: 1_200n, taxPesewas: 0n, floorBasisPoints: 1_000 });
+    expect([f.netPesewas, f.taxPesewas, f.grossPesewas, f.marginPercent, f.markupPercent]).toEqual([1_906_000n, 1_200n, 1_907_200n, '30.75', '43.94']);
+  });
+  it('takes the fee\'s tax out of a tax-inclusive fee: 6,003 with 1,000 of tax is a net of 5,003 and adds nothing to the gross', () => {
+    const f = versionFigures([{ qty: q('3.000'), unitPricePesewas: 6_900n, unitCostPesewas: 3_500n, belowEngineFloor: false }], { deliveryFeePesewas: 6_003n, deliveryFeeTaxPesewas: 1_000n, taxPesewas: 2_700n, floorBasisPoints: 1_000, taxInclusive: true });
+    expect([f.netPesewas, f.taxPesewas, f.grossPesewas]).toEqual([23_003n, 3_700n, 26_703n]);
+  });
+  it('leaves the floor judged on the lines alone, whatever the fee and its tax', () => {
+    const lines = { qty: q('1.000'), unitPricePesewas: 1_586_666n, unitCostPesewas: 1_428_000n, belowEngineFloor: false };
+    expect(versionFigures([lines], { deliveryFeePesewas: 100_000n, deliveryFeeTaxPesewas: 20_000n, taxPesewas: 0n, floorBasisPoints: 1_000 }).belowMarginFloor).toBe(true);
+  });
+});
+
+describe('an animal is held for a banded line only when its last weighing is in the band (B11u, A-351)', () => {
+  const band = { minKg: '18.000', maxKg: '28.000' };
+  it('takes the band half-open: 18.000 and 27.999 are in GOAT-M, 28.000 and 17.999 are not', () => {
+    expect([inWeightBand('18.000', band), inWeightBand('27.999', band), inWeightBand('28.000', band), inWeightBand('17.999', band)]).toEqual([true, true, false, false]);
+  });
+  it('holds no animal never weighed for a banded line, and any animal for a line with no band', () => {
+    expect([inWeightBand(null, band), inWeightBand(null, null), inWeightBand('40.000', null)]).toEqual([false, true, true]);
+  });
+});
+
+describe('the buyer sees how much of their own quantity is available now, never the stock (the owner, 2026-11-23, A-328 (c))', () => {
+  it('shows what the quote holds and what is free now, never more than the buyer asked for', () => {
+    expect(availableToBuyer(q('20.000'), q('4.000'), q('1.000')).toDecimalString()).toBe('5.000');
+    expect(availableToBuyer(q('2.000'), q('0.000'), q('900.000')).toDecimalString()).toBe('2.000');
+    expect(availableToBuyer(q('2.000'), q('2.000'), q('0.000')).toDecimalString()).toBe('2.000');
+  });
+  it('shows nothing below zero, and nothing for a line nothing is free for', () => {
+    expect(availableToBuyer(q('3.000'), q('0.000'), q('-5.000')).toDecimalString()).toBe('0.000');
+    expect(availableToBuyer(q('3.000'), q('0.000'), q('0.000')).toDecimalString()).toBe('0.000');
   });
 });
 

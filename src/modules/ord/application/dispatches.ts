@@ -338,6 +338,7 @@ export class Dispatches {
       });
       await this.store.setPickMovement(tx, pick.id, posted.id, at, actorId);
     }
+    await this.nameAnimalsIn(tx, open, picks.map((p) => p.pick));
     for (const line of open) {
       const back = backorder.find((b) => b.fromLineId === line.id);
       await this.store.fixLine(tx, line.id, back !== undefined ? back.status : Quantity.parse(line.qtyFulfilled).compareTo(Quantity.parse(line.qtyOrdered)) < 0 && line.priceBasis !== 'PER_KG' ? 'PARTIAL' : 'FULFILLED');
@@ -514,6 +515,7 @@ export class Dispatches {
       await this.store.insertIssue(tx, { pickId: pick.id, movementId: posted.id, at, actorId });
       if (!lineMovement.has(line.id)) lineMovement.set(line.id, posted.id);
     }
+    await this.nameAnimalsIn(tx, open, picks.map((p) => p.pick));
     for (const line of open) {
       const back = backorder.find((b) => b.fromLineId === line.id);
       await this.store.fixLine(tx, line.id, back !== undefined ? back.status : Quantity.parse(line.qtyFulfilled).compareTo(Quantity.parse(line.qtyOrdered)) < 0 && line.priceBasis !== 'PER_KG' ? 'PARTIAL' : 'FULFILLED');
@@ -750,6 +752,19 @@ export class Dispatches {
         discountPesewas: line.discountPesewas,
       };
     });
+  }
+
+  /**
+   * A converted quote's line of animals named none (the owner, 2026-11-23: "tags are named at picking", B11u, A-351): the
+   * animal its one pick names is written onto it before it is fulfilled, once (`ck_sales_order_line_animal_named`).
+   */
+  private async nameAnimalsIn(tx: Transaction, open: readonly OrderLineRecord[], picks: readonly PickRecord[]): Promise<void> {
+    for (const line of open) {
+      if (line.stockUnitId !== null || line.priceSource !== 'QUOTE') continue;
+      const named = [...new Set(picks.filter((p) => p.salesOrderLineId === line.id && p.stockUnitId !== null).map((p) => p.stockUnitId!))];
+      const product = (await this.refs.productsIn(tx, [line.productId])).get(line.productId);
+      if (product?.tracking === 'SERIAL' && named.length === 1) await this.store.nameLineAnimal(tx, line.id, named[0]!);
+    }
   }
 
   /** Each fee of the dispatch as a line of its own, taxed as a delivery service (A-331 (b)). */

@@ -109,6 +109,7 @@ responses:
           acceptedVersionId: null
           convertedOrder: null
           declineReason: null
+          cancelReason: null
           branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
           version: 4
           createdAt: "2026-11-06T10:00:00Z"

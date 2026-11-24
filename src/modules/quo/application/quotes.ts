@@ -21,16 +21,19 @@ import {
   StockUnitNotAvailableError,
   StockUnitOnHoldError,
   StockUnitReservedError,
+  type PromisableStock,
   type Reservations,
   type StockQueries,
   type StockUnits,
 } from '../../inv';
-import { defaultLineUom, type MasterDataRefs, type PricingService, type ProductFacts, type TaxService } from '../../mdm';
+import { defaultLineUom, type MasterDataRefs, type PricingService, type ProductFacts, type Storefront, type TaxService } from '../../mdm';
 import type { Orders, QuoteOrderLine, SalesOrderView } from '../../ord';
 import { countOf, lineNumber, nextVersionNo } from '../domain/numbering';
 import { pageProbe } from '../domain/paging';
 import {
+  availableToBuyer,
   DEFAULT_MARGIN_FLOOR_BASIS_POINTS,
+  inWeightBand,
   linkState,
   marginPercent,
   lineNet,
@@ -43,7 +46,7 @@ import {
 } from '../domain/quote';
 import { matchStaff, STAFF_MATCH_WINDOW_HOURS, staffWindowStart, type StaffMatch } from '../domain/staff-match';
 import { offsetPage, pipelineFigures, pipelinePeriod } from '../domain/pipeline';
-import type { QuoteConverted, QuoteDecided, QuoteIssued, QuoteLinkDecidedFromStaffAddress } from '../events';
+import type { QuoteConverted, QuoteDecided, QuoteIssued, QuoteLinkDecidedFromStaffAddress, QuoteWithdrawn } from '../events';
 import { QuoteAlreadyConvertedError, QuoteAlreadyDecidedError, QuoteAuthorCannotApproveError, QuoteInvalidError, QuoteLinkClosedError, type QuoteRule } from './errors';
 import { STOREFRONT_PRINCIPAL } from './public-actor';
 import type { AcceptanceRecord, LineRecord, LineStockRecord, LinkDecisionRecord, LinkRecord, QuoteFilter, QuoteRecord, QuoteStore, VersionRecord } from './quote-store';
@@ -60,6 +63,7 @@ export const QUOTE_ACCEPTED = 'quo.QuoteAccepted';
 export const QUOTE_DECLINED = 'quo.QuoteDeclined';
 export const QUOTE_EXPIRED = 'quo.QuoteExpired';
 export const QUOTE_CONVERTED = 'quo.QuoteConverted';
+export const QUOTE_WITHDRAWN = 'quo.QuoteWithdrawn';
 /**
  * For the exception report's source (B12, `QUOTE_ACCEPTED_BY_STAFF`, abuse case 40): a possible staff acceptance, found
  * by the decision's address and browser (the owner, 2026-11-23, A-343). It never blocks the decision. It replaces
@@ -69,6 +73,8 @@ export const QUOTE_LINK_DECIDED_FROM_STAFF_ADDRESS = 'quo.QuoteLinkDecidedFromSt
 /** The setting holding the margin floor in basis points of the selling price (FR-QUO-005, seed 10 percent; over cost until 2.29.0, A-342). */
 export const MARGIN_FLOOR_SETTING = 'quo.margin_floor_basis_points';
 const TOKEN_PREFIX = 'quo_';
+/** The delivery fee's line in the version's tax calculation (B11u, A-352). */
+const DELIVERY_FEE_REF = 'delivery-fee';
 const EXPIRY_BATCH = 100;
 const DEFAULT_UOM: Readonly<Record<PriceBasis, string>> = { PER_HEAD: 'HEAD', PER_KG: 'KG', PER_UNIT: 'UNIT' };
 
@@ -227,6 +233,8 @@ export interface QuoteView {
   readonly acceptedVersionId: string | null;
   readonly convertedOrder: DocumentRefRecord | null;
   readonly declineReason: string | null;
+  /** Why the farm withdrew the quote, required by `cancelQuote`: its own outcome (the owner, 2026-11-23, A-329 (b)). */
+  readonly cancelReason: string | null;
   readonly branchId: string;
   readonly version: number;
   readonly createdAt: string;
@@ -253,7 +261,22 @@ export interface PublicQuoteView {
   readonly acceptedName: string | null;
   /** CR-047 point 2: when the quote was accepted or declined, or null. */
   readonly decidedAt: string | null;
-  readonly lines: readonly { readonly description: string; readonly quantity: string; readonly uom: string; readonly priceBasis: PriceBasis; readonly unitPricePesewas: number; readonly lineNetPesewas: number; readonly subjectToStock: boolean }[];
+  readonly lines: readonly {
+    readonly description: string;
+    readonly quantity: string;
+    readonly uom: string;
+    readonly priceBasis: PriceBasis;
+    readonly unitPricePesewas: number;
+    readonly lineNetPesewas: number;
+    readonly subjectToStock: boolean;
+    /**
+     * How much of this line's own quantity is available now, in the product's base unit (`availableNowUom`): what the
+     * quote holds for it and what is free to promise now, never more than the line asks for (the owner, 2026-11-23,
+     * A-328 (c)); null for a free-text line, and once the quote is no longer open or accepted.
+     */
+    readonly availableNowQuantity: string | null;
+    readonly availableNowUom: string | null;
+  }[];
   /** A line was not wholly on hand when the quote was issued: it is supplied subject to stock (A-328). */
   readonly subjectToStock: boolean;
   readonly deliveryFeePesewas: number;
@@ -277,6 +300,9 @@ export interface PipelineRowView {
   readonly winRatePercent: string;
   readonly issuedValuePesewas: number;
   readonly wonValuePesewas: number;
+  /** Quotes withdrawn after issue: their own outcome, neither won nor lost (the owner, 2026-11-23, A-329 (b)). */
+  readonly withdrawn: number;
+  readonly withdrawnValuePesewas: number;
 }
 
 /** The contract's `QuotePipeline`. */
@@ -363,6 +389,7 @@ export class Quotes {
     private readonly clock: Clock,
     private readonly staffSessions: StaffSessionsSeen,
     private readonly archive: Documents,
+    private readonly storefront: Storefront,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -411,7 +438,7 @@ export class Quotes {
       return {
         data: page.map((g) => {
           const f = pipelineFigures(cells.filter((c) => (c.groupKey ?? '') === g.key));
-          return { group: { id: g.id, label: g.label }, ...f, issuedValuePesewas: json(f.issuedValuePesewas), wonValuePesewas: json(f.wonValuePesewas) };
+          return { group: { id: g.id, label: g.label }, ...f, issuedValuePesewas: json(f.issuedValuePesewas), wonValuePesewas: json(f.wonValuePesewas), withdrawnValuePesewas: json(f.withdrawnValuePesewas) };
         }),
         page: { nextCursor: next === null ? null : this.cursors.encode(binding, { offset: String(next) }), limit, hasMore: next !== null },
         currency: 'GHS',
@@ -712,9 +739,26 @@ export class Quotes {
         if (v.approvalRequestId !== null) await this.approvals.withdrawIn(tx, v.approvalRequestId, 'The quote was withdrawn before its margin was decided');
         await this.store.setVersionStatus(tx, v.id, { status: 'DRAFT' }, actor!.principalId, at);
       }
-      await this.reservations.releaseHeldByIn(tx, actor!.principalId, quoteId, `Quote ${quote.quoteNo} withdrawn: ${reason}`);
+      const released = await this.reservations.releaseHeldByIn(tx, actor!.principalId, quoteId, `Quote ${quote.quoteNo} withdrawn: ${reason}`);
       await this.store.updateQuote(tx, quoteId, { status: 'CANCELLED', cancelReason: reason }, actor!.principalId, at);
       const view = await this.viewOf(tx, quoteId);
+      // Its own outcome, with its reason (the owner, 2026-11-23, A-329 (b)), published for the exception report (case 65).
+      const seen = (await this.store.versionsOf(tx, [quoteId])).filter((v) => v.issuedAt !== null).sort((a, b) => (a.id === quote.acceptedVersionId ? -1 : b.id === quote.acceptedVersionId ? 1 : b.versionNo > a.versionNo ? 1 : -1))[0];
+      const withdrawn: QuoteWithdrawn = {
+        quoteId,
+        quoteNo: quote.quoteNo,
+        branchId: quote.branchId,
+        salespersonId: quote.salespersonId,
+        withdrawnBy: actor!.principalId,
+        reason,
+        fromStatus: quote.status,
+        wasIssued: seen !== undefined,
+        grossPesewas: seen === undefined ? null : json(seen.grossPesewas),
+        heldReleasedQty: Quantity.sum(released.map((r) => Quantity.parse(r.qty))).toDecimalString(),
+        abuseCase: 65,
+        at: at.toISOString(),
+      };
+      await this.events.publish(tx, { type: QUOTE_WITHDRAWN, subjectType: 'Quote', subjectId: quoteId, branchId: quote.branchId, payload: withdrawn, occurredAt: at });
       await this.audit.record(tx, { module: 'quo', action: 'CANCEL', entityType: 'Quote', entityId: quoteId, branchId: quote.branchId, before: { ...before }, after: { ...view } });
       return { status: 200, body: view };
     });
@@ -746,15 +790,19 @@ export class Quotes {
           continue;
         }
         if (product.tracking === 'SERIAL' && l.stockUnitId === null) {
+          // One order line a head. With no animals given, each waits for the animal its picker names (the owner,
+          // 2026-11-23: "convert without tags; tags are named at picking", B11u, A-351); animals given are named now, as
+          // before, and must then cover the line.
           const head = Number(Quantity.parse(l.qty).toDecimalString().split('.')[0]);
-          if (animals.length < head) {
+          if (animals.length > 0 && animals.length < head) {
             broken.push({ field: '/stockUnitIds', rule: 'ANIMALS_REQUIRED' });
             continue;
           }
-          for (const animal of animals.splice(0, head)) orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: animal, quantity: '1.000', uom: l.uom, priceBasis: l.priceBasis, unitPricePesewas: l.unitPricePesewas });
+          const named: (string | null)[] = animals.length === 0 ? Array.from({ length: head }, () => null) : animals.splice(0, head);
+          for (const animal of named) orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: animal, quantity: '1.000', uom: l.uom, priceBasis: l.priceBasis, ...priceOf(l) });
           continue;
         }
-        orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: l.stockUnitId, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, unitPricePesewas: l.unitPricePesewas });
+        orderLines.push({ quoteLineId: l.id, productId: product.id, stockUnitId: l.stockUnitId, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, ...priceOf(l) });
       }
       if (animals.length > 0) broken.push({ field: '/stockUnitIds', rule: 'ANIMALS_NOT_ON_QUOTE' });
       // Delivery is B11's (ORD refuses it until then); an address or a slot is refused rather than ignored.
@@ -774,9 +822,21 @@ export class Quotes {
         taxInclusive: version.taxInclusive,
         lines: orderLines,
       });
+      // The hold passes to the order in this transaction, ended and taken again under the same locks, so nobody else can
+      // take it in between (ADR-0019). Animals the quote held for a line that named none, where the conversion named
+      // others, go back: the order holds the animals it names.
       const moved = await this.reservations.transferHeldByIn(tx, actor!.principalId, quoteId, order.id, `Quote ${quote.quoteNo} converted: its hold passes to order ${order.orderNo ?? order.id}`);
+      if ((request.stockUnitIds ?? []).length > 0) {
+        const kept = new Set([...lines.flatMap((l) => (l.stockUnitId === null ? [] : [l.stockUnitId])), ...(request.stockUnitIds ?? [])]);
+        for (const r of await this.reservations.activeOfHolderIn(tx, order.id)) {
+          if (r.stockUnitId !== null && products.get(r.productId)?.tracking === 'SERIAL' && !kept.has(r.stockUnitId)) {
+            await this.reservations.releaseIn(tx, actor!.principalId, r.id, `Quote ${quote.quoteNo} converted naming other animals`);
+          }
+        }
+      }
+      const active = new Set((await this.reservations.activeOfHolderIn(tx, order.id)).map((r) => r.id));
       for (const line of order.lines) {
-        const held = moved.filter((r) => r.productId === line.product.id);
+        const held = moved.filter((r) => r.productId === line.product.id && active.has(r.id));
         const sameProduct = order.lines.filter((o) => o.product.id === line.product.id);
         if (held.length === 1 && sameProduct.length === 1) await this.orders.holdLineIn(tx, line.id, held[0]!.id);
       }
@@ -908,6 +968,7 @@ export class Quotes {
       await this.reservations.releaseHeldByIn(tx, o.actorId, quote.id, `Quote ${quote.quoteNo} version ${superseded.versionNo} replaced by version ${version.versionNo}`);
     }
     await this.reserveLinesIn(tx, quote, version, o.actorId, o.at);
+    const issuedLines = await this.store.linesOf(tx, [version.id]);
     await this.store.setVersionStatus(
       tx,
       version.id,
@@ -940,6 +1001,10 @@ export class Quotes {
       supersededVersionId: superseded?.id ?? null,
       approvalRequestId: version.approvalRequestId,
       issuedAt: o.at.toISOString(),
+      holds: (await this.store.lineStockOf(tx, [version.id])).map((r) => {
+        const line = issuedLines.find((l) => l.id === r.quoteLineId)!;
+        return { quoteLineId: r.quoteLineId, productId: line.productId!, askedQty: line.baseQty!, heldQty: r.heldQty };
+      }),
     };
     // One message per issued version (FR-QUO-007): a revision is announced by the same event, naming what it replaced.
     await this.events.publish(tx, { type: QUOTE_ISSUED, subjectType: 'Quote', subjectId: quote.id, branchId: quote.branchId, payload: issued, occurredAt: o.at });
@@ -958,7 +1023,10 @@ export class Quotes {
    * Every product line held for the validity in the base unit (CR-045): a named unit, or lots oldest first, as much as
    * is on hand and never more (the owner, 2026-11-18, ADR-0019, A-328). A line not wholly on hand is issued subject to
    * stock, never refused; what was there and what was held are recorded once per line (quo.quote_line_stock). A balance
-   * below zero (ADR-0081) is nothing on hand. An unnamed animal is still chosen at conversion and not held (A-309 (f)).
+   * below zero (ADR-0081) is nothing on hand. A line of animals that names none holds its count of animals, oldest
+   * first, capped at what is free, each of the line's weight band when it names one (the owner, 2026-11-23: "reserve by
+   * count at issue, capped at what is available", B11u, A-351, replacing A-309 (f)'s "not held"); which animals go is
+   * named at picking, not here: the order the quote converts to may pick any free animal or its own.
    */
   private async reserveLinesIn(tx: Transaction, quote: QuoteRecord, version: VersionRecord, actorId: string, at: Date): Promise<void> {
     const lines = await this.store.linesOf(tx, [version.id]);
@@ -972,6 +1040,7 @@ export class Quotes {
       this.clock.now(),
     );
     const balances = await this.stock.promisableIn(tx, quote.branchId, [...products.keys()]);
+    const eligible = await this.eligibilityIn(tx, lines, products, balances);
     const left = balances.map((b) => b.availableQty);
     for (const [i, line] of lines.entries()) {
       const product = line.productId === null ? undefined : products.get(line.productId);
@@ -985,18 +1054,16 @@ export class Quotes {
         available = free ? wanted : Quantity.zero();
         if (free) pieces.push({ productId: product.id, stockUnitId: unit.id, locationId: unit.currentLocationId!, qty: wanted });
       } else {
-        const offered = balances.map((b, index) => ({ b, index })).filter(({ b }) => b.productId === product.id);
+        const offered = balances.map((b, index) => ({ b, index })).filter(({ b, index }) => b.productId === product.id && eligible(line, index));
         const plan = planHold(
           wanted,
           offered.map(({ index }) => left[index]!),
         );
         available = plan.available;
-        if (product.tracking !== 'SERIAL') {
-          for (const p of plan.pieces) {
-            const { b, index } = offered[p.index]!;
-            left[index] = left[index]!.minus(p.qty);
-            pieces.push({ productId: b.productId, stockUnitId: b.stockUnitId, locationId: b.locationId, qty: p.qty });
-          }
+        for (const p of plan.pieces) {
+          const { b, index } = offered[p.index]!;
+          left[index] = left[index]!.minus(p.qty);
+          pieces.push({ productId: b.productId, stockUnitId: b.stockUnitId, locationId: b.locationId, qty: p.qty });
         }
       }
       const held: string[] = [];
@@ -1020,6 +1087,74 @@ export class Quotes {
         at,
       );
     }
+  }
+
+  /**
+   * Which promisable balances a line may be held from (B11u, A-351): any of its product's, except that a line of
+   * animals naming a weight band takes only animals whose last weighing is in that band (`inWeightBand`).
+   */
+  private async eligibilityIn(
+    tx: Transaction,
+    lines: readonly LineRecord[],
+    products: ReadonlyMap<string, ProductFacts>,
+    balances: readonly PromisableStock[],
+  ): Promise<(line: LineRecord, balanceIndex: number) => boolean> {
+    const banded = lines.filter((l) => l.weightBandId !== null && l.stockUnitId === null && l.productId !== null && products.get(l.productId)?.tracking === 'SERIAL');
+    if (banded.length === 0) return () => true;
+    const bands = await this.refs.weightBandsIn(
+      tx,
+      banded.map((l) => l.weightBandId!),
+    );
+    const animals = await this.units.factsIn(
+      tx,
+      balances.flatMap((b) => (b.stockUnitId === null ? [] : [b.stockUnitId])),
+      this.clock.now(),
+    );
+    return (line, index) => {
+      if (!banded.includes(line)) return true;
+      const unitId = balances[index]!.stockUnitId;
+      return unitId !== null && inWeightBand(animals.get(unitId)?.lastWeightKg ?? null, bands.get(line.weightBandId!) ?? null);
+    };
+  }
+
+  /**
+   * What the buyer is shown of each product line now (the owner, 2026-11-23, A-328 (c)), in the base unit: what the quote
+   * holds for it, taken line by line from its active reservations (a named animal only its own), plus what is free to
+   * promise now from the balances the line may be held from (`eligibilityIn`), never more than the line asks for. The
+   * staff's figures recorded at issue (`availableQuantity`, `heldQuantity`) are not shown, and no total on hand is.
+   */
+  private async availableNowIn(tx: Transaction, quote: QuoteRecord, lines: readonly LineRecord[]): Promise<Map<string, { qty: Quantity; uom: string }>> {
+    const productLines = lines.filter((l) => l.productId !== null && l.baseQty !== null);
+    const shown = new Map<string, { qty: Quantity; uom: string }>();
+    if (productLines.length === 0) return shown;
+    const products = await this.refs.productsIn(
+      tx,
+      productLines.map((l) => l.productId!),
+    );
+    const held = (await this.reservations.activeOfHolderIn(tx, quote.id)).map((r) => ({ productId: r.productId, stockUnitId: r.stockUnitId, left: Quantity.parse(r.qty) }));
+    const balances = await this.stock.promisableIn(tx, quote.branchId, [...products.keys()]);
+    const eligible = await this.eligibilityIn(tx, productLines, products, balances);
+    const left = balances.map((b) => b.availableQty);
+    for (const line of productLines) {
+      const product = products.get(line.productId!);
+      if (product === undefined) continue;
+      const wanted = Quantity.parse(line.baseQty!);
+      let mine = Quantity.zero();
+      for (const h of held) {
+        if (h.productId !== product.id || (line.stockUnitId !== null && h.stockUnitId !== line.stockUnitId) || h.left.isZero()) continue;
+        const take = h.left.compareTo(wanted.minus(mine)) >= 0 ? wanted.minus(mine) : h.left;
+        h.left = h.left.minus(take);
+        mine = mine.plus(take);
+      }
+      const offered = balances.map((b, index) => ({ b, index })).filter(({ b, index }) => b.productId === product.id && (line.stockUnitId === null ? eligible(line, index) : b.stockUnitId === line.stockUnitId));
+      const plan = planHold(
+        wanted.minus(mine),
+        offered.map(({ index }) => left[index]!),
+      );
+      for (const p of plan.pieces) left[offered[p.index]!.index] = left[offered[p.index]!.index]!.minus(p.qty);
+      shown.set(line.id, { qty: availableToBuyer(wanted, mine, plan.held), uom: product.baseUom });
+    }
+    return shown;
   }
 
   /** What the quote's template prints, every figure formatted here and the template computing nothing (FR-QUO-007). */
@@ -1352,6 +1487,13 @@ export class Quotes {
     if (broken.length > 0) throw new QuoteInvalidError(broken);
 
     const priced = checked.filter((c) => c.product !== null);
+    // A line naming a weight band and no animal is priced as an animal of that band: the band's lowest weight, which the
+    // engine maps to that band (half-open, FR-MDM-005), so the line records its band's list price and floor at issue
+    // (B11u, A-350: the list the booking takes; UAT scenario 2 step 2.2 shows it).
+    const bandWeights = await this.refs.weightBandsIn(
+      tx,
+      priced.flatMap((c) => (isSet(c.input.weightBandId) && !isSet(c.input.stockUnitId) ? [c.input.weightBandId] : [])),
+    );
     const resolved =
       priced.length === 0
         ? []
@@ -1364,7 +1506,7 @@ export class Quotes {
               lines: priced.map((c) => {
                 const unit = isSet(c.input.stockUnitId) ? units.get(c.input.stockUnitId) : undefined;
                 const gradeId = c.input.gradeId ?? unit?.gradeId ?? undefined;
-                const weightKg = unit?.lastWeightKg ?? undefined;
+                const weightKg = unit?.lastWeightKg ?? (isSet(c.input.weightBandId) ? bandWeights.get(c.input.weightBandId)?.minKg : undefined) ?? undefined;
                 return {
                   lineRef: String(c.i),
                   productId: c.product!.id,
@@ -1423,7 +1565,12 @@ export class Quotes {
     return { lines, products };
   }
 
-  /** The version's figures: the calculator's tax on the product lines, the margin floor from its setting. */
+  /**
+   * The version's figures: the calculator's tax on the product lines and on the delivery fee, the margin floor from its
+   * setting. The fee is taxed exactly as the invoice taxes it at dispatch (the owner, 2026-11-23, B11u, A-352): a line of
+   * the same calculation in the `DELIVERY_SERVICE` category (MDM's `Storefront.deliveryTaxCategoryIdIn`, as ORD's
+   * dispatch takes it), its amount the fee in the version's pricing mode, so the quote and the invoice agree to the pesewa.
+   */
   private async figuresIn(
     tx: Transaction,
     branchId: string,
@@ -1431,16 +1578,11 @@ export class Quotes {
     o: { readonly taxInclusive: boolean; readonly deliveryFeePesewas: bigint; readonly at: Date },
   ) {
     const taxed = priced.lines.filter((l) => l.productId !== null);
-    const tax =
-      taxed.length === 0
-        ? 0n
-        : (
-            await this.tax.calculateIn(tx, {
-              taxInclusive: o.taxInclusive,
-              taxDate: toBusinessDate(o.at),
-              lines: taxed.map((l) => ({ lineRef: l.id, taxCategoryId: priced.products.get(l.productId!)!.taxCategoryId, amountPesewas: l.lineNetPesewas })),
-            })
-          ).totals.tax.pesewas;
+    const lines = taxed.map((l) => ({ lineRef: l.id, taxCategoryId: priced.products.get(l.productId!)!.taxCategoryId, amountPesewas: l.lineNetPesewas }));
+    if (o.deliveryFeePesewas > 0n) lines.push({ lineRef: DELIVERY_FEE_REF, taxCategoryId: await this.storefront.deliveryTaxCategoryIdIn(tx), amountPesewas: o.deliveryFeePesewas });
+    const calculation = lines.length === 0 ? null : await this.tax.calculateIn(tx, { taxInclusive: o.taxInclusive, taxDate: toBusinessDate(o.at), lines });
+    const feeTax = calculation?.lines.find((l) => l.lineRef === DELIVERY_FEE_REF)?.tax.pesewas ?? 0n;
+    const tax = (calculation?.totals.tax.pesewas ?? 0n) - feeTax;
     const floor = await this.settings.integer(MARGIN_FLOOR_SETTING, DEFAULT_MARGIN_FLOOR_BASIS_POINTS, branchId);
     const f = versionFigures(
       priced.lines.map((l) => ({
@@ -1449,7 +1591,7 @@ export class Quotes {
         unitCostPesewas: l.estimatedUnitCostPesewas,
         belowEngineFloor: l.resolvedFloorUnitPricePesewas !== null && l.unitPricePesewas < l.resolvedFloorUnitPricePesewas,
       })),
-      { deliveryFeePesewas: o.deliveryFeePesewas, taxPesewas: tax, floorBasisPoints: floor, taxInclusive: o.taxInclusive },
+      { deliveryFeePesewas: o.deliveryFeePesewas, deliveryFeeTaxPesewas: feeTax, taxPesewas: tax, floorBasisPoints: floor, taxInclusive: o.taxInclusive },
     );
     return { netPesewas: f.netPesewas, taxPesewas: f.taxPesewas, grossPesewas: f.grossPesewas, estimatedCostPesewas: f.estimatedCostPesewas, markupPercent: f.markupPercent, belowMarginFloor: f.belowMarginFloor };
   }
@@ -1508,6 +1650,7 @@ export class Quotes {
         acceptedVersionId: q.acceptedVersionId,
         convertedOrder: q.convertedOrderId === null ? null : (orders.get(q.convertedOrderId) ?? null),
         declineReason: q.declineReason,
+        cancelReason: q.cancelReason,
         branchId: q.branchId,
         version: q.version,
         createdAt: q.createdAt.toISOString(),
@@ -1617,6 +1760,7 @@ export class Quotes {
     const customer = quote.customerId === null ? undefined : (await this.refs.customersIn(tx, [quote.customerId])).get(quote.customerId);
     const [acceptance] = status === 'ACCEPTED' ? await this.store.acceptancesOf(tx, [version.id]) : [];
     const [declined] = status === 'DECLINED' ? await this.store.linkDecisionsOf(tx, [version.id]) : [];
+    const now = status === 'ISSUED' || status === 'ACCEPTED' ? await this.availableNowIn(tx, quote, lines) : new Map<string, { qty: Quantity; uom: string }>();
     return {
       quoteNo: quote.quoteNo,
       versionNo: version.versionNo,
@@ -1627,7 +1771,17 @@ export class Quotes {
       // A decline through the link is dated by the link's decision; one staff recorded (declineQuote) has no time the
       // buyer gave, so it is null (A-325).
       decidedAt: (acceptance?.acceptedAt ?? declined?.decidedAt ?? null)?.toISOString() ?? null,
-      lines: lines.map((l) => ({ description: l.description, quantity: l.qty, uom: l.uom, priceBasis: l.priceBasis, unitPricePesewas: json(l.unitPricePesewas), lineNetPesewas: json(l.lineNetPesewas), subjectToStock: isSubjectToStock(l, stock) })),
+      lines: lines.map((l) => ({
+        description: l.description,
+        quantity: l.qty,
+        uom: l.uom,
+        priceBasis: l.priceBasis,
+        unitPricePesewas: json(l.unitPricePesewas),
+        lineNetPesewas: json(l.lineNetPesewas),
+        subjectToStock: isSubjectToStock(l, stock),
+        availableNowQuantity: now.get(l.id)?.qty.toDecimalString() ?? null,
+        availableNowUom: now.get(l.id)?.uom ?? null,
+      })),
       subjectToStock: lines.some((l) => isSubjectToStock(l, stock)),
       deliveryFeePesewas: json(version.deliveryFeePesewas),
       netPesewas: json(version.netPesewas),
@@ -1677,6 +1831,14 @@ function publicStatus(quote: QuoteRecord, version: VersionRecord, now: Date): Pu
 }
 
 /** A stored line as the input it was priced from, to price again (a revision, an issue). */
+/**
+ * What a converted line costs and what it is booked against (the owner, 2026-11-23, B11u, A-350): the quoted price the
+ * buyer pays, and the list price and engine floor the line recorded when its version was issued, never a later list.
+ */
+function priceOf(l: LineRecord): Pick<QuoteOrderLine, 'unitPricePesewas' | 'listUnitPricePesewas' | 'engineFloorUnitPricePesewas'> {
+  return { unitPricePesewas: l.unitPricePesewas, listUnitPricePesewas: l.resolvedUnitPricePesewas, engineFloorUnitPricePesewas: l.resolvedFloorUnitPricePesewas };
+}
+
 function inputOf(l: LineRecord): QuoteLineInput {
   return {
     ...(l.productId === null ? {} : { productId: l.productId }),

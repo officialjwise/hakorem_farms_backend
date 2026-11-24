@@ -147,6 +147,7 @@ responses:
                   acceptedVersionId: null
                   convertedOrder: null
                   declineReason: null
+                  cancelReason: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 4
                   createdAt: "2026-11-11T10:00:00Z"
@@ -207,6 +208,7 @@ responses:
                     docType: SALES_ORDER
                     number: SO-2026-DDW-004198
                   declineReason: null
+                  cancelReason: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 4
                   createdAt: "2026-11-10T10:00:00Z"
@@ -264,6 +266,7 @@ responses:
                   acceptedVersionId: "019a7b00-7912-784e-ad87-8dc099ab069e"
                   convertedOrder: null
                   declineReason: null
+                  cancelReason: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 4
                   createdAt: "2026-11-09T10:00:00Z"
@@ -321,6 +324,7 @@ responses:
                   acceptedVersionId: null
                   convertedOrder: null
                   declineReason: "Found goats closer to Prampram"
+                  cancelReason: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 4
                   createdAt: "2026-11-08T10:00:00Z"
@@ -378,6 +382,7 @@ responses:
                   acceptedVersionId: null
                   convertedOrder: null
                   declineReason: null
+                  cancelReason: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 4
                   createdAt: "2026-11-07T10:00:00Z"
@@ -435,6 +440,7 @@ responses:
                   acceptedVersionId: null
                   convertedOrder: null
                   declineReason: null
+                  cancelReason: null
                   branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                   version: 4
                   createdAt: "2026-11-06T10:00:00Z"
