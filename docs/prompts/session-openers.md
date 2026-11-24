@@ -118,7 +118,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B11u | `B11u-uat-scenario-2-corrections.md` | `b11u-uat-scenario-2-corrections` | B4 to B12 | A quoted line posts list to 4000 and the difference to 4210 (none at list) with the customer's document unchanged; a quote holds its count capped at what is available, released with the quote and handed to the order with no gap; the estimate taxes the delivery fee as the invoice does, to the pesewa; conversion takes no tags, picking names them; the buyer sees min(requested, available now); a withdrawn quote is its own outcome outside the win rate (inserted by the parent session on the owner's decision of 2026-11-23) |
 | B11u continued | `B11u2-uat-scenario-2-rest.md` | `b11u2-uat-scenario-2-rest` | B4 to B12 | UAT scenario 2 runs as written at the desk, including a delivery: a quote converts to a delivery order (its fee once, credit-checked at dispatch); the backorder keeps its first order's hold with no gap; the quote's cost is its animals', 13,200.00 and 30.75 exactly with other goats in the pens; the credit estimate includes the fee's tax, 17,172.00; an order line carries its band; an accepted quote's hold ends 7 days after acceptance (inserted by the parent session on the owner's decision of 2026-11-24) |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
-| B12 continued | `B12c-cap-cst-rpt-api.md` | `b12c-cap-cst-rpt-api` | B4 to B12 | UAT scenario 4's portal steps 4.10 and 4.11 pass, a loan's interest matches FR-CAP-015, and the daily exception report answers an item kind for every abuse case named, each with its abuse case numbers, actor, amount and subject document |
+| B12 continued | `B12c-cap-cst-rpt-api.md` | `b12c-cap-cst-rpt-api` | B4 to B12 | UAT scenario 4's portal steps 4.10 and 4.11 pass and a loan's interest and repayments match FR-CAP-015 (split after CAP, A-386: the exception report is B12 continued 2's) |
+| B12 continued 2 | `B12c2-cst-rpt-api.md` | `b12c2-cst-rpt-api` | B4 to B12 | The daily exception report answers an item kind for every abuse case named, each with its abuse case numbers, actor, amount and subject document |
 | B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
 | B13 | `B13-hardening-deploy.md` | `b13-hardening-deploy` | B13 — Hardening, smoke suite and deploy | Every non-functional target met and evidenced on the live server |
 
@@ -4523,7 +4524,7 @@ Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
 
 ## B12 continued — The rest of CAP, costing, reporting, the daily exception report and the public API
 
-Branch `b12c-cap-cst-rpt-api`, from `main`. Report `docs/sessions/B12c-cap-cst-rpt-api.md`. Inserted by B12 (A-383, ADR-0026 Amendments): B12 built CAP to its gate (investors, capital and units, distribution runs from draft to paid, UAT scenario 4 at the desk to the pesewa but its portal steps). Gate: UAT scenario 4's steps 4.10 and 4.11 pass through the investor portal (an investor sees only their own units, distribution and statement, and the statement ties to their 3000 and 2300 subledgers); a loan's interest and repayments match FR-CAP-015's figures; and `GET /exceptions/daily-report` answers an item kind for every one of the eighteen abuse cases and every later source named below, each item carrying its abuse case numbers, actor, amount and subject document. If the phase cannot reach that gate it splits again at the first boundary its context will not reach (the rest of CAP, then CST, then RPT and the exception report, then API), after a merged green gate.
+Branch `b12c-cap-cst-rpt-api`, from `main`. Report `docs/sessions/B12c-cap-cst-rpt-api.md`. **Split by B12 continued after CAP (A-386, ADR-0026 Amendments): it built item 1 (the rest of CAP and the investor portal) to its gate; items 2 to 4 and every exception source below moved, unchanged, to B12 continued 2.** Inserted by B12 (A-383, ADR-0026 Amendments): B12 built CAP to its gate (investors, capital and units, distribution runs from draft to paid, UAT scenario 4 at the desk to the pesewa but its portal steps). Gate: UAT scenario 4's steps 4.10 and 4.11 pass through the investor portal (an investor sees only their own units, distribution and statement, and the statement ties to their 3000 and 2300 subledgers); a loan's interest and repayments match FR-CAP-015's figures; and `GET /exceptions/daily-report` answers an item kind for every one of the eighteen abuse cases and every later source named below, each item carrying its abuse case numbers, actor, amount and subject document. If the phase cannot reach that gate it splits again at the first boundary its context will not reach (the rest of CAP, then CST, then RPT and the exception report, then API), after a merged green gate.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
@@ -4603,6 +4604,83 @@ the egg report codes, the VAT return, and the statement and exception report exp
 Stop at the gate and write docs/sessions/B12c-cap-cst-rpt-api.md.
 ```
 
+## B12 continued 2 — Costing, reporting, the daily exception report and the public API
+
+Branch `b12c2-cst-rpt-api`, from `main`. Report `docs/sessions/B12c2-cst-rpt-api.md`. Inserted by B12 continued (A-386, ADR-0026 Amendments): B12 continued built the rest of CAP to its gate (payout details and the identity number sealed, documents, the statement, return metrics, loans and grants, the investor portal with UAT scenario 4's steps 4.10 and 4.11; ADR-0101). Gate: `GET /exceptions/daily-report` answers an item kind for every one of the eighteen abuse cases and every later source named below, each item carrying its abuse case numbers, actor, amount and subject document. If the phase cannot reach that gate it splits again at the first boundary its context will not reach (CST, then RPT and the exception report, then API), after a merged green gate.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B12c-cap-cst-rpt-api.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the CST, RPT and API requirement blocks of docs/SRS.md (nothing else from
+the SRS), docs/data-model/cst.md, rpt.md and api.md, the CAP, CST, RPT and API cards in docs/MODULE_BOUNDARIES.md
+(CAP's for the events it publishes), and ADR-0018, ADR-0023, ADR-0100, ADR-0101 and ADR-0026 (the daily
+exception report), and section 4 of docs/security/THREAT_MODEL.md (the eighteen abuse cases and the
+exception kind each names, and cases 68 to 71). Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B12 continued 2 only, on branch b12c2-cst-rpt-api, in this order (CAP was finished in B12 continued,
+ADR-0101: never change its answers):
+1. CST: overhead allocation, cost object summaries, margin and loss facts.
+2. RPT: the reporting read model with its projections and checkpoints, report definitions and schedules, and, as
+   ADR-0026 proposes, the daily exception report: GET /exceptions/daily-report, with an item kind for every one of the
+   eighteen abuse cases, each item carrying its abuse case numbers, actor, amount and subject document, so that B13
+   can assert it.
+The exception report must include order splitting (abuse case 27, owner 2026-11-15, A-168): read
+PUR's PurchaseOrders.splitSuspectsIn for the report's day and report each run with its maker, supplier,
+orders and total; and the payout changes of case 13 from pur.SupplierPayoutChangeRequested and
+pur.SupplierPayoutChanged, with SA-17's payment within 24 hours after a change.
+It must include case 28 (B07 continued 1b, A-172): each invoice paid on an approved variance
+(pur.SupplierInvoiceMatched or ExpenseInvoiceApproved with varianceApprovalRequestId) and each approved supplier
+credit note (pur.SupplierCreditNoteApproved with its returned movements), with maker, approver and amount.
+It must include PAY's breaks and reversals (the owner, 2026-11-16, B09a continued 1b): every reconciliation break of
+every kind (from the provider sweep, from webhooks, from settlement and bank statement matching, and REFUND_FAILED)
+read through the published view pay.pub_reconciliation_break, each with its kind, payment or reference, amount, age
+and state; every payment mismatch found against Paystack among them; and each pay.PaymentReversalRequested (abuse
+case 32) with its maker, amount and reason, beside pay.RefundRequested (case 12) and pay.WebhookRejected (case 5).
+It must include case 2's reused death photographs (B06r, A-175): each liv.MortalityPhotoReused with the record,
+the reporter and the earlier records whose photograph had the same bytes; and case 29 (A-176): every processing
+reversal from prc.ProcessingOrderReversed with its value, the threshold copied onto it, the maker, the approver
+when one was needed, and the reason. Residual risk R18 (B07 continued 2): count the storefront checkouts
+started and expired per address a day from shp.CheckoutStarted and shp.CheckoutExpired, as an item when one
+address holds stock repeatedly without placing an order.
+It must include case 34, inflated rejections at the door (B09e continued 3, A-272, ADR-0076): a RECEIPT_CLAIM item for
+each pur.SupplierClaimRaised, with the receipt, the receiver, the claim's maker, the supplier, the rejected quantity,
+its reason and its value. And every exception source B9b, B09c, B11 and B11u add (their reports name each one; B11u: `quo.QuoteIssued.holds` for case 64 and `quo.QuoteWithdrawn` for case 65; B11u continued: `quo.AcceptedQuoteLapsed` for case 66 and `backorderHeldQty` on `ord.OrderDispatched` and `ord.OrderCollected` for case 67), at least
+each reused till receipt token (a possible till fault or tampering, owner 2026-11-17) and each supervisor's PIN
+sign-out of a locked cashier (CR-032).
+   And CAP's own (B12, abuse cases 68 and 69): each `cap.CapitalWithdrawn` with who asked and who approved, each
+   `cap.DistributionDeclared` and `cap.DistributionPaid` with the maker, the checker and the amounts, each
+   `cap.CapitalContributed` whose value date is before the day it was recorded, and each run whose retention rate is
+   not the owner's 40 percent. And B12 continued's (abuse cases 70 and 71, ADR-0101): each
+   `cap.InvestorPayoutChangeRequested` and `cap.InvestorPayoutChanged` with the maker, the checker and the masked details
+   before and after, with a distribution payment within 24 hours after a change; each loan or grant drawn
+   (`cap.LoanDrawn`, `cap.GrantReceived`) with its maker and approver, and each `cap.LoanRepaid` with who recorded it;
+   and each month of a loan or grant the daily accrual job could not accrue (`financing-accrual`'s `blocked`). And BL-108: a mobile money success the provider reports after the payment had failed
+   is raised as a break (`PROVIDER_PAID_AFTER_FAILURE`), as a card's is, and reaches the exception report; PAY is
+   shared: build it additively.
+The owner dashboard was pulled forward to B05x (A-149): keep getOwnerDashboard's shape, add its caching and the
+NFR-023 performance budget, move its reads onto the hk_report connection, and remove `alerts` and
+`exceptionsToday` from RPT's PENDING_FIGURES once the daily exception report answers them. runReport must implement
+every report code listReportDefinitions lists, SALES_SUMMARY and PURCHASES included (CR-018), each matching its
+contract example's columns.
+The owner, 2026-11-16 (A-212 (a)): investor capital arrives through the investor module to the bank, never as cash.
+The owner, 2026-11-23 (from the frontend's F12 and F10n): build CR-059 to CR-062. Every margin is over the selling price, (price less cost) over price, and anything over cost is markup and named markup (the owner, 2026-11-23), CR-060's margin per crate included. Grant the report and exception
+report permissions to the Owner and the Manager (and the Accountant for the financial reports). Give each of these
+controls its own exception type: cash drops (witnessed or not), reused photographs, quotes accepted in a staff session,
+late cash after a shift closed, and negative stock after an offline sale. Add marking an exception reviewed with a note,
+the egg report codes, the VAT return, and the statement and exception report exports. Notes:
+- "quotes accepted in a staff session" is the possible staff acceptance of B10 continued 6 (the decision's address and
+  browser matched against staff sessions active from the same address in the last 24 hours, never a cookie);
+- "reused photographs" means a proof-of-delivery photograph or signature whose content hash matches an earlier upload
+  (beside case 2's death photographs); none of B11 continued 6 to 13 recorded that match (B11 continued 13, A-291), so this phase must: record on the proof of delivery whether its photograph or signature matches an earlier upload's SHA-256 in `platform.stored_file` (as liv.MortalityPhotoReused does) and publish it;
+- each existing exception kind keeps working, and any rename is LOUD.
+3. API: the public API with keys and webhooks.
+Stop at the gate and write docs/sessions/B12c2-cst-rpt-api.md.
+```
+
 ## B09r — The reconciliation rules rewritten against the real files
 
 Branch `b09r-reconciliation-real-files`, from `main`. Report `docs/sessions/B09r-reconciliation-real-files.md`. Inserted by the owner on 2026-11-16 (ADR-0065, A-214). It runs as soon as both real files exist, and before B13 at the latest: the owner supplies one real statement export from the farm's bank, and one real Paystack settlement covering real payments is available through the Settlements API. Gate: the settlement is read from Paystack's Settlements API, not a CSV export; the bank statement parser reads the bank's real export format; every format and matching rule names the file it came from, in ADR-0065 and in the test that holds it; fixtures replicate each real file's layout and quirks with invented values, and no real file or production value is committed; B09a continued 1c's database rules (a matched line posts once, ties never auto-match, idempotent import, a break resolves only through an approved posting) still hold; ADR-0065 is ready for the owner and the Accountant to accept.
@@ -4634,7 +4712,7 @@ Branch `b13-hardening-deploy`. Report `docs/sessions/B13-hardening-deploy.md`. G
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B13 section of docs/BUILD_PROMPT.md.
-List docs/sessions/ and read only the most recent report (docs/sessions/B12c-cap-cst-rpt-api.md, or the last report of its split).
+List docs/sessions/ and read only the most recent report (docs/sessions/B12c2-cst-rpt-api.md, or the last report of its split).
 Read ../frontend/docs/CONTRACT_REQUESTS.md if it exists: implement what is reasonable, record in the
 report what you declined and why, never edit that file and never open frontend source.
 For this phase, also read the non-functional requirements table in docs/SHARED_BRIEF.md,

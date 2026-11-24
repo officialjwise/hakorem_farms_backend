@@ -475,9 +475,9 @@ A counter sale is not a POS aggregate. It is a sales order on channel `POS`, pla
 | Amounts paid against a distribution line do not exceed net payable | DB (trigger) |
 | A capital withdrawal is approved by a different user | DB (approval constraint) |
 
-**Built in B12 (ADR-0100):** ◆`cap.CapitalContributed`, ◆`cap.CapitalWithdrawn`, ◆`cap.DistributionDeclared` and ◆`cap.DistributionPaid` (payloads in `src/modules/cap/events.ts`); the rest are B12 continued's.
+**Built in B12 (ADR-0100):** ◆`cap.CapitalContributed`, ◆`cap.CapitalWithdrawn`, ◆`cap.DistributionDeclared` and ◆`cap.DistributionPaid` (payloads in `src/modules/cap/events.ts`). **Built in B12 continued (ADR-0101):** ◆`cap.LoanDrawn`, ◆`cap.GrantReceived`, ◆`cap.InterestAccrued`, ◆`cap.GrantRecognised` (new, Dr 2450 Cr 4910), ◆`cap.LoanRepaid`, and `cap.InvestorPayoutChangeRequested` and `cap.InvestorPayoutChanged` for the daily exception report (abuse case 70). `cap.InvestorRegistered` and `cap.DistributionRunApproved` are not published: nothing subscribes to them.
 
-**Events:** `cap.InvestorRegistered`, ◆`cap.CapitalContributed`, ◆`cap.CapitalWithdrawn`, `cap.DistributionRunApproved`, ◆`cap.DistributionDeclared`, ◆`cap.DistributionPaid`, ◆`cap.LoanDrawn`, ◆`cap.LoanRepaid`, ◆`cap.InterestAccrued`, ◆`cap.GrantReceived`.
+**Events:** `cap.InvestorRegistered`, ◆`cap.CapitalContributed`, ◆`cap.CapitalWithdrawn`, `cap.DistributionRunApproved`, ◆`cap.DistributionDeclared`, ◆`cap.DistributionPaid`, ◆`cap.LoanDrawn`, ◆`cap.LoanRepaid`, ◆`cap.InterestAccrued`, ◆`cap.GrantReceived`, ◆`cap.GrantRecognised`, `cap.InvestorPayoutChangeRequested`, `cap.InvestorPayoutChanged`.
 
 ### 5.16 CST, RPT: costing and reporting
 
