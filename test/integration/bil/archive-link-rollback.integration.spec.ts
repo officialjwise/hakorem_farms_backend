@@ -48,6 +48,7 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0372_del_proof_file_match',
       '0369_iam_cst_permissions',
       '0368_cst_costing',
       '0367_ord_publish_sale_dimensions',

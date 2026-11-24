@@ -180,6 +180,21 @@ export class FileStore {
   }
 
   /**
+   * The other files uploaded with exactly the same bytes (SHA-256) before this one, oldest first: how a module tells a
+   * reused photograph or signature (ADR-0103). A re-saved or cropped copy has other bytes and is not found.
+   */
+  async earlierWithSameContent(tx: Transaction, id: string): Promise<string[]> {
+    const { rows } = await tx.query<{ id: string }>(
+      `SELECT o.id FROM platform.stored_file f
+         JOIN platform.stored_file o ON o.sha256 = f.sha256 AND o.id <> f.id AND o.created_at <= f.created_at
+        WHERE f.id = $1
+        ORDER BY o.created_at, o.id`,
+      [id],
+    );
+    return rows.map((r) => r.id);
+  }
+
+  /**
    * The content of a CLEAN file, for a module that reads what was uploaded (an import, ADR-0046). Call outside any
    * transaction. A file the scanner has not passed is never read.
    */

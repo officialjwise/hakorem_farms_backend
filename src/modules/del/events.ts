@@ -209,3 +209,26 @@ export interface DeliveryRescheduled {
   readonly reason: string;
   readonly rescheduledAt: string;
 }
+
+/**
+ * `del.ProofFileReused` (B12 continued 3, CR-059, abuse case 44): the photograph or the signature on a proof of delivery
+ * has exactly the same bytes (SHA-256) as an earlier upload in the file store, or is a file an earlier proof
+ * already carries, as a death's photograph is matched
+ * (`liv.MortalityPhotoReused`). The proof is recorded whatever it is; this reaches the daily exception report.
+ */
+export interface ProofFileReused {
+  readonly deliveryId: string;
+  readonly deliveryNo: string;
+  readonly branchId: string;
+  readonly driverId: string;
+  readonly proofId: string;
+  readonly file: 'PHOTO' | 'SIGNATURE';
+  readonly fileId: string;
+  readonly sha256: string;
+  /** Other uploads with exactly these bytes, oldest first. */
+  readonly earlierFileIds: readonly string[];
+  /** Earlier proofs that carry this very file. */
+  readonly earlierProofIds: readonly string[];
+  readonly matchedBy: 'SHA256';
+  readonly abuseCases: readonly number[];
+}

@@ -59,6 +59,9 @@ export interface ProofRecord {
   readonly returnedCreditPesewas: bigint;
   readonly capturedAt: Date;
   readonly createdBy: string;
+  /** Whether the photograph, and the signature, has the same bytes as an earlier upload (written once, B12 continued 3). */
+  readonly photoMatchesEarlierUpload?: boolean;
+  readonly signatureMatchesEarlierUpload?: boolean;
 }
 
 /** What the customer kept of one line a part delivery names (`del.proof_line`, CR-055). */
@@ -131,6 +134,8 @@ export interface DeliveryStore {
   proofsOf(tx: Transaction, deliveryIds: readonly string[]): Promise<ProofRecord[]>;
   proofById(tx: Transaction, id: string): Promise<ProofRecord | null>;
   insertAttempt(tx: Transaction, a: AttemptRecord): Promise<void>;
+  /** The proofs that already carry this file as their photograph or signature (a file used twice, B12 continued 3). */
+  proofsWithFile(tx: Transaction, fileId: string): Promise<string[]>;
   insertProof(tx: Transaction, p: ProofRecord): Promise<void>;
   insertProofLines(tx: Transaction, proofId: string, lines: readonly ProofLineRecord[], actorId: string): Promise<void>;
   /** The lines each proof names, by proof. */
