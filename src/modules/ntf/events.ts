@@ -6,13 +6,16 @@
 
 /**
  * `ntf.MessageSuppressed` v1 (B11 continued 10, abuse case 58): a message was not sent because its recipient had reached
- * the hourly limit, the sign of a fault or an abuse sending a storm.
+ * the hourly limit, the sign of a fault or an abuse sending a storm. B11 continued 12 adds two reasons, additively (v1
+ * unchanged for readers): `NO_LINK`, a message whose record's own module made no link for it (a receipt for a sale whose
+ * till token was refused or never sent, a cart no longer idle; abuse case 60), and `NO_CONSENT`, a marketing message to a
+ * customer who has not given consent (abuse case 61).
  */
 export interface MessageSuppressed {
   readonly messageId: string;
   readonly templateCode: string;
   readonly channel: string;
-  readonly reason: 'RATE_LIMITED';
+  readonly reason: 'RATE_LIMITED' | 'NO_LINK' | 'NO_CONSENT';
   readonly salesOrderId: string | null;
   readonly sourceEventType: string;
   readonly abuseCases: readonly number[];

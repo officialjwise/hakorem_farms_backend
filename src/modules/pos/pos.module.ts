@@ -206,7 +206,8 @@ import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
       inject: [UnitOfWork, TILL_STORE, MasterDataRefs, Authoriser, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, NumberSeries, PRINCIPAL_NAMES, Cursors, Payments, Orders, CLOCK, AuditAnchorRequests, HeldSales, Settings, Devices, TillPins],
     },
   ],
-  exports: [Registers, Shifts, Devices, TillPins],
+  // ReceiptLinks for NTF's receipt SMS (B11 continued 12): `issueMessageLinkIn` only, the parent session's leave.
+  exports: [Registers, Shifts, Devices, TillPins, ReceiptLinks],
 })
 export class PosModule implements OnModuleInit {
   constructor(

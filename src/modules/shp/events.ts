@@ -27,3 +27,14 @@ export interface CheckoutCompleted {
   readonly cartId: string;
   readonly orderId: string;
 }
+
+/**
+ * `shp.CartAbandoned` v1 (FR-SHP-015, B11 continued 12): a cart its customer left idle two hours, with marketing consent,
+ * reminded once. It names the cart and its customer only, never what is in the cart; NTF reads the customer through MDM.
+ */
+export interface CartAbandoned {
+  readonly cartId: string;
+  readonly customerId: string;
+  readonly noticeId: string;
+  readonly idleSince: string;
+}

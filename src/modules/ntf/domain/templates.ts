@@ -1,4 +1,5 @@
 import { err, ok, type Result } from '@hakorem/kernel';
+import type { LinkKind } from './links';
 
 /** The channels a template may be written for (docs/data-model/ntf.md). Only SMS has an adapter yet (A-374 (d)). */
 export const CHANNELS = ['SMS', 'WHATSAPP', 'EMAIL', 'IN_APP'] as const;
@@ -81,7 +82,34 @@ export const TEMPLATE_CODES = {
     category: 'OPERATIONAL',
     fields: { tagNo: 'G-0171', reason: 'the photograph did not pass the virus scan' },
   },
-} as const satisfies Record<string, { readonly category: Category; readonly fields: Readonly<Record<string, string>> }>;
+  // B11 continued 12: the messages that carry a link, each made by the record's own module when the message is sent
+  // (`link`, ADR-0074); the stored text keeps `{{link}}` unfilled. The cart reminder names nothing that was in the cart.
+  ORDER_TRACKING: {
+    category: 'TRANSACTIONAL',
+    link: 'TRACKING',
+    fields: { orderNo: 'SO-2026-000142', link: 'https://shop.example/track/trk_EXAMPLE-not-a-real-token' },
+  },
+  SALE_RECEIPT: {
+    category: 'TRANSACTIONAL',
+    link: 'RECEIPT',
+    fields: { saleReference: 'SO-2026-000150', receiptNo: 'RCT-2026-DDW-000231', total: 'GHS 94.00', link: 'https://shop.example/r/EXAMPLE-not-a-real-token' },
+  },
+  CART_REMINDER: {
+    category: 'MARKETING',
+    link: 'CART',
+    fields: { customerName: 'Akua', link: 'https://shop.example/cart' },
+  },
+  DOCUMENT_SENT: {
+    category: 'TRANSACTIONAL',
+    link: 'DOCUMENT',
+    fields: { documentNo: 'INV-2026-DDW-000088', documentType: 'invoice', total: 'GHS 940.00', link: 'https://shop.example/d/doc_EXAMPLE-not-a-real-token' },
+  },
+  REMITTANCE_ADVICE: {
+    category: 'TRANSACTIONAL',
+    link: 'DOCUMENT',
+    fields: { supplierName: 'Abokobi Feeds', amount: 'GHS 4,800.00', paidOn: '2026-11-24', link: 'https://shop.example/d/doc_EXAMPLE-not-a-real-token' },
+  },
+} as const satisfies Record<string, { readonly category: Category; readonly link?: LinkKind; readonly fields: Readonly<Record<string, string>> }>;
 
 export type TemplateCode = keyof typeof TEMPLATE_CODES;
 

@@ -103,6 +103,9 @@ beforeAll(async () => {
   }
   const manager = await createUser(database, { name: 'Abena Owusu', grants: [{ role: 'MANAGER', branchId }] });
   sessions.set('manager', await enrolAndLogin(api.server, manager, () => clock.now()));
+  // The guest's tracking SMS at placement (B11 continued 12) is proved in link-messages; this file counts the fulfilment
+  // and delivery messages alone, so its trigger is off here (a trigger turned off queues nothing new, A-376 (c)).
+  await admin().query("UPDATE ntf.trigger_rule SET is_active = false, version = version + 1 WHERE template_code = 'ORDER_TRACKING'");
 });
 
 afterAll(async () => {

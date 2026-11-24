@@ -14,10 +14,14 @@ import { Authoriser, IamModule } from '../iam';
 import { InvModule, StockUnits } from '../inv';
 import { LivModule, MortalityRecords } from '../liv';
 import { MasterDataRefs, MdmModule } from '../mdm';
-import { OrdModule, Orders } from '../ord';
+import { OnlineOrders, OrdModule, Orders } from '../ord';
+import { PosModule, ReceiptLinks } from '../pos';
+import { AbandonedCarts, ShpModule } from '../shp';
 import { Dunning, WhlModule } from '../whl';
 import { AddressHasher, CustomerMessages } from './application/customer-messages';
 import { DeliveryReports } from './application/delivery-reports';
+import { LinkMessages } from './application/link-messages';
+import { MessageLinks } from './application/message-links';
 import { InAppNotifications } from './application/in-app';
 import { MessageLog } from './application/message-log';
 import { availableChannels, MessageQueue, RecipientFacts } from './application/message-queue';
@@ -39,7 +43,7 @@ import { MessagesController, MessagingWebhooksController, MyNotificationsControl
  * (ADR-0097, A-376). Nothing calls NTF (MODULE_BOUNDARIES).
  */
 @Module({
-  imports: [IamModule, MdmModule, InvModule, LivModule, DelModule, OrdModule, WhlModule],
+  imports: [IamModule, MdmModule, InvModule, LivModule, DelModule, OrdModule, PosModule, ShpModule, WhlModule],
   controllers: [TemplatesController, MessagesController, MessagingWebhooksController, TriggersController, OptOutsController, MyNotificationsController],
   providers: [
     { provide: NTF_STORE, useClass: PgNtfStore },
@@ -81,10 +85,26 @@ import { MessagesController, MessagingWebhooksController, MyNotificationsControl
       inject: [MessageQueue, MortalityRecords, StockUnits],
     },
     {
+      provide: LinkMessages,
+      useFactory: (queue: MessageQueue, orders: Orders, refs: MasterDataRefs) => new LinkMessages(queue, orders, refs),
+      inject: [MessageQueue, Orders, MasterDataRefs],
+    },
+    {
+      // Each link a message carries, made at send by the record's own module (ADR-0074, B11 continued 12).
+      provide: MessageLinks,
+      useFactory: (config: AppConfig, online: OnlineOrders, receipts: ReceiptLinks, carts: AbandonedCarts) =>
+        new MessageLinks(config.RECEIPT_LINK_BASE_URL ?? null, {
+          TRACKING: (tx, orderId, actorId) => online.reissueTrackingIn(tx, orderId, actorId),
+          RECEIPT: (tx, saleId, actorId) => receipts.issueMessageLinkIn(tx, saleId, actorId),
+          CART: (tx, cartId) => carts.remindableIn(tx, cartId),
+        }),
+      inject: [APP_CONFIG, OnlineOrders, ReceiptLinks, AbandonedCarts],
+    },
+    {
       provide: MessageSender,
-      useFactory: (uow: UnitOfWork, store: NtfStore, recipients: RecipientFacts, sms: NotificationChannel, events: DomainEvents, clock: Clock, logger: Logger) =>
-        new MessageSender(uow, store, recipients, new Map([['SMS', sms]]), events, clock, logger),
-      inject: [UnitOfWork, NTF_STORE, RecipientFacts, SMS_CHANNEL, DomainEvents, CLOCK, LOGGER],
+      useFactory: (uow: UnitOfWork, store: NtfStore, recipients: RecipientFacts, sms: NotificationChannel, events: DomainEvents, clock: Clock, logger: Logger, links: MessageLinks) =>
+        new MessageSender(uow, store, recipients, new Map([['SMS', sms]]), events, clock, logger, Math.random, links),
+      inject: [UnitOfWork, NTF_STORE, RecipientFacts, SMS_CHANNEL, DomainEvents, CLOCK, LOGGER, MessageLinks],
     },
     {
       provide: OptOuts,
@@ -120,11 +140,13 @@ export class NtfModule implements OnModuleInit {
     @Inject(CustomerMessages) private readonly customerMessages: CustomerMessages,
     @Inject(Reminders) private readonly reminders: Reminders,
     @Inject(StaffNotifications) private readonly staff: StaffNotifications,
+    @Inject(LinkMessages) private readonly links: LinkMessages,
   ) {}
 
   onModuleInit(): void {
     this.events.registerConsumer(this.customerMessages.consumer);
     this.events.registerConsumer(this.reminders.consumer);
     this.events.registerConsumer(this.staff.consumer);
+    this.events.registerConsumer(this.links.consumer);
   }
 }

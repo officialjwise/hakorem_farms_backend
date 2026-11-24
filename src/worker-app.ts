@@ -25,7 +25,7 @@ import { BalanceReconciliation, ReservationExpiry, StockAlertSweep } from './mod
 import { MortalityEvidenceReturns } from './modules/liv';
 import { QuoteExpiry } from './modules/quo';
 import { AccountHolds, Dunning, StandingOrders } from './modules/whl';
-import { CatalogueListing } from './modules/shp';
+import { AbandonedCarts, CatalogueListing } from './modules/shp';
 import { ProviderPayments, Refunds, UnverifiedOverdue } from './modules/pay';
 import { MessageSender } from './modules/ntf';
 
@@ -45,6 +45,8 @@ const RESERVATION_EXPIRY_EVERY_MS = 60_000;
 const MORTALITY_EVIDENCE_RETURNS_EVERY_MS = 60_000;
 /** The storefront's listing is at most a minute behind prices and stock (A-178); carts and checkouts price live. */
 const CATALOGUE_REFRESH_EVERY_MS = 60_000;
+/** The abandoned-cart sweep (FR-SHP-015): every ten minutes; a cart is reminded once, two hours after it was last changed. */
+const ABANDONED_CARTS_EVERY_MS = 600_000;
 /**
  * Every fifteen seconds: the customer's messages queued from the outbox are sent, and a failed attempt retried when its
  * backoff has passed (FR-NTF-003, FR-NTF-007, B11 continued 10).
@@ -131,6 +133,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const ledgerReconciliation = app.get(LedgerReconciliation);
   const evidenceReturns = app.get(MortalityEvidenceReturns);
   const catalogue = app.get(CatalogueListing);
+  const abandonedCarts = app.get(AbandonedCarts);
   const numberingAudit = app.get(BillingNumberingAudit);
   const providerPayments = app.get(ProviderPayments);
   const refunds = app.get(Refunds);
@@ -155,6 +158,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
       },
     },
     { name: 'catalogue-refresh', when: { everyMs: CATALOGUE_REFRESH_EVERY_MS }, run: async () => catalogue.refresh() },
+    { name: 'abandoned-carts', when: { everyMs: ABANDONED_CARTS_EVERY_MS }, run: async (system) => ({ reminded: (await abandonedCarts.run(system)).length }) },
     {
       name: 'provider-sweep',
       when: { everyMs: PROVIDER_SWEEP_EVERY_MS },

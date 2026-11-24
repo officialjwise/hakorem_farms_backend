@@ -142,6 +142,14 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
     return rows;
   }
 
+  async consentingCustomers(tx: Transaction, ids: readonly string[]): Promise<string[]> {
+    const { rows } = await tx.query<{ id: string }>(
+      'SELECT id FROM mdm.customer WHERE id = ANY($1::uuid[]) AND marketing_consent_at IS NOT NULL AND deleted_at IS NULL AND status = $2',
+      [ids, 'ACTIVE'],
+    );
+    return rows.map((r) => r.id);
+  }
+
   async customerAddress(tx: Transaction, id: string): Promise<CustomerAddressFacts | null> {
     const { rows } = await tx.query<CustomerAddressFacts>(
       `SELECT id, customer_id AS "customerId", recipient_name AS "recipientName", recipient_phone_e164 AS "recipientPhone", line1, area, city, region,

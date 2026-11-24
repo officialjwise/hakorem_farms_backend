@@ -1,5 +1,6 @@
 import { Money, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
+import { issueLinkToken } from '../../../platform/crypto/link-tokens';
 import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import { NotFoundError } from '../../../platform/errors/api-error';
@@ -16,6 +17,8 @@ import type { ReceiptBindingRecord, ReceiptLinkStore, ReceiptTenderRecord } from
 
 /** Who revokes a link: a supervisor of the sale's branch, the permission that signs off a count (A-284 (f)). */
 const REVOKE = 'pos.shift.close.approve';
+/** A link sent by message (B11 continued 12): `rcp_` and 43 base64url characters, within the till's token form. */
+const MESSAGE_TOKEN_PREFIX = 'rcp_';
 /** A sale with no link, and an id that names no sale, are answered alike. */
 const NO_LINK = 'no receipt link for this sale';
 
@@ -143,6 +146,23 @@ export class ReceiptLinks {
     const change = changeDue(f.tenders.map((t) => ({ kind: t.kind, amount: Money.fromJsonInteger(t.amountPesewas), tendered: t.tenderedPesewas === null ? null : Money.fromJsonInteger(t.tenderedPesewas) })));
     const tenders: ReceiptTenderRecord[] = f.tenders.map((t) => ({ paymentMethodId: t.paymentMethodId, amountPesewas: t.amountPesewas, tenderedPesewas: t.tenderedPesewas, unverified: t.unverified }));
     await this.store.insertLink(tx, { id: this.nextId(), orderDocumentId: f.saleId, branchId: f.branchId, shiftId: f.shiftId, deviceId: f.deviceId, tokenHash: hash, issuedAt: f.occurredAt, tenders, changePesewas: change.ok ? change.value.pesewas : 0n, recordedAt: f.now, actorId: f.actorId });
+  }
+
+  /**
+   * A fresh receipt link for a message (CR-033 point 3, ADR-0074, B11 continued 12), made in the sending worker's own
+   * transaction just before the provider call: an `rcp_` token of 256 random bits, of the till's form, whose hash only is
+   * stored (`pos.receipt_message_link`), bound to the sale's till link so it answers exactly that receipt and expires,
+   * or is revoked, with it. Null for a sale with no live till link (its till token was refused, none was sent, or the link
+   * expired or was revoked): such a sale gets no receipt by message, since only the till link keeps how the buyer paid.
+   * The token is answered once and kept nowhere.
+   */
+  async issueMessageLinkIn(tx: Transaction, saleId: string, actorId: string): Promise<string | null> {
+    const now = this.clock.now();
+    const till = await this.store.liveTillLinkOfSale(tx, saleId, now);
+    if (till === null) return null;
+    const issued = issueLinkToken(MESSAGE_TOKEN_PREFIX);
+    await this.store.insertMessageLink(tx, { id: this.nextId(), receiptLinkId: till.id, orderDocumentId: saleId, tokenHash: issued.hash, expiresAt: till.expiresAt, recordedAt: now, actorId });
+    return issued.token;
   }
 
   /** `getPublicReceipt`: anonymous, rate-limited, by the token alone; anything that is not a live link's token is 404. */

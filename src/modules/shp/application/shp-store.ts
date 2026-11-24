@@ -122,7 +122,21 @@ export interface CheckoutRecord {
 /** What the checkout writes; the totals and the delivery are recomputed together on every change. */
 export type CheckoutWrite = Omit<CheckoutRecord, 'orderId' | 'status' | 'version'>;
 
+/** A cart a customer holds, with lines, idle since `idleSince` and never reminded (FR-SHP-015). */
+export interface IdleCartRecord {
+  readonly cartId: string;
+  readonly customerId: string;
+  readonly branchId: string;
+  readonly idleSince: Date;
+}
+
 export interface ShpStore {
+  /** Carts a customer holds, ACTIVE with at least one line, last changed at or before `before`, with no reminder yet. */
+  idleCustomerCarts(tx: Transaction, before: Date, limit: number): Promise<IdleCartRecord[]>;
+  /** One reminder requested for a cart, once ever; false when one already was (`uq_abandoned_cart_notice`). */
+  /** Whether a cart is still ACTIVE with at least one line and held by a customer. */
+  remindableCart(tx: Transaction, cartId: string): Promise<boolean>;
+  insertAbandonedCartNotice(tx: Transaction, n: { readonly id: string; readonly cartId: string; readonly idleSince: Date; readonly at: Date; readonly actorId: string }): Promise<boolean>;
   replaceListing(tx: Transaction, branchId: string, rows: readonly ListingRow[]): Promise<number>;
   listingPage(tx: Transaction, branchId: string, filters: CatalogueFilters, order: SortOrder, position: readonly string[] | null, limit: number): Promise<Array<ListingRow & { readonly position: readonly string[] }>>;
   facets(tx: Transaction, branchId: string, filters: CatalogueFilters): Promise<{ readonly categories: { code: string; name: string; count: number }[]; readonly productLines: { value: string; count: number }[] }>;

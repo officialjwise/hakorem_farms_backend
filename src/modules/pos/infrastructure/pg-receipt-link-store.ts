@@ -1,5 +1,5 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
-import type { NewReceiptLink, NewReceiptLinkRevocation, ReceiptBindingRecord, NewReceiptTokenRefusal, ReceiptLinkOfSale, ReceiptLinkRecord, ReceiptLinkStore, ReceiptTenderRecord } from '../application/receipt-link-store';
+import type { NewReceiptLink, NewReceiptMessageLink, NewReceiptLinkRevocation, ReceiptBindingRecord, NewReceiptTokenRefusal, ReceiptLinkOfSale, ReceiptLinkRecord, ReceiptLinkStore, ReceiptTenderRecord } from '../application/receipt-link-store';
 
 interface LinkRow {
   id: string;
@@ -27,9 +27,42 @@ export class PgReceiptLinkStore implements ReceiptLinkStore {
         WHERE l.token_hash = $1 AND l.expires_at > $2`,
       [tokenHash, at],
     );
-    const row = rows[0];
+    // A till link's hash answers as it always has; only a hash no till link holds is looked for among the links sent by
+    // message (B11 continued 12), each answering its own till link's receipt while that is live.
+    const row = rows[0] ?? (await this.liveMessageLink(tx, tokenHash, at));
     if (row === undefined || row.revoked) return null;
     return { id: row.id, orderDocumentId: row.order_document_id, branchId: row.branch_id, issuedAt: row.issued_at, expiresAt: row.expires_at, tenders: row.tenders, changePesewas: BigInt(row.change_pesewas), revoked: row.revoked };
+  }
+
+  /** The till link a message link's hash opens, by the same rules as a till link's own hash, or undefined. */
+  private async liveMessageLink(tx: Transaction, tokenHash: Buffer, at: Date): Promise<LinkRow | undefined> {
+    const { rows } = await tx.query<LinkRow>(
+      `SELECT l.id, l.order_document_id, l.branch_id, l.issued_at, l.expires_at, l.tenders, l.change_pesewas::text AS change_pesewas,
+              EXISTS (SELECT 1 FROM pos.receipt_link_revocation r WHERE r.receipt_link_id = l.id AND r.revoked_at <= $2) AS revoked
+         FROM pos.receipt_message_link m
+         JOIN pos.receipt_link l ON l.id = m.receipt_link_id AND l.order_document_id = m.order_document_id
+        WHERE m.token_hash = $1 AND m.expires_at > $2 AND l.expires_at > $2`,
+      [tokenHash, at],
+    );
+    return rows[0];
+  }
+
+  async liveTillLinkOfSale(tx: Transaction, saleId: string, at: Date): Promise<{ readonly id: string; readonly expiresAt: Date } | null> {
+    const { rows } = await tx.query<{ id: string; expires_at: Date }>(
+      `SELECT l.id, l.expires_at FROM pos.receipt_link l
+        WHERE l.order_document_id = $1 AND l.source = 'TILL' AND l.expires_at > $2
+          AND NOT EXISTS (SELECT 1 FROM pos.receipt_link_revocation r WHERE r.receipt_link_id = l.id AND r.revoked_at <= $2)`,
+      [saleId, at],
+    );
+    const row = rows[0];
+    return row === undefined ? null : { id: row.id, expiresAt: row.expires_at };
+  }
+
+  async insertMessageLink(tx: Transaction, m: NewReceiptMessageLink): Promise<void> {
+    await tx.query(
+      'INSERT INTO pos.receipt_message_link (id, receipt_link_id, order_document_id, token_hash, expires_at, recorded_at, actor_id) VALUES ($1, $2, $3, $4, $5, $6, $7)',
+      [m.id, m.receiptLinkId, m.orderDocumentId, m.tokenHash, m.expiresAt, m.recordedAt, m.actorId],
+    );
   }
 
   async insertLink(tx: Transaction, l: NewReceiptLink): Promise<void> {

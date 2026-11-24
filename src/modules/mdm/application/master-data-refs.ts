@@ -177,6 +177,8 @@ export interface MasterDataRefsStore {
   taxCategories(tx: Transaction, ids: readonly string[]): Promise<TaxCategoryFacts[]>;
   customers(tx: Transaction, ids: readonly string[]): Promise<CustomerFacts[]>;
   customerContacts(tx: Transaction, ids: readonly string[]): Promise<CustomerContactFacts[]>;
+  /** The live customers among the ids who have given marketing consent (`marketing_consent_at` set). */
+  consentingCustomers(tx: Transaction, ids: readonly string[]): Promise<string[]>;
   customerOfPrincipal(tx: Transaction, principalId: string): Promise<CustomerFacts | null>;
   customerAddress(tx: Transaction, id: string): Promise<CustomerAddressFacts | null>;
   reasonCodes(tx: Transaction, codes: readonly string[]): Promise<ReasonCodeFacts[]>;
@@ -267,6 +269,15 @@ export class MasterDataRefs {
   async customerContactsIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, CustomerContactFacts>> {
     if (ids.length === 0) return new Map();
     return byId(await this.store.customerContacts(tx, unique(ids)));
+  }
+
+  /**
+   * Whether each customer has given marketing consent and is live (NTF's abandoned-cart message, B11 continued 12): a
+   * marketing message goes only to a customer whose own record says yes, read when it is queued and again when sent.
+   */
+  async marketingConsentsIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlySet<string>> {
+    if (ids.length === 0) return new Set();
+    return new Set(await this.store.consentingCustomers(tx, unique(ids)));
   }
 
   /** The customer a customer-realm sign-in belongs to (`mdm.customer.principal_id`), or null if none is linked. */

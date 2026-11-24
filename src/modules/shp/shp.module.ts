@@ -16,6 +16,7 @@ import { InvModule, Reservations, StockQueries } from '../inv';
 import { MasterDataRefs, MdmModule, PricingService, Storefront, TaxService } from '../mdm';
 import { OnlineOrders, OrdModule } from '../ord';
 import { PayModule, ProviderPayments } from '../pay';
+import { AbandonedCarts } from './application/abandoned-carts';
 import { Carts } from './application/carts';
 import { Catalogue, CatalogueListing } from './application/catalogue';
 import { Checkouts } from './application/checkouts';
@@ -45,6 +46,11 @@ import { ShopController } from './interface/shop.controller';
       provide: Catalogue,
       useFactory: (uow: UnitOfWork, store: ShpStore, listing: CatalogueListing, storefront: Storefront, cursors: Cursors) => new Catalogue(uow, store, listing, storefront, cursors),
       inject: [UnitOfWork, SHP_STORE, CatalogueListing, Storefront, Cursors],
+    },
+    {
+      provide: AbandonedCarts,
+      useFactory: (uow: UnitOfWork, store: ShpStore, refs: MasterDataRefs, events: DomainEvents, clock: Clock) => new AbandonedCarts(uow, store, refs, events, clock),
+      inject: [UnitOfWork, SHP_STORE, MasterDataRefs, DomainEvents, CLOCK],
     },
     {
       provide: Carts,
@@ -88,7 +94,7 @@ import { ShopController } from './interface/shop.controller';
       inject: [UnitOfWork, SHP_STORE, Carts, CatalogueListing, Storefront, PricingService, TaxService, StockQueries, Reservations, Slots, Idempotency, AuditTrail, DomainEvents, DocumentRegistry, Settings, CLOCK, OnlineOrders, ProviderPayments],
     },
   ],
-  exports: [CatalogueListing, Carts, Checkouts],
+  exports: [CatalogueListing, Carts, Checkouts, AbandonedCarts],
 })
 export class ShpModule implements OnModuleInit {
   constructor(
