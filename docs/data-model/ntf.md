@@ -120,6 +120,8 @@ Standard columns: `DOCUMENT` (`version`, `created_by`, `updated_at`, `updated_by
 - Index (`status`, `send_after`); (`address_hash`, `created_at`); (`created_at` DESC, `id` DESC) for the log.
 - `ntf.message_guard()` (replaced in 0338): written `QUEUED`, `DEFERRED_QUIET_HOURS` (with `send_after`) or `SUPPRESSED`, never tried; what a message is (its event, order, template, channel, recipient, text, subject and link) never changes; attempts never fall; `QUEUED` and `DEFERRED_QUIET_HOURS` -> each other, `SENT`, `FAILED`, `SUPPRESSED`; `SENT` -> `DELIVERED`, `FAILED`; `FAILED` -> `QUEUED` (a manager's retry); `DELIVERED` and `SUPPRESSED` final. A delivery report moves only the status.
 
+- **B11 continued 13 (migration 0343, ADR-0099):** `supplier_id` (NULL, FK `mdm.supplier`) names the supplier a `SUPPLIER` message (the remittance advice) is for, its address read through MDM at queue and at send (`ck_message_supplier`: a `SUPPLIER` message names one, no other does); `record_id` (NULL) is the record the idempotency key names (a dunning notice, a document send, a remittance), from which a reminder's delivery is recorded on its notice. Both are fixed (`ntf.message_record_fixed()`, HK004). `recipient_kind` adds `SUPPLIER`; `address_masked` holds an email's mask (`k***@example.com`) for an EMAIL message, and `address_hash` the keyed hash of the email in lower case. Seeded: `DOCUMENT_SENT` and `REMITTANCE_ADVICE` on SMS, WhatsApp and email (email with a subject), and triggers on `bil.DocumentSendRequested`, `whl.StatementSendRequested` (CUSTOMER) and `pur.SupplierRemittanceReady` (SUPPLIER; `ck_trigger_rule_recipient_kind` adds it).
+
 ### `ntf.message_attempt` · LEDGER
 
 Each attempt to send a message.

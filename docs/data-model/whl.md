@@ -203,6 +203,21 @@ Standard columns: `LEDGER`. UNIQUE (`billing_document_id`, `level`): each level 
 
 **As built in B10 continued 2 (0265, A-318):** `billing_document_id` references `platform.business_document`; adds `branch_id` (the document's), `days_past_due`, `channels` and `template_code` (the level's, as queued), `notice_date` (business day) and `queued_at` (the application clock: the contract's `sentAt`), `recorded_at` and `actor_id`; `outstanding_pesewas` above nil. `whl.dunning_notice_check` (HK010 `ck_dunning_notice_order`, under an advisory lock on the document) refuses a level as low as or lower than one that has reached the document. Written with `whl.DunningNoticeDue` in the same transaction.
 
+### `whl.dunning_notice_delivery` · LEDGER
+
+Each reminder's delivery on its notice, per channel (B11 continued 13, the owner 2026-11-23, ADR-0099, migration 0346): written by NTF through `Dunning.recordDeliveryIn` in the transaction that records the message's state, so a failed reminder shows as failed. `DunningNotice.deliveries` is the latest per channel.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `dunning_notice_id` | `uuid` | NOT NULL, FK `whl.dunning_notice` | |
+| `channel` | `text` | NOT NULL, CHECK in (`SMS`, `EMAIL`, `WHATSAPP`) | |
+| `status` | `text` | NOT NULL, CHECK in (`SENT`, `DELIVERED`, `FAILED`) | |
+| `message_ref` | `uuid` | NOT NULL | NTF's message; UNIQUE with `status` (`uq_dunning_notice_delivery`), so a report applied twice records once |
+| `occurred_at` | `timestamptz` | NOT NULL | When the sender or the provider's report said so |
+
+Standard columns: `LEDGER`. `platform.reject_change()` refuses UPDATE, DELETE and TRUNCATE. `whl.dunning_policy.template_code` on a live level is one of `PAYMENT_REMINDER_1` to `3` (`ck_dunning_policy_template`, migration 0346).
+
 ### `whl.ageing_snapshot` · PROJECTION
 
 Receivables by age bucket per customer, as at a date.

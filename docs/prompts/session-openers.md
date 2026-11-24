@@ -4290,6 +4290,9 @@ Stop at the gate and write docs/sessions/B11c12-notifications.md.
 
 Branch `b11c13-notifications`. Report `docs/sessions/B11c13-notifications.md`. Inserted by B11 continued 12 (A-379, ADR-0026 Amendments), which built the messages that carry a link: the stored text keeps `{{link}}` and the sending worker asks the record's own module for a fresh token at each attempt (`MessageLinks`, `ntf.message.link_kind` and `link_record_id`, migration 0339; ADR-0084), the guest's tracking SMS (`ord.OrderPlaced`), the receipt SMS (`ord.OrderCompleted` for a synced till sale, its own link in `pos.receipt_message_link`, migration 0340) and abandoned-cart recovery (`shp.abandoned_cart_notice`, migration 0341, the `abandoned-carts` job, marketing with the customer's consent), contract 2.41.0. Gate: a document send reaches only the document's own customer or supplier and a failed send is retried without a second archive row; the remittance advice goes once per payment to its own supplier; a failed reminder shows as failed on its channel; CR-039's crate and single egg price exactly. This closes the B11 chain: split only if the context truly cannot reach the gate, at a sub-domain boundary (the document sends and the remittance advice first; then the reminders' templates and delivery and CR-039; then the reused-photograph match and the UAT dry runs).
 
+
+**Built (A-288 to A-291, ADR-0099, migrations 0342 to 0347, contract 2.42.0):** the document sends and their document link (`getSharedDocument`), the remittance advice, a dunning level's listed template and each reminder's delivery on its notice, CR-039 at the shop, and the UAT dry runs at the desk. The reused-photograph match was not built: B12 records it, as its opener says (A-291). This closes the B11 chain; the parent session inserts the UAT scenario 2 corrections phase before B12.
+
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B11c12-notifications.md,
@@ -4402,7 +4405,7 @@ the egg report codes, the VAT return, and the statement and exception report exp
 - "quotes accepted in a staff session" is the possible staff acceptance of B10 continued 6 (the decision's address and
   browser matched against staff sessions active from the same address in the last 24 hours, never a cookie);
 - "reused photographs" means a proof-of-delivery photograph or signature whose content hash matches an earlier upload
-  (beside case 2's death photographs); if B11 continued 6, 7, 8, 9, 10, 11, 12 or 13 did not record that match, this phase must (its report says);
+  (beside case 2's death photographs); none of B11 continued 6 to 13 recorded that match (B11 continued 13, A-291), so this phase must: record on the proof of delivery whether its photograph or signature matches an earlier upload's SHA-256 in `platform.stored_file` (as liv.MortalityPhotoReused does) and publish it;
 - each existing exception kind keeps working, and any rename is LOUD.
 Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
 ```

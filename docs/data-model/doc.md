@@ -63,6 +63,19 @@ Standard columns: `LEDGER`.
 - UNIQUE (`business_document_id`, `revision`). `platform.reject_change()` refuses UPDATE, DELETE and TRUNCATE for every role. The files are stored files of use `ARCHIVE`, served only once scanned CLEAN.
 - A reprint serves this row's file with a marker overlaid at print time and logs to `bil.reprint_log`. It never creates a row here.
 
+### `doc.document_link` · LEDGER
+
+A document sent by message (B11 continued 13, ADR-0099, migration 0342): the hash of a `doc_` token NTF's sending worker asked DOC for at one attempt, and the one archived rendering it opens. Read by `getSharedDocument` by the token alone.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `id` | `uuid` | PK | |
+| `archived_document_id` | `uuid` | NOT NULL, FK `doc.archived_document` | The rendering it opens, the latest of its business document when made |
+| `token_hash` | `bytea` | NOT NULL, 32 bytes, UNIQUE (`uq_document_link_token`) | SHA-256 of the token; never the token (DC-43) |
+| `expires_at` | `timestamptz` | NOT NULL | More than nothing and at most thirty days after `recorded_at` (`ck_document_link_expiry`, A-288 (b)) |
+
+Standard columns: `LEDGER` (`recorded_at`, `actor_id`, written from the application's clock). `platform.reject_change()` refuses UPDATE, DELETE and TRUNCATE. `hk_app` and `hk_worker` select and insert. A message sent again gets another row.
+
 ### `doc.render_job` · WORK
 
 Rendering runs in the worker, outside the business transaction (ADR-0010).
