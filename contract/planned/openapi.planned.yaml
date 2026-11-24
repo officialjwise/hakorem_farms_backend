@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.46.0"
+  version: "2.47.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -3792,866 +3792,13 @@ paths:
   "/investor/statement": {}
   "/investor/documents": {}
   "/investor/documents/{id}/download": {}
-  "/costing/cost-objects/{objectType}/{objectId}":
-    get:
-      operationId: getCostObject
-      tags:
-        - cst
-      summary: "Accumulated cost of an animal, pen, batch or processing order by element"
-      description: "Permission: `cst.cost.read`."
-      x-permission: cst.cost.read
-      parameters:
-        - name: objectType
-          in: path
-          required: true
-          schema:
-            type: string
-            enum:
-              - STOCK_UNIT
-              - PEN
-              - BATCH
-              - PROCESSING_ORDER
-        - name: objectId
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CostObjectSummary"
-              example:
-                objectType: STOCK_UNIT
-                objectId: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                label: "Goat G-0142"
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                byElement:
-                  - costElement: PURCHASE
-                    valuePesewas: 52000
-                  - costElement: FEED
-                    valuePesewas: 6600
-                  - costElement: VETERINARY
-                    valuePesewas: 1650
-                  - costElement: LABOUR
-                    valuePesewas: 700
-                  - costElement: OVERHEAD
-                    valuePesewas: 300
-                totalPesewas: 61250
-                currency: GHS
-                refreshedAt: "2026-11-13T09:25:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/costing/margins":
-    get:
-      operationId: listMargins
-      tags:
-        - cst
-      summary: "Margin by product, line, channel, customer, salesperson or branch"
-      description: "Permission: `cst.margin.read`."
-      x-permission: cst.margin.read
-      parameters:
-        - name: groupBy
-          in: query
-          required: true
-          schema:
-            type: string
-            enum:
-              - PRODUCT
-              - PRODUCT_LINE
-              - CHANNEL
-              - CUSTOMER
-              - SALESPERSON
-              - BRANCH
-        - name: from
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: to
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: branchId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MarginReport"
-              examples:
-                default:
-                  value:
-                    data:
-                      - group:
-                          id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
-                          label: Goat
-                        qty: null
-                        weightKg: null
-                        revenuePesewas: 8840000
-                        costPesewas: 6110000
-                        grossMarginPesewas: 2730000
-                        marginIsNegative: false
-                        marginPercent: "30.88"
-                        priceVariancePesewas: 185000
-                        priceVarianceIsNegative: true
-                      - group:
-                          id: "019a7a8d-ec06-79f8-af30-a851f637212f"
-                          label: "Goat meat, 15 kg pack"
-                        qty: null
-                        weightKg: null
-                        revenuePesewas: 1620000
-                        costPesewas: 1104000
-                        grossMarginPesewas: 516000
-                        marginIsNegative: false
-                        marginPercent: "31.85"
-                        priceVariancePesewas: 0
-                        priceVarianceIsNegative: false
-                      - group:
-                          id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
-                          label: "Full chicken, 15 kg pack"
-                        qty: null
-                        weightKg: null
-                        revenuePesewas: 1302500
-                        costPesewas: 902400
-                        grossMarginPesewas: 400100
-                        marginIsNegative: false
-                        marginPercent: "30.72"
-                        priceVariancePesewas: 12000
-                        priceVarianceIsNegative: true
-                      - group:
-                          id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
-                          label: "Beef, 15 kg pack"
-                        qty: null
-                        weightKg: null
-                        revenuePesewas: 1293000
-                        costPesewas: 884000
-                        grossMarginPesewas: 409000
-                        marginIsNegative: false
-                        marginPercent: "31.63"
-                        priceVariancePesewas: 0
-                        priceVarianceIsNegative: false
-                      - group:
-                          id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
-                          label: "Eggs, big, crate of 30"
-                        qty: null
-                        weightKg: null
-                        revenuePesewas: 864000
-                        costPesewas: 512000
-                        grossMarginPesewas: 352000
-                        marginIsNegative: false
-                        marginPercent: "40.74"
-                        priceVariancePesewas: 0
-                        priceVarianceIsNegative: false
-                      - group:
-                          id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
-                          label: "Tomatoes, crate"
-                        qty: null
-                        weightKg: null
-                        revenuePesewas: 758000
-                        costPesewas: 702000
-                        grossMarginPesewas: 56000
-                        marginIsNegative: false
-                        marginPercent: "7.39"
-                        priceVariancePesewas: 22000
-                        priceVarianceIsNegative: true
-                    page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                      limit: 25
-                      hasMore: true
-                    totals:
-                      revenuePesewas: 14677500
-                      costPesewas: 10214400
-                      grossMarginPesewas: 4463100
-                      marginIsNegative: false
-                    currency: GHS
-                    asOf: "2026-11-13T09:30:00Z"
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                    totals:
-                      revenuePesewas: 0
-                      costPesewas: 0
-                      grossMarginPesewas: 0
-                      marginIsNegative: false
-                    currency: GHS
-                    asOf: "2026-11-13T09:30:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/costing/break-even":
-    get:
-      operationId: getBreakEven
-      tags:
-        - cst
-      summary: "Break-even and contribution margin by product line"
-      description: "Written for the owner, not the accountant.\n\nPermission: `cst.margin.read`."
-      x-permission: cst.margin.read
-      parameters:
-        - name: from
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: to
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: branchId
-          in: query
-          required: false
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BreakEven"
-              example:
-                from: "2026-10-01"
-                to: "2026-10-31"
-                lines:
-                  - productLine: LIVE
-                    revenuePesewas: 8840000
-                    variableCostPesewas: 6110000
-                    contributionPesewas: 2730000
-                    contributionIsNegative: false
-                    contributionMarginPercent: "30.88"
-                    fixedCostPesewas: 820000
-                    breakEvenRevenuePesewas: 2655238
-                    coveredPercent: "100.00"
-                  - productLine: MEAT
-                    revenuePesewas: 4215500
-                    variableCostPesewas: 2890400
-                    contributionPesewas: 1325100
-                    contributionIsNegative: false
-                    contributionMarginPercent: "31.43"
-                    fixedCostPesewas: 980000
-                    breakEvenRevenuePesewas: 3117644
-                    coveredPercent: "100.00"
-                  - productLine: PRODUCE
-                    revenuePesewas: 1622000
-                    variableCostPesewas: 1214000
-                    contributionPesewas: 408000
-                    contributionIsNegative: false
-                    contributionMarginPercent: "25.15"
-                    fixedCostPesewas: 540000
-                    breakEvenRevenuePesewas: 2146765
-                    coveredPercent: "75.56"
-                currency: GHS
-                explanation: "Each line keeps its sales after paying for the stock it sold; that contribution must cover the line's share of fixed costs. Break-even is the sales at which it does."
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/costing/losses":
-    get:
-      operationId: listLosses
-      tags:
-        - cst
-      summary: "Mortality, shrinkage and wastage as their own figures"
-      description: "Permission: `cst.margin.read`."
-      x-permission: cst.margin.read
-      parameters:
-        - name: groupBy
-          in: query
-          required: true
-          schema:
-            type: string
-            enum:
-              - CAUSE
-              - LOCATION
-              - HANDLER
-              - PRODUCT
-        - name: from
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: to
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/LossReport"
-              examples:
-                default:
-                  value:
-                    data:
-                      - group:
-                          id: null
-                          label: Mortality
-                        lossGroup: MORTALITY
-                        events: 11
-                        qty: null
-                        valuePesewas: 213000
-                        ratePercent: null
-                        comparisonRatePercent: null
-                      - group:
-                          id: null
-                          label: Shrinkage
-                        lossGroup: SHRINKAGE
-                        events: 6
-                        qty: null
-                        valuePesewas: 28171
-                        ratePercent: null
-                        comparisonRatePercent: null
-                      - group:
-                          id: null
-                          label: "Wastage and expiry"
-                        lossGroup: WASTAGE
-                        events: 4
-                        qty: null
-                        valuePesewas: 35000
-                        ratePercent: null
-                        comparisonRatePercent: null
-                      - group:
-                          id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                          label: "Abena Quaye"
-                        lossGroup: MORTALITY
-                        events: 7
-                        qty: "7.000"
-                        valuePesewas: 135000
-                        ratePercent: "1.48"
-                        comparisonRatePercent: "1.39"
-                      - group:
-                          id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                          label: "Yaw Boateng"
-                        lossGroup: MORTALITY
-                        events: 4
-                        qty: "4.000"
-                        valuePesewas: 78000
-                        ratePercent: "1.29"
-                        comparisonRatePercent: "1.39"
-                    page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                      limit: 25
-                      hasMore: true
-                    totalPesewas: 276171
-                    currency: GHS
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                    totalPesewas: 0
-                    currency: GHS
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/costing/overhead-allocations":
-    get:
-      operationId: listOverheadAllocations
-      tags:
-        - cst
-      summary: "List labour and overhead allocation runs"
-      description: "Permission: `cst.allocation.read`."
-      x-permission: cst.allocation.read
-      parameters:
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OverheadAllocationRunPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7b11-a1a4-747b-89b3-508619d9c964"
-                        status: DRAFT
-                        periodStart: "2026-10-01"
-                        periodEnd: "2026-10-31"
-                        costElement: LABOUR
-                        basis: HEAD_DAYS
-                        scopeLocation:
-                          id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                          code: PEN-G1
-                          name: "Goat pen 1"
-                          kind: PEN
-                        totalPesewas: 96000
-                        lines:
-                          - stockUnit:
-                              id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                              identifier: G-0142
-                              tracking: SERIAL
-                            weight: 30
-                            amountPesewas: 32000
-                          - stockUnit:
-                              id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
-                              identifier: G-0157
-                              tracking: SERIAL
-                            weight: 30
-                            amountPesewas: 32000
-                          - stockUnit:
-                              id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-                              identifier: G-0118
-                              tracking: SERIAL
-                            weight: 30
-                            amountPesewas: 32000
-                        currency: GHS
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 1
-                        createdAt: "2026-11-05T10:00:00Z"
-                      - id: "019a7b11-c093-7e5e-9397-eebd938a679b"
-                        status: POSTED
-                        periodStart: "2026-09-01"
-                        periodEnd: "2026-09-30"
-                        costElement: OVERHEAD
-                        basis: HEAD_DAYS
-                        scopeLocation:
-                          id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                          code: PEN-G1
-                          name: "Goat pen 1"
-                          kind: PEN
-                        totalPesewas: 96000
-                        lines: []
-                        currency: GHS
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 1
-                        createdAt: "2026-11-05T10:00:00Z"
-                      - id: "019a7b11-df82-7842-ad7a-8cf50d3b05d2"
-                        status: POSTED
-                        periodStart: "2026-08-01"
-                        periodEnd: "2026-08-31"
-                        costElement: LABOUR
-                        basis: HEAD_DAYS
-                        scopeLocation:
-                          id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                          code: PEN-G1
-                          name: "Goat pen 1"
-                          kind: PEN
-                        totalPesewas: 96000
-                        lines: []
-                        currency: GHS
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 1
-                        createdAt: "2026-11-05T10:00:00Z"
-                      - id: "019a7b11-fe71-7225-b75d-2b2c86eca40a"
-                        status: POSTED
-                        periodStart: "2026-07-01"
-                        periodEnd: "2026-07-31"
-                        costElement: OVERHEAD
-                        basis: HEAD_DAYS
-                        scopeLocation:
-                          id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                          code: PEN-G1
-                          name: "Goat pen 1"
-                          kind: PEN
-                        totalPesewas: 96000
-                        lines: []
-                        currency: GHS
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 1
-                        createdAt: "2026-11-05T10:00:00Z"
-                      - id: "019a7b12-1d60-7c09-8141-c964009d4241"
-                        status: POSTED
-                        periodStart: "2026-06-01"
-                        periodEnd: "2026-06-30"
-                        costElement: LABOUR
-                        basis: HEAD_DAYS
-                        scopeLocation:
-                          id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                          code: PEN-G1
-                          name: "Goat pen 1"
-                          kind: PEN
-                        totalPesewas: 96000
-                        lines: []
-                        currency: GHS
-                        branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                        version: 1
-                        createdAt: "2026-11-05T10:00:00Z"
-                    page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
-                      limit: 25
-                      hasMore: true
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      operationId: createOverheadAllocation
-      tags:
-        - cst
-      summary: "Spread a period's labour or overhead over the animals"
-      description: "Permission: `cst.allocation.manage`."
-      x-permission: cst.allocation.manage
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/OverheadAllocationCreate"
-            example:
-              periodStart: "2026-10-01"
-              periodEnd: "2026-10-31"
-              costElement: LABOUR
-              basis: HEAD_DAYS
-              scopeLocationId: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-              totalPesewas: 96000
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OverheadAllocationRun"
-              example:
-                id: "019a7b11-a1a4-747b-89b3-508619d9c964"
-                status: DRAFT
-                periodStart: "2026-10-01"
-                periodEnd: "2026-10-31"
-                costElement: LABOUR
-                basis: HEAD_DAYS
-                scopeLocation:
-                  id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                  code: PEN-G1
-                  name: "Goat pen 1"
-                  kind: PEN
-                totalPesewas: 96000
-                lines:
-                  - stockUnit:
-                      id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                      identifier: G-0142
-                      tracking: SERIAL
-                    weight: 30
-                    amountPesewas: 32000
-                  - stockUnit:
-                      id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
-                      identifier: G-0157
-                      tracking: SERIAL
-                    weight: 30
-                    amountPesewas: 32000
-                  - stockUnit:
-                      id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-                      identifier: G-0118
-                      tracking: SERIAL
-                    weight: 30
-                    amountPesewas: 32000
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 1
-                createdAt: "2026-11-05T10:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/costing/overhead-allocations/{id}":
-    get:
-      operationId: getOverheadAllocation
-      tags:
-        - cst
-      summary: "Get an allocation run"
-      description: "Permission: `cst.allocation.read`."
-      x-permission: cst.allocation.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OverheadAllocationRun"
-              example:
-                id: "019a7b11-a1a4-747b-89b3-508619d9c964"
-                status: DRAFT
-                periodStart: "2026-10-01"
-                periodEnd: "2026-10-31"
-                costElement: LABOUR
-                basis: HEAD_DAYS
-                scopeLocation:
-                  id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                  code: PEN-G1
-                  name: "Goat pen 1"
-                  kind: PEN
-                totalPesewas: 96000
-                lines:
-                  - stockUnit:
-                      id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                      identifier: G-0142
-                      tracking: SERIAL
-                    weight: 30
-                    amountPesewas: 32000
-                  - stockUnit:
-                      id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
-                      identifier: G-0157
-                      tracking: SERIAL
-                    weight: 30
-                    amountPesewas: 32000
-                  - stockUnit:
-                      id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-                      identifier: G-0118
-                      tracking: SERIAL
-                    weight: 30
-                    amountPesewas: 32000
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 1
-                createdAt: "2026-11-05T10:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/costing/overhead-allocations/{id}/post":
-    post:
-      operationId: postOverheadAllocation
-      tags:
-        - cst
-      summary: "Post an allocation as value-only stock movements"
-      description: "The lines sum exactly to the total.\n\nPermission: `cst.allocation.manage`."
-      x-permission: cst.allocation.manage
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/OverheadAllocationRun"
-              example:
-                id: "019a7b11-a1a4-747b-89b3-508619d9c964"
-                status: POSTED
-                periodStart: "2026-10-01"
-                periodEnd: "2026-10-31"
-                costElement: LABOUR
-                basis: HEAD_DAYS
-                scopeLocation:
-                  id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
-                  code: PEN-G1
-                  name: "Goat pen 1"
-                  kind: PEN
-                totalPesewas: 96000
-                lines:
-                  - stockUnit:
-                      id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
-                      identifier: G-0142
-                      tracking: SERIAL
-                    weight: 30
-                    amountPesewas: 32000
-                  - stockUnit:
-                      id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
-                      identifier: G-0157
-                      tracking: SERIAL
-                    weight: 30
-                    amountPesewas: 32000
-                  - stockUnit:
-                      id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
-                      identifier: G-0118
-                      tracking: SERIAL
-                    weight: 30
-                    amountPesewas: 32000
-                currency: GHS
-                branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
-                version: 1
-                createdAt: "2026-11-05T10:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/costing/cost-objects/{objectType}/{objectId}": {}
+  "/costing/margins": {}
+  "/costing/break-even": {}
+  "/costing/losses": {}
+  "/costing/overhead-allocations": {}
+  "/costing/overhead-allocations/{id}": {}
+  "/costing/overhead-allocations/{id}/post": {}
   "/dashboard/owner": {}
   "/dashboard/tiles/stock-value": {}
   "/dashboard/tiles/animals-on-hand": {}
@@ -31933,6 +31080,12 @@ components:
           $ref: "#/components/schemas/Pesewas"
         priceVarianceIsNegative:
           type: boolean
+        revenueIsNegative:
+          type: boolean
+          description: "True when credit notes in the range took back more than was billed: `revenuePesewas` is then the size of the negative figure (2.47.0)."
+        costIsNegative:
+          type: boolean
+          description: "True when returns in the range took back more cost than was issued (2.47.0)."
       required:
         - group
         - qty
@@ -31944,6 +31097,8 @@ components:
         - marginPercent
         - priceVariancePesewas
         - priceVarianceIsNegative
+        - revenueIsNegative
+        - costIsNegative
     MarginReport:
       type: object
       description: "A page of `MarginRow` results."
@@ -31978,11 +31133,31 @@ components:
           $ref: "#/components/schemas/Pesewas"
         marginIsNegative:
           type: boolean
+        revenueIsNegative:
+          type: boolean
+          description: "As on a row (2.47.0)."
+        costIsNegative:
+          type: boolean
+          description: "As on a row (2.47.0)."
+        marginPercent:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+          description: "The margin over revenue over the whole filter, as on a row (2.47.0)."
+        priceVariancePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        priceVarianceIsNegative:
+          type: boolean
       required:
         - revenuePesewas
         - costPesewas
         - grossMarginPesewas
         - marginIsNegative
+        - revenueIsNegative
+        - costIsNegative
+        - marginPercent
+        - priceVariancePesewas
+        - priceVarianceIsNegative
     BreakEvenLine:
       type: object
       properties:
@@ -32008,12 +31183,50 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
             - type: "null"
+          description: "Break-even units at the average net price (FR-CST-005); null when there is no break-even."
         coveredPercent:
           anyOf:
             - allOf:
                 - $ref: "#/components/schemas/Percent"
               description: "How much of break-even revenue has been reached."
             - type: "null"
+        revenueIsNegative:
+          type: boolean
+          description: "As `MarginRow.revenueIsNegative` (2.47.0)."
+        variableCostIsNegative:
+          type: boolean
+          description: "As `MarginRow.costIsNegative` (2.47.0)."
+        unitsSold:
+          allOf:
+            - $ref: "#/components/schemas/Quantity"
+          description: "Net units billed in the products' own units, at the period's mix (2.47.0)."
+        averageNetPricePesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+          description: "Revenue over units, half-up once; null when nothing was sold (2.47.0)."
+        variableCostPerUnitPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+          description: "Cost of sales over units, half-up once (2.47.0)."
+        contributionPerUnitPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+          description: "Average net price less variable cost per unit (2.47.0)."
+        contributionPerUnitIsNegative:
+          type: boolean
+        breakEvenUnits:
+          type:
+            - integer
+            - "null"
+          description: "Fixed cost over contribution per unit, rounded up to a whole unit; null when contribution per unit is nothing or less, or nothing was sold (FR-CST-005, 2.47.0)."
+        contributionSharePercent:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+          description: "The line's share of the total contribution; the shares sum to 100.00 exactly. Null when any contribution is negative (2.47.0)."
       required:
         - productLine
         - revenuePesewas
@@ -32024,6 +31237,15 @@ components:
         - fixedCostPesewas
         - breakEvenRevenuePesewas
         - coveredPercent
+        - revenueIsNegative
+        - variableCostIsNegative
+        - unitsSold
+        - averageNetPricePesewas
+        - variableCostPerUnitPesewas
+        - contributionPerUnitPesewas
+        - contributionPerUnitIsNegative
+        - breakEvenUnits
+        - contributionSharePercent
     BreakEven:
       type: object
       properties:
@@ -32041,12 +31263,17 @@ components:
           $ref: "#/components/schemas/Currency"
         explanation:
           type: string
+        fixedCostPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The period's operating expenses (expense accounts in the operating section, closing entries left out), assigned to the lines by revenue (2.47.0)."
       required:
         - from
         - to
         - lines
         - currency
         - explanation
+        - fixedCostPesewas
     LossRow:
       type: object
       properties:
@@ -32118,10 +31345,24 @@ components:
           format: int64
         amountPesewas:
           $ref: "#/components/schemas/Pesewas"
+        treatment:
+          type: string
+          enum:
+            - CAPITALISED
+            - EXPENSED
+          description: "CAPITALISED: a growing animal's share, moved onto it when the run is posted. EXPENSED: a breeding or laying animal's share, or one no longer on hand when the run was made: it stays in the period's cost and posts nothing (ADR-0018, 2.47.0)."
+        movementId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "The value-only OVERHEAD_CAPITALISE movement that carried a capitalised share, once the run is posted; null before, and always for an expensed share (2.47.0)."
       required:
         - stockUnit
         - weight
         - amountPesewas
+        - treatment
+        - movementId
     OverheadAllocationRun:
       type: object
       properties:
@@ -32170,6 +31411,18 @@ components:
         createdAt:
           type: string
           format: date-time
+        createdBy:
+          $ref: "#/components/schemas/PrincipalRef"
+        postedBy:
+          anyOf:
+            - $ref: "#/components/schemas/PrincipalRef"
+            - type: "null"
+          description: "Who posted it: never the person who created it (2.47.0)."
+        postedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
       required:
         - id
         - status
@@ -32184,6 +31437,9 @@ components:
         - branchId
         - version
         - createdAt
+        - createdBy
+        - postedBy
+        - postedAt
     OverheadAllocationCreate:
       type: object
       properties:
@@ -32209,6 +31465,10 @@ components:
           format: uuid
         totalPesewas:
           $ref: "#/components/schemas/Pesewas"
+        branchId:
+          type: string
+          format: uuid
+          description: "The branch whose animals share the amount, when no `scopeLocationId` is named (2.47.0). With a pen, it must be the pen's branch."
       required:
         - periodStart
         - periodEnd

@@ -1,0 +1,198 @@
+operationId: listOverheadAllocations
+tags:
+  - cst
+summary: "List labour and overhead allocation runs"
+description: "FR-CST-002, ADR-0102 (2.47.0). The allocation runs of every branch the caller reads in full, newest first, each with its lines, how each share is treated and, once posted, its movement.\n\nPermission: `cst.allocation.read`."
+x-permission: cst.allocation.read
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OverheadAllocationRunPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b11-a1a4-747b-89b3-508619d9c964"
+                  status: DRAFT
+                  periodStart: "2026-10-01"
+                  periodEnd: "2026-10-31"
+                  costElement: LABOUR
+                  basis: HEAD_DAYS
+                  scopeLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  totalPesewas: 96000
+                  lines:
+                    - stockUnit:
+                        id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                        identifier: G-0142
+                        tracking: SERIAL
+                      weight: 30
+                      amountPesewas: 32000
+                      treatment: CAPITALISED
+                      movementId: null
+                    - stockUnit:
+                        id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                        identifier: G-0157
+                        tracking: SERIAL
+                      weight: 30
+                      amountPesewas: 32000
+                      treatment: CAPITALISED
+                      movementId: null
+                    - stockUnit:
+                        id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+                        identifier: G-0118
+                        tracking: SERIAL
+                      weight: 30
+                      amountPesewas: 32000
+                      treatment: CAPITALISED
+                      movementId: null
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 1
+                  createdAt: "2026-11-05T10:00:00Z"
+                  createdBy:
+                    id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                    displayName: "Efua Asante"
+                  postedBy: null
+                  postedAt: null
+                - id: "019a7b11-c093-7e5e-9397-eebd938a679b"
+                  status: POSTED
+                  periodStart: "2026-09-01"
+                  periodEnd: "2026-09-30"
+                  costElement: OVERHEAD
+                  basis: HEAD_DAYS
+                  scopeLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  totalPesewas: 96000
+                  lines: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 1
+                  createdAt: "2026-11-05T10:00:00Z"
+                  createdBy:
+                    id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                    displayName: "Efua Asante"
+                  postedBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Kwame Asare"
+                  postedAt: "2026-11-05T11:00:00Z"
+                - id: "019a7b11-df82-7842-ad7a-8cf50d3b05d2"
+                  status: POSTED
+                  periodStart: "2026-08-01"
+                  periodEnd: "2026-08-31"
+                  costElement: LABOUR
+                  basis: HEAD_DAYS
+                  scopeLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  totalPesewas: 96000
+                  lines: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 1
+                  createdAt: "2026-11-05T10:00:00Z"
+                  createdBy:
+                    id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                    displayName: "Efua Asante"
+                  postedBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Kwame Asare"
+                  postedAt: "2026-11-05T11:00:00Z"
+                - id: "019a7b11-fe71-7225-b75d-2b2c86eca40a"
+                  status: POSTED
+                  periodStart: "2026-07-01"
+                  periodEnd: "2026-07-31"
+                  costElement: OVERHEAD
+                  basis: HEAD_DAYS
+                  scopeLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  totalPesewas: 96000
+                  lines: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 1
+                  createdAt: "2026-11-05T10:00:00Z"
+                  createdBy:
+                    id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                    displayName: "Efua Asante"
+                  postedBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Kwame Asare"
+                  postedAt: "2026-11-05T11:00:00Z"
+                - id: "019a7b12-1d60-7c09-8141-c964009d4241"
+                  status: POSTED
+                  periodStart: "2026-06-01"
+                  periodEnd: "2026-06-30"
+                  costElement: LABOUR
+                  basis: HEAD_DAYS
+                  scopeLocation:
+                    id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+                    code: PEN-G1
+                    name: "Goat pen 1"
+                    kind: PEN
+                  totalPesewas: 96000
+                  lines: []
+                  currency: GHS
+                  branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                  version: 1
+                  createdAt: "2026-11-05T10:00:00Z"
+                  createdBy:
+                    id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                    displayName: "Efua Asante"
+                  postedBy:
+                    id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                    displayName: "Kwame Asare"
+                  postedAt: "2026-11-05T11:00:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,0 +1,67 @@
+operationId: getCostObject
+tags:
+  - cst
+summary: "Accumulated cost of an animal, pen, batch or processing order by element"
+description: "FR-CST-001, ADR-0018, ADR-0102 (2.47.0). The accumulated cost of an animal or lot (`STOCK_UNIT`), a pen (`PEN`: the animals standing in it now), a batch (`BATCH`: its flock) or a processing order (`PROCESSING_ORDER`), by element: a receipt, opening balance or harvest is `PURCHASE`, feed and veterinary capitalised are `FEED` and `VETERINARY`, a posted labour or overhead allocation `LABOUR` or `OVERHEAD`, and a processing output `PROCESSING`. A processing order shows its inputs by their own elements (a part of a lot split by `allocate`) and its direct cost under `PROCESSING`. The elements always sum to `totalPesewas`; an element nothing was added to is left out. Read from CST's projection, refreshed from inventory's movements as they post (`refreshedAt`). An object of a branch the caller does not read in full answers as one that does not exist (404).\n\nPermission: `cst.cost.read`."
+x-permission: cst.cost.read
+parameters:
+  - name: objectType
+    in: path
+    required: true
+    schema:
+      type: string
+      enum:
+        - STOCK_UNIT
+        - PEN
+        - BATCH
+        - PROCESSING_ORDER
+  - name: objectId
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/CostObjectSummary"
+        example:
+          objectType: STOCK_UNIT
+          objectId: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+          label: "Goat G-0142"
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          byElement:
+            - costElement: PURCHASE
+              valuePesewas: 52000
+            - costElement: FEED
+              valuePesewas: 6600
+            - costElement: VETERINARY
+              valuePesewas: 1650
+            - costElement: LABOUR
+              valuePesewas: 700
+            - costElement: OVERHEAD
+              valuePesewas: 300
+          totalPesewas: 61250
+          currency: GHS
+          refreshedAt: "2026-11-13T09:25:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

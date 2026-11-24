@@ -1,0 +1,194 @@
+operationId: listMargins
+tags:
+  - cst
+summary: "Margin by product, line, channel, customer, salesperson or branch"
+description: "FR-CST-003, FR-CST-004, ADR-0102 (2.47.0). Margin by product, product line, channel, customer, salesperson or branch for a range of Africa/Accra business dates: revenue is each billed product line's net, which excludes levies (a credit note's line takes it back), and cost is the cost of sales of the sale issues and returns those sales moved, by the order line they were of. Margin is over the selling price (the owner, 2026-11-23): gross margin over revenue, 13,600 over 85,000 is 16.00. Price variances (4210) are shown, never hidden. `totals` cover the whole filter, never a page; the groups always add up to them. `qty` and `weightKg` are the net billed, by product only. Without `branchId`, every branch the caller reads in full. 422 `REPORT_PERIOD_INVALID`: `FROM_AFTER_TO`, `AFTER_TODAY`.\n\nPermission: `cst.margin.read`."
+x-permission: cst.margin.read
+parameters:
+  - name: groupBy
+    in: query
+    required: true
+    schema:
+      type: string
+      enum:
+        - PRODUCT
+        - PRODUCT_LINE
+        - CHANNEL
+        - CUSTOMER
+        - SALESPERSON
+        - BRANCH
+  - name: from
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: branchId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/MarginReport"
+        examples:
+          default:
+            value:
+              data:
+                - group:
+                    id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
+                    label: Goat
+                  qty: "104.000"
+                  weightKg: null
+                  revenuePesewas: 8840000
+                  revenueIsNegative: false
+                  costPesewas: 6110000
+                  costIsNegative: false
+                  grossMarginPesewas: 2730000
+                  marginIsNegative: false
+                  marginPercent: "30.88"
+                  priceVariancePesewas: 185000
+                  priceVarianceIsNegative: true
+                - group:
+                    id: "019a7a8d-ec06-79f8-af30-a851f637212f"
+                    label: "Goat meat, 15 kg pack"
+                  qty: "54.000"
+                  weightKg: "54.000"
+                  revenuePesewas: 1620000
+                  revenueIsNegative: false
+                  costPesewas: 1104000
+                  costIsNegative: false
+                  grossMarginPesewas: 516000
+                  marginIsNegative: false
+                  marginPercent: "31.85"
+                  priceVariancePesewas: 0
+                  priceVarianceIsNegative: false
+                - group:
+                    id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
+                    label: "Full chicken, 15 kg pack"
+                  qty: "37.000"
+                  weightKg: "37.000"
+                  revenuePesewas: 1302500
+                  revenueIsNegative: false
+                  costPesewas: 902400
+                  costIsNegative: false
+                  grossMarginPesewas: 400100
+                  marginIsNegative: false
+                  marginPercent: "30.72"
+                  priceVariancePesewas: 12000
+                  priceVarianceIsNegative: true
+                - group:
+                    id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
+                    label: "Beef, 15 kg pack"
+                  qty: "30.000"
+                  weightKg: "30.000"
+                  revenuePesewas: 1293000
+                  revenueIsNegative: false
+                  costPesewas: 884000
+                  costIsNegative: false
+                  grossMarginPesewas: 409000
+                  marginIsNegative: false
+                  marginPercent: "31.63"
+                  priceVariancePesewas: 0
+                  priceVarianceIsNegative: false
+                - group:
+                    id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
+                    label: "Eggs, big, crate of 30"
+                  qty: "144.000"
+                  weightKg: null
+                  revenuePesewas: 864000
+                  revenueIsNegative: false
+                  costPesewas: 512000
+                  costIsNegative: false
+                  grossMarginPesewas: 352000
+                  marginIsNegative: false
+                  marginPercent: "40.74"
+                  priceVariancePesewas: 0
+                  priceVarianceIsNegative: false
+                - group:
+                    id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
+                    label: "Tomatoes, crate"
+                  qty: "379.000"
+                  weightKg: null
+                  revenuePesewas: 758000
+                  revenueIsNegative: false
+                  costPesewas: 702000
+                  costIsNegative: false
+                  grossMarginPesewas: 56000
+                  marginIsNegative: false
+                  marginPercent: "7.39"
+                  priceVariancePesewas: 22000
+                  priceVarianceIsNegative: true
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              totals:
+                revenuePesewas: 14677500
+                revenueIsNegative: false
+                costPesewas: 10214400
+                costIsNegative: false
+                grossMarginPesewas: 4463100
+                marginIsNegative: false
+                marginPercent: "30.41"
+                priceVariancePesewas: 219000
+                priceVarianceIsNegative: true
+              currency: GHS
+              asOf: "2026-11-13T09:30:00Z"
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              totals:
+                revenuePesewas: 0
+                revenueIsNegative: false
+                costPesewas: 0
+                costIsNegative: false
+                grossMarginPesewas: 0
+                marginIsNegative: false
+                marginPercent: null
+                priceVariancePesewas: 0
+                priceVarianceIsNegative: false
+              currency: GHS
+              asOf: "2026-11-13T09:30:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

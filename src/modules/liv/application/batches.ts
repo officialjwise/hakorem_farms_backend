@@ -228,6 +228,14 @@ export class Batches {
   }
 
   /**
+   * Each batch's stock unit, number and branch, in the caller's transaction (B12 continued 2, FR-CST-001: a batch's
+   * accumulated cost is its flock's). A batch not found is left out. Additive: nothing else changes.
+   */
+  async stockUnitsOfIn(tx: Transaction, batchIds: readonly string[]): Promise<ReadonlyMap<string, { readonly stockUnitId: string | null; readonly batchNo: string; readonly branchId: string }>> {
+    return new Map((await this.herd.batches(tx, batchIds)).map((b) => [b.id, { stockUnitId: b.stockUnitId, batchNo: b.batchNo, branchId: b.branchId }] as const));
+  }
+
+  /**
    * The contract's `Batch` for each record. A flock's head, place and cost are its lot's, as inventory holds them; a
    * closed batch shows the place it started in. Mortality is the head lost to posted deaths over the initial head.
    */

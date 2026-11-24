@@ -199,6 +199,8 @@ export const VALID_BODY: Readonly<Record<string, object>> = {
   addInvestorDocument: { kind: 'OTHER', name: 'Refused document', fileId: randomUUID() },
   createFinancing: { kind: 'LOAN', lenderName: 'Refused Lender', principalPesewas: 100_000, startDate: '2026-11-01', bankAccountId: randomUUID() },
   recordRepayment: { principalPesewas: 100, interestPesewas: 0, bankAccountId: randomUUID(), paidAt: '2026-11-01T09:00:00Z' },
+  // B12 continued 2: a labour allocation over a pen.
+  createOverheadAllocation: { periodStart: '2026-10-01', periodEnd: '2026-10-31', costElement: 'LABOUR', basis: 'HEAD_DAYS', scopeLocationId: randomUUID(), totalPesewas: 96_000 },
   // B10 continued 4: one link of a quote version revoked with its reason.
   revokeQuoteLink: { reason: 'Sent to the wrong WhatsApp number' },
   draftSupplierClaimCreditNote: { originalInvoiceId: randomUUID(), supplierInvoiceNo: 'APF-CN-0701', invoiceDate: '2026-11-17' },
@@ -329,4 +331,8 @@ export const VALID_QUERY: Record<string, string> = { listStockAvailability: `?br
   getProfitAndLoss: '?from=2026-11-01&to=2026-11-30',
   getBalanceSheet: '?asOf=2026-11-30',
   getCashFlow: '?from=2026-11-01&to=2026-11-30',
+  // B12 continued 2: costing reads over a period.
+  listMargins: '?groupBy=PRODUCT&from=2026-11-01&to=2026-11-10',
+  getBreakEven: '?from=2026-11-01&to=2026-11-10',
+  listLosses: '?groupBy=CAUSE&from=2026-11-01&to=2026-11-10',
 };

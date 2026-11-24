@@ -195,6 +195,8 @@ export const STOCK_POSTING_EVENTS = [
   'inv.StockWrittenOff',
   'inv.StockGainRecorded',
   'inv.SupplierReturnIssued',
+  // B12 continued 2 (migration 0364, ADR-0102): a share of a period's labour or overhead capitalised by CST.
+  'inv.OverheadAbsorbed',
 ] as const;
 
 /**

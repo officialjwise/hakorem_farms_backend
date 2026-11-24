@@ -1,0 +1,85 @@
+operationId: getOverheadAllocation
+tags:
+  - cst
+summary: "Get an allocation run"
+description: "FR-CST-002, ADR-0102 (2.47.0). A run with its lines. A run of a branch the caller does not read in full answers as one that does not exist (404).\n\nPermission: `cst.allocation.read`."
+x-permission: cst.allocation.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OverheadAllocationRun"
+        example:
+          id: "019a7b11-a1a4-747b-89b3-508619d9c964"
+          status: DRAFT
+          periodStart: "2026-10-01"
+          periodEnd: "2026-10-31"
+          costElement: LABOUR
+          basis: HEAD_DAYS
+          scopeLocation:
+            id: "019a7a83-87bc-778d-8cc6-81af14c1fa8c"
+            code: PEN-G1
+            name: "Goat pen 1"
+            kind: PEN
+          totalPesewas: 96000
+          lines:
+            - stockUnit:
+                id: "019a7a8f-5f3a-70a1-a5d9-12ebaa838bc9"
+                identifier: G-0142
+                tracking: SERIAL
+              weight: 30
+              amountPesewas: 32000
+              treatment: CAPITALISED
+              movementId: null
+            - stockUnit:
+                id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
+                identifier: G-0157
+                tracking: SERIAL
+              weight: 30
+              amountPesewas: 32000
+              treatment: CAPITALISED
+              movementId: null
+            - stockUnit:
+                id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
+                identifier: G-0118
+                tracking: SERIAL
+              weight: 30
+              amountPesewas: 32000
+              treatment: CAPITALISED
+              movementId: null
+          currency: GHS
+          branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+          version: 1
+          createdAt: "2026-11-05T10:00:00Z"
+          createdBy:
+            id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+            displayName: "Efua Asante"
+          postedBy: null
+          postedAt: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

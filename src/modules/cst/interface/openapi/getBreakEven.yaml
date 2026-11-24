@@ -1,0 +1,109 @@
+operationId: getBreakEven
+tags:
+  - cst
+summary: "Break-even and contribution margin by product line"
+description: "FR-CST-005, FR-CST-006, ADR-0102 (2.47.0). Written for the owner, not the accountant. For each product line over the range: revenue and variable cost (cost of sales) as `listMargins` answers them, contribution and its share of the whole, the units sold, the average net price and variable cost per unit (each half-up once), contribution per unit, and break-even: the line's share of the period's operating expenses (assigned by revenue through `allocate`) over contribution per unit, rounded up to a whole unit, and those units at the average price. Fixed costs 600,000 at 85,000 a head with 71,400 variable break even at 45 heads (44.12 rounded up) and 3,825,000. With contribution per unit of nothing or less there is no break-even: the figures are null and the explanation says so. 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `cst.margin.read`."
+x-permission: cst.margin.read
+parameters:
+  - name: from
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: branchId
+    in: query
+    required: false
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/BreakEven"
+        example:
+          from: "2026-10-01"
+          to: "2026-10-31"
+          lines:
+            - productLine: LIVE
+              revenuePesewas: 8840000
+              revenueIsNegative: false
+              variableCostPesewas: 6110000
+              variableCostIsNegative: false
+              contributionPesewas: 2730000
+              contributionIsNegative: false
+              contributionMarginPercent: "30.88"
+              fixedCostPesewas: 1409341
+              breakEvenRevenuePesewas: 4590000
+              coveredPercent: "100.00"
+              unitsSold: "104.000"
+              averageNetPricePesewas: 85000
+              variableCostPerUnitPesewas: 58750
+              contributionPerUnitPesewas: 26250
+              contributionPerUnitIsNegative: false
+              breakEvenUnits: 54
+              contributionSharePercent: "61.17"
+            - productLine: MEAT
+              revenuePesewas: 4215500
+              revenueIsNegative: false
+              variableCostPesewas: 2890400
+              variableCostIsNegative: false
+              contributionPesewas: 1325100
+              contributionIsNegative: false
+              contributionMarginPercent: "31.43"
+              fixedCostPesewas: 672067
+              breakEvenRevenuePesewas: 2160018
+              coveredPercent: "100.00"
+              unitsSold: "121.000"
+              averageNetPricePesewas: 34839
+              variableCostPerUnitPesewas: 23888
+              contributionPerUnitPesewas: 10951
+              contributionPerUnitIsNegative: false
+              breakEvenUnits: 62
+              contributionSharePercent: "29.69"
+            - productLine: PRODUCE
+              revenuePesewas: 1622000
+              revenueIsNegative: false
+              variableCostPesewas: 1214000
+              variableCostIsNegative: false
+              contributionPesewas: 408000
+              contributionIsNegative: false
+              contributionMarginPercent: "25.15"
+              fixedCostPesewas: 258592
+              breakEvenRevenuePesewas: 1029532
+              coveredPercent: "100.00"
+              unitsSold: "523.000"
+              averageNetPricePesewas: 3101
+              variableCostPerUnitPesewas: 2321
+              contributionPerUnitPesewas: 780
+              contributionPerUnitIsNegative: false
+              breakEvenUnits: 332
+              contributionSharePercent: "9.14"
+          fixedCostPesewas: 2340000
+          currency: GHS
+          explanation: "Each line keeps its sales after paying for the stock it sold; that contribution must cover the line's share of fixed costs. Break-even is the number sold, rounded up, at which it does, and the sales that number brings at the line's average price."
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

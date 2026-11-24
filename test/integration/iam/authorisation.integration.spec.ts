@@ -39,7 +39,7 @@ afterAll(async () => {
 });
 
 describe('deny by default: the handler walk (ADR-0017, security architecture section 14)', () => {
-  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b, B08 continued 1b2, B08 continued 1c, B08 continued 1c2, B08 continued 2, B08 continued 2b, B09a continued, B09a continued 1b, B09a continued 1c, B09a continued 2b, 2c, 2d, 2e and 2f, B09x continued, B09e continued 3, B9b, B08 continued 2d, B09u, B10, B10 continued, B10 continued 2, B09b continued 3, B10 continued 3, B10 continued 4, B10 continued 5, B09b continued 4, B11 continued 4, B11 continued 5, B11 continued 10 and B12 routes, and every one declares its operation', () => {
+  it('finds the B3, B4, B04 continued, B04d, B04d continued 1 to 3, B04e, B04e continued, B04e continued 2, B04e continued 3, B04e continued 4, B05 continued, B05 continued 3, B05x, B6, B06m, B06 continued, B06 continued 2, B06 continued 3, B06u, B7, B07 continued, B07 continued 1b, B06r, B07 continued 2, B08 continued, B08 continued 1b, B08 continued 1b2, B08 continued 1c, B08 continued 1c2, B08 continued 2, B08 continued 2b, B09a continued, B09a continued 1b, B09a continued 1c, B09a continued 2b, 2c, 2d, 2e and 2f, B09x continued, B09e continued 3, B9b, B08 continued 2d, B09u, B10, B10 continued, B10 continued 2, B09b continued 3, B10 continued 3, B10 continued 4, B10 continued 5, B09b continued 4, B11 continued 4, B11 continued 5, B11 continued 10, B12, B12 continued and B12 continued 2 routes, and every one declares its operation', () => {
     expect(routes.map((route) => route.spec?.operationId).sort()).toEqual(
       [
         'changePassword', 'confirmTotpEnrolment', 'createProduct', 'getCurrentSession', 'getHealth', 'getProduct', 'listProducts', 'listSessions',
@@ -164,6 +164,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listInvestorDocuments', 'addInvestorDocument', 'getInvestorPayoutDetails', 'getInvestorStatement', 'getInvestorReturns', 'getOverallReturns',
         'listFinancing', 'createFinancing', 'getFinancing', 'recordRepayment',
         'getMyInvestorSummary', 'listMyCapitalTransactions', 'listMyDistributions', 'getMyInvestorStatement', 'listMyInvestorDocuments', 'downloadMyInvestorDocument',
+        // B12 continued 2: costing, margins, break-even, losses and labour and overhead allocation.
+        'getCostObject', 'listMargins', 'getBreakEven', 'listLosses', 'listOverheadAllocations', 'createOverheadAllocation', 'getOverheadAllocation',
+        'postOverheadAllocation',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
@@ -190,7 +193,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
     expect(guarded.length).toBeGreaterThanOrEqual(5);
     for (const route of guarded) {
       // A setting key is a dotted name, not an id: anything else is refused as invalid before it is authorised.
-      const path = route.path.replace(':key', 'pur.purchase_order.approval_limit_pesewas').replace(/:[a-zA-Z]+/g, randomUUID());
+      const path = route.path.replace(':key', 'pur.purchase_order.approval_limit_pesewas').replace(':objectType', 'STOCK_UNIT').replace(/:[a-zA-Z]+/g, randomUUID());
       const body = VALID_BODY[route.spec!.operationId] ?? {};
       const response =
         route.method === 'GET'

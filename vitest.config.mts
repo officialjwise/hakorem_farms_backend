@@ -167,6 +167,7 @@ export default defineConfig({
         ...fullCoverage('src/modules/cap/domain/distribution/**/*.ts'), // B12: distribution, unit-days and allocation (ADR-0028)
         ...fullCoverage('src/modules/cap/domain/returns/**/*.ts'), // B12 continued: ROI, payback and IRR in fixed point, never a float (FR-CAP-014)
         ...fullCoverage('src/modules/cap/domain/financing/**/*.ts'), // B12 continued: interest accrued monthly half-up, interest first, the schedule (FR-CAP-015)
+        ...fullCoverage('src/modules/cst/domain/**/*.ts'), // B12 continued 2: allocation, cost by element, margin over price, break-even and losses (FR-CST-001 to FR-CST-007)
       },
     },
   },

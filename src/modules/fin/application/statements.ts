@@ -121,6 +121,17 @@ export class FinancialStatements {
     return sheet.sections.find((section) => section.key === 'EQUITY')!.total;
   }
 
+  /**
+   * Each account's traded net debit over a range, in the caller's transaction (B12 continued 2, FR-CST-004, FR-CST-005:
+   * costing ties its margins to the ledger and reads the period's operating expenses through FIN's door): debits less
+   * credits within the range, year-end closing entries left out, signed, by account code, over one branch or all of
+   * them. The caller authorises.
+   */
+  async tradedNetDebitsIn(tx: Transaction, range: { readonly from: string; readonly to: string; readonly branchId: string | null }): Promise<ReadonlyMap<string, { readonly type: string; readonly cashFlowCategory: string | null; readonly netDebit: bigint }>> {
+    const accounts = await this.store.accounts(tx, range);
+    return new Map(accounts.map((a) => [a.code, { type: a.type, cashFlowCategory: a.cashFlowCategory, netDebit: a.debit - a.closingEntryDebit - (a.credit - a.closingEntryCredit) }] as const));
+  }
+
   trialBalance(actor: Actor | undefined, query: TrialBalanceQuery): Promise<TrialBalanceView> {
     return this.read(actor, query.branchId, async (tx, branchId) => {
       const accounts = await this.store.accounts(tx, { from: query.from, to: query.to, branchId });

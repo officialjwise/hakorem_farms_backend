@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.46.0"
+  version: "2.47.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -72363,7 +72363,7 @@ paths:
       tags:
         - cst
       summary: "Accumulated cost of an animal, pen, batch or processing order by element"
-      description: "Permission: `cst.cost.read`."
+      description: "FR-CST-001, ADR-0018, ADR-0102 (2.47.0). The accumulated cost of an animal or lot (`STOCK_UNIT`), a pen (`PEN`: the animals standing in it now), a batch (`BATCH`: its flock) or a processing order (`PROCESSING_ORDER`), by element: a receipt, opening balance or harvest is `PURCHASE`, feed and veterinary capitalised are `FEED` and `VETERINARY`, a posted labour or overhead allocation `LABOUR` or `OVERHEAD`, and a processing output `PROCESSING`. A processing order shows its inputs by their own elements (a part of a lot split by `allocate`) and its direct cost under `PROCESSING`. The elements always sum to `totalPesewas`; an element nothing was added to is left out. Read from CST's projection, refreshed from inventory's movements as they post (`refreshedAt`). An object of a branch the caller does not read in full answers as one that does not exist (404).\n\nPermission: `cst.cost.read`."
       x-permission: cst.cost.read
       parameters:
         - name: objectType
@@ -72432,7 +72432,7 @@ paths:
       tags:
         - cst
       summary: "Margin by product, line, channel, customer, salesperson or branch"
-      description: "Permission: `cst.margin.read`."
+      description: "FR-CST-003, FR-CST-004, ADR-0102 (2.47.0). Margin by product, product line, channel, customer, salesperson or branch for a range of Africa/Accra business dates: revenue is each billed product line's net, which excludes levies (a credit note's line takes it back), and cost is the cost of sales of the sale issues and returns those sales moved, by the order line they were of. Margin is over the selling price (the owner, 2026-11-23): gross margin over revenue, 13,600 over 85,000 is 16.00. Price variances (4210) are shown, never hidden. `totals` cover the whole filter, never a page; the groups always add up to them. `qty` and `weightKg` are the net billed, by product only. Without `branchId`, every branch the caller reads in full. 422 `REPORT_PERIOD_INVALID`: `FROM_AFTER_TO`, `AFTER_TODAY`.\n\nPermission: `cst.margin.read`."
       x-permission: cst.margin.read
       parameters:
         - name: groupBy
@@ -72495,10 +72495,12 @@ paths:
                       - group:
                           id: "019a7a8d-137d-74bf-b9f8-54cda260cdab"
                           label: Goat
-                        qty: null
+                        qty: "104.000"
                         weightKg: null
                         revenuePesewas: 8840000
+                        revenueIsNegative: false
                         costPesewas: 6110000
+                        costIsNegative: false
                         grossMarginPesewas: 2730000
                         marginIsNegative: false
                         marginPercent: "30.88"
@@ -72507,10 +72509,12 @@ paths:
                       - group:
                           id: "019a7a8d-ec06-79f8-af30-a851f637212f"
                           label: "Goat meat, 15 kg pack"
-                        qty: null
-                        weightKg: null
+                        qty: "54.000"
+                        weightKg: "54.000"
                         revenuePesewas: 1620000
+                        revenueIsNegative: false
                         costPesewas: 1104000
+                        costIsNegative: false
                         grossMarginPesewas: 516000
                         marginIsNegative: false
                         marginPercent: "31.85"
@@ -72519,10 +72523,12 @@ paths:
                       - group:
                           id: "019a7a8d-ae28-7631-8b69-6be302d5e4c0"
                           label: "Full chicken, 15 kg pack"
-                        qty: null
-                        weightKg: null
+                        qty: "37.000"
+                        weightKg: "37.000"
                         revenuePesewas: 1302500
+                        revenueIsNegative: false
                         costPesewas: 902400
+                        costIsNegative: false
                         grossMarginPesewas: 400100
                         marginIsNegative: false
                         marginPercent: "30.72"
@@ -72531,10 +72537,12 @@ paths:
                       - group:
                           id: "019a7a8d-704a-726a-a7a2-2f740f73a851"
                           label: "Beef, 15 kg pack"
-                        qty: null
-                        weightKg: null
+                        qty: "30.000"
+                        weightKg: "30.000"
                         revenuePesewas: 1293000
+                        revenueIsNegative: false
                         costPesewas: 884000
+                        costIsNegative: false
                         grossMarginPesewas: 409000
                         marginIsNegative: false
                         marginPercent: "31.63"
@@ -72543,10 +72551,12 @@ paths:
                       - group:
                           id: "019a7a8e-29e4-7dbe-82f7-e4c0e9995d9e"
                           label: "Eggs, big, crate of 30"
-                        qty: null
+                        qty: "144.000"
                         weightKg: null
                         revenuePesewas: 864000
+                        revenueIsNegative: false
                         costPesewas: 512000
+                        costIsNegative: false
                         grossMarginPesewas: 352000
                         marginIsNegative: false
                         marginPercent: "40.74"
@@ -72555,24 +72565,31 @@ paths:
                       - group:
                           id: "019a7a8e-48d3-77a2-9cda-82f8634afbd6"
                           label: "Tomatoes, crate"
-                        qty: null
+                        qty: "379.000"
                         weightKg: null
                         revenuePesewas: 758000
+                        revenueIsNegative: false
                         costPesewas: 702000
+                        costIsNegative: false
                         grossMarginPesewas: 56000
                         marginIsNegative: false
                         marginPercent: "7.39"
                         priceVariancePesewas: 22000
                         priceVarianceIsNegative: true
                     page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                      nextCursor: null
                       limit: 25
-                      hasMore: true
+                      hasMore: false
                     totals:
                       revenuePesewas: 14677500
+                      revenueIsNegative: false
                       costPesewas: 10214400
+                      costIsNegative: false
                       grossMarginPesewas: 4463100
                       marginIsNegative: false
+                      marginPercent: "30.41"
+                      priceVariancePesewas: 219000
+                      priceVarianceIsNegative: true
                     currency: GHS
                     asOf: "2026-11-13T09:30:00Z"
                 empty:
@@ -72585,9 +72602,14 @@ paths:
                       hasMore: false
                     totals:
                       revenuePesewas: 0
+                      revenueIsNegative: false
                       costPesewas: 0
+                      costIsNegative: false
                       grossMarginPesewas: 0
                       marginIsNegative: false
+                      marginPercent: null
+                      priceVariancePesewas: 0
+                      priceVarianceIsNegative: false
                     currency: GHS
                     asOf: "2026-11-13T09:30:00Z"
         "400":
@@ -72606,7 +72628,7 @@ paths:
       tags:
         - cst
       summary: "Break-even and contribution margin by product line"
-      description: "Written for the owner, not the accountant.\n\nPermission: `cst.margin.read`."
+      description: "FR-CST-005, FR-CST-006, ADR-0102 (2.47.0). Written for the owner, not the accountant. For each product line over the range: revenue and variable cost (cost of sales) as `listMargins` answers them, contribution and its share of the whole, the units sold, the average net price and variable cost per unit (each half-up once), contribution per unit, and break-even: the line's share of the period's operating expenses (assigned by revenue through `allocate`) over contribution per unit, rounded up to a whole unit, and those units at the average price. Fixed costs 600,000 at 85,000 a head with 71,400 variable break even at 45 heads (44.12 rounded up) and 3,825,000. With contribution per unit of nothing or less there is no break-even: the figures are null and the explanation says so. 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `cst.margin.read`."
       x-permission: cst.margin.read
       parameters:
         - name: from
@@ -72646,33 +72668,61 @@ paths:
                 lines:
                   - productLine: LIVE
                     revenuePesewas: 8840000
+                    revenueIsNegative: false
                     variableCostPesewas: 6110000
+                    variableCostIsNegative: false
                     contributionPesewas: 2730000
                     contributionIsNegative: false
                     contributionMarginPercent: "30.88"
-                    fixedCostPesewas: 820000
-                    breakEvenRevenuePesewas: 2655238
+                    fixedCostPesewas: 1409341
+                    breakEvenRevenuePesewas: 4590000
                     coveredPercent: "100.00"
+                    unitsSold: "104.000"
+                    averageNetPricePesewas: 85000
+                    variableCostPerUnitPesewas: 58750
+                    contributionPerUnitPesewas: 26250
+                    contributionPerUnitIsNegative: false
+                    breakEvenUnits: 54
+                    contributionSharePercent: "61.17"
                   - productLine: MEAT
                     revenuePesewas: 4215500
+                    revenueIsNegative: false
                     variableCostPesewas: 2890400
+                    variableCostIsNegative: false
                     contributionPesewas: 1325100
                     contributionIsNegative: false
                     contributionMarginPercent: "31.43"
-                    fixedCostPesewas: 980000
-                    breakEvenRevenuePesewas: 3117644
+                    fixedCostPesewas: 672067
+                    breakEvenRevenuePesewas: 2160018
                     coveredPercent: "100.00"
+                    unitsSold: "121.000"
+                    averageNetPricePesewas: 34839
+                    variableCostPerUnitPesewas: 23888
+                    contributionPerUnitPesewas: 10951
+                    contributionPerUnitIsNegative: false
+                    breakEvenUnits: 62
+                    contributionSharePercent: "29.69"
                   - productLine: PRODUCE
                     revenuePesewas: 1622000
+                    revenueIsNegative: false
                     variableCostPesewas: 1214000
+                    variableCostIsNegative: false
                     contributionPesewas: 408000
                     contributionIsNegative: false
                     contributionMarginPercent: "25.15"
-                    fixedCostPesewas: 540000
-                    breakEvenRevenuePesewas: 2146765
-                    coveredPercent: "75.56"
+                    fixedCostPesewas: 258592
+                    breakEvenRevenuePesewas: 1029532
+                    coveredPercent: "100.00"
+                    unitsSold: "523.000"
+                    averageNetPricePesewas: 3101
+                    variableCostPerUnitPesewas: 2321
+                    contributionPerUnitPesewas: 780
+                    contributionPerUnitIsNegative: false
+                    breakEvenUnits: 332
+                    contributionSharePercent: "9.14"
+                fixedCostPesewas: 2340000
                 currency: GHS
-                explanation: "Each line keeps its sales after paying for the stock it sold; that contribution must cover the line's share of fixed costs. Break-even is the sales at which it does."
+                explanation: "Each line keeps its sales after paying for the stock it sold; that contribution must cover the line's share of fixed costs. Break-even is the number sold, rounded up, at which it does, and the sales that number brings at the line's average price."
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -72689,7 +72739,7 @@ paths:
       tags:
         - cst
       summary: "Mortality, shrinkage and wastage as their own figures"
-      description: "Permission: `cst.margin.read`."
+      description: "FR-CST-007, ADR-0102 (2.47.0). Mortality and cull (5100), shrinkage and adjustments (5110) and wastage and expiry (5120) as their own figures, never inside cost of sales, by cause, by the location the stock left, by who recorded it or by product: each group's write-offs counted (a reversal takes one back), with their quantity and value at cost. A group's `lossGroup` is its cause. `qty` is null for causes, which mix units. `ratePercent` and `comparisonRatePercent` are null until head kept per pen is projected (BL-129). `totalPesewas` covers the whole filter. Every branch the caller reads in full. 422 `REPORT_PERIOD_INVALID`.\n\nPermission: `cst.margin.read`."
       x-permission: cst.margin.read
       parameters:
         - name: groupBy
@@ -72768,28 +72818,10 @@ paths:
                         valuePesewas: 35000
                         ratePercent: null
                         comparisonRatePercent: null
-                      - group:
-                          id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
-                          label: "Abena Quaye"
-                        lossGroup: MORTALITY
-                        events: 7
-                        qty: "7.000"
-                        valuePesewas: 135000
-                        ratePercent: "1.48"
-                        comparisonRatePercent: "1.39"
-                      - group:
-                          id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
-                          label: "Yaw Boateng"
-                        lossGroup: MORTALITY
-                        events: 4
-                        qty: "4.000"
-                        valuePesewas: 78000
-                        ratePercent: "1.29"
-                        comparisonRatePercent: "1.39"
                     page:
-                      nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                      nextCursor: null
                       limit: 25
-                      hasMore: true
+                      hasMore: false
                     totalPesewas: 276171
                     currency: GHS
                 empty:
@@ -72818,7 +72850,7 @@ paths:
       tags:
         - cst
       summary: "List labour and overhead allocation runs"
-      description: "Permission: `cst.allocation.read`."
+      description: "FR-CST-002, ADR-0102 (2.47.0). The allocation runs of every branch the caller reads in full, newest first, each with its lines, how each share is treated and, once posted, its movement.\n\nPermission: `cst.allocation.read`."
       x-permission: cst.allocation.read
       parameters:
         - name: cursor
@@ -72867,22 +72899,33 @@ paths:
                               tracking: SERIAL
                             weight: 30
                             amountPesewas: 32000
+                            treatment: CAPITALISED
+                            movementId: null
                           - stockUnit:
                               id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
                               identifier: G-0157
                               tracking: SERIAL
                             weight: 30
                             amountPesewas: 32000
+                            treatment: CAPITALISED
+                            movementId: null
                           - stockUnit:
                               id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
                               identifier: G-0118
                               tracking: SERIAL
                             weight: 30
                             amountPesewas: 32000
+                            treatment: CAPITALISED
+                            movementId: null
                         currency: GHS
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 1
                         createdAt: "2026-11-05T10:00:00Z"
+                        createdBy:
+                          id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                          displayName: "Efua Asante"
+                        postedBy: null
+                        postedAt: null
                       - id: "019a7b11-c093-7e5e-9397-eebd938a679b"
                         status: POSTED
                         periodStart: "2026-09-01"
@@ -72900,6 +72943,13 @@ paths:
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 1
                         createdAt: "2026-11-05T10:00:00Z"
+                        createdBy:
+                          id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                          displayName: "Efua Asante"
+                        postedBy:
+                          id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                          displayName: "Kwame Asare"
+                        postedAt: "2026-11-05T11:00:00Z"
                       - id: "019a7b11-df82-7842-ad7a-8cf50d3b05d2"
                         status: POSTED
                         periodStart: "2026-08-01"
@@ -72917,6 +72967,13 @@ paths:
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 1
                         createdAt: "2026-11-05T10:00:00Z"
+                        createdBy:
+                          id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                          displayName: "Efua Asante"
+                        postedBy:
+                          id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                          displayName: "Kwame Asare"
+                        postedAt: "2026-11-05T11:00:00Z"
                       - id: "019a7b11-fe71-7225-b75d-2b2c86eca40a"
                         status: POSTED
                         periodStart: "2026-07-01"
@@ -72934,6 +72991,13 @@ paths:
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 1
                         createdAt: "2026-11-05T10:00:00Z"
+                        createdBy:
+                          id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                          displayName: "Efua Asante"
+                        postedBy:
+                          id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                          displayName: "Kwame Asare"
+                        postedAt: "2026-11-05T11:00:00Z"
                       - id: "019a7b12-1d60-7c09-8141-c964009d4241"
                         status: POSTED
                         periodStart: "2026-06-01"
@@ -72951,6 +73015,13 @@ paths:
                         branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                         version: 1
                         createdAt: "2026-11-05T10:00:00Z"
+                        createdBy:
+                          id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                          displayName: "Efua Asante"
+                        postedBy:
+                          id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                          displayName: "Kwame Asare"
+                        postedAt: "2026-11-05T11:00:00Z"
                     page:
                       nextCursor: eyJpZCI6IjAxOWE3YyJ9
                       limit: 25
@@ -72978,7 +73049,7 @@ paths:
       tags:
         - cst
       summary: "Spread a period's labour or overhead over the animals"
-      description: "Permission: `cst.allocation.manage`."
+      description: "FR-CST-002, ADR-0018, ADR-0102 (2.47.0). Spreads a period's labour or overhead over the livestock of a pen (`scopeLocationId`) or a whole branch (`branchId`) through `allocate`: by head-days (each day's whole head on hand there at the end of the day, Africa/Accra) or equally (`EQUAL`, one each). 30,001 over head-days of 10, 10 and 5 is 12,001, 12,000 and 6,000, the leftover pesewa on the first tag. The lines sum exactly to `totalPesewas` (the database checks it at commit). A growing animal's share is CAPITALISED; a breeding or laying animal's, or one no longer on hand, is EXPENSED and stays in the period's cost. The run is a DRAFT: nothing posts until a different person posts it. 422 `ALLOCATION_INVALID`: `BRANCH_REQUIRED`, `PERIOD_INVALID` (the end before the start, or after today), `SCOPE_NOT_A_PEN`, `BASIS_NOT_SUPPORTED` (`WEIGHT_GAIN`, BL-128), `NO_ANIMALS_IN_SCOPE`.\n\nPermission: `cst.allocation.manage`."
       x-permission: cst.allocation.manage
       parameters:
         - $ref: "#/components/parameters/IdempotencyKey"
@@ -73029,22 +73100,33 @@ paths:
                       tracking: SERIAL
                     weight: 30
                     amountPesewas: 32000
+                    treatment: CAPITALISED
+                    movementId: null
                   - stockUnit:
                       id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
                       identifier: G-0157
                       tracking: SERIAL
                     weight: 30
                     amountPesewas: 32000
+                    treatment: CAPITALISED
+                    movementId: null
                   - stockUnit:
                       id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
                       identifier: G-0118
                       tracking: SERIAL
                     weight: 30
                     amountPesewas: 32000
+                    treatment: CAPITALISED
+                    movementId: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 1
                 createdAt: "2026-11-05T10:00:00Z"
+                createdBy:
+                  id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                  displayName: "Efua Asante"
+                postedBy: null
+                postedAt: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -73065,7 +73147,7 @@ paths:
       tags:
         - cst
       summary: "Get an allocation run"
-      description: "Permission: `cst.allocation.read`."
+      description: "FR-CST-002, ADR-0102 (2.47.0). A run with its lines. A run of a branch the caller does not read in full answers as one that does not exist (404).\n\nPermission: `cst.allocation.read`."
       x-permission: cst.allocation.read
       parameters:
         - name: id
@@ -73107,22 +73189,33 @@ paths:
                       tracking: SERIAL
                     weight: 30
                     amountPesewas: 32000
+                    treatment: CAPITALISED
+                    movementId: null
                   - stockUnit:
                       id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
                       identifier: G-0157
                       tracking: SERIAL
                     weight: 30
                     amountPesewas: 32000
+                    treatment: CAPITALISED
+                    movementId: null
                   - stockUnit:
                       id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
                       identifier: G-0118
                       tracking: SERIAL
                     weight: 30
                     amountPesewas: 32000
+                    treatment: CAPITALISED
+                    movementId: null
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 1
                 createdAt: "2026-11-05T10:00:00Z"
+                createdBy:
+                  id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                  displayName: "Efua Asante"
+                postedBy: null
+                postedAt: null
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -73141,8 +73234,9 @@ paths:
       tags:
         - cst
       summary: "Post an allocation as value-only stock movements"
-      description: "The lines sum exactly to the total.\n\nPermission: `cst.allocation.manage`."
-      x-permission: cst.allocation.manage
+      description: "FR-CST-002, ADR-0017, ADR-0018, ADR-0102 (2.47.0). Posts a DRAFT run created by someone else: each capitalised share above nothing becomes a value-only `OVERHEAD_CAPITALISE` movement onto its animal, which the ledger posts in the same transaction (Dr inventory by the product's GL group, Cr 5220 Labour and overhead absorbed into stock); an expensed share posts nothing. The lines sum exactly to the total. One posted run per branch, cost element, scope and period. 422 `MAKER_CANNOT_CHECK` (the person who created it); 422 `ALLOCATION_INVALID`: `ALREADY_POSTED`, `PERIOD_ALREADY_POSTED`, `UNIT_NOT_ON_HAND` (an animal with a capitalised share has left since: make the run again).\n\nPermission: `cst.allocation.post`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      x-permission: cst.allocation.post
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -73185,22 +73279,35 @@ paths:
                       tracking: SERIAL
                     weight: 30
                     amountPesewas: 32000
+                    treatment: CAPITALISED
+                    movementId: "019a7b13-00aa-7c00-8a00-000000000000"
                   - stockUnit:
                       id: "019a7a8f-7e29-7a85-bfbd-b12324342a01"
                       identifier: G-0157
                       tracking: SERIAL
                     weight: 30
                     amountPesewas: 32000
+                    treatment: CAPITALISED
+                    movementId: "019a7b13-01aa-7c00-8a00-000000000001"
                   - stockUnit:
                       id: "019a7a8f-f9e5-7212-b74b-2a010af8a2de"
                       identifier: G-0118
                       tracking: SERIAL
                     weight: 30
                     amountPesewas: 32000
+                    treatment: CAPITALISED
+                    movementId: "019a7b13-02aa-7c00-8a00-000000000002"
                 currency: GHS
                 branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
                 version: 1
                 createdAt: "2026-11-05T10:00:00Z"
+                createdBy:
+                  id: "019a7a87-08cf-7652-9b8a-6df7ddcee6d5"
+                  displayName: "Efua Asante"
+                postedBy:
+                  id: "019a7a86-8d13-7ec4-93fc-f519f70a6df7"
+                  displayName: "Kwame Asare"
+                postedAt: "2026-11-05T11:00:00Z"
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -106721,6 +106828,12 @@ components:
           $ref: "#/components/schemas/Pesewas"
         priceVarianceIsNegative:
           type: boolean
+        revenueIsNegative:
+          type: boolean
+          description: "True when credit notes in the range took back more than was billed: `revenuePesewas` is then the size of the negative figure (2.47.0)."
+        costIsNegative:
+          type: boolean
+          description: "True when returns in the range took back more cost than was issued (2.47.0)."
       required:
         - group
         - qty
@@ -106732,6 +106845,8 @@ components:
         - marginPercent
         - priceVariancePesewas
         - priceVarianceIsNegative
+        - revenueIsNegative
+        - costIsNegative
     MarginReport:
       type: object
       description: "A page of `MarginRow` results."
@@ -106766,11 +106881,31 @@ components:
           $ref: "#/components/schemas/Pesewas"
         marginIsNegative:
           type: boolean
+        revenueIsNegative:
+          type: boolean
+          description: "As on a row (2.47.0)."
+        costIsNegative:
+          type: boolean
+          description: "As on a row (2.47.0)."
+        marginPercent:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+          description: "The margin over revenue over the whole filter, as on a row (2.47.0)."
+        priceVariancePesewas:
+          $ref: "#/components/schemas/Pesewas"
+        priceVarianceIsNegative:
+          type: boolean
       required:
         - revenuePesewas
         - costPesewas
         - grossMarginPesewas
         - marginIsNegative
+        - revenueIsNegative
+        - costIsNegative
+        - marginPercent
+        - priceVariancePesewas
+        - priceVarianceIsNegative
     BreakEvenLine:
       type: object
       properties:
@@ -106796,12 +106931,50 @@ components:
           anyOf:
             - $ref: "#/components/schemas/Pesewas"
             - type: "null"
+          description: "Break-even units at the average net price (FR-CST-005); null when there is no break-even."
         coveredPercent:
           anyOf:
             - allOf:
                 - $ref: "#/components/schemas/Percent"
               description: "How much of break-even revenue has been reached."
             - type: "null"
+        revenueIsNegative:
+          type: boolean
+          description: "As `MarginRow.revenueIsNegative` (2.47.0)."
+        variableCostIsNegative:
+          type: boolean
+          description: "As `MarginRow.costIsNegative` (2.47.0)."
+        unitsSold:
+          allOf:
+            - $ref: "#/components/schemas/Quantity"
+          description: "Net units billed in the products' own units, at the period's mix (2.47.0)."
+        averageNetPricePesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+          description: "Revenue over units, half-up once; null when nothing was sold (2.47.0)."
+        variableCostPerUnitPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+          description: "Cost of sales over units, half-up once (2.47.0)."
+        contributionPerUnitPesewas:
+          anyOf:
+            - $ref: "#/components/schemas/Pesewas"
+            - type: "null"
+          description: "Average net price less variable cost per unit (2.47.0)."
+        contributionPerUnitIsNegative:
+          type: boolean
+        breakEvenUnits:
+          type:
+            - integer
+            - "null"
+          description: "Fixed cost over contribution per unit, rounded up to a whole unit; null when contribution per unit is nothing or less, or nothing was sold (FR-CST-005, 2.47.0)."
+        contributionSharePercent:
+          anyOf:
+            - $ref: "#/components/schemas/Percent"
+            - type: "null"
+          description: "The line's share of the total contribution; the shares sum to 100.00 exactly. Null when any contribution is negative (2.47.0)."
       required:
         - productLine
         - revenuePesewas
@@ -106812,6 +106985,15 @@ components:
         - fixedCostPesewas
         - breakEvenRevenuePesewas
         - coveredPercent
+        - revenueIsNegative
+        - variableCostIsNegative
+        - unitsSold
+        - averageNetPricePesewas
+        - variableCostPerUnitPesewas
+        - contributionPerUnitPesewas
+        - contributionPerUnitIsNegative
+        - breakEvenUnits
+        - contributionSharePercent
     BreakEven:
       type: object
       properties:
@@ -106829,12 +107011,17 @@ components:
           $ref: "#/components/schemas/Currency"
         explanation:
           type: string
+        fixedCostPesewas:
+          allOf:
+            - $ref: "#/components/schemas/Pesewas"
+          description: "The period's operating expenses (expense accounts in the operating section, closing entries left out), assigned to the lines by revenue (2.47.0)."
       required:
         - from
         - to
         - lines
         - currency
         - explanation
+        - fixedCostPesewas
     LossRow:
       type: object
       properties:
@@ -106906,10 +107093,24 @@ components:
           format: int64
         amountPesewas:
           $ref: "#/components/schemas/Pesewas"
+        treatment:
+          type: string
+          enum:
+            - CAPITALISED
+            - EXPENSED
+          description: "CAPITALISED: a growing animal's share, moved onto it when the run is posted. EXPENSED: a breeding or laying animal's share, or one no longer on hand when the run was made: it stays in the period's cost and posts nothing (ADR-0018, 2.47.0)."
+        movementId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "The value-only OVERHEAD_CAPITALISE movement that carried a capitalised share, once the run is posted; null before, and always for an expensed share (2.47.0)."
       required:
         - stockUnit
         - weight
         - amountPesewas
+        - treatment
+        - movementId
     OverheadAllocationRun:
       type: object
       properties:
@@ -106958,6 +107159,18 @@ components:
         createdAt:
           type: string
           format: date-time
+        createdBy:
+          $ref: "#/components/schemas/PrincipalRef"
+        postedBy:
+          anyOf:
+            - $ref: "#/components/schemas/PrincipalRef"
+            - type: "null"
+          description: "Who posted it: never the person who created it (2.47.0)."
+        postedAt:
+          type:
+            - string
+            - "null"
+          format: date-time
       required:
         - id
         - status
@@ -106972,6 +107185,9 @@ components:
         - branchId
         - version
         - createdAt
+        - createdBy
+        - postedBy
+        - postedAt
     OverheadAllocationCreate:
       type: object
       properties:
@@ -106997,6 +107213,10 @@ components:
           format: uuid
         totalPesewas:
           $ref: "#/components/schemas/Pesewas"
+        branchId:
+          type: string
+          format: uuid
+          description: "The branch whose animals share the amount, when no `scopeLocationId` is named (2.47.0). With a pen, it must be the pen's branch."
       required:
         - periodStart
         - periodEnd
@@ -109380,6 +109600,11 @@ components:
         - cap.investor.payout.approve
         - cap.investor.payout.read
         - cap.investor.read
+        - cst.allocation.manage
+        - cst.allocation.post
+        - cst.allocation.read
+        - cst.cost.read
+        - cst.margin.read
         - del.cash_reconciliation.read
         - del.delivery.assign
         - del.delivery.read
@@ -109663,6 +109888,10 @@ components:
         - bil.document.reprint
         - bil.document.send
         - bil.proforma.create
+        - cst.allocation.post
+        - cst.allocation.read
+        - cst.cost.read
+        - cst.margin.read
         - del.cash_reconciliation.read
         - del.delivery.assign
         - del.delivery.read
@@ -109921,6 +110150,10 @@ components:
         - cap.financing.read
         - cap.investor.manage
         - cap.investor.read
+        - cst.allocation.manage
+        - cst.allocation.read
+        - cst.cost.read
+        - cst.margin.read
         - doc.document.read
         - doc.template.read
         - fin.account.manage
