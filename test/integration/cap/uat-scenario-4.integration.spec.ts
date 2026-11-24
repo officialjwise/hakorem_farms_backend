@@ -1,12 +1,13 @@
 import { randomUUID } from 'node:crypto';
 import { ManualClock } from '@hakorem/kernel';
+import request from 'supertest';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { runSeedUnits } from '../../../src/seed/run-seed';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { documentWorker } from '../../support/documents';
 import { stepUp, type TotpSession } from '../../support/fin';
-import { consoleGet, consolePost, createUser, enrolAndLogin, relaxRateLimits, testStartTime, type TestSession } from '../../support/iam';
-import { startTestApp, type TestApp } from '../../support/test-app';
+import { consoleGet, consolePatch, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, setPortalPassword, testStartTime, type TestSession } from '../../support/iam';
+import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
 /**
@@ -15,7 +16,7 @@ import { createTestDatabase, type TestDatabase } from '../../support/test-databa
  * is the Accountant who runs it; Akua Mensah is the Owner who approves. The period is 1 July to 30 September 2026, 92
  * days; net profit GHS 41,666.70; 40 percent kept; GHS 25,000.02 shared by unit-days with largest remainder. Every
  * figure is the script's, to the pesewa, and every ledger figure is read back from FIN's own tables in SQL. Steps 4.10
- * and 4.11 (the investor portal) are B12 continued's.
+ * and 4.11 run through the investor portal (B12 continued): each investor signs in and reads only their own figures.
  */
 let database: TestDatabase;
 let api: TestApp;
@@ -218,7 +219,85 @@ describe('UAT scenario 4: investor distribution (docs/UAT.md section 8)', () => 
     expect(await trialBalanceIsZero()).toBe(true);
   });
 
+  /** Access tokens last ten minutes and the clock has moved on: the console refreshes its sessions, as a browser does. */
+  async function refreshStaff(): Promise<void> {
+    for (const session of [efua, akua]) {
+      const refreshed = await request(api.server).post('/v1/auth/refresh').set('Cookie', session.jar.header()).set('Origin', TEST_ORIGIN);
+      expect(refreshed.status, JSON.stringify(refreshed.body)).toBe(200);
+      session.jar.store(refreshed.headers['set-cookie']);
+    }
+  }
+
+  /** Efua opens the investor's portal login; the investor sets a password (the reset, done here in SQL) and signs in. */
+  async function portalSession(name: string): Promise<TestSession> {
+    await refreshStaff();
+    const investor = (await get(efua, '/investors')).body.data.find((i: { legalName: string }) => i.legalName === name) as { id: string; version: number };
+    await stepUp(api.server, efua, clock);
+    const opened = await consolePatch(api.server, efua, `/v1/investors/${investor.id}`).send({ version: investor.version, createPortalLogin: true });
+    expect(opened.status, JSON.stringify(opened.body)).toBe(200);
+    expect(opened.body.hasPortalLogin).toBe(true);
+    const principalId = (await admin().query<{ principal_id: string }>('SELECT principal_id FROM cap.investor WHERE id = $1', [investor.id])).rows[0]!.principal_id;
+    return login(api.server, await setPortalPassword(database, principalId), 'Phone');
+  }
+  const others = ['Kofi Ampofo', 'Esi Bonsu', 'Yaw Frimpong', 'Akwaaba Diaspora Agro Fund', 'Ama Owusu-Ansah'];
+
+  it('4.10: Ama signs in to the portal and sees her own 1,000 units, her GHS 7,178.53 and her statement, and nobody else', async () => {
+    const ama = await portalSession('Ama Owusu-Ansah');
+    const me = await get(ama, '/investor/me');
+    expect(me.status, JSON.stringify(me.body)).toBe(200);
+    expect([me.body.investor.name, me.body.units, me.body.allocatedPesewas, me.body.paidPesewas, me.body.outstandingPesewas, me.body.contributedPesewas]).toEqual([
+      'Ama Owusu-Ansah',
+      '1000.0000',
+      717_853,
+      717_853,
+      0,
+      10_000_000,
+    ]);
+    const distributions = await get(ama, '/investor/distributions');
+    expect(distributions.body.data.map((l: { periodStart: string; periodEnd: string; allocatedPesewas: number; status: string }) => [l.periodStart, l.periodEnd, l.allocatedPesewas, l.status])).toEqual([
+      ['2026-07-01', '2026-09-30', 717_853, 'PAID'],
+    ]);
+    const statement = await get(ama, '/investor/statement?from=2025-06-01&to=2099-12-31');
+    expect(statement.status, JSON.stringify(statement.body)).toBe(200);
+    expect([statement.body.openingCapitalPesewas, statement.body.closingCapitalPesewas, statement.body.allocatedInPeriodPesewas, statement.body.paidInPeriodPesewas]).toEqual([0, 10_000_000, 717_853, 717_853]);
+    expect(statement.body.lines.map((l: { kind: string; amountPesewas: number; direction: string }) => [l.kind, l.amountPesewas, l.direction])).toEqual([
+      ['CONTRIBUTION', 10_000_000, 'IN'],
+      ['DISTRIBUTION_ALLOCATED', 717_853, 'IN'],
+      ['DISTRIBUTION_PAID', 717_853, 'OUT'],
+    ]);
+    // FR-CAP-013: the statement ties to Ama's subledgers: 3000 is her net capital, 2300 what is allocated less paid.
+    expect(0 - (await investorBalance('3000', 'Ama Owusu-Ansah'))).toBe(statement.body.closingCapitalPesewas);
+    expect(0 - (await investorBalance('2300', 'Ama Owusu-Ansah'))).toBe(statement.body.allocatedInPeriodPesewas - statement.body.paidInPeriodPesewas);
+    // The Accountant reads the same statement.
+    const desk = await get(efua, `/investors/${me.body.investor.id}/statement?from=2025-06-01&to=2099-12-31`);
+    expect(desk.body).toEqual(statement.body);
+    // She cannot see any other investor's name or figures: not in her answers, and not through the staff reads.
+    const transactions = await get(ama, '/investor/capital-transactions');
+    expect(transactions.body.data.map((t: { investor: { name: string }; amountPesewas: number }) => [t.investor.name, t.amountPesewas])).toEqual([['Ama Owusu-Ansah', 10_000_000]]);
+    for (const body of [me.body, distributions.body, statement.body, transactions.body]) {
+      for (const name of others.filter((n) => n !== 'Ama Owusu-Ansah')) expect(JSON.stringify(body)).not.toContain(name);
+    }
+    expect((await get(ama, '/investors')).status).toBe(401);
+    expect((await get(ama, '/capital/register')).status).toBe(401);
+    expect((await get(ama, `/distribution-runs/${runId}`)).status).toBe(401);
+    // A staff session is not an investor: the portal refuses it.
+    expect((await get(efua, '/investor/me')).status).toBe(401);
+  });
+
+  it('4.11: Kofi signs in and sees GHS 1,833.65 and 500 units, and nothing of Ama’s', async () => {
+    const kofi = await portalSession('Kofi Ampofo');
+    const me = await get(kofi, '/investor/me');
+    expect([me.body.investor.name, me.body.units, me.body.allocatedPesewas, me.body.paidPesewas]).toEqual(['Kofi Ampofo', '500.0000', 183_365, 183_365]);
+    const distributions = await get(kofi, '/investor/distributions');
+    expect(distributions.body.data.map((l: { allocatedPesewas: number }) => l.allocatedPesewas)).toEqual([183_365]);
+    for (const body of [me.body, distributions.body, (await get(kofi, '/investor/statement?from=2025-01-01&to=2099-12-31')).body]) {
+      expect(JSON.stringify(body)).not.toContain('Ama Owusu-Ansah');
+      expect(JSON.stringify(body)).not.toContain('717853');
+    }
+  });
+
   it('4.12: the same run is posted once and approved once', async () => {
+    await refreshStaff();
     await stepUp(api.server, efua, clock);
     const again = await post(efua, `/distribution-runs/${runId}/post`);
     expect(again.status).toBe(422);

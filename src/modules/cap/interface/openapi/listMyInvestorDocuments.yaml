@@ -1,0 +1,95 @@
+operationId: listMyInvestorDocuments
+tags:
+  - investor
+summary: "My agreements, statements and distribution schedules"
+description: "The investor portal (FR-IAM-013, FR-CAP-013, 2.46.0): a signed-in investor reads only their own record, found by their session, never by an id in the request; a staff or customer session, or an investor login no investor holds, is 403. The investor's own documents, newest first."
+x-owner-module: cap
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - investorSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InvestorDocumentPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b0b-f3c3-73b8-98f0-4456c25abd34"
+                  kind: AGREEMENT
+                  name: "Investment agreement, June 2025"
+                  file:
+                    id: "019a7b0c-12b2-7d9b-a2d4-e28e3c0b5b6c"
+                    originalName: agreement-INV-001.pdf
+                    contentType: application/pdf
+                  createdAt: "2026-10-01T10:00:00Z"
+                - id: "019a7b0c-31a1-777f-bcb7-80c5b5bcf9a3"
+                  kind: IDENTIFICATION
+                  name: "Ghana card"
+                  file:
+                    id: "019a7b0c-5090-7162-869b-1efd2f6d97db"
+                    originalName: ghana-card.jpg
+                    contentType: image/jpeg
+                  createdAt: "2026-10-04T10:00:00Z"
+                - id: "019a7b0c-6f7f-7b46-907e-bd34a91e3612"
+                  kind: STATEMENT
+                  name: "Capital statement Q3 2026"
+                  file:
+                    id: "019a7b0c-8e6e-7529-aa61-5b6c22cfd44a"
+                    originalName: statement-2026-Q3.pdf
+                    contentType: application/pdf
+                  createdAt: "2026-10-07T10:00:00Z"
+                - id: "019a7b0c-ad5d-7f0d-b445-f9a39c807281"
+                  kind: DISTRIBUTION_SCHEDULE
+                  name: "Distribution schedule Q3 2026"
+                  file:
+                    id: "019a7b0c-cc4c-78f0-8e28-97db163110b8"
+                    originalName: DST-2026-DDW-000003.pdf
+                    contentType: application/pdf
+                  createdAt: "2026-10-10T10:00:00Z"
+                - id: "019a7b0c-eb3b-72d4-980c-36128fe2aef0"
+                  kind: STATEMENT
+                  name: "Capital statement Q2 2026"
+                  file:
+                    id: "019a7b0d-0a2a-7cb7-a1ef-d44a09934d27"
+                    originalName: statement-2026-Q2.pdf
+                    contentType: application/pdf
+                  createdAt: "2026-10-13T10:00:00Z"
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

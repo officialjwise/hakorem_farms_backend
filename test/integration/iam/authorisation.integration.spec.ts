@@ -160,13 +160,17 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         'listInvestors', 'createInvestor', 'getInvestor', 'updateInvestor', 'listCapitalTransactions', 'recordCapitalTransaction', 'getCapitalTransaction',
         'getCapitalRegister', 'listDistributionRuns', 'createDistributionRun', 'getDistributionRun', 'recomputeDistributionRun', 'submitDistributionRun',
         'postDistributionRun', 'getDistributionSchedule', 'recordDistributionPayment',
+        // B12 continued: documents, payout details, statements, returns, loans and grants, and the investor portal.
+        'listInvestorDocuments', 'addInvestorDocument', 'getInvestorPayoutDetails', 'getInvestorStatement', 'getInvestorReturns', 'getOverallReturns',
+        'listFinancing', 'createFinancing', 'getFinancing', 'recordRepayment',
+        'getMyInvestorSummary', 'listMyCapitalTransactions', 'listMyDistributions', 'getMyInvestorStatement', 'listMyInvestorDocuments', 'downloadMyInvestorDocument',
       ].sort(),
     );
     expect(routes.filter((route) => route.spec === undefined).map((route) => route.handler)).toEqual([]);
   });
 
   it('declares a permission on every staff operation that is not on the caller\'s own account or public', () => {
-    const own = new Set(['logout', 'getCurrentSession', 'changePassword', 'startTotpEnrolment', 'confirmTotpEnrolment', 'stepUp', 'getMyStoreCredit', 'listMyOrders', 'getMyOrder', 'listMyQuotes', 'answerMyOrderConsent', 'getMyNotificationPreferences', 'replaceMyNotificationPreferences', 'listMyNotifications', 'markNotificationRead']);
+    const own = new Set(['logout', 'getCurrentSession', 'changePassword', 'startTotpEnrolment', 'confirmTotpEnrolment', 'stepUp', 'getMyStoreCredit', 'listMyOrders', 'getMyOrder', 'listMyQuotes', 'answerMyOrderConsent', 'getMyNotificationPreferences', 'replaceMyNotificationPreferences', 'listMyNotifications', 'markNotificationRead', 'getMyInvestorSummary', 'listMyCapitalTransactions', 'listMyDistributions', 'getMyInvestorStatement', 'listMyInvestorDocuments', 'downloadMyInvestorDocument']);
     for (const route of routes) {
       const spec = route.spec!;
       if (spec.access === 'PUBLIC' || own.has(spec.operationId) || spec.permissionByPolicy === true) {

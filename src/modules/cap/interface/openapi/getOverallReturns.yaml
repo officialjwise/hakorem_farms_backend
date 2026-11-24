@@ -1,0 +1,48 @@
+operationId: getOverallReturns
+tags:
+  - cap
+summary: "Return metrics across all investors"
+description: "FR-CAP-014 (2.46.0). The same measures as `getInvestorReturns` for every investor together (`investor` null; the closing value is the farm's whole equity on `asOf`). The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.capital.read`."
+x-permission: cap.capital.read
+parameters:
+  - name: asOf
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InvestorReturns"
+        example:
+          investor: null
+          asOf: "2026-11-13"
+          contributedPesewas: 42000000
+          distributedPesewas: 4299240
+          outstandingPesewas: 2500002
+          roiPercent: "10.24"
+          roiIsNegative: false
+          paybackMonths: null
+          irrPercent: "9.10"
+          irrIsNegative: false
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

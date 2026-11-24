@@ -1,0 +1,85 @@
+operationId: recordRepayment
+tags:
+  - cap
+summary: "Record a repayment"
+description: "FR-CAP-015 (2.46.0). Accrues every finished month first, then records the repayment: accrued interest first, then principal (422 `REPAYMENT_INVALID` `INTEREST_FIRST`), never more interest than has accrued (`MORE_THAN_ACCRUED`) nor more principal than is outstanding (`MORE_THAN_OUTSTANDING`; the database refuses it too). Posts Dr 2400 the principal against the lender, Dr 2410 the interest, Cr 1100 or 1110 the total, on the business date of `paidAt`, which may not be in the future nor in a month already accrued (`VALUE_DATE_BEFORE_ACCRUAL`). A loan fully repaid is `SETTLED`. A reused `externalReference` is 409 `DUPLICATE_VALUE`. LOUD: needs step-up (its permission does). The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.financing.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: cap.financing.manage
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/RepaymentCreate"
+      example:
+        principalPesewas: 625000
+        interestPesewas: 225000
+        bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
+        externalReference: GCB-TRF-20261201-0011
+        paidAt: "2026-12-01T10:00:00Z"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Financing"
+        example:
+          id: "019a7b10-6c4e-7198-a6d0-225b58ef9b39"
+          financingNo: FNC-2026-DDW-000001
+          status: ACTIVE
+          kind: LOAN
+          lenderInvestor: null
+          lenderName: "Agricultural Development Bank"
+          principalPesewas: 15000000
+          annualRatePercent: "24.00"
+          interestBasis: ACTUAL_365
+          startDate: "2026-03-01"
+          termMonths: 24
+          outstandingPesewas: 11250000
+          accruedInterestPesewas: 0
+          approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e01"
+          schedule:
+            - instalmentNo: 9
+              dueDate: "2026-12-01"
+              principalDuePesewas: 625000
+              interestDuePesewas: 225000
+              paidPesewas: 0
+            - instalmentNo: 10
+              dueDate: "2027-01-01"
+              principalDuePesewas: 625000
+              interestDuePesewas: 212700
+              paidPesewas: 0
+          currency: GHS
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.45.0"
+  version: "2.46.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -69388,6 +69388,7 @@ paths:
                         idNumberMasked: "GHA-••••••••-3"
                         payoutMethod: BANK
                         payoutDetailsMasked: "GCB, ****1180"
+                        pendingPayoutApprovalRequestId: null
                         joinedOn: "2025-06-01"
                         status: ACTIVE
                         units: "1000.0000"
@@ -69406,6 +69407,7 @@ paths:
                         idNumberMasked: "GHA-••••••••-4"
                         payoutMethod: BANK
                         payoutDetailsMasked: "Ecobank, ****7702"
+                        pendingPayoutApprovalRequestId: null
                         joinedOn: "2026-08-15"
                         status: ACTIVE
                         units: "500.0000"
@@ -69424,6 +69426,7 @@ paths:
                         idNumberMasked: "GHA-••••••••-5"
                         payoutMethod: BANK
                         payoutDetailsMasked: "Stanbic, ****3319"
+                        pendingPayoutApprovalRequestId: null
                         joinedOn: "2025-06-01"
                         status: ACTIVE
                         units: "500.0000"
@@ -69442,6 +69445,7 @@ paths:
                         idNumberMasked: "GHA-••••••••-6"
                         payoutMethod: MOBILE_MONEY
                         payoutDetailsMasked: "MTN MoMo, ****0014"
+                        pendingPayoutApprovalRequestId: null
                         joinedOn: "2025-11-01"
                         status: ACTIVE
                         units: "200.0000"
@@ -69460,6 +69464,7 @@ paths:
                         idNumberMasked: null
                         payoutMethod: BANK
                         payoutDetailsMasked: "Barclays UK, ****4410"
+                        pendingPayoutApprovalRequestId: null
                         joinedOn: "2026-07-15"
                         status: ACTIVE
                         units: "2000.0000"
@@ -69495,7 +69500,7 @@ paths:
       tags:
         - cap
       summary: "Register an investor"
-      description: "FR-CAP-001. Registers an investor, numbered INV-001, INV-002 in order. `idNumber`, `payout`, `agreementFileId` and `createPortalLogin` are built in B12 continued: until then a request naming any of them is 422 `INVESTOR_INVALID` with `FIELD_NOT_YET_SUPPORTED` at its pointer, and nothing is written. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "FR-CAP-001, FR-CAP-002. Registers an investor, numbered INV-001, INV-002 in order. From 2.46.0 (B12 continued; LOUD: `FIELD_NOT_YET_SUPPORTED` is no longer answered): `idNumber` is sealed with the investor's own key and shown only masked (`ID_NUMBER_INVALID`); `payout` is never put in force at once: it waits for a different person holding `cap.investor.payout.approve` (`INVESTOR_PAYOUT_CHANGE`; `pendingPayoutApprovalRequestId` names the approval) and is shown only masked (`REQUIRED`, `NOT_FOR_METHOD`, `ACCOUNT_NUMBER_INVALID`, `MOMO_NUMBER_INVALID`); `agreementFileId` must be a clean `AGREEMENT` or `INVESTOR_DOCUMENT` upload (`FILE_NOT_USABLE`) and becomes the investor's agreement document; `createPortalLogin` opens an INVESTOR login with the investor's email or phone (`NO_CONTACT_FOR_LOGIN`), whose password the investor sets through the password reset. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.investor.manage
       x-requires-step-up: true
       parameters:
@@ -69541,6 +69546,7 @@ paths:
                 idNumberMasked: "GHA-••••••••-6"
                 payoutMethod: MOBILE_MONEY
                 payoutDetailsMasked: "MTN MoMo, ****0014"
+                pendingPayoutApprovalRequestId: null
                 joinedOn: "2025-11-01"
                 status: ACTIVE
                 units: "200.0000"
@@ -69602,6 +69608,7 @@ paths:
                 idNumberMasked: "GHA-••••••••-3"
                 payoutMethod: BANK
                 payoutDetailsMasked: "GCB, ****1180"
+                pendingPayoutApprovalRequestId: null
                 joinedOn: "2025-06-01"
                 status: ACTIVE
                 units: "1000.0000"
@@ -69627,7 +69634,7 @@ paths:
       tags:
         - cap
       summary: "Update an investor"
-      description: "FR-CAP-001. Changes the phone, email or status at the `version` read (409 `VERSION_CONFLICT` otherwise). An investor is never deleted: one who leaves is `EXITED`, and only once they hold no units (422 `INVESTOR_INVALID` `INVESTOR_HAS_UNITS`). `payout` is B12 continued's (422 `FIELD_NOT_YET_SUPPORTED` until then). Audited with before and after. The investor books are kept at the head office branch: the permission is checked there, so a grant at another branch reads nothing (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "FR-CAP-001, FR-CAP-002. Changes the phone, email or status at the `version` read (409 `VERSION_CONFLICT` otherwise). An investor is never deleted: one who leaves is `EXITED`, and only once they hold no units (422 `INVESTOR_INVALID` `INVESTOR_HAS_UNITS`). From 2.46.0 (LOUD: `FIELD_NOT_YET_SUPPORTED` is no longer answered): `payout` asks for a change that waits for a different person's approval (`INVESTOR_PAYOUT_CHANGE`; one at a time, `PAYOUT_CHANGE_PENDING`), `idNumber` is sealed, and `createPortalLogin` opens the portal login (`PORTAL_LOGIN_EXISTS`, `NO_CONTACT_FOR_LOGIN`). Audited with before and after. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.investor.manage
       x-requires-step-up: true
       parameters:
@@ -69672,6 +69679,7 @@ paths:
                 idNumberMasked: "GHA-••••••••-3"
                 payoutMethod: BANK
                 payoutDetailsMasked: "GCB, ****1180"
+                pendingPayoutApprovalRequestId: null
                 joinedOn: "2025-06-01"
                 status: ACTIVE
                 units: "1000.0000"
@@ -69702,7 +69710,7 @@ paths:
       tags:
         - cap
       summary: "List an investor's documents"
-      description: "Permission: `cap.investor.read`."
+      description: "FR-CAP-002 (2.46.0). An investor's documents, newest first: the agreement, identification and others, held privately. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.read`."
       x-permission: cap.investor.read
       parameters:
         - name: id
@@ -69807,7 +69815,7 @@ paths:
       tags:
         - cap
       summary: "Attach a document to an investor"
-      description: "Permission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "FR-CAP-002 (2.46.0). Keeps a clean `INVESTOR_DOCUMENT` or `AGREEMENT` upload for the investor (422 `INVESTOR_INVALID` `FILE_NOT_USABLE` otherwise); an `AGREEMENT` becomes their agreement. Only that investor reads it in the portal. Audited. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.investor.manage
       x-requires-step-up: true
       parameters:
@@ -71287,7 +71295,7 @@ paths:
       tags:
         - cap
       summary: "List loans and grants"
-      description: "Permission: `cap.financing.read`."
+      description: "FR-CAP-015 (2.46.0). Loans and grants, newest first, each with its schedule and what it still owes. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.financing.read`."
       x-permission: cap.financing.read
       parameters:
         - name: kind
@@ -71339,6 +71347,8 @@ paths:
                         startDate: "2026-03-01"
                         termMonths: 24
                         outstandingPesewas: 11250000
+                        accruedInterestPesewas: 0
+                        approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e01"
                         schedule:
                           - instalmentNo: 9
                             dueDate: "2026-12-01"
@@ -71364,6 +71374,8 @@ paths:
                         startDate: "2026-05-20"
                         termMonths: null
                         outstandingPesewas: 0
+                        accruedInterestPesewas: 0
+                        approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e02"
                         schedule: []
                         currency: GHS
                         version: 2
@@ -71379,6 +71391,8 @@ paths:
                         startDate: "2025-08-01"
                         termMonths: 12
                         outstandingPesewas: 0
+                        accruedInterestPesewas: 0
+                        approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e03"
                         schedule: []
                         currency: GHS
                         version: 2
@@ -71397,6 +71411,8 @@ paths:
                         startDate: "2026-09-01"
                         termMonths: 12
                         outstandingPesewas: 916700
+                        accruedInterestPesewas: 0
+                        approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e04"
                         schedule: []
                         currency: GHS
                         version: 2
@@ -71412,6 +71428,8 @@ paths:
                         startDate: "2026-11-20"
                         termMonths: null
                         outstandingPesewas: 1200000
+                        accruedInterestPesewas: 0
+                        approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e05"
                         schedule: []
                         currency: GHS
                         version: 2
@@ -71442,7 +71460,7 @@ paths:
       tags:
         - cap
       summary: "Record a loan or grant"
-      description: "The repayment schedule's last instalment takes the remainder, so it sums exactly to the principal.\n\nPermission: `cap.financing.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "FR-CAP-015, ADR-0101 (2.46.0). Records a loan or grant as a numbered `DRAFT` waiting for a different person holding `cap.financing.approve` (`FINANCING`, step-up); on approval it is drawn into the bank on `startDate` (a loan Dr 1100 or 1110, Cr 2400 against the lender, an INVESTOR party: the registered investor, or the financing itself; a grant Cr 2450). A loan's interest is simple, actual/365, accrued each finished month on its last day and rounded half-up once (Dr 6930, Cr 2410); a grant is recognised in equal monthly parts over `termMonths` (Dr 2450, Cr 4910). The schedule splits the principal into equal instalments by largest remainder, so it sums exactly to the principal, the earliest instalments taking any leftover pesewa. 422 `FINANCING_INVALID`: `LENDER_UNKNOWN`, `INTEREST_BASIS_NOT_SUPPORTED` (`FLAT`), `GRANT_HAS_NO_INTEREST`, `TERM_REQUIRED`, `START_DATE_IN_FUTURE`, `PERIOD_NOT_OPEN`, `BANK_ACCOUNT_UNKNOWN`, `BANK_ACCOUNT_INACTIVE`, `FILE_NOT_USABLE`. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.financing.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.financing.manage
       x-requires-step-up: true
       parameters:
@@ -71489,6 +71507,8 @@ paths:
                 startDate: "2026-03-01"
                 termMonths: 24
                 outstandingPesewas: 11250000
+                accruedInterestPesewas: 0
+                approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e01"
                 schedule:
                   - instalmentNo: 9
                     dueDate: "2026-12-01"
@@ -71522,7 +71542,7 @@ paths:
       tags:
         - cap
       summary: "Get a loan or grant with its schedule"
-      description: "Permission: `cap.financing.read`."
+      description: "FR-CAP-015 (2.46.0). A loan or grant with its schedule (what was repaid laid against the instalments in due order), the principal outstanding (for a grant, what is not yet recognised) and the interest accrued and not yet repaid. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.financing.read`."
       x-permission: cap.financing.read
       parameters:
         - name: id
@@ -71557,6 +71577,8 @@ paths:
                 startDate: "2026-03-01"
                 termMonths: 24
                 outstandingPesewas: 11250000
+                accruedInterestPesewas: 0
+                approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e01"
                 schedule:
                   - instalmentNo: 9
                     dueDate: "2026-12-01"
@@ -71588,8 +71610,9 @@ paths:
       tags:
         - cap
       summary: "Record a repayment"
-      description: "Permission: `cap.financing.manage`."
+      description: "FR-CAP-015 (2.46.0). Accrues every finished month first, then records the repayment: accrued interest first, then principal (422 `REPAYMENT_INVALID` `INTEREST_FIRST`), never more interest than has accrued (`MORE_THAN_ACCRUED`) nor more principal than is outstanding (`MORE_THAN_OUTSTANDING`; the database refuses it too). Posts Dr 2400 the principal against the lender, Dr 2410 the interest, Cr 1100 or 1110 the total, on the business date of `paidAt`, which may not be in the future nor in a month already accrued (`VALUE_DATE_BEFORE_ACCRUAL`). A loan fully repaid is `SETTLED`. A reused `externalReference` is 409 `DUPLICATE_VALUE`. LOUD: needs step-up (its permission does). The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.financing.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: cap.financing.manage
+      x-requires-step-up: true
       parameters:
         - name: id
           in: path
@@ -71637,6 +71660,8 @@ paths:
                 startDate: "2026-03-01"
                 termMonths: 24
                 outstandingPesewas: 11250000
+                accruedInterestPesewas: 0
+                approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e01"
                 schedule:
                   - instalmentNo: 9
                     dueDate: "2026-12-01"
@@ -71672,7 +71697,7 @@ paths:
       tags:
         - cap
       summary: "Return on investment, payback and IRR for an investor"
-      description: "Permission: `cap.investor.read`."
+      description: "FR-CAP-014 (2.46.0). Computed on request, never stored, in integers. `contributedPesewas` is what was paid in, `distributedPesewas` what was paid out as distributions, `outstandingPesewas` what was allocated and not yet paid. ROI is distributions paid over net contributions (contributions less withdrawals), half-up to two places; payback the whole months from the first contribution to the first day distributions and withdrawals reached what was paid in by then (null until reached); IRR the XIRR of the dated flows (contributions out, withdrawals and distributions paid in, and a closing value of the investor's share of the farm's equity by units on `asOf`), actual/365, half-up to four places of a fraction (two of a percentage). A figure the `Percent` shape cannot carry (above 100 percent) is null (A-384). `asOf` defaults to today. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.read`."
       x-permission: cap.investor.read
       parameters:
         - name: id
@@ -71733,7 +71758,7 @@ paths:
       tags:
         - cap
       summary: "Return metrics across all investors"
-      description: "Permission: `cap.capital.read`."
+      description: "FR-CAP-014 (2.46.0). The same measures as `getInvestorReturns` for every investor together (`investor` null; the closing value is the farm's whole equity on `asOf`). The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.capital.read`."
       x-permission: cap.capital.read
       parameters:
         - name: asOf
@@ -71783,6 +71808,7 @@ paths:
       tags:
         - investor
       summary: "My capital, share and distributions at a glance"
+      description: "The investor portal (FR-IAM-013, FR-CAP-013, 2.46.0): a signed-in investor reads only their own record, found by their session, never by an id in the request; a staff or customer session, or an investor login no investor holds, is 403. Units and share now, paid in, allocated, paid and outstanding distributions, and the return metrics of `getInvestorReturns` as at today."
       x-owner-module: cap
       security:
         - investorSession: []
@@ -71840,6 +71866,7 @@ paths:
       tags:
         - investor
       summary: "My contributions and withdrawals"
+      description: "The investor portal (FR-IAM-013, FR-CAP-013, 2.46.0): a signed-in investor reads only their own record, found by their session, never by an id in the request; a staff or customer session, or an investor login no investor holds, is 403. The investor's own contributions and withdrawals, oldest value date first."
       x-owner-module: cap
       parameters:
         - name: cursor
@@ -72011,6 +72038,7 @@ paths:
       tags:
         - investor
       summary: "My share of each distribution"
+      description: "The investor portal (FR-IAM-013, FR-CAP-013, 2.46.0): a signed-in investor reads only their own record, found by their session, never by an id in the request; a staff or customer session, or an investor login no investor holds, is 403. The investor's own lines of posted distribution runs, newest period first; `status` is `PAID`, `PARTLY_PAID` or `UNPAID`."
       x-owner-module: cap
       parameters:
         - name: cursor
@@ -72122,6 +72150,7 @@ paths:
       tags:
         - investor
       summary: "My capital statement for a period"
+      description: "The investor portal (FR-IAM-013, FR-CAP-013, 2.46.0): a signed-in investor reads only their own record, found by their session, never by an id in the request; a staff or customer session, or an investor login no investor holds, is 403. The statement for the range, as `getInvestorStatement` shows it to the Accountant; it ties to the investor's 3000 and 2300 subledgers. `documentUrl` is null: no statement document is rendered yet (A-384)."
       x-owner-module: cap
       parameters:
         - name: from
@@ -72190,6 +72219,7 @@ paths:
       tags:
         - investor
       summary: "My agreements, statements and distribution schedules"
+      description: "The investor portal (FR-IAM-013, FR-CAP-013, 2.46.0): a signed-in investor reads only their own record, found by their session, never by an id in the request; a staff or customer session, or an investor login no investor holds, is 403. The investor's own documents, newest first."
       x-owner-module: cap
       parameters:
         - name: cursor
@@ -72286,6 +72316,7 @@ paths:
       tags:
         - investor
       summary: "Get a download link for one of my documents"
+      description: "The investor portal (FR-IAM-013, FR-CAP-013, 2.46.0): a signed-in investor reads only their own record, found by their session, never by an id in the request; a staff or customer session, or an investor login no investor holds, is 403. A signed link to one of the investor's own documents, valid for five minutes, its issue logged; another investor's document is 404."
       x-owner-module: cap
       parameters:
         - name: id
@@ -82587,6 +82618,134 @@ paths:
           $ref: "#/components/responses/RateLimited"
         "500":
           $ref: "#/components/responses/InternalError"
+  "/investors/{id}/payout-details":
+    get:
+      operationId: getInvestorPayoutDetails
+      tags:
+        - cap
+      summary: "Reveal an investor's payout details and identity number"
+      description: "FR-CAP-002 (B12 continued, 2.46.0). The payout details in force, any change waiting for its approver, and the identity number, in full. Restricted data: sealed with the investor's own key and shown masked everywhere else; each reveal is audited (`DECRYPT`). The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.payout.read`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      x-permission: cap.investor.payout.read
+      x-requires-step-up: true
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvestorPayoutDetails"
+              example:
+                investorId: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+                idNumber: GHA-723456789-3
+                inForce:
+                  method: BANK
+                  bankName: GCB
+                  accountName: "Ama Owusu-Ansah"
+                  accountNumber: "1020304051180"
+                pending: null
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  "/investors/{id}/statement":
+    get:
+      operationId: getInvestorStatement
+      tags:
+        - cap
+      summary: "An investor's capital statement for a period"
+      description: "FR-CAP-013 (B12 continued, 2.46.0). The same statement the investor reads in the portal (`getMyInvestorStatement`): opening and closing capital, contributions and withdrawals with their units, distributions allocated when posted and paid, in date order. It ties to the investor's 3000 and 2300 subledgers. `from` defaults to the day the investor joined and `to` to today. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.read`."
+      x-permission: cap.investor.read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+        - name: to
+          in: query
+          required: false
+          schema:
+            type: string
+            format: date
+      security:
+        - staffSession: []
+        - apiKey: []
+      responses:
+        "200":
+          description: OK
+          headers:
+            X-Correlation-Id:
+              $ref: "#/components/headers/CorrelationId"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvestorStatement"
+              example:
+                investor:
+                  id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+                  investorNo: INV-001
+                  name: "Ama Owusu-Ansah"
+                from: "2026-07-01"
+                to: "2026-12-31"
+                openingCapitalPesewas: 10000000
+                lines:
+                  - date: "2026-11-24"
+                    kind: DISTRIBUTION_ALLOCATED
+                    reference: DST-2026-DDW-000001
+                    amountPesewas: 717853
+                    direction: IN
+                    units: null
+                  - date: "2026-11-24"
+                    kind: DISTRIBUTION_PAID
+                    reference: DST-2026-DDW-000001
+                    amountPesewas: 717853
+                    direction: OUT
+                    units: null
+                closingCapitalPesewas: 10000000
+                allocatedInPeriodPesewas: 717853
+                paidInPeriodPesewas: 717853
+                currency: GHS
+                documentUrl: null
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        "500":
+          $ref: "#/components/responses/InternalError"
 components:
   securitySchemes:
     staffSession:
@@ -83419,6 +83578,8 @@ components:
         - MORTALITY_WRITE_OFF
         - MORTALITY_CONFIRMATION
         - PROCESSING_REVERSAL
+        - INVESTOR_PAYOUT_CHANGE
+        - FINANCING
         - ACCOUNT_RELEASE
         - CREDIT_LIMIT_CHANGE
     ApprovalPending:
@@ -105480,6 +105641,12 @@ components:
           type:
             - string
             - "null"
+        pendingPayoutApprovalRequestId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "The approval a change of the payout details waits for (FR-CAP-002, 2.46.0): every setting, the first included, needs a different person with `cap.investor.payout.approve`. Null when none waits."
         joinedOn:
           type: string
           format: date
@@ -105513,6 +105680,7 @@ components:
         - idNumberMasked
         - payoutMethod
         - payoutDetailsMasked
+        - pendingPayoutApprovalRequestId
         - joinedOn
         - status
         - units
@@ -105592,6 +105760,13 @@ components:
           allOf:
             - $ref: "#/components/schemas/PayoutInput"
           description: "A change of payout details needs approval and is audited."
+        idNumber:
+          type: string
+          maxLength: 40
+          description: "The identity number (Ghana Card or other), sealed and shown masked (FR-CAP-002, 2.46.0)."
+        createPortalLogin:
+          type: boolean
+          description: "Opens the investor's portal login with their email or phone (2.46.0); they set their own password through the password reset."
         status:
           type: string
           enum:
@@ -105613,6 +105788,64 @@ components:
       required:
         - data
         - page
+    InvestorPayoutDetails:
+      type: object
+      description: "Restricted (FR-CAP-002, 2.46.0): an investor's payout details and identity number in full, for `cap.investor.payout.read` with step-up; each reveal is audited."
+      properties:
+        investorId:
+          type: string
+          format: uuid
+        idNumber:
+          type:
+            - string
+            - "null"
+        inForce:
+          anyOf:
+            - $ref: "#/components/schemas/PayoutInput"
+            - type: "null"
+        pending:
+          anyOf:
+            - type: object
+              properties:
+                method:
+                  type: string
+                  enum:
+                    - BANK
+                    - MOBILE_MONEY
+                bankName:
+                  type: string
+                accountName:
+                  type: string
+                accountNumber:
+                  type: string
+                momoNetwork:
+                  type: string
+                  enum:
+                    - MTN
+                    - TELECEL
+                    - AIRTELTIGO
+                momoNumber:
+                  $ref: "#/components/schemas/PhoneNumber"
+                approvalRequestId:
+                  type: string
+                  format: uuid
+                requestedBy:
+                  type: string
+                  format: uuid
+                requestedAt:
+                  type: string
+                  format: date-time
+              required:
+                - method
+                - approvalRequestId
+                - requestedBy
+                - requestedAt
+            - type: "null"
+      required:
+        - investorId
+        - idNumber
+        - inForce
+        - pending
     InvestorDocument:
       type: object
       properties:
@@ -106072,6 +106305,13 @@ components:
             - "null"
         outstandingPesewas:
           $ref: "#/components/schemas/Pesewas"
+        accruedInterestPesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "Interest accrued for finished months and not yet repaid (2.46.0). A repayment goes to it first."
+        approvalRequestId:
+          type: string
+          format: uuid
+          description: "The approval the loan or grant was recorded under (2.46.0): it is drawn and posted when someone else approves it."
         schedule:
           type: array
           items:
@@ -106093,6 +106333,8 @@ components:
         - startDate
         - termMonths
         - outstandingPesewas
+        - accruedInterestPesewas
+        - approvalRequestId
         - schedule
         - currency
         - version
@@ -109131,7 +109373,12 @@ components:
         - cap.distribution.pay
         - cap.distribution.post
         - cap.distribution.read
+        - cap.financing.approve
+        - cap.financing.manage
+        - cap.financing.read
         - cap.investor.manage
+        - cap.investor.payout.approve
+        - cap.investor.payout.read
         - cap.investor.read
         - del.cash_reconciliation.read
         - del.delivery.assign
@@ -109670,6 +109917,8 @@ components:
         - cap.distribution.pay
         - cap.distribution.post
         - cap.distribution.read
+        - cap.financing.manage
+        - cap.financing.read
         - cap.investor.manage
         - cap.investor.read
         - doc.document.read

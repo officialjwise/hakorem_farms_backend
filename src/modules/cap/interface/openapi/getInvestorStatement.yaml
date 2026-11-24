@@ -1,0 +1,76 @@
+operationId: getInvestorStatement
+tags:
+  - cap
+summary: "An investor's capital statement for a period"
+description: "FR-CAP-013 (B12 continued, 2.46.0). The same statement the investor reads in the portal (`getMyInvestorStatement`): opening and closing capital, contributions and withdrawals with their units, distributions allocated when posted and paid, in date order. It ties to the investor's 3000 and 2300 subledgers. `from` defaults to the day the investor joined and `to` to today. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.read`."
+x-permission: cap.investor.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - name: from
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: false
+    schema:
+      type: string
+      format: date
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InvestorStatement"
+        example:
+          investor:
+            id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+            investorNo: INV-001
+            name: "Ama Owusu-Ansah"
+          from: "2026-07-01"
+          to: "2026-12-31"
+          openingCapitalPesewas: 10000000
+          lines:
+            - date: "2026-11-24"
+              kind: DISTRIBUTION_ALLOCATED
+              reference: DST-2026-DDW-000001
+              amountPesewas: 717853
+              direction: IN
+              units: null
+            - date: "2026-11-24"
+              kind: DISTRIBUTION_PAID
+              reference: DST-2026-DDW-000001
+              amountPesewas: 717853
+              direction: OUT
+              units: null
+          closingCapitalPesewas: 10000000
+          allocatedInPeriodPesewas: 717853
+          paidInPeriodPesewas: 717853
+          currency: GHS
+          documentUrl: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

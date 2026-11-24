@@ -48,6 +48,10 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0361_iam_cap_financing_permissions',
+      '0360_fin_financing_postings',
+      '0359_cap_payout_documents_financing',
+      '0358_platform_add_financing_documents',
       '0357_doc_distribution_schedule_template',
       '0356_iam_grant_cap_permissions',
       '0355_iam_seed_cap_permissions',

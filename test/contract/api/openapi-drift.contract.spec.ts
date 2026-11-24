@@ -22,11 +22,11 @@ class ProbeSlotController {
   }
 }
 
-/** Claims an operation that is still planned (B12 continued): GET /financing (listFinancing). */
-@Controller('financing')
+/** Claims an operation that is still planned (B12 continued 2): GET /costing/cost-objects/... (getCostObject). */
+@Controller('costing/cost-objects')
 class DuplicateUploadController {
-  @Get()
-  @Operation({ operationId: 'listFinancing', access: 'SESSION', realms: ['STAFF'], permission: 'cap.financing.read', idempotent: false, csrf: false, rateLimit: 'console' })
+  @Get(':objectType/:objectId')
+  @Operation({ operationId: 'getCostObject', access: 'SESSION', realms: ['STAFF'], permission: 'cst.cost.read', idempotent: false, csrf: false, rateLimit: 'console' })
   upload(): string {
     return 'duplicate';
   }
@@ -96,20 +96,20 @@ describe('the contract is generated from code (FR-API-002, ADR-0030, ADR-0031)',
   });
 
   it('refuses an operation that is both in the code and still in the planned contract', async () => {
-    const listFinancing = {
-      operationId: 'listFinancing',
-      tags: ['cap'],
+    const getCostObject = {
+      operationId: 'getCostObject',
+      tags: ['cst'],
       summary: 'duplicate',
-      'x-permission': 'cap.financing.read',
+      'x-permission': 'cst.cost.read',
       security: [{ staffSession: [] }],
       responses: { '200': { description: 'OK' } },
     };
-    const duplicate = await documentModule(DuplicateUploadModule, fragments({ listFinancing }));
+    const duplicate = await documentModule(DuplicateUploadModule, fragments({ getCostObject }));
     expect(() => buildContract(readYaml(PLANNED_PATH), duplicate)).toThrow(ContractMergeError);
   });
 
-  it('keeps all 666 operations in the published contract (syncOfflineSales moved into code in 2.13.0; seven WHL operations moved into code and two credit check operations added in 2.14.0; four ageing and dunning operations moved into code in 2.15.0; four till PIN and witness operations added in 2.17.0; eight standing order operations and the write-off moved into code in 2.18.0; listMyQuotes moved into code and revokeQuoteLink added in 2.21.0; getQuotePipeline moved into code in 2.23.0; getPublicReceipt added in 2.24.0; nine picking operations moved into code and proposeShortPick added in 2.25.0; revokeReceiptLink and payInvoiceAtTill added in 2.26.0; dispatchFulfilment and four delivery operations moved into code in 2.27.0; getOrderFulfilmentView added in 2.29.0; three driver cash operations moved into code and handInDriverCash added in 2.31.0; eight route and driver operations moved into code and completeRoute and listDrivers added in 2.32.0; returnDeliveryToStock moved into code and writeOffDelivery and listDriverGoodsVariances added in 2.33.0; assignDelivery and rescheduleDelivery moved into code in 2.34.0; listShiftDriverCashHolders added and cancelDelivery and syncDriverEvents moved into code in 2.35.0; addExtraDeliveryFee added and collectFulfilment moved into code in 2.36.0; nine NTF operations moved into code in 2.39.0; seven NTF operations moved into code in 2.40.0; sendBillingDocument and sendStatement moved into code and getSharedDocument added in 2.42.0; sixteen CAP operations moved into code in 2.45.0), 583 of them now implemented in code', async () => {
-    expect(operationsOf(readYaml(PUBLISHED_PATH))).toHaveLength(666);
-    expect(operationsOf(readYaml(PLANNED_PATH))).toHaveLength(83);
+  it('keeps all 668 operations in the published contract (syncOfflineSales moved into code in 2.13.0; seven WHL operations moved into code and two credit check operations added in 2.14.0; four ageing and dunning operations moved into code in 2.15.0; four till PIN and witness operations added in 2.17.0; eight standing order operations and the write-off moved into code in 2.18.0; listMyQuotes moved into code and revokeQuoteLink added in 2.21.0; getQuotePipeline moved into code in 2.23.0; getPublicReceipt added in 2.24.0; nine picking operations moved into code and proposeShortPick added in 2.25.0; revokeReceiptLink and payInvoiceAtTill added in 2.26.0; dispatchFulfilment and four delivery operations moved into code in 2.27.0; getOrderFulfilmentView added in 2.29.0; three driver cash operations moved into code and handInDriverCash added in 2.31.0; eight route and driver operations moved into code and completeRoute and listDrivers added in 2.32.0; returnDeliveryToStock moved into code and writeOffDelivery and listDriverGoodsVariances added in 2.33.0; assignDelivery and rescheduleDelivery moved into code in 2.34.0; listShiftDriverCashHolders added and cancelDelivery and syncDriverEvents moved into code in 2.35.0; addExtraDeliveryFee added and collectFulfilment moved into code in 2.36.0; nine NTF operations moved into code in 2.39.0; seven NTF operations moved into code in 2.40.0; sendBillingDocument and sendStatement moved into code and getSharedDocument added in 2.42.0; sixteen CAP operations moved into code in 2.45.0; fourteen CAP operations moved into code and getInvestorPayoutDetails and getInvestorStatement added in 2.46.0), 599 of them now implemented in code', async () => {
+    expect(operationsOf(readYaml(PUBLISHED_PATH))).toHaveLength(668);
+    expect(operationsOf(readYaml(PLANNED_PATH))).toHaveLength(69);
   });
 });

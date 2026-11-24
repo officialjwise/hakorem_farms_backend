@@ -14,6 +14,9 @@ export interface InvestorRecord {
   readonly principalId: string | null;
   readonly payoutMethod: 'BANK' | 'MOBILE_MONEY' | null;
   readonly payoutLast4: string | null;
+  /** The payout details in force, masked (B12 continued): the bank or network, the account name, the last four. */
+  readonly payoutMasked: string | null;
+  readonly idNumberMasked: string | null;
   readonly hasIdNumber: boolean;
   readonly joinedOn: string;
   readonly status: 'ACTIVE' | 'EXITED';

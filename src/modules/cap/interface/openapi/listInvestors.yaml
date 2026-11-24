@@ -47,6 +47,7 @@ responses:
                   idNumberMasked: "GHA-••••••••-3"
                   payoutMethod: BANK
                   payoutDetailsMasked: "GCB, ****1180"
+                  pendingPayoutApprovalRequestId: null
                   joinedOn: "2025-06-01"
                   status: ACTIVE
                   units: "1000.0000"
@@ -65,6 +66,7 @@ responses:
                   idNumberMasked: "GHA-••••••••-4"
                   payoutMethod: BANK
                   payoutDetailsMasked: "Ecobank, ****7702"
+                  pendingPayoutApprovalRequestId: null
                   joinedOn: "2026-08-15"
                   status: ACTIVE
                   units: "500.0000"
@@ -83,6 +85,7 @@ responses:
                   idNumberMasked: "GHA-••••••••-5"
                   payoutMethod: BANK
                   payoutDetailsMasked: "Stanbic, ****3319"
+                  pendingPayoutApprovalRequestId: null
                   joinedOn: "2025-06-01"
                   status: ACTIVE
                   units: "500.0000"
@@ -101,6 +104,7 @@ responses:
                   idNumberMasked: "GHA-••••••••-6"
                   payoutMethod: MOBILE_MONEY
                   payoutDetailsMasked: "MTN MoMo, ****0014"
+                  pendingPayoutApprovalRequestId: null
                   joinedOn: "2025-11-01"
                   status: ACTIVE
                   units: "200.0000"
@@ -119,6 +123,7 @@ responses:
                   idNumberMasked: null
                   payoutMethod: BANK
                   payoutDetailsMasked: "Barclays UK, ****4410"
+                  pendingPayoutApprovalRequestId: null
                   joinedOn: "2026-07-15"
                   status: ACTIVE
                   units: "2000.0000"

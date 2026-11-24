@@ -25,6 +25,7 @@ import { BalanceReconciliation, ReservationExpiry, StockAlertSweep } from './mod
 import { MortalityEvidenceReturns } from './modules/liv';
 import { QuoteExpiry } from './modules/quo';
 import { AccountHolds, Dunning, StandingOrders } from './modules/whl';
+import { Financing } from './modules/cap';
 import { AbandonedCarts, CatalogueListing } from './modules/shp';
 import { ProviderPayments, Refunds, UnverifiedOverdue } from './modules/pay';
 import { MessageSender } from './modules/ntf';
@@ -76,6 +77,8 @@ const UNVERIFIED_OVERDUE_CRON = '40 * * * *';
 const ACCOUNT_HOLD_CRON = '5 0 * * *';
 /** Daily at 08:00 in Accra (UTC), after the overdue hold: each reminder level due reaches an invoice once (FR-WHL-011, A-318). */
 const DUNNING_CRON = '0 8 * * *';
+/** Each day at 00:20: every active loan's interest and grant's part for a month that finished, on the month's last day (FR-CAP-015). */
+const FINANCING_ACCRUAL_CRON = '20 0 * * *';
 
 /**
  * Builds and starts the worker: the application's module graph as a context (no HTTP), its own pools as hk_worker
@@ -141,6 +144,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
   const quoteExpiry = app.get(QuoteExpiry);
   const accountHolds = app.get(AccountHolds);
   const dunning = app.get(Dunning);
+  const financing = app.get(Financing);
   const standingOrders = app.get(StandingOrders);
   const messageSender = app.get(MessageSender);
   // The modules' scheduled jobs (ADR-0049, docs/OPERATIONS.md "Scheduled jobs").
@@ -149,6 +153,7 @@ export async function startWorker(config: AppConfig, logger: Logger, clock: Cloc
     { name: 'quote-expiry', when: { everyMs: QUOTE_EXPIRY_EVERY_MS }, run: async (system) => ({ expired: (await quoteExpiry.run(system)).length }) },
     { name: 'account-hold', when: { cron: ACCOUNT_HOLD_CRON }, run: async (system) => ({ released: (await accountHolds.releasePaid(system)).length, held: (await accountHolds.run(system)).length }) },
     { name: 'dunning', when: { cron: DUNNING_CRON }, run: async (system) => ({ queued: (await dunning.run(system)).length }) },
+    { name: 'financing-accrual', when: { cron: FINANCING_ACCRUAL_CRON }, run: async (system) => ({ ...(await financing.accrueAll(system)) }) },
     {
       name: 'standing-orders',
       when: { everyMs: STANDING_ORDERS_EVERY_MS },

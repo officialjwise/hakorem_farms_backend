@@ -1,0 +1,110 @@
+operationId: listMyDistributions
+tags:
+  - investor
+summary: "My share of each distribution"
+description: "The investor portal (FR-IAM-013, FR-CAP-013, 2.46.0): a signed-in investor reads only their own record, found by their session, never by an id in the request; a staff or customer session, or an investor login no investor holds, is 403. The investor's own lines of posted distribution runs, newest period first; `status` is `PAID`, `PARTLY_PAID` or `UNPAID`."
+x-owner-module: cap
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - investorSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InvestorDistributionLinePage"
+        examples:
+          default:
+            value:
+              data:
+                - runId: "019a7b0e-3f80-7f9a-84d2-0274ca7d7b52"
+                  runNo: DST-2026-DDW-000003
+                  periodStart: "2026-07-01"
+                  periodEnd: "2026-09-30"
+                  unitDays: "30500.0000"
+                  allocatedPesewas: 237984
+                  withheldPesewas: 0
+                  netPayablePesewas: 237984
+                  paidPesewas: 0
+                  status: PENDING_APPROVAL
+                  currency: GHS
+                - runId: "019a7b0f-1809-74d2-ba0a-55f91e54ced7"
+                  runNo: DST-2026-DDW-000002
+                  periodStart: "2026-04-01"
+                  periodEnd: "2026-06-30"
+                  unitDays: "45500.0000"
+                  allocatedPesewas: 104000
+                  withheldPesewas: 0
+                  netPayablePesewas: 104000
+                  paidPesewas: 104000
+                  status: PAID
+                  currency: GHS
+                - runId: "019a7b0f-55e7-7899-9dd1-926811b60b45"
+                  runNo: DST-2026-DDW-000001
+                  periodStart: "2026-01-01"
+                  periodEnd: "2026-03-31"
+                  unitDays: "45000.0000"
+                  allocatedPesewas: 92000
+                  withheldPesewas: 0
+                  netPayablePesewas: 92000
+                  paidPesewas: 92000
+                  status: PAID
+                  currency: GHS
+                - runId: "019a7b0f-93c5-7c60-b198-ced7051847b4"
+                  runNo: DST-2026-DDW-000001
+                  periodStart: "2025-10-01"
+                  periodEnd: "2025-12-31"
+                  unitDays: "46000.0000"
+                  allocatedPesewas: 80000
+                  withheldPesewas: 0
+                  netPayablePesewas: 80000
+                  paidPesewas: 80000
+                  status: PAID
+                  currency: GHS
+                - runId: "019a7b0f-d1a3-7027-955f-0b45f87a8423"
+                  runNo: DST-2026-DDW-000001
+                  periodStart: "2025-07-01"
+                  periodEnd: "2025-09-30"
+                  unitDays: "23000.0000"
+                  allocatedPesewas: 36000
+                  withheldPesewas: 0
+                  netPayablePesewas: 36000
+                  paidPesewas: 36000
+                  status: PAID
+                  currency: GHS
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

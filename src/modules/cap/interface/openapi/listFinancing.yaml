@@ -1,0 +1,164 @@
+operationId: listFinancing
+tags:
+  - cap
+summary: "List loans and grants"
+description: "FR-CAP-015 (2.46.0). Loans and grants, newest first, each with its schedule and what it still owes. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.financing.read`."
+x-permission: cap.financing.read
+parameters:
+  - name: kind
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: status
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/FinancingPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b10-6c4e-7198-a6d0-225b58ef9b39"
+                  financingNo: FNC-2026-DDW-000001
+                  status: ACTIVE
+                  kind: LOAN
+                  lenderInvestor: null
+                  lenderName: "Agricultural Development Bank"
+                  principalPesewas: 15000000
+                  annualRatePercent: "24.00"
+                  interestBasis: ACTUAL_365
+                  startDate: "2026-03-01"
+                  termMonths: 24
+                  outstandingPesewas: 11250000
+                  accruedInterestPesewas: 0
+                  approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e01"
+                  schedule:
+                    - instalmentNo: 9
+                      dueDate: "2026-12-01"
+                      principalDuePesewas: 625000
+                      interestDuePesewas: 225000
+                      paidPesewas: 0
+                    - instalmentNo: 10
+                      dueDate: "2027-01-01"
+                      principalDuePesewas: 625000
+                      interestDuePesewas: 212700
+                      paidPesewas: 0
+                  currency: GHS
+                  version: 2
+                - id: "019a7b10-8b3d-7b7c-b0b4-c092d2a03970"
+                  financingNo: FNC-2026-DDW-000002
+                  status: ACTIVE
+                  kind: GRANT
+                  lenderInvestor: null
+                  lenderName: "Ghana Enterprises Agency youth grant"
+                  principalPesewas: 2500000
+                  annualRatePercent: "0.00"
+                  interestBasis: ACTUAL_365
+                  startDate: "2026-05-20"
+                  termMonths: null
+                  outstandingPesewas: 0
+                  accruedInterestPesewas: 0
+                  approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e02"
+                  schedule: []
+                  currency: GHS
+                  version: 2
+                - id: "019a7b10-aa2c-755f-8a97-5eca4c51d7a8"
+                  financingNo: FNC-2026-DDW-000003
+                  status: SETTLED
+                  kind: LOAN
+                  lenderInvestor: null
+                  lenderName: "Fidelity Bank SME loan"
+                  principalPesewas: 4000000
+                  annualRatePercent: "28.50"
+                  interestBasis: ACTUAL_365
+                  startDate: "2025-08-01"
+                  termMonths: 12
+                  outstandingPesewas: 0
+                  accruedInterestPesewas: 0
+                  approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e03"
+                  schedule: []
+                  currency: GHS
+                  version: 2
+                - id: "019a7b10-c91b-7f43-947b-fd01c60275df"
+                  financingNo: FNC-2026-DDW-000004
+                  status: ACTIVE
+                  kind: LOAN
+                  lenderInvestor:
+                    id: "019a7a92-26b3-7411-9949-49e7996ac2c5"
+                    investorNo: INV-004
+                    name: "Yaw Frimpong"
+                  lenderName: "Yaw Frimpong"
+                  principalPesewas: 1000000
+                  annualRatePercent: "15.00"
+                  interestBasis: ACTUAL_365
+                  startDate: "2026-09-01"
+                  termMonths: 12
+                  outstandingPesewas: 916700
+                  accruedInterestPesewas: 0
+                  approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e04"
+                  schedule: []
+                  currency: GHS
+                  version: 2
+                - id: "019a7b10-e80a-7926-ae5e-9b393fb31417"
+                  financingNo: FNC-2026-DDW-000005
+                  status: DRAFT
+                  kind: GRANT
+                  lenderInvestor: null
+                  lenderName: "Planting for Food and Jobs input support"
+                  principalPesewas: 1200000
+                  annualRatePercent: "0.00"
+                  interestBasis: ACTUAL_365
+                  startDate: "2026-11-20"
+                  termMonths: null
+                  outstandingPesewas: 1200000
+                  accruedInterestPesewas: 0
+                  approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e05"
+                  schedule: []
+                  currency: GHS
+                  version: 2
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

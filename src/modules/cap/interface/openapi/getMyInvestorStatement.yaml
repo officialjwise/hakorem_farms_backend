@@ -1,0 +1,67 @@
+operationId: getMyInvestorStatement
+tags:
+  - investor
+summary: "My capital statement for a period"
+description: "The investor portal (FR-IAM-013, FR-CAP-013, 2.46.0): a signed-in investor reads only their own record, found by their session, never by an id in the request; a staff or customer session, or an investor login no investor holds, is 403. The statement for the range, as `getInvestorStatement` shows it to the Accountant; it ties to the investor's 3000 and 2300 subledgers. `documentUrl` is null: no statement document is rendered yet (A-384)."
+x-owner-module: cap
+parameters:
+  - name: from
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+  - name: to
+    in: query
+    required: true
+    schema:
+      type: string
+      format: date
+security:
+  - investorSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InvestorStatement"
+        example:
+          investor:
+            id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
+            investorNo: INV-003
+            name: "Esi Bonsu"
+          from: "2026-07-01"
+          to: "2026-09-30"
+          openingCapitalPesewas: 2500000
+          lines:
+            - date: "2026-07-20"
+              kind: DISTRIBUTION_PAID
+              reference: DST-2026-DDW-000002
+              amountPesewas: 104000
+              direction: OUT
+              units: null
+            - date: "2026-09-01"
+              kind: CONTRIBUTION
+              reference: CAP-2026-DDW-000009
+              amountPesewas: 2500000
+              direction: IN
+              units: "250.0000"
+          closingCapitalPesewas: 5000000
+          allocatedInPeriodPesewas: 0
+          paidInPeriodPesewas: 104000
+          currency: GHS
+          documentUrl: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

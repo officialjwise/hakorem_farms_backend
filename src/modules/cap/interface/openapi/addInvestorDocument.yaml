@@ -1,0 +1,64 @@
+operationId: addInvestorDocument
+tags:
+  - cap
+summary: "Attach a document to an investor"
+description: "FR-CAP-002 (2.46.0). Keeps a clean `INVESTOR_DOCUMENT` or `AGREEMENT` upload for the investor (422 `INVESTOR_INVALID` `FILE_NOT_USABLE` otherwise); an `AGREEMENT` becomes their agreement. Only that investor reads it in the portal. Audited. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: cap.investor.manage
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/InvestorDocumentCreate"
+      example:
+        kind: AGREEMENT
+        name: "Investment agreement, August 2026"
+        fileId: "019a7b0d-2919-769b-bbd3-72818344eb5f"
+responses:
+  "201":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InvestorDocument"
+        example:
+          id: "019a7b0b-f3c3-73b8-98f0-4456c25abd34"
+          kind: AGREEMENT
+          name: "Investment agreement, June 2025"
+          file:
+            id: "019a7b0c-12b2-7d9b-a2d4-e28e3c0b5b6c"
+            originalName: agreement-INV-001.pdf
+            contentType: application/pdf
+          createdAt: "2026-10-01T10:00:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

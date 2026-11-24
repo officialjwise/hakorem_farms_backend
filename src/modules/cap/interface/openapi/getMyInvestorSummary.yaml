@@ -1,0 +1,56 @@
+operationId: getMyInvestorSummary
+tags:
+  - investor
+summary: "My capital, share and distributions at a glance"
+description: "The investor portal (FR-IAM-013, FR-CAP-013, 2.46.0): a signed-in investor reads only their own record, found by their session, never by an id in the request; a staff or customer session, or an investor login no investor holds, is 403. Units and share now, paid in, allocated, paid and outstanding distributions, and the return metrics of `getInvestorReturns` as at today."
+x-owner-module: cap
+security:
+  - investorSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InvestorPortalSummary"
+        example:
+          investor:
+            id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
+            investorNo: INV-003
+            name: "Esi Bonsu"
+          units: "500.0000"
+          sharePercent: "11.90"
+          contributedPesewas: 5000000
+          allocatedPesewas: 549984
+          paidPesewas: 312000
+          outstandingPesewas: 237984
+          returns:
+            investor:
+              id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
+              investorNo: INV-003
+              name: "Esi Bonsu"
+            asOf: "2026-11-13"
+            contributedPesewas: 5000000
+            distributedPesewas: 312000
+            outstandingPesewas: 237984
+            roiPercent: "6.24"
+            roiIsNegative: false
+            paybackMonths: null
+            irrPercent: "5.80"
+            irrIsNegative: false
+            currency: GHS
+          asOf: "2026-11-13T09:30:00Z"
+          currency: GHS
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -10,6 +10,8 @@ registerMessages({
   'cap.payment_invalid': 'This distribution payment cannot be recorded like this.',
   'cap.maker_cannot_check': 'The person who asked cannot approve this.',
   'cap.reference_taken': 'This bank or mobile money reference is already recorded.',
+  'cap.financing_invalid': 'This loan or grant cannot be recorded like this.',
+  'cap.repayment_invalid': 'This repayment cannot be recorded like this.',
 });
 
 export interface CapRule {
@@ -20,8 +22,11 @@ export interface CapRule {
 const details = (rules: readonly CapRule[]): ErrorDetail[] => rules.map((r) => ({ field: r.field, code: r.rule, message: translate('cap.rule') }));
 
 /**
- * 422 INVESTOR_INVALID, each broken rule in `details[].code`: `INVESTOR_HAS_UNITS` (an investor holding units cannot exit),
- * `FIELD_NOT_YET_SUPPORTED` (payout details, the identity number, the agreement and the portal login are B12 continued's).
+ * 422 INVESTOR_INVALID, each broken rule in `details[].code`: `INVESTOR_HAS_UNITS` (an investor holding units cannot exit);
+ * from B12 continued, which retired `FIELD_NOT_YET_SUPPORTED`: the payout's `REQUIRED`, `NOT_FOR_METHOD`,
+ * `ACCOUNT_NUMBER_INVALID`, `MOMO_NUMBER_INVALID`, `PAYOUT_CHANGE_PENDING` (one change waits at a time),
+ * `ID_NUMBER_INVALID`, `FILE_NOT_USABLE` (not an investor document or agreement, or not scanned clean),
+ * `PORTAL_LOGIN_EXISTS`, `NO_CONTACT_FOR_LOGIN` (a portal login needs the investor's email or phone).
  */
 export class InvestorInvalidError extends BusinessRuleError {
   readonly code = 'INVESTOR_INVALID';
@@ -85,4 +90,33 @@ export class PaymentReferenceTakenError extends ApiError {
   readonly status = 409;
   readonly code = 'DUPLICATE_VALUE';
   readonly messageKey = 'cap.reference_taken';
+}
+
+/**
+ * 422 FINANCING_INVALID, each broken rule in `details[].code`: `LENDER_UNKNOWN`, `BANK_ACCOUNT_UNKNOWN`,
+ * `BANK_ACCOUNT_INACTIVE`, `START_DATE_IN_FUTURE`, `PERIOD_NOT_OPEN`, `INTEREST_BASIS_NOT_SUPPORTED` (only ACTUAL_365,
+ * simple interest, FR-CAP-015), `GRANT_HAS_NO_INTEREST`, `TERM_REQUIRED` (a grant is recognised over its term),
+ * `FILE_NOT_USABLE`, and the lifecycle's `NOT_DRAFT`.
+ */
+export class FinancingInvalidError extends BusinessRuleError {
+  readonly code = 'FINANCING_INVALID';
+  readonly messageKey = 'cap.financing_invalid';
+  constructor(rules: readonly CapRule[]) {
+    super('the loan or grant breaks a rule', details(rules));
+  }
+}
+
+/**
+ * 422 REPAYMENT_INVALID, each broken rule in `details[].code`: `NOT_A_LOAN`, `NOT_ACTIVE`, `NOT_POSITIVE`,
+ * `INTEREST_FIRST` (accrued interest is paid before principal), `MORE_THAN_ACCRUED`, `MORE_THAN_OUTSTANDING`,
+ * `VALUE_DATE_IN_FUTURE`, `VALUE_DATE_BEFORE_ACCRUAL` (a month already accrued cannot take a repayment back),
+ * `INTEREST_NOT_ACCRUED` (a finished month's interest could not be accrued: its period is not open), `PERIOD_NOT_OPEN`,
+ * `BANK_ACCOUNT_UNKNOWN`, `BANK_ACCOUNT_INACTIVE`.
+ */
+export class RepaymentInvalidError extends BusinessRuleError {
+  readonly code = 'REPAYMENT_INVALID';
+  readonly messageKey = 'cap.repayment_invalid';
+  constructor(rules: readonly CapRule[]) {
+    super('the repayment breaks a rule', details(rules));
+  }
 }

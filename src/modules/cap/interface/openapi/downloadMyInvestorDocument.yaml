@@ -1,0 +1,45 @@
+operationId: downloadMyInvestorDocument
+tags:
+  - investor
+summary: "Get a download link for one of my documents"
+description: "The investor portal (FR-IAM-013, FR-CAP-013, 2.46.0): a signed-in investor reads only their own record, found by their session, never by an id in the request; a staff or customer session, or an investor login no investor holds, is 403. A signed link to one of the investor's own documents, valid for five minutes, its issue logged; another investor's document is 404."
+x-owner-module: cap
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - investorSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/SignedUrl"
+        example:
+          url: "https://files.hakoremfarms.com/private/019a7a95-e5a4-769c-8bd5-729f55d9eb7d?X-Amz-Expires=300&X-Amz-Signature=3f9a"
+          expiresAt: "2026-11-13T10:05:00Z"
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

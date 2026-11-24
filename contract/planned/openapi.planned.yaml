@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.45.0"
+  version: "2.46.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -3770,177 +3770,7 @@ paths:
           $ref: "#/components/responses/InternalError"
   "/investors": {}
   "/investors/{id}": {}
-  "/investors/{id}/documents":
-    get:
-      operationId: listInvestorDocuments
-      tags:
-        - cap
-      summary: "List an investor's documents"
-      description: "Permission: `cap.investor.read`."
-      x-permission: cap.investor.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InvestorDocumentPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7b0b-f3c3-73b8-98f0-4456c25abd34"
-                        kind: AGREEMENT
-                        name: "Investment agreement, June 2025"
-                        file:
-                          id: "019a7b0c-12b2-7d9b-a2d4-e28e3c0b5b6c"
-                          originalName: agreement-INV-001.pdf
-                          contentType: application/pdf
-                        createdAt: "2026-10-01T10:00:00Z"
-                      - id: "019a7b0c-31a1-777f-bcb7-80c5b5bcf9a3"
-                        kind: IDENTIFICATION
-                        name: "Ghana card"
-                        file:
-                          id: "019a7b0c-5090-7162-869b-1efd2f6d97db"
-                          originalName: ghana-card.jpg
-                          contentType: image/jpeg
-                        createdAt: "2026-10-04T10:00:00Z"
-                      - id: "019a7b0c-6f7f-7b46-907e-bd34a91e3612"
-                        kind: STATEMENT
-                        name: "Capital statement Q3 2026"
-                        file:
-                          id: "019a7b0c-8e6e-7529-aa61-5b6c22cfd44a"
-                          originalName: statement-2026-Q3.pdf
-                          contentType: application/pdf
-                        createdAt: "2026-10-07T10:00:00Z"
-                      - id: "019a7b0c-ad5d-7f0d-b445-f9a39c807281"
-                        kind: DISTRIBUTION_SCHEDULE
-                        name: "Distribution schedule Q3 2026"
-                        file:
-                          id: "019a7b0c-cc4c-78f0-8e28-97db163110b8"
-                          originalName: DST-2026-DDW-000003.pdf
-                          contentType: application/pdf
-                        createdAt: "2026-10-10T10:00:00Z"
-                      - id: "019a7b0c-eb3b-72d4-980c-36128fe2aef0"
-                        kind: STATEMENT
-                        name: "Capital statement Q2 2026"
-                        file:
-                          id: "019a7b0d-0a2a-7cb7-a1ef-d44a09934d27"
-                          originalName: statement-2026-Q2.pdf
-                          contentType: application/pdf
-                        createdAt: "2026-10-13T10:00:00Z"
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      operationId: addInvestorDocument
-      tags:
-        - cap
-      summary: "Attach a document to an investor"
-      description: "Permission: `cap.investor.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
-      x-permission: cap.investor.manage
-      x-requires-step-up: true
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/InvestorDocumentCreate"
-            example:
-              kind: AGREEMENT
-              name: "Investment agreement, August 2026"
-              fileId: "019a7b0d-2919-769b-bbd3-72818344eb5f"
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InvestorDocument"
-              example:
-                id: "019a7b0b-f3c3-73b8-98f0-4456c25abd34"
-                kind: AGREEMENT
-                name: "Investment agreement, June 2025"
-                file:
-                  id: "019a7b0c-12b2-7d9b-a2d4-e28e3c0b5b6c"
-                  originalName: agreement-INV-001.pdf
-                  contentType: application/pdf
-                createdAt: "2026-10-01T10:00:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/investors/{id}/documents": {}
   "/capital-transactions": {}
   "/capital-transactions/{id}": {}
   "/capital/register": {}
@@ -3951,1051 +3781,17 @@ paths:
   "/distribution-runs/{id}/post": {}
   "/distribution-runs/{id}/schedule": {}
   "/distribution-lines/{id}/payments": {}
-  "/financing":
-    get:
-      operationId: listFinancing
-      tags:
-        - cap
-      summary: "List loans and grants"
-      description: "Permission: `cap.financing.read`."
-      x-permission: cap.financing.read
-      parameters:
-        - name: kind
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: status
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/FinancingPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7b10-6c4e-7198-a6d0-225b58ef9b39"
-                        financingNo: FNC-2026-DDW-000001
-                        status: ACTIVE
-                        kind: LOAN
-                        lenderInvestor: null
-                        lenderName: "Agricultural Development Bank"
-                        principalPesewas: 15000000
-                        annualRatePercent: "24.00"
-                        interestBasis: ACTUAL_365
-                        startDate: "2026-03-01"
-                        termMonths: 24
-                        outstandingPesewas: 11250000
-                        schedule:
-                          - instalmentNo: 9
-                            dueDate: "2026-12-01"
-                            principalDuePesewas: 625000
-                            interestDuePesewas: 225000
-                            paidPesewas: 0
-                          - instalmentNo: 10
-                            dueDate: "2027-01-01"
-                            principalDuePesewas: 625000
-                            interestDuePesewas: 212700
-                            paidPesewas: 0
-                        currency: GHS
-                        version: 2
-                      - id: "019a7b10-8b3d-7b7c-b0b4-c092d2a03970"
-                        financingNo: FNC-2026-DDW-000002
-                        status: ACTIVE
-                        kind: GRANT
-                        lenderInvestor: null
-                        lenderName: "Ghana Enterprises Agency youth grant"
-                        principalPesewas: 2500000
-                        annualRatePercent: "0.00"
-                        interestBasis: ACTUAL_365
-                        startDate: "2026-05-20"
-                        termMonths: null
-                        outstandingPesewas: 0
-                        schedule: []
-                        currency: GHS
-                        version: 2
-                      - id: "019a7b10-aa2c-755f-8a97-5eca4c51d7a8"
-                        financingNo: FNC-2026-DDW-000003
-                        status: SETTLED
-                        kind: LOAN
-                        lenderInvestor: null
-                        lenderName: "Fidelity Bank SME loan"
-                        principalPesewas: 4000000
-                        annualRatePercent: "28.50"
-                        interestBasis: ACTUAL_365
-                        startDate: "2025-08-01"
-                        termMonths: 12
-                        outstandingPesewas: 0
-                        schedule: []
-                        currency: GHS
-                        version: 2
-                      - id: "019a7b10-c91b-7f43-947b-fd01c60275df"
-                        financingNo: FNC-2026-DDW-000004
-                        status: ACTIVE
-                        kind: LOAN
-                        lenderInvestor:
-                          id: "019a7a92-26b3-7411-9949-49e7996ac2c5"
-                          investorNo: INV-004
-                          name: "Yaw Frimpong"
-                        lenderName: "Yaw Frimpong"
-                        principalPesewas: 1000000
-                        annualRatePercent: "15.00"
-                        interestBasis: ACTUAL_365
-                        startDate: "2026-09-01"
-                        termMonths: 12
-                        outstandingPesewas: 916700
-                        schedule: []
-                        currency: GHS
-                        version: 2
-                      - id: "019a7b10-e80a-7926-ae5e-9b393fb31417"
-                        financingNo: FNC-2026-DDW-000005
-                        status: DRAFT
-                        kind: GRANT
-                        lenderInvestor: null
-                        lenderName: "Planting for Food and Jobs input support"
-                        principalPesewas: 1200000
-                        annualRatePercent: "0.00"
-                        interestBasis: ACTUAL_365
-                        startDate: "2026-11-20"
-                        termMonths: null
-                        outstandingPesewas: 1200000
-                        schedule: []
-                        currency: GHS
-                        version: 2
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-    post:
-      operationId: createFinancing
-      tags:
-        - cap
-      summary: "Record a loan or grant"
-      description: "The repayment schedule's last instalment takes the remainder, so it sums exactly to the principal.\n\nPermission: `cap.financing.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
-      x-permission: cap.financing.manage
-      x-requires-step-up: true
-      parameters:
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/FinancingCreate"
-            example:
-              kind: LOAN
-              lenderName: "Agricultural Development Bank"
-              principalPesewas: 15000000
-              annualRatePercent: "24.00"
-              interestBasis: ACTUAL_365
-              startDate: "2026-03-01"
-              termMonths: 24
-              bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Financing"
-              example:
-                id: "019a7b10-6c4e-7198-a6d0-225b58ef9b39"
-                financingNo: FNC-2026-DDW-000001
-                status: ACTIVE
-                kind: LOAN
-                lenderInvestor: null
-                lenderName: "Agricultural Development Bank"
-                principalPesewas: 15000000
-                annualRatePercent: "24.00"
-                interestBasis: ACTUAL_365
-                startDate: "2026-03-01"
-                termMonths: 24
-                outstandingPesewas: 11250000
-                schedule:
-                  - instalmentNo: 9
-                    dueDate: "2026-12-01"
-                    principalDuePesewas: 625000
-                    interestDuePesewas: 225000
-                    paidPesewas: 0
-                  - instalmentNo: 10
-                    dueDate: "2027-01-01"
-                    principalDuePesewas: 625000
-                    interestDuePesewas: 212700
-                    paidPesewas: 0
-                currency: GHS
-                version: 2
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/financing/{id}":
-    get:
-      operationId: getFinancing
-      tags:
-        - cap
-      summary: "Get a loan or grant with its schedule"
-      description: "Permission: `cap.financing.read`."
-      x-permission: cap.financing.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Financing"
-              example:
-                id: "019a7b10-6c4e-7198-a6d0-225b58ef9b39"
-                financingNo: FNC-2026-DDW-000001
-                status: ACTIVE
-                kind: LOAN
-                lenderInvestor: null
-                lenderName: "Agricultural Development Bank"
-                principalPesewas: 15000000
-                annualRatePercent: "24.00"
-                interestBasis: ACTUAL_365
-                startDate: "2026-03-01"
-                termMonths: 24
-                outstandingPesewas: 11250000
-                schedule:
-                  - instalmentNo: 9
-                    dueDate: "2026-12-01"
-                    principalDuePesewas: 625000
-                    interestDuePesewas: 225000
-                    paidPesewas: 0
-                  - instalmentNo: 10
-                    dueDate: "2027-01-01"
-                    principalDuePesewas: 625000
-                    interestDuePesewas: 212700
-                    paidPesewas: 0
-                currency: GHS
-                version: 2
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/financing/{id}/repayments":
-    post:
-      operationId: recordRepayment
-      tags:
-        - cap
-      summary: "Record a repayment"
-      description: "Permission: `cap.financing.manage`."
-      x-permission: cap.financing.manage
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/IdempotencyKey"
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - staffSession: []
-        - apiKey: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RepaymentCreate"
-            example:
-              principalPesewas: 625000
-              interestPesewas: 225000
-              bankAccountId: "019a7a92-6491-77d8-bd10-86568cccff34"
-              externalReference: GCB-TRF-20261201-0011
-              paidAt: "2026-12-01T10:00:00Z"
-      responses:
-        "201":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Financing"
-              example:
-                id: "019a7b10-6c4e-7198-a6d0-225b58ef9b39"
-                financingNo: FNC-2026-DDW-000001
-                status: ACTIVE
-                kind: LOAN
-                lenderInvestor: null
-                lenderName: "Agricultural Development Bank"
-                principalPesewas: 15000000
-                annualRatePercent: "24.00"
-                interestBasis: ACTUAL_365
-                startDate: "2026-03-01"
-                termMonths: 24
-                outstandingPesewas: 11250000
-                schedule:
-                  - instalmentNo: 9
-                    dueDate: "2026-12-01"
-                    principalDuePesewas: 625000
-                    interestDuePesewas: 225000
-                    paidPesewas: 0
-                  - instalmentNo: 10
-                    dueDate: "2027-01-01"
-                    principalDuePesewas: 625000
-                    interestDuePesewas: 212700
-                    paidPesewas: 0
-                currency: GHS
-                version: 2
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/investors/{id}/returns":
-    get:
-      operationId: getInvestorReturns
-      tags:
-        - cap
-      summary: "Return on investment, payback and IRR for an investor"
-      description: "Permission: `cap.investor.read`."
-      x-permission: cap.investor.read
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - name: asOf
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InvestorReturns"
-              example:
-                investor:
-                  id: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
-                  investorNo: INV-001
-                  name: "Ama Owusu-Ansah"
-                asOf: "2026-11-13"
-                contributedPesewas: 10000000
-                distributedPesewas: 1584900
-                outstandingPesewas: 717853
-                roiPercent: "15.85"
-                roiIsNegative: false
-                paybackMonths: null
-                irrPercent: "12.40"
-                irrIsNegative: false
-                currency: GHS
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/capital/returns":
-    get:
-      operationId: getOverallReturns
-      tags:
-        - cap
-      summary: "Return metrics across all investors"
-      description: "Permission: `cap.capital.read`."
-      x-permission: cap.capital.read
-      parameters:
-        - name: asOf
-          in: query
-          required: false
-          schema:
-            type: string
-            format: date
-      security:
-        - staffSession: []
-        - apiKey: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InvestorReturns"
-              example:
-                investor: null
-                asOf: "2026-11-13"
-                contributedPesewas: 42000000
-                distributedPesewas: 4299240
-                outstandingPesewas: 2500002
-                roiPercent: "10.24"
-                roiIsNegative: false
-                paybackMonths: null
-                irrPercent: "9.10"
-                irrIsNegative: false
-                currency: GHS
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/investor/me":
-    get:
-      operationId: getMyInvestorSummary
-      tags:
-        - investor
-      summary: "My capital, share and distributions at a glance"
-      x-owner-module: cap
-      security:
-        - investorSession: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InvestorPortalSummary"
-              example:
-                investor:
-                  id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
-                  investorNo: INV-003
-                  name: "Esi Bonsu"
-                units: "500.0000"
-                sharePercent: "11.90"
-                contributedPesewas: 5000000
-                allocatedPesewas: 549984
-                paidPesewas: 312000
-                outstandingPesewas: 237984
-                returns:
-                  investor:
-                    id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
-                    investorNo: INV-003
-                    name: "Esi Bonsu"
-                  asOf: "2026-11-13"
-                  contributedPesewas: 5000000
-                  distributedPesewas: 312000
-                  outstandingPesewas: 237984
-                  roiPercent: "6.24"
-                  roiIsNegative: false
-                  paybackMonths: null
-                  irrPercent: "5.80"
-                  irrIsNegative: false
-                  currency: GHS
-                asOf: "2026-11-13T09:30:00Z"
-                currency: GHS
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/investor/capital-transactions":
-    get:
-      operationId: listMyCapitalTransactions
-      tags:
-        - investor
-      summary: "My contributions and withdrawals"
-      x-owner-module: cap
-      parameters:
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - investorSession: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CapitalTransactionPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7b11-06f9-7309-b842-3970b964b24e"
-                        transactionNo: CAP-2026-DDW-00009
-                        investor:
-                          id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
-                          investorNo: INV-003
-                          name: "Esi Bonsu"
-                        kind: CONTRIBUTION
-                        amountPesewas: 2500000
-                        valueDate: "2026-09-01"
-                        unitPricePesewas: 10000
-                        units: "250.0000"
-                        bankAccount:
-                          id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                          name: "GCB current account"
-                          kind: BANK
-                          last4: "4821"
-                        externalReference: GCB-TRF-20260901-0007
-                        reversesTransactionId: null
-                        recordedAt: "2026-09-01T11:00:00Z"
-                        actor:
-                          id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                          displayName: "Efua Asante"
-                        currency: GHS
-                      - id: "019a7b11-25e8-7ced-8225-d7a833155086"
-                        transactionNo: CAP-2026-DDW-00008
-                        investor:
-                          id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
-                          investorNo: INV-003
-                          name: "Esi Bonsu"
-                        kind: CONTRIBUTION
-                        amountPesewas: 2500000
-                        valueDate: "2025-06-01"
-                        unitPricePesewas: 10000
-                        units: "250.0000"
-                        bankAccount:
-                          id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                          name: "GCB current account"
-                          kind: BANK
-                          last4: "4821"
-                        externalReference: GCB-TRF-20250601-0003
-                        reversesTransactionId: null
-                        recordedAt: "2025-06-01T11:00:00Z"
-                        actor:
-                          id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                          displayName: "Efua Asante"
-                        currency: GHS
-                      - id: "019a7b11-44d7-76d0-9c09-75dfacc6eebd"
-                        transactionNo: CAP-2026-DDW-00007
-                        investor:
-                          id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
-                          investorNo: INV-003
-                          name: "Esi Bonsu"
-                        kind: CONTRIBUTION
-                        amountPesewas: 2500000
-                        valueDate: "2026-09-01"
-                        unitPricePesewas: 10000
-                        units: "250.0000"
-                        bankAccount:
-                          id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                          name: "GCB current account"
-                          kind: BANK
-                          last4: "4821"
-                        externalReference: GCB-TRF-20260901-0007
-                        reversesTransactionId: null
-                        recordedAt: "2026-09-01T11:00:00Z"
-                        actor:
-                          id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                          displayName: "Efua Asante"
-                        currency: GHS
-                      - id: "019a7b11-63c6-70b4-a5ec-141726778cf5"
-                        transactionNo: CAP-2026-DDW-00006
-                        investor:
-                          id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
-                          investorNo: INV-003
-                          name: "Esi Bonsu"
-                        kind: CONTRIBUTION
-                        amountPesewas: 2500000
-                        valueDate: "2025-06-01"
-                        unitPricePesewas: 10000
-                        units: "250.0000"
-                        bankAccount:
-                          id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                          name: "GCB current account"
-                          kind: BANK
-                          last4: "4821"
-                        externalReference: GCB-TRF-20250601-0003
-                        reversesTransactionId: null
-                        recordedAt: "2025-06-01T11:00:00Z"
-                        actor:
-                          id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                          displayName: "Efua Asante"
-                        currency: GHS
-                      - id: "019a7b11-82b5-7a97-bfd0-b24ea0282b2c"
-                        transactionNo: CAP-2026-DDW-00005
-                        investor:
-                          id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
-                          investorNo: INV-003
-                          name: "Esi Bonsu"
-                        kind: CONTRIBUTION
-                        amountPesewas: 2500000
-                        valueDate: "2026-09-01"
-                        unitPricePesewas: 10000
-                        units: "250.0000"
-                        bankAccount:
-                          id: "019a7a92-6491-77d8-bd10-86568cccff34"
-                          name: "GCB current account"
-                          kind: BANK
-                          last4: "4821"
-                        externalReference: GCB-TRF-20260901-0007
-                        reversesTransactionId: null
-                        recordedAt: "2026-09-01T11:00:00Z"
-                        actor:
-                          id: "019a7a86-6e24-74e1-8a19-56e27d59cfc0"
-                          displayName: "Efua Asante"
-                        currency: GHS
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/investor/distributions":
-    get:
-      operationId: listMyDistributions
-      tags:
-        - investor
-      summary: "My share of each distribution"
-      x-owner-module: cap
-      parameters:
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - investorSession: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InvestorDistributionLinePage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - runId: "019a7b0e-3f80-7f9a-84d2-0274ca7d7b52"
-                        runNo: DST-2026-DDW-000003
-                        periodStart: "2026-07-01"
-                        periodEnd: "2026-09-30"
-                        unitDays: "30500.0000"
-                        allocatedPesewas: 237984
-                        withheldPesewas: 0
-                        netPayablePesewas: 237984
-                        paidPesewas: 0
-                        status: PENDING_APPROVAL
-                        currency: GHS
-                      - runId: "019a7b0f-1809-74d2-ba0a-55f91e54ced7"
-                        runNo: DST-2026-DDW-000002
-                        periodStart: "2026-04-01"
-                        periodEnd: "2026-06-30"
-                        unitDays: "45500.0000"
-                        allocatedPesewas: 104000
-                        withheldPesewas: 0
-                        netPayablePesewas: 104000
-                        paidPesewas: 104000
-                        status: PAID
-                        currency: GHS
-                      - runId: "019a7b0f-55e7-7899-9dd1-926811b60b45"
-                        runNo: DST-2026-DDW-000001
-                        periodStart: "2026-01-01"
-                        periodEnd: "2026-03-31"
-                        unitDays: "45000.0000"
-                        allocatedPesewas: 92000
-                        withheldPesewas: 0
-                        netPayablePesewas: 92000
-                        paidPesewas: 92000
-                        status: PAID
-                        currency: GHS
-                      - runId: "019a7b0f-93c5-7c60-b198-ced7051847b4"
-                        runNo: DST-2026-DDW-000001
-                        periodStart: "2025-10-01"
-                        periodEnd: "2025-12-31"
-                        unitDays: "46000.0000"
-                        allocatedPesewas: 80000
-                        withheldPesewas: 0
-                        netPayablePesewas: 80000
-                        paidPesewas: 80000
-                        status: PAID
-                        currency: GHS
-                      - runId: "019a7b0f-d1a3-7027-955f-0b45f87a8423"
-                        runNo: DST-2026-DDW-000001
-                        periodStart: "2025-07-01"
-                        periodEnd: "2025-09-30"
-                        unitDays: "23000.0000"
-                        allocatedPesewas: 36000
-                        withheldPesewas: 0
-                        netPayablePesewas: 36000
-                        paidPesewas: 36000
-                        status: PAID
-                        currency: GHS
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/investor/statement":
-    get:
-      operationId: getMyInvestorStatement
-      tags:
-        - investor
-      summary: "My capital statement for a period"
-      x-owner-module: cap
-      parameters:
-        - name: from
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-        - name: to
-          in: query
-          required: true
-          schema:
-            type: string
-            format: date
-      security:
-        - investorSession: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InvestorStatement"
-              example:
-                investor:
-                  id: "019a7a92-07c4-7a2d-8f66-abb01fb9248e"
-                  investorNo: INV-003
-                  name: "Esi Bonsu"
-                from: "2026-07-01"
-                to: "2026-09-30"
-                openingCapitalPesewas: 2500000
-                lines:
-                  - date: "2026-07-20"
-                    kind: DISTRIBUTION_PAID
-                    reference: DST-2026-DDW-000002
-                    amountPesewas: 104000
-                    direction: OUT
-                    units: null
-                  - date: "2026-09-01"
-                    kind: CONTRIBUTION
-                    reference: CAP-2026-DDW-000009
-                    amountPesewas: 2500000
-                    direction: IN
-                    units: "250.0000"
-                closingCapitalPesewas: 5000000
-                allocatedInPeriodPesewas: 0
-                paidInPeriodPesewas: 104000
-                currency: GHS
-                documentUrl: null
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/investor/documents":
-    get:
-      operationId: listMyInvestorDocuments
-      tags:
-        - investor
-      summary: "My agreements, statements and distribution schedules"
-      x-owner-module: cap
-      parameters:
-        - name: cursor
-          in: query
-          required: false
-          schema:
-            type: string
-        - name: limit
-          in: query
-          required: false
-          schema:
-            $ref: "#/components/schemas/PageLimit"
-      security:
-        - investorSession: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/InvestorDocumentPage"
-              examples:
-                default:
-                  value:
-                    data:
-                      - id: "019a7b0b-f3c3-73b8-98f0-4456c25abd34"
-                        kind: AGREEMENT
-                        name: "Investment agreement, June 2025"
-                        file:
-                          id: "019a7b0c-12b2-7d9b-a2d4-e28e3c0b5b6c"
-                          originalName: agreement-INV-001.pdf
-                          contentType: application/pdf
-                        createdAt: "2026-10-01T10:00:00Z"
-                      - id: "019a7b0c-31a1-777f-bcb7-80c5b5bcf9a3"
-                        kind: IDENTIFICATION
-                        name: "Ghana card"
-                        file:
-                          id: "019a7b0c-5090-7162-869b-1efd2f6d97db"
-                          originalName: ghana-card.jpg
-                          contentType: image/jpeg
-                        createdAt: "2026-10-04T10:00:00Z"
-                      - id: "019a7b0c-6f7f-7b46-907e-bd34a91e3612"
-                        kind: STATEMENT
-                        name: "Capital statement Q3 2026"
-                        file:
-                          id: "019a7b0c-8e6e-7529-aa61-5b6c22cfd44a"
-                          originalName: statement-2026-Q3.pdf
-                          contentType: application/pdf
-                        createdAt: "2026-10-07T10:00:00Z"
-                      - id: "019a7b0c-ad5d-7f0d-b445-f9a39c807281"
-                        kind: DISTRIBUTION_SCHEDULE
-                        name: "Distribution schedule Q3 2026"
-                        file:
-                          id: "019a7b0c-cc4c-78f0-8e28-97db163110b8"
-                          originalName: DST-2026-DDW-000003.pdf
-                          contentType: application/pdf
-                        createdAt: "2026-10-10T10:00:00Z"
-                      - id: "019a7b0c-eb3b-72d4-980c-36128fe2aef0"
-                        kind: STATEMENT
-                        name: "Capital statement Q2 2026"
-                        file:
-                          id: "019a7b0d-0a2a-7cb7-a1ef-d44a09934d27"
-                          originalName: statement-2026-Q2.pdf
-                          contentType: application/pdf
-                        createdAt: "2026-10-13T10:00:00Z"
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-                empty:
-                  summary: "Nothing matches: no rows and no next page"
-                  value:
-                    data: []
-                    page:
-                      nextCursor: null
-                      limit: 25
-                      hasMore: false
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
-  "/investor/documents/{id}/download":
-    post:
-      operationId: downloadMyInvestorDocument
-      tags:
-        - investor
-      summary: "Get a download link for one of my documents"
-      x-owner-module: cap
-      parameters:
-        - name: id
-          in: path
-          required: true
-          schema:
-            type: string
-            format: uuid
-        - $ref: "#/components/parameters/CsrfToken"
-      security:
-        - investorSession: []
-      responses:
-        "200":
-          description: OK
-          headers:
-            X-Correlation-Id:
-              $ref: "#/components/headers/CorrelationId"
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/SignedUrl"
-              example:
-                url: "https://files.hakoremfarms.com/private/019a7a95-e5a4-769c-8bd5-729f55d9eb7d?X-Amz-Expires=300&X-Amz-Signature=3f9a"
-                expiresAt: "2026-11-13T10:05:00Z"
-        "400":
-          $ref: "#/components/responses/BadRequest"
-        "401":
-          $ref: "#/components/responses/Unauthenticated"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "409":
-          $ref: "#/components/responses/Conflict"
-        "422":
-          $ref: "#/components/responses/BusinessRuleViolation"
-        "429":
-          $ref: "#/components/responses/RateLimited"
-        "500":
-          $ref: "#/components/responses/InternalError"
+  "/financing": {}
+  "/financing/{id}": {}
+  "/financing/{id}/repayments": {}
+  "/investors/{id}/returns": {}
+  "/capital/returns": {}
+  "/investor/me": {}
+  "/investor/capital-transactions": {}
+  "/investor/distributions": {}
+  "/investor/statement": {}
+  "/investor/documents": {}
+  "/investor/documents/{id}/download": {}
   "/costing/cost-objects/{objectType}/{objectId}":
     get:
       operationId: getCostObject
@@ -9994,6 +8790,8 @@ components:
         - MORTALITY_WRITE_OFF
         - MORTALITY_CONFIRMATION
         - PROCESSING_REVERSAL
+        - INVESTOR_PAYOUT_CHANGE
+        - FINANCING
         - ACCOUNT_RELEASE
         - CREDIT_LIMIT_CHANGE
     ApprovalPending:
@@ -32055,6 +30853,12 @@ components:
           type:
             - string
             - "null"
+        pendingPayoutApprovalRequestId:
+          type:
+            - string
+            - "null"
+          format: uuid
+          description: "The approval a change of the payout details waits for (FR-CAP-002, 2.46.0): every setting, the first included, needs a different person with `cap.investor.payout.approve`. Null when none waits."
         joinedOn:
           type: string
           format: date
@@ -32088,6 +30892,7 @@ components:
         - idNumberMasked
         - payoutMethod
         - payoutDetailsMasked
+        - pendingPayoutApprovalRequestId
         - joinedOn
         - status
         - units
@@ -32167,6 +30972,13 @@ components:
           allOf:
             - $ref: "#/components/schemas/PayoutInput"
           description: "A change of payout details needs approval and is audited."
+        idNumber:
+          type: string
+          maxLength: 40
+          description: "The identity number (Ghana Card or other), sealed and shown masked (FR-CAP-002, 2.46.0)."
+        createPortalLogin:
+          type: boolean
+          description: "Opens the investor's portal login with their email or phone (2.46.0); they set their own password through the password reset."
         status:
           type: string
           enum:
@@ -32188,6 +31000,64 @@ components:
       required:
         - data
         - page
+    InvestorPayoutDetails:
+      type: object
+      description: "Restricted (FR-CAP-002, 2.46.0): an investor's payout details and identity number in full, for `cap.investor.payout.read` with step-up; each reveal is audited."
+      properties:
+        investorId:
+          type: string
+          format: uuid
+        idNumber:
+          type:
+            - string
+            - "null"
+        inForce:
+          anyOf:
+            - $ref: "#/components/schemas/PayoutInput"
+            - type: "null"
+        pending:
+          anyOf:
+            - type: object
+              properties:
+                method:
+                  type: string
+                  enum:
+                    - BANK
+                    - MOBILE_MONEY
+                bankName:
+                  type: string
+                accountName:
+                  type: string
+                accountNumber:
+                  type: string
+                momoNetwork:
+                  type: string
+                  enum:
+                    - MTN
+                    - TELECEL
+                    - AIRTELTIGO
+                momoNumber:
+                  $ref: "#/components/schemas/PhoneNumber"
+                approvalRequestId:
+                  type: string
+                  format: uuid
+                requestedBy:
+                  type: string
+                  format: uuid
+                requestedAt:
+                  type: string
+                  format: date-time
+              required:
+                - method
+                - approvalRequestId
+                - requestedBy
+                - requestedAt
+            - type: "null"
+      required:
+        - investorId
+        - idNumber
+        - inForce
+        - pending
     InvestorDocument:
       type: object
       properties:
@@ -32647,6 +31517,13 @@ components:
             - "null"
         outstandingPesewas:
           $ref: "#/components/schemas/Pesewas"
+        accruedInterestPesewas:
+          $ref: "#/components/schemas/Pesewas"
+          description: "Interest accrued for finished months and not yet repaid (2.46.0). A repayment goes to it first."
+        approvalRequestId:
+          type: string
+          format: uuid
+          description: "The approval the loan or grant was recorded under (2.46.0): it is drawn and posted when someone else approves it."
         schedule:
           type: array
           items:
@@ -32668,6 +31545,8 @@ components:
         - startDate
         - termMonths
         - outstandingPesewas
+        - accruedInterestPesewas
+        - approvalRequestId
         - schedule
         - currency
         - version

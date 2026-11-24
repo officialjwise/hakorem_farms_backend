@@ -1,0 +1,48 @@
+operationId: getInvestorPayoutDetails
+tags:
+  - cap
+summary: "Reveal an investor's payout details and identity number"
+description: "FR-CAP-002 (B12 continued, 2.46.0). The payout details in force, any change waiting for its approver, and the identity number, in full. Restricted data: sealed with the investor's own key and shown masked everywhere else; each reveal is audited (`DECRYPT`). The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.investor.payout.read`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+x-permission: cap.investor.payout.read
+x-requires-step-up: true
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InvestorPayoutDetails"
+        example:
+          investorId: "019a7a91-c9e6-7666-ab9f-6f412c57e81f"
+          idNumber: "GHA-723456789-3"
+          inForce:
+            method: BANK
+            bankName: GCB
+            accountName: "Ama Owusu-Ansah"
+            accountNumber: "1020304051180"
+          pending: null
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

@@ -63,6 +63,10 @@ const TAKES_NO_IDENTIFIER = [
   // B12: the investor books are one register, kept at the head office branch: a list, a run's period and
   // the register as at a date name no record (another branch's grant reads nothing: cap/capital-and-distribution).
   'listInvestors', 'getCapitalRegister', 'listDistributionRuns', 'createDistributionRun',
+  // B12 continued: the farm's returns and its loans and grants are one book at the head office branch; the investor
+  // portal's reads find the investor by the session, never by an identifier (cap/investor-books, cap/uat-scenario-4).
+  'getOverallReturns', 'listFinancing',
+  'getMyInvestorSummary', 'listMyCapitalTransactions', 'listMyDistributions', 'getMyInvestorStatement', 'listMyInvestorDocuments',
 ];
 
 /**
@@ -346,7 +350,9 @@ describe('no identifier is a key: the walk covers every operation that takes one
     expect(publicOnes.filter((o) => !(o in PUBLIC_WITH_IDENTIFIER)), 'public, unlisted').toEqual([]);
     expect(publicOnes).toEqual(Object.keys(PUBLIC_WITH_IDENTIFIER).sort());
     const others = routes.filter((r) => r.spec!.access === 'SESSION' && !r.spec!.realms.includes('STAFF') && identifiersOf(r).length > 0).map((r) => r.spec!.operationId);
-    expect(others.sort()).toEqual(['answerMyOrderConsent', 'getMyOrder']);
+    // downloadMyInvestorDocument: cap/investor-books proves another investor's document, a made-up one, a staff and an
+    // anonymous caller all get nothing.
+    expect(others.sort()).toEqual(['answerMyOrderConsent', 'downloadMyInvestorDocument', 'getMyOrder']);
     const own = routes.filter((r) => r.spec!.access === 'SESSION' && r.spec!.permission === null && r.spec!.realms.includes('STAFF') && identifiersOf(r).length > 0).map((r) => r.spec!.operationId);
     expect(own.filter((o) => o in OWN_RECORD).sort()).toEqual(Object.keys(OWN_RECORD).sort());
     expect(staffRoutes().length).toBeGreaterThanOrEqual(340);

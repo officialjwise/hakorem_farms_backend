@@ -1,0 +1,66 @@
+operationId: getFinancing
+tags:
+  - cap
+summary: "Get a loan or grant with its schedule"
+description: "FR-CAP-015 (2.46.0). A loan or grant with its schedule (what was repaid laid against the instalments in due order), the principal outstanding (for a grant, what is not yet recognised) and the interest accrued and not yet repaid. The investor books are kept at the head office branch: the permission is checked there (A-381).\n\nPermission: `cap.financing.read`."
+x-permission: cap.financing.read
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/Financing"
+        example:
+          id: "019a7b10-6c4e-7198-a6d0-225b58ef9b39"
+          financingNo: FNC-2026-DDW-000001
+          status: ACTIVE
+          kind: LOAN
+          lenderInvestor: null
+          lenderName: "Agricultural Development Bank"
+          principalPesewas: 15000000
+          annualRatePercent: "24.00"
+          interestBasis: ACTUAL_365
+          startDate: "2026-03-01"
+          termMonths: 24
+          outstandingPesewas: 11250000
+          accruedInterestPesewas: 0
+          approvalRequestId: "019a7aa0-1c2e-7b3d-9e4f-5a6b7c8d9e01"
+          schedule:
+            - instalmentNo: 9
+              dueDate: "2026-12-01"
+              principalDuePesewas: 625000
+              interestDuePesewas: 225000
+              paidPesewas: 0
+            - instalmentNo: 10
+              dueDate: "2027-01-01"
+              principalDuePesewas: 625000
+              interestDuePesewas: 212700
+              paidPesewas: 0
+          currency: GHS
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"
