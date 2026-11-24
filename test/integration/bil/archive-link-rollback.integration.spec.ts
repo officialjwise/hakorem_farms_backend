@@ -48,6 +48,8 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0349_ord_quote_animals_named_at_picking',
+      '0348_mdm_quoted_price_reason',
       '0347_shp_selling_units',
       '0346_whl_dunning_deliveries',
       '0345_iam_grant_bil_send_permission',
