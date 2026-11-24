@@ -126,6 +126,7 @@ export const PickRecordBody = z.strictObject({
         qty: Positive,
         weightKg: Kilograms.optional(),
         weightSource: z.enum(['SCALE', 'MANUAL', 'ESTIMATE']).optional(),
+        damaged: z.strictObject({ qty: Positive, uom: z.string().min(1).max(20).optional(), reasonCode: ReasonCode, note: Text(500).optional() }).optional(),
       }),
     )
     .max(200),

@@ -1,5 +1,6 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type {
+  BreakageRecord,
   ConsentMethod,
   FulfilmentFilter,
   FulfilmentHeaderRecord,
@@ -199,6 +200,25 @@ export class PgFulfilmentStore implements FulfilmentStore {
   }
 
   /** Each pick numbered after the pick list's last, in the order given (the caller holds the pick list's lock). */
+  async insertBreakage(tx: Transaction, b: BreakageRecord): Promise<void> {
+    await tx.query(
+      `INSERT INTO ord.pick_breakage (id, fulfilment_line_id, fulfilment_id, sales_order_line_id, stock_unit_id, qty, uom, qty_base, reason_code, stock_adjustment_id, branch_id, actor_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+      [b.id, b.fulfilmentLineId, b.fulfilmentId, b.salesOrderLineId, b.stockUnitId, b.qty, b.uom, b.qtyBase, b.reasonCode, b.stockAdjustmentId, b.branchId, b.actorId],
+    );
+  }
+
+  async breakagesOf(tx: Transaction, fulfilmentIds: readonly string[]): Promise<BreakageRecord[]> {
+    if (fulfilmentIds.length === 0) return [];
+    const { rows } = await tx.query<BreakageRecord>(
+      `SELECT id, fulfilment_line_id AS "fulfilmentLineId", fulfilment_id AS "fulfilmentId", sales_order_line_id AS "salesOrderLineId", stock_unit_id AS "stockUnitId",
+              qty::text AS qty, uom, qty_base::text AS "qtyBase", reason_code AS "reasonCode", stock_adjustment_id AS "stockAdjustmentId", branch_id AS "branchId", actor_id AS "actorId"
+         FROM ord.pick_breakage WHERE fulfilment_id = ANY($1::uuid[]) ORDER BY id`,
+      [fulfilmentIds],
+    );
+    return rows;
+  }
+
   async insertPicks(tx: Transaction, picks: readonly PickRecord[]): Promise<void> {
     for (const p of picks) {
       await tx.query(

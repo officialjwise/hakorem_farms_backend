@@ -253,6 +253,24 @@ What was picked for an order line, with weight.
 | `withdrawn_at`, `withdrawn_by` | | NULL; both or neither (B11) | A pick taken back (a pack swapped); kept, never counted again |
 | `recorded_at` | `timestamptz` | NOT NULL (B11) | From the application's clock |
 
+### `ord.pick_breakage` · LEDGER
+
+B11 continued 8 (CR-054 point 1, migration 0333, A-370): what one pick found broken beside it, written off from the pick
+location in the pick's own transaction through INV's stock adjustment (`STOCK_WRITE_OFF` approval above the threshold).
+
+| Column | Type | Null | Notes |
+| --- | --- | --- | --- |
+| `id` | `uuid` | NOT NULL | PK |
+| `fulfilment_line_id` | `uuid` | NOT NULL, FK `ord.fulfilment_line`, UNIQUE | The pick |
+| `fulfilment_id` | `uuid` | NOT NULL, FK `ord.fulfilment` | |
+| `sales_order_line_id` | `uuid` | NOT NULL, FK `ord.sales_order_line` | |
+| `stock_unit_id` | `uuid` | NULL, FK `inv.stock_unit` | The lot the pick named |
+| `qty`, `uom` | `platform.qty`, `text` | NOT NULL | As the picker counted it (a single egg on a line in crates) |
+| `qty_base` | `platform.qty` | NOT NULL | In the product's base unit; whole for a unit counted whole |
+| `reason_code` | `text` | NOT NULL | A `STOCK_ADJUSTMENT` reason (`BREAKAGE`) |
+| `stock_adjustment_id` | `uuid` | NOT NULL, FK `inv.stock_adjustment`, UNIQUE | Posted, or waiting for its approval |
+| `branch_id`, `recorded_at`, `actor_id` | | NOT NULL | LEDGER columns; insert-only (`platform.reject_change`) |
+
 ### `ord.order_return` · DOCUMENT
 
 A return or exchange against an original order. Posted statuses: `COMPLETED`, `REJECTED`.

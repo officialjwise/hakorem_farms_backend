@@ -10,7 +10,7 @@ import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import { translate } from '../../../platform/i18n/messages';
 import type { Authoriser, PrincipalNames } from '../../iam';
-import type { Reservations, StockQueries, StockUnits } from '../../inv';
+import type { Reservations, StockAdjustments, StockQueries, StockUnits } from '../../inv';
 import { extendPrice, type MasterDataRefs, type PricingService } from '../../mdm';
 import { planLineReservation } from '../domain/confirmation';
 import { accraDay, byLineNumber, lineNumber, nextLineNumber } from '../domain/line-numbers';
@@ -51,6 +51,16 @@ export interface PickInputRequest {
   readonly qty: string;
   readonly weightKg?: string | undefined;
   readonly weightSource?: 'SCALE' | 'MANUAL' | 'ESTIMATE' | undefined;
+  /** What the picker found broken beside this pick (CR-054 point 1), written off from the pick location; else absent. */
+  readonly damaged?: { readonly qty: string; readonly uom?: string | undefined; readonly reasonCode: string; readonly note?: string | undefined } | undefined;
+}
+
+/** A pick's breakage as the contract shows it (CR-054 point 1, 2.37.0). */
+export interface PickDamageView {
+  readonly qty: string;
+  readonly uom: string;
+  readonly reasonCode: string;
+  readonly stockAdjustmentId: string;
 }
 
 export interface FulfilmentQuery {
@@ -94,6 +104,8 @@ export interface FulfilmentLineView {
   readonly weightKg: string | null;
   readonly weightSource: PickRecord['weightSource'];
   readonly linePricePesewas: number | null;
+  /** What was found broken beside this pick and written off (CR-054 point 1, 2.37.0), else null. */
+  readonly damaged: PickDamageView | null;
 }
 
 /** The contract's `Fulfilment`. */
@@ -185,6 +197,7 @@ export class Fulfilments {
     private readonly principals: PrincipalNames,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
+    private readonly adjustments: StockAdjustments,
   ) {
     this.nextId = createUuidV7Generator(clock);
   }
@@ -334,6 +347,7 @@ export class Fulfilments {
       const unitIds = body.picks.flatMap((p) => (p.stockUnitId === undefined ? [] : [p.stockUnitId]));
       const unitFacts = await this.units.factsIn(tx, unitIds, at);
       const fresh: PickRecord[] = [];
+      const damages = new Map<string, { qty: string; uom: string; qtyBase: string; reasonCode: string; note: string | undefined; productId: string }>();
       const seen = new Set<string>();
       for (const [i, input] of body.picks.entries()) {
         const before = stored.find((p) => p.id === input.id);
@@ -376,6 +390,19 @@ export class Fulfilments {
             continue;
           }
           qtyBase = converted.value;
+        }
+        if (input.damaged !== undefined) {
+          // A catch-weight line goes by the pack's weight; what is broken there is a write-off of its own (CR-054 point 1).
+          if (isCatchWeight(line)) broken.push({ field: pickField(i, 'damaged'), rule: 'BREAKAGE_NOT_BY_WEIGHT' });
+          else {
+            const uom = input.damaged.uom ?? line.uom;
+            const base = await this.refs.toBaseIn(tx, line.productId, uom, Quantity.parse(input.damaged.qty));
+            // A unit counted whole (an egg) is written off whole: never a part of one.
+            const counted = base.ok ? (await this.refs.unitsIn(tx, [product.baseUom]))[0] : undefined;
+            if (!base.ok) broken.push({ field: pickField(i, 'damaged/qty'), rule: base.error === 'NO_CONVERSION' ? 'UNIT_NOT_SOLD' : 'INEXACT_QUANTITY' });
+            else if (counted !== undefined && counted.displayDecimals === 0 && base.value.thousandths % 1000n !== 0n) broken.push({ field: pickField(i, 'damaged/qty'), rule: 'INEXACT_QUANTITY' });
+            else damages.set(input.id, { qty: Quantity.parse(input.damaged.qty).toDecimalString(), uom, qtyBase: base.value.toDecimalString(), reasonCode: input.damaged.reasonCode, note: input.damaged.note, productId: line.productId });
+          }
         }
         fresh.push({
           id: input.id,
@@ -425,6 +452,20 @@ export class Fulfilments {
       await this.store.withdrawPicks(tx, withdraw, at, actorId);
       await this.store.insertPicks(tx, fresh);
       if (f.status === 'PICK_LIST' && fresh.length > 0) await this.store.startPicking(tx, id, { pickerId: actorId, at });
+      // Broken eggs found on the pick are written off from the pick location in this transaction, through INV's
+      // adjustment and its STOCK_WRITE_OFF approval (CR-054 point 1): posted at once, or waiting for a different person.
+      for (const p of fresh) {
+        const d = damages.get(p.id);
+        if (d === undefined) continue;
+        const drafted = await this.adjustments.createIn(tx, actor!, {
+          locationId: f.pickLocationId,
+          reasonCode: d.reasonCode,
+          note: d.note ?? `Found broken picking ${f.fulfilmentNo ?? id}`,
+          lines: [{ productId: d.productId, stockUnitId: p.stockUnitId ?? undefined, direction: 'LOSS', qty: d.qtyBase }],
+        });
+        await this.adjustments.submitIn(tx, actor!, drafted.id);
+        await this.store.insertBreakage(tx, { id: this.nextId(), fulfilmentLineId: p.id, fulfilmentId: id, salesOrderLineId: p.salesOrderLineId, stockUnitId: p.stockUnitId, qty: d.qty, uom: d.uom, qtyBase: d.qtyBase, reasonCode: d.reasonCode, stockAdjustmentId: drafted.id, branchId: f.branchId, actorId });
+      }
       await this.repriceIn(tx, order, [...new Set([...fresh.map((p) => p.salesOrderLineId), ...mine.filter((p) => withdraw.includes(p.id)).map((p) => p.salesOrderLineId)])]);
       await this.judgeToleranceIn(tx, header.id, actorId);
       const view = await this.viewOf(tx, id);
@@ -1030,6 +1071,7 @@ export class Fulfilments {
 
   private async viewsIn(tx: Transaction, lists: readonly FulfilmentRecord[]): Promise<FulfilmentView[]> {
     const orderIds = [...new Set(lists.map((f) => f.salesOrderId))];
+    const damagedOf = new Map((await this.store.breakagesOf(tx, lists.map((f) => f.id))).map((b) => [b.fulfilmentLineId, { qty: b.qty, uom: b.uom, reasonCode: b.reasonCode, stockAdjustmentId: b.stockAdjustmentId }] as const));
     const orders = await this.orderStore.orders(tx, orderIds);
     const consents = await this.store.consentsOf(tx, orderIds);
     const lines = orders.flatMap((o) => o.lines);
@@ -1101,6 +1143,7 @@ export class Fulfilments {
             weightKg: x.weightKg,
             weightSource: x.weightSource,
             linePricePesewas: price.toJsonInteger(),
+            damaged: damagedOf.get(x.id) ?? null,
           };
         }),
         weighedTotalPesewas: weighed.length === 0 ? null : Money.sum(weighed.map((t) => t.total)).toJsonInteger(),

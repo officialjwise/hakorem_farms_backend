@@ -113,6 +113,7 @@ responses:
                       weightKg: "14.650"
                       weightSource: SCALE
                       linePricePesewas: 29300
+                      damaged: null
                   weighedTotalPesewas: 44300
                   withinTolerance: true
                   pickedAt: "2026-11-13T10:00:00Z"
@@ -172,6 +173,7 @@ responses:
                       weightKg: "14.650"
                       weightSource: SCALE
                       linePricePesewas: 29300
+                      damaged: null
                   weighedTotalPesewas: 44300
                   withinTolerance: true
                   pickedAt: "2026-11-13T10:01:00Z"
@@ -275,6 +277,7 @@ responses:
                       weightKg: "14.650"
                       weightSource: SCALE
                       linePricePesewas: 29300
+                      damaged: null
                   weighedTotalPesewas: 44300
                   withinTolerance: true
                   pickedAt: "2026-11-13T10:03:00Z"
@@ -334,6 +337,7 @@ responses:
                       weightKg: "14.650"
                       weightSource: SCALE
                       linePricePesewas: 29300
+                      damaged: null
                   weighedTotalPesewas: 44300
                   withinTolerance: true
                   pickedAt: "2026-11-13T10:04:00Z"
@@ -393,6 +397,7 @@ responses:
                       weightKg: "14.650"
                       weightSource: SCALE
                       linePricePesewas: 29300
+                      damaged: null
                   weighedTotalPesewas: 44300
                   withinTolerance: true
                   pickedAt: "2026-11-13T10:05:00Z"

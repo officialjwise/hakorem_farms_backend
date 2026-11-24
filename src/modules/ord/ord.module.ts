@@ -227,7 +227,8 @@ import { PgVanReturnStore } from './infrastructure/pg-van-return-store';
         principals: PrincipalNames,
         cursors: Cursors,
         clock: Clock,
-      ) => new Fulfilments(uow, store, orderStore, orders, reversals, refs, pricing, units, queries, reservations, numbers, documents, events, idempotency, audit, authoriser, principals, cursors, clock),
+        adjustments: StockAdjustments,
+      ) => new Fulfilments(uow, store, orderStore, orders, reversals, refs, pricing, units, queries, reservations, numbers, documents, events, idempotency, audit, authoriser, principals, cursors, clock, adjustments),
       inject: [
         UnitOfWork,
         FULFILMENT_STORE,
@@ -248,6 +249,7 @@ import { PgVanReturnStore } from './infrastructure/pg-van-return-store';
         PRINCIPAL_NAMES,
         Cursors,
         CLOCK,
+        StockAdjustments,
       ],
     },
     {

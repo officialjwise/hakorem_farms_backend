@@ -28591,6 +28591,11 @@ components:
                 - $ref: "#/components/schemas/Pesewas"
               description: "Price at the weighed quantity."
             - type: "null"
+        damaged:
+          description: "What the picker found broken beside this pick (2.37.0, CR-054 point 1), written off from the pick location by `stockAdjustmentId` (posted, or waiting for its STOCK_WRITE_OFF approval); null when nothing was."
+          anyOf:
+            - $ref: "#/components/schemas/PickDamage"
+            - type: "null"
       required:
         - id
         - orderLineId
@@ -28601,6 +28606,25 @@ components:
         - weightKg
         - weightSource
         - linePricePesewas
+        - damaged
+    PickDamage:
+      type: object
+      description: "Units found broken on a pick and written off (2.37.0, CR-054 point 1)."
+      properties:
+        qty:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+        reasonCode:
+          type: string
+        stockAdjustmentId:
+          type: string
+          format: uuid
+      required:
+        - qty
+        - uom
+        - reasonCode
+        - stockAdjustmentId
     Fulfilment:
       type: object
       properties:
@@ -28749,10 +28773,33 @@ components:
           $ref: "#/components/schemas/Kilograms"
         weightSource:
           $ref: "#/components/schemas/WeightSource"
+        damaged:
+          $ref: "#/components/schemas/PickDamageInput"
       required:
         - id
         - orderLineId
         - qty
+      additionalProperties: false
+    PickDamageInput:
+      type: object
+      description: "Optional (2.37.0, CR-054 point 1): units found broken beside this pick, in `uom` (the line's unit when left out; a single egg on a line in crates), with a `STOCK_ADJUSTMENT` reason such as `BREAKAGE`. They are written off from the pick location in the pick's own transaction through a stock adjustment and its STOCK_WRITE_OFF approval: posted at once under the threshold, else waiting for a different person. Refused on a catch-weight line (`BREAKAGE_NOT_BY_WEIGHT`), in a unit the product is not sold by (`UNIT_NOT_SOLD`) or not a whole number of base units (`INEXACT_QUANTITY`)."
+      properties:
+        qty:
+          $ref: "#/components/schemas/Quantity"
+        uom:
+          type: string
+          minLength: 1
+          maxLength: 20
+        reasonCode:
+          type: string
+          pattern: "^[A-Z][A-Z_]{1,39}$"
+        note:
+          type: string
+          minLength: 1
+          maxLength: 500
+      required:
+        - qty
+        - reasonCode
       additionalProperties: false
     PickRecord:
       type: object
