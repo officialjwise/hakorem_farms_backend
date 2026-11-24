@@ -6,5 +6,5 @@
 export { CstModule } from './cst.module';
 export { CostingProjections, PROJECTION_DRIFT_DETECTED, type DriftReport } from './application/costing-projections';
 export { CostingReports } from './application/costing-reports';
-export { OverheadAllocations, OVERHEAD_ALLOCATION, OVERHEAD_CAPITALISE, type OverheadAllocationRunView } from './application/overhead-allocations';
-export type { ProjectionDriftDetected } from './events';
+export { OverheadAllocations, OVERHEAD_ALLOCATED, OVERHEAD_ALLOCATION, OVERHEAD_CAPITALISE, type OverheadAllocationRunView } from './application/overhead-allocations';
+export type { OverheadAllocated, ProjectionDriftDetected } from './events';

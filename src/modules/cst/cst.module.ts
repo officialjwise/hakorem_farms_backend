@@ -46,10 +46,11 @@ import { CostingController } from './interface/costing.controller';
         registry: DocumentRegistry,
         idempotency: Idempotency,
         audit: AuditTrail,
+        events: DomainEvents,
         cursors: Cursors,
         clock: Clock,
-      ) => new OverheadAllocations(uow, store, refs, units, stock, animals, authoriser, names, registry, idempotency, audit, cursors, clock),
-      inject: [UnitOfWork, COSTING_STORE, MasterDataRefs, StockUnits, Stock, Animals, Authoriser, PRINCIPAL_NAMES, DocumentRegistry, Idempotency, AuditTrail, Cursors, CLOCK],
+      ) => new OverheadAllocations(uow, store, refs, units, stock, animals, authoriser, names, registry, idempotency, audit, events, cursors, clock),
+      inject: [UnitOfWork, COSTING_STORE, MasterDataRefs, StockUnits, Stock, Animals, Authoriser, PRINCIPAL_NAMES, DocumentRegistry, Idempotency, AuditTrail, DomainEvents, Cursors, CLOCK],
     },
     {
       provide: CostingReports,

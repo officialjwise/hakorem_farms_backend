@@ -214,6 +214,10 @@ describe('labour and overhead allocation (FR-CST-002)', () => {
     expect(ledger.find((r) => r.side === 'C')!.code).toBe('5220');
     expect(Number((await admin().query<{ n: string }>("SELECT count(*)::text AS n FROM fin.journal_entry WHERE event_code = 'inv.OverheadAbsorbed'")).rows[0]!.n) - Number(before)).toBe(3);
 
+    const { rows: published } = await admin().query<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'cst.OverheadAllocated' AND subject_id = $1", [runId]);
+    expect(published.map((p) => [p.payload['totalPesewas'], p.payload['capitalisedPesewas'], p.payload['expensedPesewas'], p.payload['abuseCases']])).toEqual([[30_001, 30_001, 0, [72]]]);
+    expect(published[0]!.payload['makerId']).not.toBe(published[0]!.payload['checkerId']);
+
     await worker.settle();
     const cost = await get(manager, `/costing/cost-objects/STOCK_UNIT/${units['G-0201']}`);
     expect(cost.body.byElement).toEqual([

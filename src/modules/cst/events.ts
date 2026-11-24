@@ -17,3 +17,23 @@ export interface ProjectionDriftDetected {
   readonly costOfSalesProjectedPesewas: string;
   readonly costOfSalesLedgerPesewas: string;
 }
+
+/**
+ * `cst.OverheadAllocated` v1 (FR-CST-002, abuse case 72, ADR-0102): an allocation run was posted by someone other than
+ * its maker. Its ledger postings are inventory's own `inv.OverheadAbsorbed`, one a capitalised share; this event names
+ * the run for the daily exception report (B12 continued 3): who made it, who posted it, the period and the amounts.
+ */
+export interface OverheadAllocated {
+  readonly runId: string;
+  readonly branchId: string;
+  readonly costElement: 'LABOUR' | 'OVERHEAD';
+  readonly periodStart: string;
+  readonly periodEnd: string;
+  readonly totalPesewas: number;
+  readonly capitalisedPesewas: number;
+  readonly expensedPesewas: number;
+  readonly makerId: string;
+  readonly checkerId: string;
+  readonly movementIds: readonly string[];
+  readonly abuseCases: readonly number[];
+}

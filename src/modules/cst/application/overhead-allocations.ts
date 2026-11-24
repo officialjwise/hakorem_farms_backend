@@ -4,6 +4,7 @@ import type { Actor } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
 import { NotFoundError } from '../../../platform/errors/api-error';
+import type { DomainEvents } from '../../../platform/events/domain-events';
 import type { Cursors } from '../../../platform/http/cursor';
 import type { Idempotency, StoredResponse } from '../../../platform/idempotency/idempotency';
 import type { Authoriser, PrincipalNames } from '../../iam';
@@ -11,6 +12,7 @@ import type { Stock, StockUnits } from '../../inv';
 import type { Animals } from '../../liv';
 import type { MasterDataRefs } from '../../mdm';
 import { headDaysOf, judgePost, spreadOverhead, treatmentOf } from '../domain/allocation';
+import type { OverheadAllocated } from '../events';
 import type { AllocationBasis, CostElementRun, CostingStore, LineRecord, RunRecord } from './costing-store';
 import { probe } from './counting';
 import { AllocationInvalidError, MakerCannotCheckError, type CstRule } from './errors';
@@ -20,6 +22,9 @@ export const OVERHEAD_CAPITALISE = 'OVERHEAD_CAPITALISE';
 export const ALLOCATION_READ = 'cst.allocation.read';
 export const ALLOCATION_MANAGE = 'cst.allocation.manage';
 export const ALLOCATION_POST = 'cst.allocation.post';
+export const OVERHEAD_ALLOCATED = 'cst.OverheadAllocated';
+/** THREAT_MODEL abuse case 72: cost moved out of the period and into stock by an allocation. */
+const ALLOCATION_ABUSE_CASE = 72;
 
 /** Locations that hold no animals to carry a share: a whole site, stock on the road (virtual ones are refused too). */
 const NOT_A_PEN: ReadonlySet<string> = new Set(['IN_TRANSIT', 'SITE']);
@@ -91,6 +96,7 @@ export class OverheadAllocations {
     private readonly registry: DocumentRegistry,
     private readonly idempotency: Idempotency,
     private readonly audit: AuditTrail,
+    private readonly events: DomainEvents,
     private readonly cursors: Cursors,
     private readonly clock: Clock,
   ) {
@@ -207,6 +213,23 @@ export class OverheadAllocations {
         movements.set(line.stockUnitId, posted.id);
       }
       await this.store.markPosted(tx, run.id, actor!.principalId, at, movements);
+      const all = await this.store.lines(tx, [run.id]);
+      const capitalised = all.filter((l) => movements.has(l.stockUnitId)).reduce((sum, l) => sum.plus(Money.ofPesewas(l.amountPesewas)), Money.zero());
+      const allocated: OverheadAllocated = {
+        runId: run.id,
+        branchId: run.branchId,
+        costElement: run.costElement,
+        periodStart: run.periodStart,
+        periodEnd: run.periodEnd,
+        totalPesewas: Money.ofPesewas(run.totalPesewas).toJsonInteger(),
+        capitalisedPesewas: capitalised.toJsonInteger(),
+        expensedPesewas: Money.ofPesewas(run.totalPesewas).minus(capitalised).toJsonInteger(),
+        makerId: run.createdBy,
+        checkerId: actor!.principalId,
+        movementIds: [...movements.values()],
+        abuseCases: [ALLOCATION_ABUSE_CASE],
+      };
+      await this.events.publish<OverheadAllocated>(tx, { type: OVERHEAD_ALLOCATED, subjectType: 'OverheadAllocationRun', subjectId: run.id, branchId: run.branchId, occurredAt: at, payload: allocated });
       const view = await this.viewIn(tx, (await this.store.run(tx, run.id, false))!);
       await this.audit.record(tx, { module: 'cst', action: 'POST', entityType: 'OverheadAllocationRun', entityId: run.id, branchId: run.branchId, before: { ...before }, after: { ...view } });
       const response: StoredResponse<OverheadAllocationRunView> = { status: 200, body: view };
