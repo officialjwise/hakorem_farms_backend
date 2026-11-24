@@ -4441,7 +4441,7 @@ started and expired per address a day from shp.CheckoutStarted and shp.CheckoutE
 address holds stock repeatedly without placing an order.
 It must include case 34, inflated rejections at the door (B09e continued 3, A-272, ADR-0076): a RECEIPT_CLAIM item for
 each pur.SupplierClaimRaised, with the receipt, the receiver, the claim's maker, the supplier, the rejected quantity,
-its reason and its value. And every exception source B9b, B09c and B11 add (their reports name each one), at least
+its reason and its value. And every exception source B9b, B09c, B11 and B11u add (their reports name each one; B11u: `quo.QuoteIssued.holds` for case 64 and `quo.QuoteWithdrawn` for case 65), at least
 each reused till receipt token (a possible till fault or tampering, owner 2026-11-17) and each supervisor's PIN
 sign-out of a locked cashier (CR-032).
 Write the five tests of ADR-0028 under the names the ADR gives them, and run scenario 4 of
@@ -4456,7 +4456,7 @@ NFR-023 performance budget, move its reads onto the hk_report connection, and re
 every report code listReportDefinitions lists, SALES_SUMMARY and PURCHASES included (CR-018), each matching its
 contract example's columns.
 The owner, 2026-11-16 (A-212 (a)): investor capital arrives through the investor module to the bank, never as cash.
-The owner, 2026-11-23 (from the frontend's F12 and F10n): build CR-059 to CR-062. Grant the report and exception
+The owner, 2026-11-23 (from the frontend's F12 and F10n): build CR-059 to CR-062. Every margin is over the selling price, (price less cost) over price, and anything over cost is markup and named markup (the owner, 2026-11-23), CR-060's margin per crate included. Grant the report and exception
 report permissions to the Owner and the Manager (and the Accountant for the financial reports). Give each of these
 controls its own exception type: cash drops (witnessed or not), reused photographs, quotes accepted in a staff session,
 late cash after a shift closed, and negative stock after an offline sale. Add marking an exception reviewed with a note,
