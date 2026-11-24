@@ -111,7 +111,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B11 continued 7 | `B11c7-dispatch-returns-notifications.md` | `b11c7-dispatch-returns-notifications` | B4 to B12 | Partial dispatch charges the fee once and an extra delivery is its own fee line; credit-terms dispatch is credit-checked and invoiced as dispatched; a collection order is handed over and paid at the till; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued 6, A-365) |
 | B11 continued 8 | `B11c8-dispatch-returns-notifications.md` | `b11c8-dispatch-returns-notifications` | B4 to B12 | An order on credit terms is credit-checked at dispatch and at collection and invoiced on the quantities actually sent, with its terms' due date; part of a crate is refunded pro rata; the outbox's customer messages are sent, each once (inserted by B11 continued 7, A-367; built and split, A-371: the order on account and the rest of dispatch) |
 | B11 continued 9 | `B11c9-returns-notifications.md` | `b11c9-returns-notifications` | B4 to B12 | Part of a crate returned as single eggs is refunded pro rata with the pieces adding up; the outbox's customer messages (dispatch, on the way, delivered, rescheduled, cancelled, part delivered, collected, the receipt SMS and the tracking SMS) are sent, each once (inserted by B11 continued 8, A-371; built to the returns, then split, A-373) |
-| B11 continued 10 | `B11c10-notifications.md` | `b11c10-notifications` | B4 to B12 | The outbox's customer messages (dispatch, on the way, delivered, rescheduled, cancelled, part delivered, collected, the receipt SMS and the tracking SMS) are sent, each once, only to the order's own contact; a failed reminder shows as failed (inserted by B11 continued 9, A-373) |
+| B11 continued 10 | `B11c10-notifications.md` | `b11c10-notifications` | B4 to B12 | The outbox's customer messages (dispatch, on the way, delivered, rescheduled, cancelled, part delivered, collected) are sent, each once, only to the order's own contact; a failed message shows as failed (inserted by B11 continued 9, A-373; split by A-375: the receipt and tracking SMS and the reminders are B11 continued 11's) |
+| B11 continued 11 | `B11c11-notifications.md` | `b11c11-notifications` | B4 to B12 | The receipt SMS and the tracking SMS are sent once, only to the record's own contact, each with a fresh token from the sending worker; a document send reaches only the document's own party; a failed reminder shows as failed on its channel; CR-039's crate and single egg price exactly (inserted by B11 continued 10, A-375) |
 | B12 | `B12-capital-costing-reporting.md` | `b12-capital-costing-reporting` | B4 to B12 | A distribution matches a hand calculation on unit-days and ties exactly to the ledger |
 | B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
 | B13 | `B13-hardening-deploy.md` | `b13-hardening-deploy` | B13 — Hardening, smoke suite and deploy | Every non-functional target met and evidenced on the live server |
@@ -4128,6 +4129,8 @@ Stop at the gate and write docs/sessions/B11c9-returns-notifications.md.
 
 ## B11 continued 10 — Notifications
 
+**Built and split (A-375, ADR-0026 Amendments):** the NTF module with templates, the message log, the provider's delivery reports, the sender and the customer's messages (ADR-0096, A-374, migrations 0335 to 0337, contract 2.39.0). The rest is B11 continued 11, below.
+
 Branch `b11c10-notifications`. Report `docs/sessions/B11c10-notifications.md`. Inserted by B11 continued 9 (A-373, ADR-0026 Amendments), which built part of a crate returned as single eggs (A-372, migration 0334, contract 2.38.0: `ReturnLineInput.uom`, `ReturnLine.uom`; the refund the running total of the price paid on the line, ADR-0075; single eggs to the returns hold; a return in pieces never open beside another of its line). Gate: the outbox's customer messages (dispatch, on the way, delivered, rescheduled, cancelled, part delivered, collected, the receipt SMS and the tracking SMS) are sent, each once, only to the order's own contact; a failed reminder shows as failed. The NTF module does not exist yet (no `src/modules/ntf`, no `ntf` migration; its sixteen operations are planned in the contract): split at a sub-domain boundary if the context will not reach the gate (the module with templates, the message log, preferences and the customer messages first; then the document sends, the receipt and tracking SMS and the reminders; then CR-039, the reused-photograph match and the UAT dry runs); splitting early is better than late.
 
 ```text
@@ -4175,6 +4178,57 @@ on the proof of delivery whether its photograph or signature matches an earlier 
 does for a death photograph) and publish it for the exception report. If this phase does not, B12 must; say which in the
 report.
 Stop at the gate and write docs/sessions/B11c10-notifications.md.
+```
+
+## B11 continued 11 — Notifications: preferences, the document sends, the receipt and tracking SMS, the reminders, CR-039 and the UAT dry runs
+
+Branch `b11c11-notifications`. Report `docs/sessions/B11c11-notifications.md`. Inserted by B11 continued 10 (A-375, ADR-0026 Amendments), which created the NTF module: message templates by version (two people to each change, no link of a template's own), the message log with each attempt, the provider's signed delivery reports, the worker's `message-send` job and the customer's messages from `ord.OrderDispatched`, `ord.OrderCollected`, `del.DeliveryOnTheWay`, `del.DeliveryRescheduled`, `del.DeliveryCancelled` and `del.DeliveryCompleted`, each sent once to the order's own contact (ADR-0096, A-374, migrations 0335 to 0337, contract 2.39.0). Gate: the receipt SMS and the tracking SMS are sent once, only to the record's own contact, each with a fresh token from the sending worker (a guessed token or the order's id answers 404); a document send reaches only the document's own customer or supplier and a failed send is retried without a second archive row; a failed reminder shows as failed on its channel; CR-039's crate and single egg price exactly. Split at a sub-domain boundary if the context will not reach the gate (preferences, opt-outs, quiet hours, triggers and in-app notifications first; then the document sends, the remittance advice, the receipt and tracking SMS, abandoned carts and the returned death report; then the reminders, CR-039, the reused-photograph match and the UAT dry runs); splitting early is better than late.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B11c10-notifications.md,
+B11 continued 10, which this phase continues).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the NTF requirement block of docs/SRS.md (nothing else from the SRS), docs/data-model/ntf.md,
+the NTF, ORD, POS, SHP, BIL, PUR, WHL and LIV cards in docs/MODULE_BOUNDARIES.md, and ADR-0010, ADR-0026 (the
+abandoned-cart assignment), ADR-0062 (document sends), ADR-0074 (a link sent by message gets its own token from the
+sending worker, never one stored in the outbox), ADR-0083 and ADR-0096, and the abuse cases 37, 57 and 58 in
+docs/security/THREAT_MODEL.md. Use docs/prompts/module-build-prompt.md as the recipe. Do not read any other document
+unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B11 continued 11 only, on branch b11c11-notifications. B11 continued 10 built the NTF module (templates,
+the message log, delivery reports, the `message-send` job, the customer's messages; ADR-0096, A-374): build on it,
+never again. Every new message follows ADR-0096's two steps (queued once by an outbox consumer, keyed by its event,
+template, channel and record; sent by the claiming worker outside any transaction) and goes only to the record's own
+contact read through its module. The rest, in this order:
+1. Preferences, opt-outs and quiet hours (FR-NTF-004 to FR-NTF-006): `getMyNotificationPreferences`,
+   `replaceMyNotificationPreferences`, `listOptOuts`, a STOP reply to `receiveMessagingWebhook` recorded as an opt-out at
+   once (it is logged IGNORED today), reminders and marketing suppressed on an opted-out channel while transactional
+   messages are not, a reminder due in quiet hours sent at 07:00 Africa/Accra; triggers (`listNotificationTriggers`,
+   `updateNotificationTrigger`) and in-app notifications (`listMyNotifications`, `markNotificationRead`).
+2. The document sends (ADR-0062, A-204: sendBillingDocument and sendStatement, 202 through the outbox, a bil.reprint_log
+   row with the channel, the archived bytes or a lasting link, never a new document; the remittance advice from
+   pur.SupplierRemittanceReady, once per payment; a send reaches only the document's own customer or supplier and a
+   failed send is retried without a second archive row), CR-033 point 3 (the receipt SMS once when a counter sale with
+   customerPhone syncs, with a fresh server-made token for a sale whose till token was refused, ADR-0074; the refused
+   till token still opens nothing), the guest's SMS tracking link with its own long random token (a guessed token or
+   the order's id answers 404; `OnlineOrders.reissueTrackingIn`), abandoned-cart messaging (ADR-0026) and the death
+   report sent back by the malware scan (B06r, A-175: liv.MortalityReturned names the reporter and the reason).
+3. The owner, 2026-11-23 (from the frontend's F12 and F10n): the reminder templates (`PAYMENT_REMINDER_*`), listed by
+   `listNotificationTemplates` so a reminder level picks one instead of typing a code, WHL's dunning sending through
+   them, and each reminder's delivery recorded per channel (sent, delivered, failed), so a failed reminder shows as
+   failed. CR-039 at the shop (the crate and the single egg, each at its own price; CartLineAdd.uom; test-first with
+   exact pesewas).
+Run steps 1.11 to 1.16 of docs/UAT.md, the driver case in scenario 5 and scenario 2 from step 2.12 as a dry run and
+record every difference (an order on account can now be dispatched; a crate's eggs can now be returned singly; the
+customer's messages are now sent).
+For B12's reused photographs (the owner, 2026-11-23): `platform.stored_file` already keeps each upload's SHA-256; record
+on the proof of delivery whether its photograph or signature matches an earlier upload (as liv.MortalityPhotoReused
+does for a death photograph) and publish it for the exception report. If this phase does not, B12 must; say which in the
+report.
+Stop at the gate and write docs/sessions/B11c11-notifications.md.
 ```
 
 ## B12 — Capital, costing, reporting and the public API, and the daily exception report
@@ -4247,7 +4301,7 @@ the egg report codes, the VAT return, and the statement and exception report exp
 - "quotes accepted in a staff session" is the possible staff acceptance of B10 continued 6 (the decision's address and
   browser matched against staff sessions active from the same address in the last 24 hours, never a cookie);
 - "reused photographs" means a proof-of-delivery photograph or signature whose content hash matches an earlier upload
-  (beside case 2's death photographs); if B11 continued 6, 7, 8, 9 or 10 did not record that match, this phase must (its report says);
+  (beside case 2's death photographs); if B11 continued 6, 7, 8, 9, 10 or 11 did not record that match, this phase must (its report says);
 - each existing exception kind keeps working, and any rename is LOUD.
 Stop at the gate and write docs/sessions/B12-capital-costing-reporting.md.
 ```
@@ -4332,7 +4386,7 @@ Stop at the gate and write docs/sessions/B13-hardening-deploy.md.
 From 2026-11-17 the remaining phases before B12 run in two lanes at once, each in its own worktree and branch.
 
 - **Lane A:** the rest of B9b (B09b continued to B09b continued 4, and any split of them), then B09c.
-- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11, then B11 continued, then B10 continued 6 (inserted by the owner, 2026-11-23), then B11 continued 2, then B11 continued 3 (inserted by B11 continued 2, A-346), then B11 continued 4 (inserted by B11 continued 3, A-348), then B11 continued 5 (inserted by B11 continued 4, A-361), then B11 continued 6 (inserted by B11 continued 5, A-363), then B11 continued 7 (inserted by B11 continued 6, A-365), then B11 continued 8 (inserted by B11 continued 7, A-367), then B11 continued 9 (inserted by B11 continued 8, A-371), then B11 continued 10 (inserted by B11 continued 9, A-373) (and any split of them). B08 continued 2d moves into lane B because
+- **Lane B:** B08 continued 2d, then B09u, then B10, then B10 continued, then B10 continued 2, then B10 continued 3, then B10 continued 4, then B10 continued 5, then B11, then B11 continued, then B10 continued 6 (inserted by the owner, 2026-11-23), then B11 continued 2, then B11 continued 3 (inserted by B11 continued 2, A-346), then B11 continued 4 (inserted by B11 continued 3, A-348), then B11 continued 5 (inserted by B11 continued 4, A-361), then B11 continued 6 (inserted by B11 continued 5, A-363), then B11 continued 7 (inserted by B11 continued 6, A-365), then B11 continued 8 (inserted by B11 continued 7, A-367), then B11 continued 9 (inserted by B11 continued 8, A-371), then B11 continued 10 (inserted by B11 continued 9, A-373), then B11 continued 11 (inserted by B11 continued 10, A-375) (and any split of them). B08 continued 2d moves into lane B because
   B10 reads its report and it needs only PAY's payments (B9a) and WHL, which lane B opens.
 - **B12, then B13, start only when both lanes have merged.** B09r still waits for the owner's real files.
 
