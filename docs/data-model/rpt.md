@@ -238,7 +238,7 @@ An exception item marked reviewed with a note. Insert-only (`platform.reject_cha
 
 ### `rpt.approval_fact`, `rpt.checkout_fact`, `rpt.payout_change_fact` · PROJECTION (B12 continued 3)
 
-The facts the report needs across events: each approval decided (maker, checker, amount) for the approval pairs (R1); each storefront checkout by the keyed hash of its client address and how it ended, for R18; each payout detail change made (supplier or investor), for a payment within 24 hours after it (SA-17, abuse cases 13 and 70). Written only by their `SECURITY DEFINER` functions; emptied with the items by `rpt.clear_exception_projections()` on a rebuild.
+The facts the report needs across events: each approval decided (maker, checker, amount) for the approval pairs (R1); each storefront checkout by the keyed hash of its client address and how it ended, for R18; each payout detail change made (supplier or investor), for a payment within 24 hours after it (SA-17, abuse cases 13 and 70). Written only by their `SECURITY DEFINER` functions; emptied with the items by `rpt.clear_exception_projections()` on a rebuild. R18's threshold is AUD's setting `rpt.checkout_holding.unpaid_checkouts` (default 3, from 1, changed only by the Owner, who alone holds `rpt.exception_rules.manage`; B12 continued 4, ADR-0104), read as in force when each checkout ended, and kept on the item as `details.threshold`. The seeded farm's invented items (`pnpm db:seed`, A-392) carry a `seed:` source key, `(SEED)` and `details.seed`, have no event in the outbox, and a rebuild drops them.
 
 ### `rpt.projection_checkpoint` · WORK (as built, B12 continued 3)
 

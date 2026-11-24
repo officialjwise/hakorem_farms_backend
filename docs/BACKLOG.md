@@ -170,6 +170,7 @@ Each item says why it is parked and what would bring it back.
 | BL-129 | Loss rates per pen and handler (`ratePercent`, `comparisonRatePercent`) | Head kept per pen and handler is not projected; A-387 (i) answers them null | The owner reads mortality by handler | A-387 |
 | BL-130 | Rates for overrides, refunds, mortality, adjustments and exports on the daily exception report | The report has no fair base for them yet (sales value by user per shift, head kept per pen and handler, counts by location); A-390 (e) answers a count and a value with the rate null | A base is projected, or the owner asks | A-390 (e) |
 | BL-131 | The proof of delivery shows whether its photograph or signature was used before | Recorded on the proof and published for the exception report (A-390 (j)); `ProofOfDelivery` does not carry the two flags yet | The frontend asks | A-390 (j) |
+| BL-132 | A cold room with no temperature reading in a day on the daily exception report | Case 25's detection names it (B12); excursions are reported (`TEMPERATURE_EXCURSION`), a room with no reading at all is not. Needs INV to publish its cold rooms and their last reading | The owner asks, or B13 | A-395 |
 
 ## Explicitly outside the brief
 
