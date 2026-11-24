@@ -102,6 +102,18 @@ export interface CustomerContactFacts {
 }
 
 /**
+ * A customer's or a supplier's own addresses for a document sent to them (NTF's document sends and remittance advice, B11
+ * continued 13): the party's name, whether live, its phone in E.164 and its email, each as MDM holds it now.
+ */
+export interface PartyAddressFacts {
+  readonly id: string;
+  readonly name: string;
+  readonly isLive: boolean;
+  readonly phoneE164: string | null;
+  readonly email: string | null;
+}
+
+/**
  * A customer's saved delivery address (FR-MDM-008), as a staff delivery order snapshots it (B11 continued 8): who it is
  * for, where, and the zone it was filed under (null when none was; the order then matches one by area and city).
  */
@@ -177,6 +189,8 @@ export interface MasterDataRefsStore {
   taxCategories(tx: Transaction, ids: readonly string[]): Promise<TaxCategoryFacts[]>;
   customers(tx: Transaction, ids: readonly string[]): Promise<CustomerFacts[]>;
   customerContacts(tx: Transaction, ids: readonly string[]): Promise<CustomerContactFacts[]>;
+  /** A customer's or a supplier's phone and email by id (B11 continued 13). */
+  partyAddresses(tx: Transaction, kind: 'CUSTOMER' | 'SUPPLIER', ids: readonly string[]): Promise<PartyAddressFacts[]>;
   /** The live customers among the ids who have given marketing consent (`marketing_consent_at` set). */
   consentingCustomers(tx: Transaction, ids: readonly string[]): Promise<string[]>;
   customerOfPrincipal(tx: Transaction, principalId: string): Promise<CustomerFacts | null>;
@@ -269,6 +283,15 @@ export class MasterDataRefs {
   async customerContactsIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, CustomerContactFacts>> {
     if (ids.length === 0) return new Map();
     return byId(await this.store.customerContacts(tx, unique(ids)));
+  }
+
+  /**
+   * A customer's or a supplier's own phone and email by id (B11 continued 13): what a document sent to its party may be
+   * addressed to, read when the send is asked for and again when the message goes, never taken from an event.
+   */
+  async partyAddressesIn(tx: Transaction, kind: 'CUSTOMER' | 'SUPPLIER', ids: readonly string[]): Promise<ReadonlyMap<string, PartyAddressFacts>> {
+    if (ids.length === 0) return new Map();
+    return byId(await this.store.partyAddresses(tx, kind, unique(ids)));
   }
 
   /**

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { GHANA_REGIONS, normaliseGhanaPhone, planAddress, planPriceListAssignment } from './parties';
+import { GHANA_REGIONS, isPartyAddress, normaliseGhanaPhone, planAddress, planPriceListAssignment } from './parties';
 
 describe('normaliseGhanaPhone (FR-MDM-008)', () => {
   it.each([
@@ -91,5 +91,19 @@ describe('planPriceListAssignment (FR-MDM-021)', () => {
 
   it('refuses a window that ends before it starts', () => {
     expect(planPriceListAssignment([], at('2026-11-01T00:00:00Z'), at('2026-11-01T00:00:00Z'))).toEqual({ ok: false, error: [{ field: '/validTo', rule: 'NOT_AFTER_VALID_FROM' }] });
+  });
+});
+
+describe('isPartyAddress (B11 continued 13: a document goes only to its own party)', () => {
+  const party = { phoneE164: '+233244123456', email: 'Esi.Mensah@example.com' };
+  it.each(['+233244123456', '0244123456', '024 412 3456', 'esi.mensah@example.com', ' ESI.MENSAH@EXAMPLE.COM '])('accepts the party\'s own %s', (recipient) => {
+    expect(isPartyAddress(recipient, party)).toBe(true);
+  });
+  it.each(['+233244123457', '0201234567', 'esi@example.com', 'not a number', ''])('refuses %s, which is not the party\'s', (recipient) => {
+    expect(isPartyAddress(recipient, party)).toBe(false);
+  });
+  it('refuses any address for a party that has none', () => {
+    expect(isPartyAddress('0244123456', { phoneE164: null, email: null })).toBe(false);
+    expect(isPartyAddress('esi.mensah@example.com', { phoneE164: null, email: null })).toBe(false);
   });
 });

@@ -1,7 +1,7 @@
 import type { Transaction } from '../../../platform/database/unit-of-work';
 import type { UomFactor } from '../domain/unit-conversion';
 import type { BranchFacts, GradeFacts, ReasonCodeFacts, UomFacts, ReasonCodeView, LocationFacts, MasterDataRefsStore, ProductFacts, SpeciesFacts, SupplierFacts, TaxCategoryFacts, CustomerAddressFacts,
-  CustomerContactFacts, CustomerFacts, PaymentMethodFacts, WeightBandFacts } from '../application/master-data-refs';
+  CustomerContactFacts, CustomerFacts, PartyAddressFacts, PaymentMethodFacts, WeightBandFacts } from '../application/master-data-refs';
 
 /** MDM's own tables, read by primary key for a higher module's transaction (MasterDataRefs). */
 const PAYMENT_METHOD_FACTS = `SELECT id, code, name, kind, requires_provider_verification AS "requiresProviderVerification", allowed_offline AS "allowedOffline", channels,
@@ -139,6 +139,16 @@ export class PgMasterDataRefsStore implements MasterDataRefsStore {
       'SELECT id, name, (deleted_at IS NULL AND status = $2) AS "isLive", phone_e164 AS "phoneE164" FROM mdm.customer WHERE id = ANY($1::uuid[])',
       [ids, 'ACTIVE'],
     );
+    return rows;
+  }
+
+  async partyAddresses(tx: Transaction, kind: 'CUSTOMER' | 'SUPPLIER', ids: readonly string[]): Promise<PartyAddressFacts[]> {
+    // Two fixed statements, one per kind: the table name is never built from input.
+    const sql =
+      kind === 'CUSTOMER'
+        ? 'SELECT id, name, (deleted_at IS NULL AND status = $2) AS "isLive", phone_e164 AS "phoneE164", email FROM mdm.customer WHERE id = ANY($1::uuid[])'
+        : 'SELECT id, name, (deleted_at IS NULL AND status = $2) AS "isLive", phone_e164 AS "phoneE164", email FROM mdm.supplier WHERE id = ANY($1::uuid[])';
+    const { rows } = await tx.query<PartyAddressFacts>(sql, [ids, 'ACTIVE']);
     return rows;
   }
 
