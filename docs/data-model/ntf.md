@@ -2,7 +2,7 @@
 
 Owner: NTF module. Templates, preferences, opt-outs and the log of every message. NTF only subscribes to events; no module calls it (ADR-0009). Conventions are in `docs/DATA_MODEL.md`.
 
-**Built (B11 continued 10, migration 0335, ADR-0096, A-374):** `ntf.template`, `ntf.message`, `ntf.message_attempt` and `ntf.provider_report`. **Built (B11 continued 11, migration 0338, ADR-0097, A-376):** `ntf.trigger_rule`, `ntf.preference`, `ntf.opt_out` and `ntf.in_app_notification`; `ntf.message` gains `rendered_subject` and `link_path`, may be written `DEFERRED_QUIET_HOURS`; `ntf.template` takes a subject on `IN_APP` (its title).
+**Built (B11 continued 10, migration 0335, ADR-0096, A-374):** `ntf.template`, `ntf.message`, `ntf.message_attempt` and `ntf.provider_report`. **Built (B11 continued 12, migration 0339, ADR-0084, A-349):** `ntf.message` gains `link_kind` and `link_record_id`, and two suppressed reasons, `NO_LINK` and `NO_CONSENT`; three templates and triggers are seeded (`ORDER_TRACKING`, `SALE_RECEIPT`, `CART_REMINDER`). **Built (B11 continued 11, migration 0338, ADR-0097, A-376):** `ntf.trigger_rule`, `ntf.preference`, `ntf.opt_out` and `ntf.in_app_notification`; `ntf.message` gains `rendered_subject` and `link_path`, may be written `DEFERRED_QUIET_HOURS`; `ntf.template` takes a subject on `IN_APP` (its title).
 
 ---
 
@@ -103,7 +103,8 @@ Every message: what was sent to whom and when. Posted statuses: `SENT`, `DELIVER
 | `rendered_subject` | `text` | NULL | An in-app notification's title (B11 continued 11) |
 | `link_path` | `text` | NULL, a console path (`^/[a-z0-9]...`), never a URL | Where an in-app notification takes its reader (B11 continued 11) |
 | `status` | `text` | NOT NULL, CHECK in (`QUEUED`, `DEFERRED_QUIET_HOURS`, `SENT`, `DELIVERED`, `FAILED`, `SUPPRESSED`) | |
-| `suppressed_reason` | `text` | NULL, CHECK in (`NO_ADDRESS`, `RATE_LIMITED`, `OPTED_OUT`, `PREFERENCE_OFF`); set exactly when `SUPPRESSED` | |
+| `suppressed_reason` | `text` | NULL, CHECK in (`NO_ADDRESS`, `RATE_LIMITED`, `OPTED_OUT`, `PREFERENCE_OFF`, `NO_LINK`, `NO_CONSENT`); set exactly when `SUPPRESSED` | `NO_LINK` and `NO_CONSENT`: B11 continued 12 |
+| `link_kind`, `link_record_id` | `text`, `uuid` | NULL, both or neither (`ck_message_link`); kind in (`TRACKING`, `RECEIPT`, `CART`, `DOCUMENT`); set exactly when the text keeps `{{link}}` (`ck_message_link_placeholder`); never change (`ntf.message_link_fixed`, HK004) | The record whose own module makes the link at each attempt; the link and its token are never stored (ADR-0084, B11 continued 12) |
 | `failure_reason` | `text` | NULL | The last failure, scrubbed |
 | `failed_at` | `timestamptz` | NULL; set when `FAILED` | |
 | `attempts` | `integer` | NOT NULL DEFAULT 0 | |
