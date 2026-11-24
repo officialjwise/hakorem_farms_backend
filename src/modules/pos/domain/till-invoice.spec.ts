@@ -28,4 +28,21 @@ describe('judgeTillInvoicePayment', () => {
     expect(judgeTillInvoicePayment(facts({ document: { ...invoice, branchId: 'tma' } }))).toEqual({ ok: false, error: ['INVOICE_OTHER_BRANCH'] });
     expect(judgeTillInvoicePayment(facts({ document: { ...invoice, outstandingPesewas: 0n }, amount: Money.ofPesewas(1n) }))).toEqual({ ok: false, error: ['INVOICE_SETTLED'] });
   });
+
+  it("takes a guest's issued receipt of a sales order with something outstanding, as an invoice (A-366 (d), the parent session's leave of 2026-11-24)", () => {
+    const receipt = { kind: 'RECEIPT', status: 'ISSUED' as const, branchId: 'ddw', outstandingPesewas: 12_000n, orderDocumentId: 'order-1' };
+    expect(judgeTillInvoicePayment(facts({ document: receipt, amount: Money.ofPesewas(12_000n) }))).toEqual({ ok: true, value: { change: Money.zero(), outstandingAfter: Money.zero() } });
+    const part = judgeTillInvoicePayment(facts({ document: receipt, amount: Money.ofPesewas(5_000n) }));
+    expect(part.ok && part.value.outstandingAfter.pesewas).toBe(7_000n);
+    expect(judgeTillInvoicePayment(facts({ document: receipt, amount: Money.ofPesewas(12_001n) }))).toEqual({ ok: false, error: ['AMOUNT_EXCEEDS_OUTSTANDING'] });
+    expect(judgeTillInvoicePayment(facts({ document: { ...receipt, branchId: 'tma' }, amount: Money.ofPesewas(1n) }))).toEqual({ ok: false, error: ['INVOICE_OTHER_BRANCH'] });
+  });
+
+  it('still refuses a receipt with nothing outstanding, one not of an order, one not issued, and every other kind, as NOT_AN_INVOICE', () => {
+    const receipt = { kind: 'RECEIPT', status: 'ISSUED' as const, branchId: 'ddw', outstandingPesewas: 12_000n, orderDocumentId: 'order-1' };
+    expect(judgeTillInvoicePayment(facts({ document: { ...receipt, outstandingPesewas: 0n }, amount: Money.ofPesewas(1n) }))).toEqual({ ok: false, error: ['NOT_AN_INVOICE'] });
+    expect(judgeTillInvoicePayment(facts({ document: { ...receipt, orderDocumentId: null }, amount: Money.ofPesewas(1n) }))).toEqual({ ok: false, error: ['NOT_AN_INVOICE'] });
+    expect(judgeTillInvoicePayment(facts({ document: { ...receipt, status: 'DRAFT' }, amount: Money.ofPesewas(1n) }))).toEqual({ ok: false, error: ['NOT_AN_INVOICE'] });
+    for (const kind of ['CREDIT_NOTE', 'DEBIT_NOTE', 'PROFORMA']) expect(judgeTillInvoicePayment(facts({ document: { ...receipt, kind }, amount: Money.ofPesewas(1n) }))).toEqual({ ok: false, error: ['NOT_AN_INVOICE'] });
+  });
 });
