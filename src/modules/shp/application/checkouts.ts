@@ -1,5 +1,7 @@
+import { createHmac } from 'node:crypto';
 import { createUuidV7Generator, Money, Quantity, toBusinessDate, type Clock } from '@hakorem/kernel';
 import type { AuditTrail } from '../../../platform/audit/audit-trail';
+import { currentRequestContext } from '../../../platform/context/request-context';
 import type { Transaction, UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { DocumentRegistry } from '../../../platform/documents/document-registry';
 import { NotFoundError } from '../../../platform/errors/api-error';
@@ -140,6 +142,7 @@ interface Delivery {
  */
 export class Checkouts {
   private readonly nextId: () => string;
+  private readonly addressKey: Buffer | null;
 
   constructor(
     private readonly uow: UnitOfWork,
@@ -160,8 +163,11 @@ export class Checkouts {
     private readonly clock: Clock,
     private readonly online: OnlineOrders,
     private readonly providerPayments: ProviderPayments,
+    /** The lookup key the client address is hashed under for `clientAddressHash` (R18); none hashes nothing. */
+    addressKey: Buffer | null = null,
   ) {
     this.nextId = createUuidV7Generator(clock);
+    this.addressKey = addressKey === null ? null : createHmac('sha256', addressKey).update('hk-shp-checkout-address-v1').digest();
   }
 
   async start(token: GuestToken, cartId: string, body: CheckoutStartRequest, key: string): Promise<StoredResponse<CheckoutView>> {
@@ -251,7 +257,14 @@ export class Checkouts {
         subjectType: 'CheckoutSession',
         subjectId: id,
         branchId: cart.branchId,
-        payload: { checkoutId: id, cartId: cart.id, reservedUntil: write.reservedUntil.toISOString(), estimatedTotalPesewas: Number(write.estimatedTotalPesewas), lineCount: lines.length },
+        payload: {
+          checkoutId: id,
+          cartId: cart.id,
+          reservedUntil: write.reservedUntil.toISOString(),
+          estimatedTotalPesewas: Number(write.estimatedTotalPesewas),
+          lineCount: lines.length,
+          clientAddressHash: this.clientAddressHash(),
+        },
       });
       const response = { status: 201, body: await this.viewIn(tx, (await this.store.checkout(tx, id, false))!) };
       await this.idempotency.complete(tx, claim.id, response);
@@ -472,6 +485,12 @@ export class Checkouts {
         }
       }
     }
+  }
+
+  /** The client address of this request as its keyed hash (R18), or null for no address or no key. */
+  private clientAddressHash(): string | null {
+    const ip = currentRequestContext()?.ip ?? null;
+    return ip === null || this.addressKey === null ? null : createHmac('sha256', this.addressKey).update(ip).digest('hex');
   }
 
   /** The delivery side of a checkout: collection, or the zone of the address with a slot of that zone (FR-SHP-008, SA-13). */

@@ -32,6 +32,8 @@ export interface DistributionDeclared {
   readonly periodEnd: string;
   readonly distributablePesewas: number;
   readonly draftedBy: string;
+  /** The run's retention rate as a percent (`40.00` unless the run named another), for abuse case 69 (B12 continued 3). */
+  readonly retentionRatePercent?: string;
   readonly approvedBy: string;
   readonly lines: readonly {
     readonly lineId: string;
@@ -58,3 +60,15 @@ export interface DistributionPaid {
   readonly externalReference: string | null;
 }
 
+
+/**
+ * `cap.FinancingAccrualBlocked` (B12 continued 3, abuse case 71): the daily accrual job could not accrue a finished
+ * month of a loan or grant because its period is not open. Raised by each run that finds it, for the daily exception
+ * report; nothing is posted.
+ */
+export interface FinancingAccrualBlocked {
+  readonly financingId: string;
+  readonly financingNo: string;
+  readonly branchId: string;
+  readonly monthEnd: string;
+}

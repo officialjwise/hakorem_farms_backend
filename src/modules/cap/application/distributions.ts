@@ -343,6 +343,7 @@ export class Distributions {
         distributablePesewas: json(run.distributablePesewas),
         draftedBy: run.createdBy,
         approvedBy: run.approvedBy!,
+        retentionRatePercent: run.retentionRatePercent,
         lines: lines.map((l) => ({
           lineId: l.id,
           investorId: l.investorId,

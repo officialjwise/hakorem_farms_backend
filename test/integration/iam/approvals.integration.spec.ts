@@ -121,8 +121,10 @@ describe('maker-checker (ADR-0017)', () => {
     const { rows } = await database.pool('admin').query<{ applied: boolean }>('SELECT applied FROM platform.approval_probe WHERE id = $1', [request.subjectDocumentId]);
     expect(rows[0]!.applied).toBe(true);
     await expect(as(manager, (tx) => approvals.decide(tx, manager, request.id, 'REJECTED', 'second thoughts'))).rejects.toMatchObject({ code: 'APPROVAL_ALREADY_DECIDED' });
-    const { rows: event } = await database.pool('admin').query("SELECT 1 FROM platform.outbox_message WHERE event_type = 'iam.ApprovalDecided' AND subject_id = $1", [request.id]);
+    const { rows: event } = await database.pool('admin').query<{ payload: Record<string, unknown> }>("SELECT payload FROM platform.outbox_message WHERE event_type = 'iam.ApprovalDecided' AND subject_id = $1", [request.id]);
     expect(event).toHaveLength(1);
+    // The amount the request was judged on, for the exception report's approval pairs (B12 continued 3).
+    expect(event[0]!.payload).toMatchObject({ decision: 'APPROVED', requestedBy: expect.any(String), decidedBy: manager.principalId, amountPesewas: request.amountPesewas === null ? null : Number(request.amountPesewas) });
   });
 
   it('voids an approval when the subject changed after the request, so nobody approves something else', async () => {

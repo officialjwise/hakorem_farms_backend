@@ -8,7 +8,7 @@ import { runSeedUnits } from '../../../src/seed/run-seed';
 import { addDays } from '../../../src/seed/seed-calendar';
 import { seedUnits } from '../../../src/seed/seed-units';
 import { stepUp, type TotpSession } from '../../support/fin';
-import { consoleGet, consolePatch, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, setPortalPassword, testStartTime, type TestSession } from '../../support/iam';
+import { consoleGet, consolePatch, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, setPortalPassword, testStartTime, type TestSession, SYSTEM_PRINCIPAL } from '../../support/iam';
 import { sqlStateOf, SQLSTATE } from '../../support/sql-state';
 import { startTestApp, TEST_ORIGIN, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
@@ -322,6 +322,34 @@ describe('loans and grants (FR-CAP-015)', () => {
     expect([after.body.outstandingPesewas, after.body.status]).toEqual([20_000, 'ACTIVE']);
     await stepUp(api.server, accountant, clock);
     expect((await post(accountant, `/financing/${grant.id}/repayments`, { principalPesewas: 1, interestPesewas: 0, bankAccountId: bank, paidAt: clock.now().toISOString() })).body.error.details[0].code).toBe('NOT_A_LOAN');
+    expect(await trialBalanceIsZero()).toBe(true);
+  });
+
+  it('publishes each finished month the job could not accrue, its period not open, for the exception report (abuse case 71), posting nothing', async () => {
+    const accruals = async () => Number((await admin().query<{ n: string }>('SELECT count(*)::text AS n FROM cap.financing_accrual')).rows[0]!.n);
+    await stepUp(api.server, accountant, clock);
+    const created = await post(accountant, '/financing', { kind: 'LOAN', lenderName: 'Adinkra Rural Bank', principalPesewas: 50_000, annualRatePercent: '10', startDate: clock.now().toISOString().slice(0, 10), bankAccountId: bank });
+    expect(created.status, JSON.stringify(created.body)).toBe(201);
+    expect((await approve(owner, created.body.approvalRequestId)).status).toBe(200);
+    const before = await accruals();
+    // The new loan's first month finishes, but its period has been locked: the job cannot accrue it.
+    const start = clock.now().toISOString().slice(0, 10);
+    const [y, m] = start.split('-').map(Number) as [number, number];
+    const monthEnd = new Date(Date.UTC(y, m, 0)).toISOString().slice(0, 10);
+    await database.pool('app').query(
+      "UPDATE fin.accounting_period SET status = 'LOCKED', locked_at = now(), locked_by = $1, version = version + 1 WHERE start_date <= $2::date AND end_date >= $2::date AND status = 'OPEN'",
+      [SYSTEM_PRINCIPAL, monthEnd],
+    );
+    clock.set(new Date(`${addDays(monthEnd, 1)}T09:00:00Z`));
+    const run = await accrueAll();
+    expect(run.blocked).toBeGreaterThan(0);
+    const published = await admin().query<{ payload: { financingId: string; financingNo: string; monthEnd: string; branchId: string } }>(
+      "SELECT payload FROM platform.outbox_message WHERE event_type = 'cap.FinancingAccrualBlocked' ORDER BY id",
+    );
+    expect(published.rows).toHaveLength(run.blocked);
+    expect(published.rows.map((r) => [r.payload.financingId, r.payload.monthEnd])).toContainEqual([created.body.id, monthEnd]);
+    expect(published.rows[0]!.payload).toMatchObject({ financingId: expect.any(String), financingNo: expect.any(String), monthEnd: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/), branchId: expect.any(String) });
+    expect(await accruals()).toBeGreaterThanOrEqual(before);
     expect(await trialBalanceIsZero()).toBe(true);
   });
 });
