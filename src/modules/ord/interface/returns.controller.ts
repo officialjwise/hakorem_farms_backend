@@ -37,7 +37,7 @@ export class ReturnsController {
       res,
       this.returns.create(
         actor,
-        { ...body, note: body.note ?? null, lines: body.lines.map((l) => ({ orderLineId: l.orderLineId, qty: l.qty, weightKg: l.weightKg ?? null, disposition: l.disposition })) },
+        { ...body, note: body.note ?? null, lines: body.lines.map((l) => ({ orderLineId: l.orderLineId, qty: l.qty, uom: l.uom ?? null, weightKg: l.weightKg ?? null, disposition: l.disposition })) },
         key,
       ),
     );

@@ -304,14 +304,17 @@ The lines and quantities being returned.
 | `order_return_id` | `uuid` | NOT NULL, FK `ord.order_return` | |
 | `sales_order_line_id` | `uuid` | NOT NULL, FK `ord.sales_order_line` | |
 | `line_no` | `integer` | NOT NULL, UNIQUE per return | |
-| `qty` | `qty` | NOT NULL, CHECK `> 0` | |
+| `qty` | `qty` | NOT NULL, CHECK `> 0` | In `uom` when set, else in the sold line's unit |
+| `uom` | `text` | NULL (migration 0334) | The product's base unit when part of a unit of several comes back as single pieces (five eggs of a crate); NULL for the line's own unit |
+| `pieces_per_unit` | `integer` | NULL, set with `uom` only, `> 1` (migration 0334) | How many pieces make one of the line's unit (30 eggs a crate), from MDM's conversion when the return was made |
 | `weight_kg` | `kg` | NULL | |
-| `disposition` | `text` | NOT NULL, CHECK in (`RESTOCK`, `RETURNS_HOLD`, `WRITE_OFF`) | Where the goods go |
+| `disposition` | `text` | NOT NULL, CHECK in (`RESTOCK`, `RETURNS_HOLD`, `WRITE_OFF`) | Where the goods go; never `RESTOCK` for single pieces |
 | `refund_pesewas` | `pesewas` | NOT NULL DEFAULT 0 | What the line's credit carries: BIL's preview when made, the credit note's figure once completed |
 | `stock_movement_id` | `uuid` | NULL, UNIQUE, FK `inv.stock_movement`; NULL for `WRITE_OFF` | The `SALE_RETURN` |
 
 - UNIQUE (`order_return_id`, `sales_order_line_id`).
 - Trigger (`ck_order_return_line_cap`): what returns not `REJECTED` hold of a sold line never exceeds its `qty_fulfilled`, under the sold line's row lock; the line is of the return's own sale; lines are written while the return is `REQUESTED`, and afterwards only `refund_pesewas` and `stock_movement_id`, while it is open.
+- **B11 continued 9 (migration 0334, A-372):** `ck_order_return_line_pieces` (both `uom` and `pieces_per_unit` or neither; whole pieces; never `RESTOCK`). Once any return of a line counts single pieces, the cap is counted in pieces (whole units times `pieces_per_unit` plus single pieces, never above `qty_fulfilled` times it), at one count per line; and a return in pieces is never open beside another open return of its line (`ck_order_return_line_open`), so its pro-rata refund, round(paid x cumulative / pieces sold) less round(paid x previous / pieces sold) (ADR-0075's running total, half-up), reads only decided returns and the pieces of a line always add up to what was paid for it.
 
 ## As built (B11 continued 4, migration 0323; FR-DEL-011, the owner's van rule of 2026-11-23, A-360)
 

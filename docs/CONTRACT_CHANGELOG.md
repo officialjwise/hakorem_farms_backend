@@ -5,6 +5,7 @@ Every change to `contract/openapi.yaml`, newest first. A breaking change needs a
 Version numbers follow semantic versioning: a major bump breaks an existing client, a minor bump adds operations or optional fields, a patch fixes descriptions or examples.
 
 **Read first (cold-read summary), rewritten for 2.0.0:** changes that alter an answer or a request a client already handles.
+- **2.38.0, LOUD for `ReturnLine.uom` (new, always sent):** no field removed or retyped. `ReturnLineInput.uom` is new and optional: part of a crate returned as single eggs, refunded pro rata at the price paid.
 - **2.37.0, LOUD for `createOrder` with `DELIVERY` (now taken with the customer's own address, where it was refused `FULFILMENT_NOT_AVAILABLE`), `dispatchFulfilment` and `collectFulfilment` on an order on account (now credit-checked and dispatched, where they were refused `CREDIT_DISPATCH_NOT_AVAILABLE`, which is no longer answered; both may now answer 202 `CreditOverridePending`) and `getOrderCreditCheck` on a confirmed order (its own estimate no longer counted twice in `exposurePesewas`) `Payment.driver` (now filled for a cash-on-delivery payment, BL-096) and `FulfilmentLine.damaged` (new, always sent):** no field removed or retyped. `DispatchRecord.creditOverrideReason` and the optional `CollectRecord` body are new.
 - **2.36.0, LOUD for `payInvoiceAtTill` (it now also takes a guest's receipt of an order), `getOrder`'s `paidPesewas` and `outstandingPesewas` (they now count every allocation to the order's document, a balance paid at the till included), and `SalesOrder.parentOrderId`, `SalesOrderLine.qtyBackordered` and `lineStatus` `BACKORDERED` (now filled for a backorder):** no field removed or retyped. `collectFulfilment` moves into code; `addExtraDeliveryFee` is new; `PackRecord.backorderLineIds` is new and optional. A delivered or handed-over order now completes when a later payment or credit note settles its document.
 - **2.35.0, LOUD for `ProofOfDelivery` (three fields added, always sent), `DriverSyncItem.firstOutcome` (added, always sent) and `DeliveryCompleted`'s new returned lines:** no field removed or retyped. `cancelDelivery` and `syncDriverEvents` move into code; `cancelDelivery`'s request is now `DeliveryCancel` (it was `ReasonCodeRequest`; the operation was never served) and it cancels a **dispatched** delivery still on the van. `listShiftDriverCashHolders` is new (POS, CR-063). `recordProofOfDelivery` takes an optional part delivery (`lines`, `returnedReasonCode`, `returnedNote`, CR-055). See its entry.
@@ -49,6 +50,14 @@ Version numbers follow semantic versioning: a major bump breaks an existing clie
 - **1.53.0, LOUD for the Farm hand:** `reportCareMortality` and `submitCareMortalityRecord` refuse a report without its `EVIDENCE` photograph from a reporter who cannot see its value (the Farm hand), whatever the value, with 422 `MORTALITY_PHOTO_REQUIRED`. `markSupplierPaymentPaid` and the payment reads answer `paymentNo` (`SPY-…`) where it was null. Every list's single `example` is now an `examples` map (`default` and `empty`).
 - **1.50.0, LOUD:** `createOrder` answers **202 `ApprovalPending`** (kind `PRICE_OVERRIDE`) where it answered 422 `PRICE_OVERRIDE_NEEDS_APPROVAL` for a price outside the band or below list beyond the seller's limit.
 - Earlier LOUD changes, each on an operation that was still planned when it changed, are in their entries below and in "Reading 1.5.0 to 1.37.0 cold".
+
+## 2.38.0 (2026-11-24, B11 continued 9)
+
+Minor, additive on the request, LOUD on one answer field (part of a crate returned as single eggs, the owner 2026-11-18, A-372; migration 0334).
+
+- **New optional request field:** `ReturnLineInput.uom` (`createReturn`): the product's base unit on a line sold in a unit of several returns part of one as single pieces (five eggs of a crate), refunded pro rata at the price actually paid on the line per piece by ADR-0075's running total, so the pieces add up. New refusals (`ORDER_INVALID`): `UNIT_NOT_SOLD`, `INEXACT_QUANTITY`, `PART_RETURN_TO_HOLD`, `RETURN_OPEN_ON_LINE`.
+- **LOUD, `ReturnLine.uom`** (new, always sent, on `createReturn`, `getReturn`, `submitReturn` and `listReturns`): the unit `qty` counts. A client that rejects unknown fields must take it.
+- No existing field removed, retyped or made required on a request. No new permission.
 
 ## 2.37.0 (2026-11-24, B11 continued 8)
 

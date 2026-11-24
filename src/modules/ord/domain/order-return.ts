@@ -1,4 +1,4 @@
-import { err, ok, type Money, type Quantity, type Result } from '@hakorem/kernel';
+import { err, halfUpDivide, Money, ok, type Quantity, type Result } from '@hakorem/kernel';
 import type { OrderStatus } from './order';
 
 /** A line of the original sale as a return reads it: what was sold and what returns not rejected already hold. */
@@ -9,13 +9,31 @@ export interface SoldLine {
   readonly serial: boolean;
   readonly qtySold: Quantity;
   readonly qtyReturned: Quantity;
+  /**
+   * The pieces in one of the line's unit when it is sold in a unit of several (30 eggs in a crate), so part of one may
+   * come back as single pieces; null (or absent) for a line sold in its base unit.
+   */
+  readonly piecesPerUnit?: bigint | null;
+  /** What returns not rejected hold of the line, in pieces: whole units times `piecesPerUnit`, plus single pieces. */
+  readonly piecesReturned?: Quantity;
+  /** Returns of the line still open (REQUESTED or PENDING_APPROVAL), and of those how many count single pieces. */
+  readonly openReturns?: number;
+  readonly openPartReturns?: number;
 }
 
 export interface ReturnFacts {
   readonly orderStatus: OrderStatus;
   readonly kind: 'RETURN' | 'EXCHANGE';
   readonly sold: readonly SoldLine[];
-  readonly asked: readonly { readonly orderLineId: string; readonly qty: Quantity }[];
+  readonly asked: readonly {
+    readonly orderLineId: string;
+    readonly qty: Quantity;
+    /** Counted in single pieces of the line's unit (five eggs of a crate), not in the unit it was sold in. */
+    readonly inPieces?: boolean;
+    /** False when the unit named is neither the line's own nor its single pieces (a kilogram of a crate). */
+    readonly unitSold?: boolean;
+    readonly disposition?: 'RESTOCK' | 'RETURNS_HOLD' | 'WRITE_OFF';
+  }[];
 }
 
 export interface ReturnRule {
@@ -45,9 +63,34 @@ export function judgeReturn(f: ReturnFacts): Result<null, ReturnRule[]> {
     if (line.priceBasis === 'PER_KG') return void broken.push({ field: `/lines/${i}/orderLineId`, rule: 'WEIGHED_LINE_NOT_RETURNABLE' });
     if (asked.qty.isZero() || asked.qty.isNegative()) return void broken.push({ field: `/lines/${i}/qty`, rule: 'QUANTITY_NOT_POSITIVE' });
     if (line.serial && asked.qty.compareTo(line.qtySold) !== 0) return void broken.push({ field: `/lines/${i}/qty`, rule: 'SERIAL_RETURNS_WHOLE' });
-    if (line.qtyReturned.plus(asked.qty).compareTo(line.qtySold) > 0) broken.push({ field: `/lines/${i}/qty`, rule: 'RETURN_EXCEEDS_SOLD' });
+    const per = line.piecesPerUnit ?? null;
+    if (asked.inPieces === true) {
+      if (per === null || asked.unitSold === false) return void broken.push({ field: `/lines/${i}/uom`, rule: 'UNIT_NOT_SOLD' });
+      if (asked.qty.thousandths % 1000n !== 0n) return void broken.push({ field: `/lines/${i}/qty`, rule: 'INEXACT_QUANTITY' });
+      // Single pieces wait in the returns hold for inspection (or are written off); never straight back onto the shelf.
+      if (asked.disposition === 'RESTOCK') return void broken.push({ field: `/lines/${i}/disposition`, rule: 'PART_RETURN_TO_HOLD' });
+      // The pro-rata refund reads what came back before it, so it waits for an open return of the line to be decided.
+      if ((line.openReturns ?? 0) > 0) return void broken.push({ field: `/lines/${i}/orderLineId`, rule: 'RETURN_OPEN_ON_LINE' });
+    } else if ((line.openPartReturns ?? 0) > 0) return void broken.push({ field: `/lines/${i}/orderLineId`, rule: 'RETURN_OPEN_ON_LINE' });
+    const exceeds =
+      per === null
+        ? line.qtyReturned.plus(asked.qty).compareTo(line.qtySold) > 0
+        : (line.piecesReturned?.thousandths ?? 0n) + (asked.inPieces === true ? asked.qty.thousandths : asked.qty.thousandths * per) > line.qtySold.thousandths * per;
+    if (exceeds) broken.push({ field: `/lines/${i}/qty`, rule: 'RETURN_EXCEEDS_SOLD' });
   });
   return broken.length === 0 ? ok(null) : err(broken);
+}
+
+/**
+ * The refund of single pieces of a line sold in a unit of several (part of a crate returned as single eggs, owner,
+ * 2026-11-18): pro rata at the price actually paid on the line per piece, never the single-piece price, by the running
+ * total of the egg cost rule (ADR-0075, half-up once): round(paid x (previous + returning) / pieces sold) less
+ * round(paid x previous / pieces sold), so the pieces of a line always add up to what was paid for it, never more.
+ * `paid` is the line's anchor on the original document; `piecesSold` the line's quantity in pieces.
+ */
+export function pieceRefund(paid: Money, piecesSold: Quantity, previous: Quantity, returning: Quantity): Money {
+  const upTo = (q: Quantity) => halfUpDivide(paid.pesewas * q.thousandths, piecesSold.thousandths);
+  return Money.ofPesewas(upTo(previous.plus(returning)) - upTo(previous));
 }
 
 /**

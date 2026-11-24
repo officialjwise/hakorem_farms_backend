@@ -15,7 +15,7 @@ import type { ApprovalHandler, ApprovalRecord, Approvals, Authoriser, PrincipalN
 import type { StockMovements } from '../../inv';
 import type { MasterDataRefs } from '../../mdm';
 import type { Payments, Refunds } from '../../pay';
-import { judgeReturn, judgeReturnApprover, planReturnRefund, type ReturnRule } from '../domain/order-return';
+import { judgeReturn, judgeReturnApprover, pieceRefund, planReturnRefund, type ReturnRule, type SoldLine } from '../domain/order-return';
 import { lineNumber } from '../domain/line-numbers';
 import type { OrderStatus } from '../domain/order';
 import type { ReturnCompleted, ReturnSubmitted } from '../events';
@@ -43,7 +43,7 @@ export interface ReturnCreateRequest {
   readonly reasonCode: string;
   readonly refundDestination: RefundDestination;
   readonly note: string | null;
-  readonly lines: readonly { readonly orderLineId: string; readonly qty: string; readonly weightKg: string | null; readonly disposition: Disposition }[];
+  readonly lines: readonly { readonly orderLineId: string; readonly qty: string; readonly uom?: string | null; readonly weightKg: string | null; readonly disposition: Disposition }[];
 }
 
 /** The contract's `OrderReturn`. */
@@ -60,6 +60,7 @@ export interface OrderReturnView {
     readonly orderLineId: string;
     readonly product: { readonly id: string; readonly sku: string; readonly name: string };
     readonly qty: string;
+    readonly uom: string;
     readonly weightKg: string | null;
     readonly disposition: Disposition;
     readonly refundPesewas: number;
@@ -138,22 +139,50 @@ export class Returns {
       await this.authoriser.authorise(tx, actor, CREATE, { branchId: header.branchId });
       const [order] = await this.orders.orders(tx, [header.id]);
       const lines = order!.lines;
-      const returned = await this.store.returnedOf(
+      const held = await this.store.heldOf(
         tx,
         lines.map((l) => l.id),
       );
       const products = await this.refs.productsIn(tx, [...new Set(lines.map((l) => l.productId))]);
+      const soldById = new Map(lines.map((l) => [l.id, l] as const));
+      // A line sold in a unit of several (a crate of 30 eggs) may come back as single pieces of its product's base unit.
+      const perOf = new Map<string, bigint | null>();
+      for (const asked of body.lines) {
+        const line = soldById.get(asked.orderLineId);
+        if (line === undefined || perOf.has(line.id)) continue;
+        perOf.set(line.id, await this.piecesPerUnitIn(tx, line.productId, line.uom, line.priceBasis, products.get(line.productId)?.baseUom));
+      }
+      const inPieces = body.lines.map((l) => {
+        const line = soldById.get(l.orderLineId);
+        return line !== undefined && l.uom !== undefined && l.uom !== null && l.uom !== line.uom;
+      });
       const verdict = judgeReturn({
         orderStatus: header.status,
         kind: body.kind,
-        sold: lines.map((l) => ({
-          id: l.id,
-          priceBasis: l.priceBasis,
-          serial: products.get(l.productId)?.tracking === 'SERIAL',
-          qtySold: Quantity.parse(l.qtyFulfilled),
-          qtyReturned: Quantity.parse(returned.get(l.id) ?? '0.000'),
+        sold: lines.map((l) => {
+          const h = held.get(l.id);
+          const per = perOf.get(l.id) ?? null;
+          const whole = Quantity.parse(h?.wholeQty ?? '0.000');
+          const pieces = Quantity.parse(h?.pieces ?? '0.000');
+          return {
+            id: l.id,
+            priceBasis: l.priceBasis,
+            serial: products.get(l.productId)?.tracking === 'SERIAL',
+            qtySold: Quantity.parse(l.qtyFulfilled),
+            qtyReturned: whole,
+            piecesPerUnit: per,
+            piecesReturned: per === null ? pieces : Quantity.ofThousandths(whole.thousandths * per + pieces.thousandths),
+            openReturns: h?.open ?? 0,
+            openPartReturns: h?.openParts ?? 0,
+          };
+        }),
+        asked: body.lines.map((l, i) => ({
+          orderLineId: l.orderLineId,
+          qty: Quantity.parse(l.qty),
+          inPieces: inPieces[i]!,
+          unitSold: !inPieces[i] || l.uom === products.get(soldById.get(l.orderLineId)!.productId)?.baseUom,
+          disposition: l.disposition,
         })),
-        asked: body.lines.map((l) => ({ orderLineId: l.orderLineId, qty: Quantity.parse(l.qty) })),
       });
       if (!verdict.ok && verdict.error.some((r) => r.rule === 'INVALID_STATE_TRANSITION')) throw invalidState(`order ${header.id}`, header.status);
       const broken: ReturnRule[] = [...(verdict.ok ? [] : verdict.error), ...(await this.reasonRules(tx, body))];
@@ -163,10 +192,22 @@ export class Returns {
       if (broken.length > 0) throw new OrderInvalidError(broken);
 
       const receiptLines = await this.billing.linesByOrderLineIn(tx, header.billingDocumentId!);
+      const pieceAmounts = await this.pieceAmountsIn(
+        tx,
+        header.billingDocumentId!,
+        body.lines.flatMap((l, i) => {
+          if (!inPieces[i]) return [];
+          const line = soldById.get(l.orderLineId)!;
+          const h = held.get(line.id);
+          const per = perOf.get(line.id)!;
+          const previous = Quantity.parse(h?.wholeQty ?? '0.000').thousandths * per! + Quantity.parse(h?.pieces ?? '0.000').thousandths;
+          return [{ index: i, receiptLineId: receiptLines.get(line.id)!, piecesSold: Quantity.ofThousandths(Quantity.parse(line.qtyFulfilled).thousandths * per!), previous: Quantity.ofThousandths(previous), returning: Quantity.parse(l.qty) }];
+        }),
+      );
       const preview = await this.billing.creditPreviewIn(tx, header.billingDocumentId!, {
         reasonCode: body.reasonCode,
         note: body.note ?? undefined,
-        lines: body.lines.map((l) => ({ lineId: receiptLines.get(l.orderLineId)!, quantity: l.qty })),
+        lines: body.lines.map((l, i) => creditLine(receiptLines.get(l.orderLineId)!, l.qty, pieceAmounts.get(i))),
       });
       const id = this.nextId();
       const at = this.clock.now();
@@ -189,6 +230,8 @@ export class Returns {
           salesOrderLineId: l.orderLineId,
           lineNo: lineNumber(i),
           qty: l.qty,
+          uom: inPieces[i] ? l.uom! : null,
+          piecesPerUnit: inPieces[i] ? Number(perOf.get(l.orderLineId)!) : null,
           weightKg: l.weightKg,
           disposition: l.disposition,
           refundPesewas: preview.lines[i]!.grossPesewas,
@@ -277,16 +320,35 @@ export class Returns {
     if (header.status !== 'COMPLETED') throw invalidState(`order ${header.id}`, header.status satisfies OrderStatus);
     const before = await this.viewIn(tx, record);
     const receiptLines = await this.billing.linesByOrderLineIn(tx, record.originalBillingDocumentId);
+    const [order] = await this.orders.orders(tx, [header.id]);
+    const sold = new Map(order!.lines.map((l) => [l.id, l] as const));
+    // Single pieces are refunded by the running total over what came back before this return (decided returns only:
+    // a return in pieces is never open beside another of its line, ck_order_return_line_open).
+    const held = await this.store.heldOf(
+      tx,
+      record.lines.map((l) => l.salesOrderLineId),
+    );
+    const pieceAmounts = await this.pieceAmountsIn(
+      tx,
+      record.originalBillingDocumentId,
+      record.lines.flatMap((l, i) => {
+        if (l.piecesPerUnit === null) return [];
+        const per = BigInt(l.piecesPerUnit);
+        const h = held.get(l.salesOrderLineId)!;
+        const returning = Quantity.parse(l.qty);
+        const previous = Quantity.parse(h.wholeQty).thousandths * per + Quantity.parse(h.pieces).thousandths - returning.thousandths;
+        const piecesSold = Quantity.ofThousandths(Quantity.parse(sold.get(l.salesOrderLineId)!.qtyFulfilled).thousandths * per);
+        return [{ index: i, receiptLineId: receiptLines.get(l.salesOrderLineId)!, piecesSold, previous: Quantity.ofThousandths(previous), returning }];
+      }),
+    );
     const credit = await this.billing.creditIn(
       tx,
       record.createdBy,
       record.originalBillingDocumentId,
-      { reasonCode: record.reasonCode, note: record.note ?? undefined, lines: record.lines.map((l) => ({ lineId: receiptLines.get(l.salesOrderLineId)!, quantity: l.qty })) },
+      { reasonCode: record.reasonCode, note: record.note ?? undefined, lines: record.lines.map((l, i) => creditLine(receiptLines.get(l.salesOrderLineId)!, l.qty, pieceAmounts.get(i))) },
       request.id,
     );
 
-    const [order] = await this.orders.orders(tx, [header.id]);
-    const sold = new Map(order!.lines.map((l) => [l.id, l] as const));
     const holding = record.lines.some((l) => l.disposition === 'RETURNS_HOLD') ? await this.refs.physicalLocationOfKindIn(tx, header.branchId, 'RETURNS_HOLD') : null;
     const movementIds: string[] = [];
     for (const [i, line] of record.lines.entries()) {
@@ -294,8 +356,8 @@ export class Returns {
       if (line.disposition !== 'WRITE_OFF') {
         const soldLine = sold.get(line.salesOrderLineId)!;
         // The return counts in the unit the line was sold in (a crate); stock takes it back in the base unit (30 eggs, B09e).
-        const base = await this.refs.toBaseIn(tx, soldLine.productId, soldLine.uom, Quantity.parse(line.qty));
-        if (!base.ok) throw new Error(`a returned ${soldLine.uom} of product ${soldLine.productId} has no exact base quantity (${base.error})`);
+        const base = await this.refs.toBaseIn(tx, soldLine.productId, line.uom ?? soldLine.uom, Quantity.parse(line.qty));
+        if (!base.ok) throw new Error(`a returned ${line.uom ?? soldLine.uom} of product ${soldLine.productId} has no exact base quantity (${base.error})`);
         movementId = await this.movements.returnSaleIn(tx, decider, {
           issueMovementId: soldLine.stockMovementId!,
           qty: base.value,
@@ -353,6 +415,39 @@ export class Returns {
     await this.audit.record(tx, { module: 'ord', action: 'APPROVE', entityType: 'OrderReturn', entityId: record.id, branchId: record.branchId, before: { ...before }, after: { ...(await this.viewIn(tx, after!)) } });
   }
 
+  /**
+   * How many of its product's base unit make one of a line's unit (30 eggs a crate), when part of one may come back as
+   * single pieces: a line sold per unit in a unit other than its base unit, by an exact whole conversion; else null.
+   */
+  private async piecesPerUnitIn(tx: Transaction, productId: string, uom: string, basis: SoldLine['priceBasis'], baseUom: string | undefined): Promise<bigint | null> {
+    if (basis !== 'PER_UNIT' || baseUom === undefined || uom === baseUom) return null;
+    const one = await this.refs.toBaseIn(tx, productId, uom, Quantity.ofUnits(1n));
+    if (!one.ok || one.value.thousandths % 1000n !== 0n || one.value.thousandths <= 1000n) return null;
+    return one.value.thousandths / 1000n;
+  }
+
+  /**
+   * The amount each return line counted in single pieces credits on the original (owner, 2026-11-18, ADR-0075): the
+   * running total of the price actually paid on its line (the line's anchor: its gross when the document is
+   * tax-inclusive, its net when not), by `pieceRefund`. By the return line's index.
+   */
+  private async pieceAmountsIn(
+    tx: Transaction,
+    originalId: string,
+    asked: readonly { readonly index: number; readonly receiptLineId: string; readonly piecesSold: Quantity; readonly previous: Quantity; readonly returning: Quantity }[],
+  ): Promise<ReadonlyMap<number, Money>> {
+    if (asked.length === 0) return new Map();
+    const [original] = await this.billing.viewsIn(tx, [originalId]);
+    const lineOf = new Map(original!.lines.map((l) => [l.id, l] as const));
+    return new Map(
+      asked.map((a) => {
+        const line = lineOf.get(a.receiptLineId)!;
+        const paid = Money.fromJsonInteger(original!.taxInclusive ? line.lineGrossPesewas : line.lineNetPesewas);
+        return [a.index, pieceRefund(paid, a.piecesSold, a.previous, a.returning)] as const;
+      }),
+    );
+  }
+
   /** The rules a return's reason breaks: a `RETURN` reason, with its note where the reason asks for one. */
   private async reasonRules(tx: Transaction, body: ReturnCreateRequest): Promise<ReturnRule[]> {
     const reason = (await this.refs.reasonCodesIn(tx, [body.reasonCode])).get(body.reasonCode);
@@ -364,6 +459,7 @@ export class Returns {
   private async viewIn(tx: Transaction, r: ReturnRecord): Promise<OrderReturnView> {
     const [order] = await this.orders.orders(tx, [r.salesOrderId]);
     const productOf = new Map(order!.lines.map((l) => [l.id, l.productId] as const));
+    const uomOf = new Map(order!.lines.map((l) => [l.id, l.uom] as const));
     const products = await this.refs.productsIn(tx, [...new Set(r.lines.map((l) => productOf.get(l.salesOrderLineId)!))]);
     const documents = new Map((await this.billing.viewsIn(tx, [r.originalBillingDocumentId, ...(r.creditNoteId === null ? [] : [r.creditNoteId])])).map((d) => [d.id, d] as const));
     const refund = r.refundId === null ? null : ((await this.refunds.summariesIn(tx, [r.refundId])).get(r.refundId) ?? null);
@@ -385,6 +481,7 @@ export class Returns {
           orderLineId: l.salesOrderLineId,
           product: { id: product.id, sku: product.sku, name: product.name },
           qty: l.qty,
+          uom: l.uom ?? uomOf.get(l.salesOrderLineId)!,
           weightKg: l.weightKg,
           disposition: l.disposition,
           refundPesewas: Money.ofPesewas(l.refundPesewas).toJsonInteger(),
@@ -404,6 +501,11 @@ export class Returns {
   }
 }
 
+/** A credit note line of the original: by quantity in the line's own unit, or by the amount single pieces refund. */
+function creditLine(lineId: string, qty: string, amount: Money | undefined): { readonly lineId: string; readonly quantity?: string; readonly amountPesewas?: number } {
+  return amount === undefined ? { lineId, quantity: qty } : { lineId, amountPesewas: amount.toJsonInteger() };
+}
+
 /** What a return approval binds: the return as it was asked, which cannot change while it waits. */
 function returnHash(r: ReturnRecord): string {
   return createHash('sha256')
@@ -413,7 +515,14 @@ function returnHash(r: ReturnRecord): string {
         orderId: r.salesOrderId,
         reasonCode: r.reasonCode,
         refundDestination: r.refundDestination,
-        lines: r.lines.map((l) => ({ id: l.id, orderLineId: l.salesOrderLineId, qty: l.qty, disposition: l.disposition, refundPesewas: l.refundPesewas.toString() })),
+        lines: r.lines.map((l) => ({
+          id: l.id,
+          orderLineId: l.salesOrderLineId,
+          qty: l.qty,
+          ...(l.uom === null ? {} : { uom: l.uom, piecesPerUnit: l.piecesPerUnit }),
+          disposition: l.disposition,
+          refundPesewas: l.refundPesewas.toString(),
+        })),
       }),
       'utf8',
     )
