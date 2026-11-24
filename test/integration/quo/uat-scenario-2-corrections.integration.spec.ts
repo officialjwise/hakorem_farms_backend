@@ -146,6 +146,9 @@ describe('item 2: a quote holds its count at issue, capped at what is free, and 
     const two = await issued([goats('2.000', 95_000)], { validUntil: new Date(clock.now().getTime() + 120_000).toISOString() });
     expect([two.version.subjectToStock, two.version.lines[0].availableQuantity, two.version.lines[0].heldQuantity]).toEqual([true, '1.000', '1.000']);
     expect(await heldBy(two.quoteId)).toEqual({ qty: '1.000', tags: ['G-0145'], expiring: 1 });
+    // Each issue publishes what it holds against what it asked, for the exception report (abuse case 64).
+    const issuedHolds = (await one("SELECT payload FROM platform.outbox_message WHERE event_type = 'quo.QuoteIssued' AND subject_id = $1", [two.quoteId]))['payload'] as { holds: { productId: string; askedQty: string; heldQty: string }[] };
+    expect(issuedHolds.holds.map((h) => [h.productId, h.askedQty, h.heldQty])).toEqual([[id('goat'), '2.000', '1.000']]);
     // Nothing is held twice and nothing is held beyond on hand: the four goats are each reserved once.
     expect((await one("SELECT count(*)::int AS n, count(DISTINCT stock_unit_id)::int AS d FROM inv.stock_reservation WHERE product_id = $1 AND status = 'ACTIVE'", [id('goat')]))).toEqual({ n: 4, d: 4 });
 
