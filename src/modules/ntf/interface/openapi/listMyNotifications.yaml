@@ -1,0 +1,98 @@
+operationId: listMyNotifications
+tags:
+  - ntf
+summary: "List my in-app notifications"
+description: "The signed-in principal's own in-app notifications, newest first, with `unreadCount` over all of them whatever the page shows (FR-NTF-008, B11 continued 11). `unreadOnly=true` lists the unread only. Each is a message NTF sent on `IN_APP` (the log shows it); `link` is a console path, never a URL. Nobody lists anyone else's."
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: unreadOnly
+    in: query
+    required: false
+    schema:
+      type: boolean
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - customerSession: []
+  - investorSession: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/InAppNotificationPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b18-84db-7820-9d59-8ae0324203be"
+                  title: "Death report sent back"
+                  body: "The death report of G-0171 came back to you: the photograph did not pass the virus scan. Report it again with a new photograph."
+                  link: "/livestock/mortality/019a7a98-3161-727e-b7b7-30bd5dfca99b"
+                  readAt: null
+                  createdAt: "2026-11-13T08:00:00Z"
+                - id: "019a7b18-a3ca-7204-a73c-2917abf3a1f5"
+                  title: "Low stock"
+                  body: "Broiler finisher feed: 12 bags left"
+                  link: "/stock/alerts"
+                  readAt: null
+                  createdAt: "2026-11-13T08:09:00Z"
+                - id: "019a7b18-c2b9-7be7-b120-c74f25a4402d"
+                  title: "Stock exception"
+                  body: "Goat G-0171 sold at two tills"
+                  link: "/stock/exceptions/019a7ab1-7280-7533-8a6b-5c07b77dd4e5"
+                  readAt: null
+                  createdAt: "2026-11-13T08:18:00Z"
+                - id: "019a7b18-e1a8-75cb-8b03-65869f55de64"
+                  title: "Quote accepted"
+                  body: "Emmanuel Tetteh accepted QUO-2026-DDW-000088"
+                  link: "/quotes/019a7a95-a7c6-72d5-a80e-36306277af0e"
+                  readAt: "2026-11-13T09:00:00Z"
+                  createdAt: "2026-11-13T08:27:00Z"
+                - id: "019a7b19-0097-7fae-94e7-03be19067c9b"
+                  title: "Shift closed short"
+                  body: "Till 2 short by GHS 120.00"
+                  link: "/shifts/019a7af9-d3b9-7870-bda8-8fd574a408b3"
+                  readAt: "2026-11-13T09:00:00Z"
+                  createdAt: "2026-11-13T08:36:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+              unreadCount: 3
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+              unreadCount: 0
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

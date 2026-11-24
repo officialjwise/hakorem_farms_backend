@@ -143,6 +143,9 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
         // B11 continued 10: message templates, the message log and the messaging webhook.
         'listNotificationTemplates', 'createNotificationTemplate', 'getNotificationTemplate', 'activateNotificationTemplate', 'previewNotificationTemplate',
         'listNotificationMessages', 'getNotificationMessage', 'retryNotificationMessage', 'receiveMessagingWebhook',
+        // B11 continued 11: triggers, opt-outs, one's own preferences and in-app notifications.
+        'listNotificationTriggers', 'updateNotificationTrigger', 'listOptOuts',
+        'getMyNotificationPreferences', 'replaceMyNotificationPreferences', 'listMyNotifications', 'markNotificationRead',
         'dispatchFulfilment', 'listDeliveries', 'getDelivery', 'getMyDelivery', 'recordProofOfDelivery',
         'getOrderFulfilmentView',
         'getMyCashSummary', 'listDriverCashReconciliations', 'getDriverCashReconciliation', 'handInDriverCash',
@@ -157,7 +160,7 @@ describe('deny by default: the handler walk (ADR-0017, security architecture sec
   });
 
   it('declares a permission on every staff operation that is not on the caller\'s own account or public', () => {
-    const own = new Set(['logout', 'getCurrentSession', 'changePassword', 'startTotpEnrolment', 'confirmTotpEnrolment', 'stepUp', 'getMyStoreCredit', 'listMyOrders', 'getMyOrder', 'listMyQuotes', 'answerMyOrderConsent']);
+    const own = new Set(['logout', 'getCurrentSession', 'changePassword', 'startTotpEnrolment', 'confirmTotpEnrolment', 'stepUp', 'getMyStoreCredit', 'listMyOrders', 'getMyOrder', 'listMyQuotes', 'answerMyOrderConsent', 'getMyNotificationPreferences', 'replaceMyNotificationPreferences', 'listMyNotifications', 'markNotificationRead']);
     for (const route of routes) {
       const spec = route.spec!;
       if (spec.access === 'PUBLIC' || own.has(spec.operationId) || spec.permissionByPolicy === true) {

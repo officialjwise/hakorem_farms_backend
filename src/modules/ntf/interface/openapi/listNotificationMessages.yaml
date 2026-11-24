@@ -2,7 +2,7 @@ operationId: listNotificationMessages
 tags:
   - ntf
 summary: "The message log: what was sent to whom and when"
-description: "The message log, newest first: what was sent to whom and when, each message on its own channel with its status (`QUEUED`, `SENT`, `DELIVERED`, `FAILED`, `SUPPRESSED`) and every attempt, so a failed message shows as failed (FR-NTF-007, the owner 2026-11-23). The number is masked (`+23324*****56`); only messages of the branches the caller's grants reach are listed. `suppressedReason` is `NO_ADDRESS` (the order has no number) or `RATE_LIMITED` (the recipient's hourly limit, abuse case 58).\n\nPermission: `ntf.message.read`."
+description: "The message log, newest first: what was sent to whom and when, each message on its own channel with its status (`QUEUED`, `SENT`, `DELIVERED`, `FAILED`, `SUPPRESSED`) and every attempt, so a failed message shows as failed (FR-NTF-007, the owner 2026-11-23). The number is masked (`+23324*****56`); only messages of the branches the caller's grants reach are listed. `suppressedReason` is `NO_ADDRESS` (the record has no number), `RATE_LIMITED` (the recipient's hourly limit, abuse case 58), `OPTED_OUT` (a reminder or marketing message to a number that replied STOP) or `PREFERENCE_OFF` (a channel the recipient turned off for it). A reminder or marketing message due in quiet hours is `DEFERRED_QUIET_HOURS` with `sendAfter`, the end of the quiet hours in Africa/Accra (B11 continued 11). A message to staff in the console is on `IN_APP`, its recipient `STAFF`.\n\nPermission: `ntf.message.read`."
 x-permission: ntf.message.read
 x-error-codes:
   - VALIDATION_FAILED
@@ -145,11 +145,7 @@ responses:
                   addressMasked: "+233 •• ••• •924"
                   status: DEFERRED_QUIET_HOURS
                   suppressedReason: null
-                  attempts:
-                    - attemptNo: 1
-                      outcome: ACCEPTED
-                      providerResponse: null
-                      attemptedAt: "2026-11-13T09:13:00Z"
+                  attempts: []
                   sendAfter: "2026-11-14T07:00:00Z"
                   sentAt: null
                   deliveredAt: null
@@ -181,21 +177,17 @@ responses:
                   createdAt: "2026-11-13T09:12:00Z"
                 - id: "019a7b17-ac52-72e8-a820-375bde6bb039"
                   sourceEventId: "019a7b17-cb41-7ccc-b204-d593581c4e71"
-                  templateCode: RECEIPT
+                  templateCode: PAYMENT_REMINDER_2
                   channel: SMS
-                  category: TRANSACTIONAL
+                  category: REMINDER
                   recipient:
                     kind: CUSTOMER
                     id: "019a7a88-0047-756e-9aa6-5fb3ab56d891"
                     displayName: "Emmanuel Tetteh"
                   addressMasked: "+233 •• ••• •590"
                   status: SUPPRESSED
-                  suppressedReason: "Recipient replied STOP on 2026-10-02"
-                  attempts:
-                    - attemptNo: 1
-                      outcome: ACCEPTED
-                      providerResponse: null
-                      attemptedAt: "2026-11-13T09:13:00Z"
+                  suppressedReason: OPTED_OUT
+                  attempts: []
                   sendAfter: null
                   sentAt: null
                   deliveredAt: null

@@ -196,6 +196,17 @@ export class Dunning {
     return queued;
   }
 
+  /**
+   * Notices by id in the caller's transaction, with the reminded document's number, for NTF's reminder (B11 continued
+   * 11): the customer, branch, level, template, channels and figures WHL holds, never the event's copy. Not authorised:
+   * the caller is the System's outbox consumer.
+   */
+  async noticesIn(tx: Transaction, ids: readonly string[]): Promise<ReadonlyMap<string, DunningNoticeRecord & { readonly documentNo: string | null }>> {
+    const rows = await this.store.noticesById(tx, ids);
+    const documents = await this.registry.numberedRefs(tx, rows.map((r) => r.billingDocumentId));
+    return new Map(rows.map((r) => [r.id, { ...r, documentNo: documents.get(r.billingDocumentId)?.number ?? null }] as const));
+  }
+
   private async views(tx: Transaction, rows: readonly DunningNoticeRecord[]): Promise<DunningNoticeView[]> {
     const customers = await this.refs.customersIn(tx, [...new Set(rows.map((r) => r.customerId))]);
     const documents = await this.registry.numberedRefs(tx, rows.map((r) => r.billingDocumentId));

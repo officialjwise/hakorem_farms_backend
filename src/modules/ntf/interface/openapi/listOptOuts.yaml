@@ -1,0 +1,91 @@
+operationId: listOptOuts
+tags:
+  - ntf
+summary: "List opt-outs"
+description: "Every opt-out and opt-in a number has sent, newest first (FR-NTF-005, B11 continued 11): a STOP reply to an SMS is recorded at once by the messaging webhook (`source` `REPLY_STOP`), a START reply undoes it (`REPLY_START`); the number's latest instruction on a channel is its state. An opted-out number gets no reminder or marketing message on that channel (a waiting one is suppressed when it comes due, `OPTED_OUT` in the log); a transactional message (a receipt, a dispatch, a delivery) is still sent. The number is masked; it is kept only as its mask and a keyed hash, so an opt-out outlives the customer record. A number is no branch's: every holder of the permission reads the whole list.\n\nPermission: `ntf.message.read`."
+x-permission: ntf.message.read
+x-error-codes:
+  - VALIDATION_FAILED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - RATE_LIMITED
+parameters:
+  - name: cursor
+    in: query
+    required: false
+    schema:
+      type: string
+  - name: limit
+    in: query
+    required: false
+    schema:
+      $ref: "#/components/schemas/PageLimit"
+security:
+  - staffSession: []
+  - apiKey: []
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/OptOutPage"
+        examples:
+          default:
+            value:
+              data:
+                - id: "019a7b17-ea30-76af-8be7-73cad1cdeca8"
+                  addressMasked: "+23324*****24"
+                  channel: SMS
+                  direction: OPT_OUT
+                  source: REPLY_STOP
+                  recordedAt: "2026-10-02T13:00:00Z"
+                - id: "019a7b18-091f-7093-95cb-12024b7e8ae0"
+                  addressMasked: "+23320*****13"
+                  channel: SMS
+                  direction: OPT_OUT
+                  source: REPLY_STOP
+                  recordedAt: "2026-10-04T13:00:00Z"
+                - id: "019a7b18-280e-7a76-afae-b039c52f2917"
+                  addressMasked: "+23355*****08"
+                  channel: SMS
+                  direction: OPT_OUT
+                  source: REPLY_STOP
+                  recordedAt: "2026-10-06T13:00:00Z"
+                - id: "019a7b18-46fd-745a-b992-4e713ee0c74f"
+                  addressMasked: "+23324*****52"
+                  channel: SMS
+                  direction: OPT_IN
+                  source: REPLY_START
+                  recordedAt: "2026-10-08T13:00:00Z"
+                - id: "019a7b18-65ec-7e3d-8375-eca8b8916586"
+                  addressMasked: "+23327*****31"
+                  channel: SMS
+                  direction: OPT_OUT
+                  source: REPLY_STOP
+                  recordedAt: "2026-10-10T13:00:00Z"
+              page:
+                nextCursor: eyJpZCI6IjAxOWE3YyJ9
+                limit: 25
+                hasMore: true
+          empty:
+            summary: "Nothing matches: no rows and no next page"
+            value:
+              data: []
+              page:
+                nextCursor: null
+                limit: 25
+                hasMore: false
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

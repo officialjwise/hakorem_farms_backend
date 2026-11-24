@@ -167,7 +167,7 @@ import {
   RfqUpdate as QuoRfqUpdate,
 } from '../../../src/modules/quo/interface/schemas';
 import { BusinessProfileUpdate as AudBusinessProfileUpdate, SettingUpdate as AudSettingUpdate } from '../../../src/modules/aud/interface/schemas';
-import { MessagingWebhookBody, TemplateCreate, TemplatePreview } from '../../../src/modules/ntf/interface/schemas';
+import { MessagingWebhookBody, PreferencesReplace, TemplateCreate, TemplatePreview, TriggerUpdate } from '../../../src/modules/ntf/interface/schemas';
 import { DeliveryAssign, DeliveryFailure, DeliveryReschedule, DriverSyncBatch, OnTheWay, ProofOfDeliveryCreate, RouteCreate, RouteStopsReplace, SlotGenerate, SlotUpdate } from '../../../src/modules/del/interface/schemas';
 import { CreditNoteCreate, DebitNoteCreate, ReprintRequest } from '../../../src/modules/bil/interface/schemas';
 import {
@@ -589,6 +589,8 @@ describe('request schemas in code and contract agree (ADR-0031)', () => {
     placeOrder: PlaceOrder,
     updateCheckout: CheckoutUpdate,
     createNotificationTemplate: TemplateCreate,
+    replaceMyNotificationPreferences: PreferencesReplace,
+    updateNotificationTrigger: TriggerUpdate,
     previewNotificationTemplate: TemplatePreview,
     receiveMessagingWebhook: MessagingWebhookBody,
   };

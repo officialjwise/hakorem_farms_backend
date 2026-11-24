@@ -2,10 +2,10 @@ import { createHmac, randomUUID } from 'node:crypto';
 import type { Clock } from '@hakorem/kernel';
 import type { INestApplication } from '@nestjs/common';
 import pino from 'pino';
-import { AddressHasher, CustomerMessages } from '../../src/modules/ntf/application/customer-messages';
+import { CustomerMessages } from '../../src/modules/ntf/application/customer-messages';
+import { RecipientFacts } from '../../src/modules/ntf/application/message-queue';
 import { MessageSender } from '../../src/modules/ntf/application/message-sender';
 import { NTF_STORE, type NtfStore } from '../../src/modules/ntf/application/ntf-store';
-import { Orders } from '../../src/modules/ord';
 import { runAsSystem } from '../../src/platform/context/request-context';
 import { UnitOfWork } from '../../src/platform/database/unit-of-work';
 import { DomainEvents, type DomainEvent } from '../../src/platform/events/domain-events';
@@ -67,12 +67,12 @@ export interface NtfHarness {
   publish(event: DomainEvent): Promise<string>;
 }
 
-export function ntfHarness(app: INestApplication, database: TestDatabase, clock: Clock, lookupKey: string): NtfHarness {
+export function ntfHarness(app: INestApplication, database: TestDatabase, clock: Clock): NtfHarness {
   const events = app.get(DomainEvents);
   const store = app.get<NtfStore>(NTF_STORE);
   const workerUow = new UnitOfWork(database.pool('worker'), silent, undefined, clock);
   const appUow = app.get(UnitOfWork);
-  const hasher = new AddressHasher(Buffer.from(lookupKey, 'base64'));
+  const recipients = app.get(RecipientFacts);
   const dispatcher = new OutboxDispatcher(workerUow, events, clock, silent, { maxAttempts: 5, backoffBaseMs: 1_000, backoffMaxMs: 10_000, batchSize: 200 });
   return {
     store,
@@ -80,7 +80,7 @@ export function ntfHarness(app: INestApplication, database: TestDatabase, clock:
     customerMessages: app.get(CustomerMessages),
     workerUow,
     sender: (sms, random = () => 0) => {
-      const sender = new MessageSender(workerUow, store, app.get(Orders), new Map([['SMS', sms]]), events, hasher, clock, silent, random);
+      const sender = new MessageSender(workerUow, store, recipients, new Map([['SMS', sms]]), events, clock, silent, random);
       return { run: (system) => runAsSystem({ principalId: system.principalId, displayName: 'Scheduler' }, randomUUID(), () => sender.run(system)) };
     },
     async dispatch() {

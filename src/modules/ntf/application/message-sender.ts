@@ -4,11 +4,11 @@ import type { UnitOfWork } from '../../../platform/database/unit-of-work';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import { scrubString } from '../../../platform/logging/log-scrubber';
 import { NotificationSendError, type NotificationChannel } from '../../../platform/notifications/notification-channel';
-import type { Orders } from '../../ord';
 import { afterAttempt, CLAIM_LEASE_MS, maskAddress, retryDelayMs, type AttemptOutcome } from '../domain/messages';
+import { quietHoursApply, quietUntil, suppressibleByOptOut } from '../domain/routing';
 import type { Channel } from '../domain/templates';
 import type { MessageFailed } from '../events';
-import type { AddressHasher } from './customer-messages';
+import type { RecipientFacts } from './message-queue';
 import type { ClaimedMessage, NtfStore, SendResult } from './ntf-store';
 
 export const MESSAGE_FAILED = 'ntf.MessageFailed';
@@ -22,6 +22,8 @@ export interface SendPass {
   readonly retrying: number;
   readonly failed: number;
   readonly suppressed: number;
+  /** Reminders and marketing handed back until quiet hours end (FR-NTF-006, B11 continued 11). */
+  readonly deferred: number;
   /** A provider failed temporarily, so the rest of the pass was put back for the next one (the circuit opened). */
   readonly circuitOpen: boolean;
 }
@@ -48,10 +50,9 @@ export class MessageSender {
   constructor(
     private readonly uow: UnitOfWork,
     private readonly store: NtfStore,
-    private readonly orders: Orders,
+    private readonly recipients: RecipientFacts,
     private readonly channels: ReadonlyMap<Channel, NotificationChannel>,
     private readonly events: DomainEvents,
-    private readonly hasher: AddressHasher,
     private readonly clock: Clock,
     private readonly logger: Logger,
     private readonly random: () => number = Math.random,
@@ -66,7 +67,7 @@ export class MessageSender {
     const claimed = await this.uow.run({ isolation: 'read committed' }, (tx) =>
       this.store.claimDue(tx, { now, until: new Date(now.getTime() + CLAIM_LEASE_MS), token, limit: SEND_BATCH, actorId: system.principalId }),
     );
-    const counts = { sent: 0, retrying: 0, failed: 0, suppressed: 0 };
+    const counts = { sent: 0, retrying: 0, failed: 0, suppressed: 0, deferred: 0 };
     let circuitOpen = false;
     for (const message of claimed) {
       if (circuitOpen) {
@@ -79,19 +80,34 @@ export class MessageSender {
       if (result.kind === 'QUEUED') counts.retrying += 1;
       if (result.kind === 'FAILED') counts.failed += 1;
       if (result.kind === 'SUPPRESSED') counts.suppressed += 1;
+      if (result.kind === 'DEFERRED') counts.deferred += 1;
       if (outcome === 'TEMPORARY_FAILURE') circuitOpen = true;
     }
     return { claimed: claimed.length, ...counts, circuitOpen };
   }
 
   private async attempt(message: ClaimedMessage): Promise<{ readonly outcome: AttemptOutcome | null; readonly response: string | null; readonly result: SendResult }> {
-    const phone = message.salesOrderId === null ? null : await this.uow.run({ isolation: 'read committed' }, async (tx) => (await this.orders.messageContactsIn(tx, [message.salesOrderId!])).get(message.salesOrderId!)?.phoneE164 ?? null);
+    if (message.channel === 'IN_APP') {
+      if (message.principalId === null) return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'NO_ADDRESS' } };
+      const inApp = { id: this.nextId(), principalId: message.principalId, title: message.renderedSubject ?? message.renderedBody.slice(0, 80), body: message.renderedBody, link: message.linkPath };
+      return { outcome: 'ACCEPTED', response: null, result: { kind: 'SENT', providerRef: `in-app:${inApp.id}`, addressMasked: null, addressHash: null, inApp } };
+    }
+    // The gates are read again now: the number as it is, a STOP since the message was queued, the recipient's quiet hours.
+    const gate = await this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      const phone = await this.recipients.phoneIn(tx, message);
+      const optedOut = suppressibleByOptOut(message.category) ? await this.recipients.optedOutIn(tx, phone) : new Set<Channel>();
+      const own = quietHoursApply(message.category) && message.customerId !== null ? this.recipients.ownQuietHours(await this.recipients.preferencesIn(tx, { customerId: message.customerId }, message.category), message.channel) : null;
+      return { phone, optedOut, quietUntil: quietHoursApply(message.category) ? quietUntil(this.clock.now(), own) : null };
+    });
+    const phone = gate.phone;
     if (phone === null) return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'NO_ADDRESS' } };
+    if (gate.optedOut.has(message.channel)) return { outcome: null, response: null, result: { kind: 'SUPPRESSED', reason: 'OPTED_OUT' } };
+    if (gate.quietUntil !== null) return { outcome: null, response: null, result: { kind: 'DEFERRED', sendAfter: gate.quietUntil } };
     const channel = this.channels.get(message.channel);
     if (channel === undefined) return { outcome: 'PERMANENT_FAILURE', response: `no adapter sends ${message.channel}`, result: { kind: 'FAILED', reason: `no adapter sends ${message.channel}` } };
     try {
       const sent = await channel.send({ to: phone, text: message.renderedBody, idempotencyKey: message.id });
-      return { outcome: 'ACCEPTED', response: null, result: { kind: 'SENT', providerRef: sent.providerReference, addressMasked: maskAddress(phone), addressHash: this.hasher.hash(phone) } };
+      return { outcome: 'ACCEPTED', response: null, result: { kind: 'SENT', providerRef: sent.providerReference, addressMasked: maskAddress(phone), addressHash: this.recipients.hash(phone) } };
     } catch (error) {
       const outcome: AttemptOutcome = error instanceof NotificationSendError && !error.retryable ? 'PERMANENT_FAILURE' : 'TEMPORARY_FAILURE';
       const reason = describe(error);

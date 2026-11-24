@@ -101,6 +101,12 @@ export class PgDunningStore implements DunningStore {
     return rowCount === 1;
   }
 
+  async noticesById(tx: Transaction, ids: readonly string[]): Promise<DunningNoticeRecord[]> {
+    if (ids.length === 0) return [];
+    const { rows } = await tx.query<RawNotice>(`SELECT ${NOTICE} FROM whl.dunning_notice WHERE id = ANY($1::uuid[])`, [[...new Set(ids)]]);
+    return rows.map(noticeOf);
+  }
+
   async notices(tx: Transaction, f: DunningNoticeFilter, beforeId: string | null, limit: number): Promise<DunningNoticeRecord[]> {
     const { rows } = await tx.query<RawNotice>(
       `SELECT ${NOTICE} FROM whl.dunning_notice

@@ -7,7 +7,7 @@ import { seedUnits } from '../../../src/seed/seed-units';
 import { consoleGet, consolePost, createUser, enrolAndLogin, login, relaxRateLimits, testStartTime, type RoleCode, type TestSession } from '../../support/iam';
 import { FakeSms, ntfHarness, SCHEDULER, signReport, type NtfHarness } from '../../support/ntf';
 import { SQLSTATE, sqlStateOf } from '../../support/sql-state';
-import { startTestApp, TEST_SECRETS, type TestApp } from '../../support/test-app';
+import { startTestApp, type TestApp } from '../../support/test-app';
 import { createTestDatabase, type TestDatabase } from '../../support/test-database';
 
 /**
@@ -43,7 +43,7 @@ beforeAll(async () => {
   clock = new ManualClock(testStartTime());
   await relaxRateLimits(database);
   api = await startTestApp(database, { clock, environment: { SMS_WEBHOOK_SECRET: WEBHOOK_SECRET } });
-  ntf = ntfHarness(api.app, database, clock, TEST_SECRETS['LOOKUP_HMAC_KEY']!);
+  ntf = ntfHarness(api.app, database, clock);
   await runSeedUnits(database.pool('app'), api.app, seedUnits({ SEED_STAFF_PASSWORD: `Seed-${randomUUID()}` }, { tradingDay: true }));
   branchId = (await one<{ id: string }>("SELECT id FROM mdm.branch WHERE code = 'DDW'")).id;
   orderId = (await one<{ id: string }>("SELECT id FROM ord.sales_order WHERE contact_phone_e164 = '+233200000301' LIMIT 1")).id;
@@ -69,11 +69,16 @@ describe('message templates: listed, versioned, two people to each change, no li
   let v2 = '';
   const body = 'HaKorem Farms: order {{orderNo}} left the farm with {{items}}. Total {{total}}, pay on delivery {{codDue}}.';
 
-  it('lists the seeded customer messages, one active SMS version of each, for every role that reads templates and no other', async () => {
+  it('lists the seeded messages, one active version of each, for every role that reads templates and no other', async () => {
     const listed = await get('accountant', '/notification-templates?status=ACTIVE&limit=100');
     expect(listed.status, JSON.stringify(listed.body)).toBe(200);
+    // The customer's messages (B11 continued 10), the payment reminders and the returned death report in the console (B11 continued 11).
     expect(listed.body.data.map((t: { code: string; channel: string; versionNo: number }) => `${t.code}/${t.channel}/${String(t.versionNo)}`).sort()).toEqual(
-      ['DELIVERY_CANCELLED', 'DELIVERY_COMPLETED', 'DELIVERY_ON_THE_WAY', 'DELIVERY_PART_COMPLETED', 'DELIVERY_RESCHEDULED', 'ORDER_COLLECTED', 'ORDER_DISPATCHED'].map((c) => `${c}/SMS/1`),
+      [
+        ...['DELIVERY_CANCELLED', 'DELIVERY_COMPLETED', 'DELIVERY_ON_THE_WAY', 'DELIVERY_PART_COMPLETED', 'DELIVERY_RESCHEDULED'].map((c) => `${c}/SMS/1`),
+        'MORTALITY_RETURNED/IN_APP/1',
+        ...['ORDER_COLLECTED', 'ORDER_DISPATCHED', 'PAYMENT_REMINDER_1', 'PAYMENT_REMINDER_2', 'PAYMENT_REMINDER_3'].map((c) => `${c}/SMS/1`),
+      ],
     );
     v1 = listed.body.data.find((t: { code: string }) => t.code === 'ORDER_DISPATCHED').id as string;
     expect((await get('sales', `/notification-templates/${v1}`)).body).toMatchObject({ code: 'ORDER_DISPATCHED', category: 'TRANSACTIONAL', locale: 'en-GH', status: 'ACTIVE', subject: null });
@@ -199,7 +204,7 @@ describe("the provider's delivery reports: signed, applied once, changing nothin
     expect(listed.body.deliveredAt).not.toBeNull();
   });
 
-  it('an UNDELIVERED report fails a sent message, which then shows as FAILED; an unknown message, a reply and a body it cannot read are logged and acknowledged', async () => {
+  it('an UNDELIVERED report fails a sent message, which then shows as FAILED; an unknown message, a reply that is no instruction and a body it cannot read are logged and acknowledged', async () => {
     const eventId = await ntf.publish({ type: 'del.DeliveryCancelled', subjectType: 'Delivery', subjectId: orderId, branchId, payload: { orderDocumentId: orderId, deliveryNo: 'DLV-R2' } });
     await ntf.dispatch();
     const second = (await one<{ id: string }>('SELECT id FROM ntf.message WHERE source_event_ref = $1', [eventId])).id;
@@ -211,7 +216,8 @@ describe("the provider's delivery reports: signed, applied once, changing nothin
     expect((await get('manager', '/notifications/messages?status=FAILED')).body.data.map((m: { id: string }) => m.id)).toEqual([second]);
 
     const unknown = report(randomUUID(), 'dlr-4', 'DELIVERED');
-    const reply = JSON.stringify({ type: 'inbound', from: '+233200000301', text: 'STOP' });
+    // A reply that is no instruction (a STOP is an opt-out at once since B11 continued 11: ntf/preferences-and-opt-outs).
+    const reply = JSON.stringify({ type: 'inbound', id: 'mo-1', from: '+233200000301', text: 'Thank you' });
     const garbled = '{"type": "delivery", "id": 7}';
     for (const raw of [unknown, reply, garbled]) expect((await hook('GENERIC_HTTP', raw, signReport(WEBHOOK_SECRET, raw))).status, raw).toBe(200);
     expect((await hook('GENERIC_HTTP', 'not json', signReport(WEBHOOK_SECRET, 'not json'))).status).toBe(400);

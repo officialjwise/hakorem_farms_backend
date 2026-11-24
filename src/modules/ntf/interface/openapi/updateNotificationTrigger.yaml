@@ -1,0 +1,77 @@
+operationId: updateNotificationTrigger
+tags:
+  - ntf
+summary: "Change a trigger's channels or turn it off"
+description: "Changes a trigger's channels (in order) or turns it off or on, at the `version` read (409 otherwise). Turned off, it queues no new message; every message already made stays as it was (FR-NTF-002). A channel its recipient cannot have (`CHANNEL_NOT_FOR_RECIPIENT`: `IN_APP` is for staff, phone and email for customers), none (`NO_CHANNEL`), one twice (`DUPLICATE_CHANNEL`) or another template (`TEMPLATE_FIXED`: a template's text changes by a new version) is 422 `TRIGGER_INVALID`. A channel with no adapter yet (WhatsApp, email) makes its messages fail visibly in the log until one exists. Keyed and audited.\n\nPermission: `ntf.template.manage`."
+x-permission: ntf.template.manage
+x-error-codes:
+  - VALIDATION_FAILED
+  - IDEMPOTENCY_KEY_REQUIRED
+  - IDEMPOTENCY_KEY_REUSED
+  - UNAUTHENTICATED
+  - FORBIDDEN
+  - CSRF_TOKEN_INVALID
+  - ORIGIN_NOT_ALLOWED
+  - NOT_FOUND
+  - VERSION_CONFLICT
+  - TRIGGER_INVALID
+  - RATE_LIMITED
+parameters:
+  - name: id
+    in: path
+    required: true
+    schema:
+      type: string
+      format: uuid
+  - $ref: "#/components/parameters/IdempotencyKey"
+  - $ref: "#/components/parameters/CsrfToken"
+security:
+  - staffSession: []
+  - apiKey: []
+requestBody:
+  required: true
+  content:
+    application/json:
+      schema:
+        $ref: "#/components/schemas/TriggerRuleUpdate"
+      example:
+        version: 1
+        isActive: false
+responses:
+  "200":
+    description: OK
+    headers:
+      X-Correlation-Id:
+        $ref: "#/components/headers/CorrelationId"
+    content:
+      application/json:
+        schema:
+          $ref: "#/components/schemas/TriggerRule"
+        example:
+          id: "019a7c01-0000-7000-8000-000000000009"
+          eventType: whl.DunningNoticeDue
+          templateCode: PAYMENT_REMINDER_2
+          recipientKind: CUSTOMER
+          recipientRoleCode: null
+          channels:
+            - SMS
+            - WHATSAPP
+            - EMAIL
+          isActive: false
+          version: 2
+  "400":
+    $ref: "#/components/responses/BadRequest"
+  "401":
+    $ref: "#/components/responses/Unauthenticated"
+  "403":
+    $ref: "#/components/responses/Forbidden"
+  "404":
+    $ref: "#/components/responses/NotFound"
+  "409":
+    $ref: "#/components/responses/Conflict"
+  "422":
+    $ref: "#/components/responses/BusinessRuleViolation"
+  "429":
+    $ref: "#/components/responses/RateLimited"
+  "500":
+    $ref: "#/components/responses/InternalError"

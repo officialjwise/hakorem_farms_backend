@@ -6,9 +6,11 @@ import type { UnitOfWork } from '../../../platform/database/unit-of-work';
 import { NotFoundError, UnauthenticatedError } from '../../../platform/errors/api-error';
 import type { DomainEvents } from '../../../platform/events/domain-events';
 import { afterReport, type ReportedStatus } from '../domain/messages';
+import { readReply } from '../domain/routing';
 import type { DeliveryReportRejected, MessageFailed } from '../events';
 import { MESSAGE_FAILED } from './message-sender';
 import type { NtfStore, ProviderReportRecord, ReportOutcome } from './ntf-store';
+import type { OptOuts } from './opt-outs';
 
 export const DELIVERY_REPORT_REJECTED = 'ntf.DeliveryReportRejected';
 /** The principal a messaging provider's webhook acts as (migration 0336): it holds no grant. */
@@ -34,8 +36,18 @@ interface DeliveryReport {
   readonly status: ReportedStatus;
 }
 
-/** A delivery report's body as the `generic-http` adapter's provider sends it, or null for anything else. */
-function readReport(raw: Buffer): DeliveryReport | 'INBOUND' | null {
+/** A reply from a phone (B11 continued 11): the provider's id for it, the number it came from and its text. */
+interface InboundReply {
+  readonly kind: 'INBOUND';
+  readonly reportId: string;
+  readonly from: string;
+  readonly text: string;
+}
+
+const E164 = /^\+[1-9][0-9]{7,14}$/;
+
+/** A delivery report's or a reply's body as the `generic-http` adapter's provider sends it, or null for anything else. */
+function readReport(raw: Buffer): DeliveryReport | InboundReply | null {
   let body: unknown;
   try {
     body = JSON.parse(raw.toString('utf8'));
@@ -44,7 +56,11 @@ function readReport(raw: Buffer): DeliveryReport | 'INBOUND' | null {
   }
   if (typeof body !== 'object' || body === null) return null;
   const b = body as Record<string, unknown>;
-  if (b['type'] === 'inbound') return 'INBOUND';
+  if (b['type'] === 'inbound') {
+    if (typeof b['id'] !== 'string' || b['id'].length === 0 || b['id'].length > 200) return null;
+    if (typeof b['from'] !== 'string' || !E164.test(b['from']) || typeof b['text'] !== 'string' || b['text'].length > 1_600) return null;
+    return { kind: 'INBOUND', reportId: b['id'], from: b['from'], text: b['text'] };
+  }
   if (b['type'] !== 'delivery' || typeof b['id'] !== 'string' || b['id'].length === 0 || b['id'].length > 200) return null;
   if (typeof b['reference'] !== 'string' || !UUID.test(b['reference'])) return null;
   const status = typeof b['status'] === 'string' && Object.hasOwn(REPORTED, b['status']) ? REPORTED[b['status']]! : null;
@@ -57,8 +73,10 @@ function readReport(raw: Buffer): DeliveryReport | 'INBOUND' | null {
  * `SMS_WEBHOOK_SECRET`, compared in constant time) is the only credential, checked before anything the body says is
  * read. Every request is logged in `ntf.provider_report`. A report is applied once by the provider's report id (a second
  * delivery is logged REPLAYED and changes nothing), and it changes only the message's delivery status: a SENT message
- * becomes DELIVERED or FAILED, nothing else moves and no other column is written. A reply (STOP) is B11 continued 11's
- * (A-374 (d)): logged IGNORED until then.
+ * becomes DELIVERED or FAILED, nothing else moves and no other column is written. A reply from a phone (B11 continued 11,
+ * FR-NTF-005) is applied once by its id: STOP and its kin record an opt-out of SMS for that number at once, START an
+ * opt-in (`OptOuts.recordReplyIn`); any other text is logged IGNORED. Only a signed reply reaches here, so a forged STOP
+ * from someone who is not the provider changes nothing (abuse case 59).
  */
 export class DeliveryReports {
   private readonly nextId: () => string;
@@ -67,6 +85,7 @@ export class DeliveryReports {
     private readonly uow: UnitOfWork,
     private readonly store: NtfStore,
     private readonly events: DomainEvents,
+    private readonly optOuts: OptOuts,
     private readonly secret: string | undefined,
     private readonly clock: Clock,
     private readonly logger: Logger,
@@ -87,8 +106,17 @@ export class DeliveryReports {
       await this.reject({ ...base, id: this.nextId(), reportKey: null, outcome: 'REJECTED_MALFORMED', messageId: null, reportedStatus: null });
       return { received: true };
     }
-    if (read === 'INBOUND') {
-      await this.uow.run({ isolation: 'read committed' }, (tx) => this.store.insertReport(tx, { ...base, id: this.nextId(), reportKey: null, outcome: 'IGNORED', messageId: null, reportedStatus: null }));
+    if ('kind' in read) {
+      const instruction = readReply(read.text);
+      await this.uow.run({ isolation: 'serializable' }, async (tx) => {
+        const id = this.nextId();
+        const first = await this.store.insertReport(tx, { ...base, id, reportKey: read.reportId, outcome: instruction === null ? 'IGNORED' : 'APPLIED', messageId: null, reportedStatus: null });
+        if (!first) {
+          await this.store.insertReport(tx, { ...base, id: this.nextId(), reportKey: read.reportId, outcome: 'REPLAYED', messageId: null, reportedStatus: null });
+          return;
+        }
+        if (instruction !== null) await this.optOuts.recordReplyIn(tx, { providerReportId: id, from: read.from, instruction, at: receivedAt });
+      });
       return { received: true };
     }
     await this.uow.run({ isolation: 'serializable' }, async (tx) => {
