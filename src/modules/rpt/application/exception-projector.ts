@@ -16,6 +16,9 @@ export const CHECKOUT_HOLDING_THRESHOLD = 3;
 const CHECKOUT_EVENTS = ['shp.CheckoutStarted', 'shp.CheckoutExpired', 'shp.CheckoutCancelled', 'shp.CheckoutCompleted'] as const;
 const STATE_EVENTS = ['iam.ApprovalDecided', 'pur.SupplierPaymentMade', ...CHECKOUT_EVENTS] as const;
 const REPLAY_PAGE = 500;
+/** How the seeded farm's invented items are marked (A-392): their source key's prefix and their summary's suffix. */
+const SEED_KEY = 'seed:';
+const SEED_MARK = '(SEED)';
 
 function str(p: Readonly<Record<string, unknown>>, key: string): string | null {
   const v = p[key];
@@ -53,6 +56,27 @@ export class ExceptionProjector {
   };
 
   async project(tx: Transaction, event: EventEnvelope): Promise<void> {
+    await this.putIn(tx, await this.draftsIn(tx, event), event.id, true);
+  }
+
+  /**
+   * The seeded farm's exception day (`pnpm db:seed` only, A-392): invented source events classified exactly as the
+   * outbox's are, each item marked SEED (its source key, its summary and `details.seed`) and kept in RPT's projection
+   * alone. They never enter the outbox, so no other consumer acts on them, and a rebuild, which replays the outbox,
+   * drops them. Answers how many items it wrote.
+   */
+  seedDay(events: readonly EventEnvelope[]): Promise<number> {
+    return this.uow.run({ isolation: 'read committed' }, async (tx) => {
+      let written = 0;
+      for (const event of events) {
+        const drafts = (await this.draftsIn(tx, event)).map((d) => ({ ...d, sourceKey: `${SEED_KEY}${d.sourceKey}`, summary: `${d.summary} ${SEED_MARK}`, details: { ...d.details, seed: true } }));
+        written += await this.putIn(tx, drafts, null, false);
+      }
+      return written;
+    });
+  }
+
+  private async draftsIn(tx: Transaction, event: EventEnvelope): Promise<ExceptionDraft[]> {
     const source: SourceEvent = {
       id: event.id,
       type: event.type,
@@ -63,8 +87,7 @@ export class ExceptionProjector {
       subjectId: event.subjectId,
       payload: event.payload as Readonly<Record<string, unknown>>,
     };
-    const drafts = [...classify(source), ...(await this.statefulIn(tx, source))];
-    await this.putIn(tx, drafts, event.id, true);
+    return [...classify(source), ...(await this.statefulIn(tx, source))];
   }
 
   /** Drafts stored with their Africa/Accra date; a company-wide item is kept at the head office branch. */
