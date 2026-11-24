@@ -200,6 +200,7 @@ describe('reminders: quiet hours, a STOP reply, a turned-off channel (FR-NTF-005
     expect((await hook(forged, null)).status).toBe(401);
     expect((await hook(forged, signReport('not-the-secret-not-the-secret-xx', forged))).status).toBe(401);
     expect(await count('SELECT count(*) AS n FROM ntf.opt_out')).toBe(0);
+    expect(await count("SELECT count(*) AS n FROM platform.outbox_message WHERE event_type = 'ntf.DeliveryReportRejected' AND payload->'abuseCases' = '[57, 59]'")).toBe(2);
 
     expect((await reply(E164('0244100202'), ' Stop ', 'mo-ada-1')).status).toBe(200);
     expect((await reply(E164('0244100202'), 'STOP', 'mo-ada-1')).status).toBe(200);

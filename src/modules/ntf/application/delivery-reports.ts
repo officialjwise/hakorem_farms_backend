@@ -19,6 +19,8 @@ export const MESSAGING_WEBHOOK_ACTOR: Actor = { principalId: '01900000-0000-7000
 export const SMS_PROVIDER = 'GENERIC_HTTP';
 /** Abuse case 57: a forged or replayed delivery report, or a template edited to carry a phishing link. */
 export const FORGED_REPORT_ABUSE_CASE = 57;
+/** Abuse case 59 (B11 continued 11): a recipient's no ignored or forged, a STOP or START reply among them. */
+export const FORGED_REPLY_ABUSE_CASE = 59;
 const SIGNATURE = /^[0-9a-f]{64}$/;
 const REPORTED: Readonly<Record<string, ReportedStatus>> = { DELIVERED: 'DELIVERED', FAILED: 'FAILED', UNDELIVERED: 'FAILED', REJECTED: 'FAILED', EXPIRED: 'FAILED' };
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -157,7 +159,7 @@ export class DeliveryReports {
         type: DELIVERY_REPORT_REJECTED,
         subjectType: 'ProviderReport',
         subjectId: row.id,
-        payload: { reportId: row.id, provider: row.provider, outcome: row.outcome as 'REJECTED_SIGNATURE' | 'REJECTED_MALFORMED', sourceIp: row.sourceIp, abuseCases: [FORGED_REPORT_ABUSE_CASE] },
+        payload: { reportId: row.id, provider: row.provider, outcome: row.outcome as 'REJECTED_SIGNATURE' | 'REJECTED_MALFORMED', sourceIp: row.sourceIp, abuseCases: [FORGED_REPORT_ABUSE_CASE, FORGED_REPLY_ABUSE_CASE] },
       });
     });
     this.logger.warn({ provider: row.provider, outcome: row.outcome }, 'messaging webhook refused');

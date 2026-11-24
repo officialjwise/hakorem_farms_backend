@@ -175,7 +175,7 @@ describe("the provider's delivery reports: signed, applied once, changing nothin
     expect((await hook('GENERIC_HTTP', forged, 'zz')).status).toBe(401);
     expect(await one('SELECT status FROM ntf.message WHERE id = $1', [sent])).toEqual({ status: 'SENT' });
     expect(await count("SELECT count(*) AS n FROM ntf.provider_report WHERE outcome = 'REJECTED_SIGNATURE'")).toBe(3);
-    expect(await count("SELECT count(*) AS n FROM platform.outbox_message WHERE event_type = 'ntf.DeliveryReportRejected' AND payload->'abuseCases' = '[57]'")).toBe(3);
+    expect(await count("SELECT count(*) AS n FROM platform.outbox_message WHERE event_type = 'ntf.DeliveryReportRejected' AND payload->'abuseCases' = '[57, 59]'")).toBe(3);
     expect((await hook('HUBTEL', forged, signReport(WEBHOOK_SECRET, forged))).status).toBe(404);
     expect((await hook('SOMEONE', forged, signReport(WEBHOOK_SECRET, forged))).status).toBe(400);
   });
