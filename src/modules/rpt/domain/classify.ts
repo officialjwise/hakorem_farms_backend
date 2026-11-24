@@ -154,6 +154,15 @@ const POS_FLAG_KIND: Readonly<Record<string, ExceptionKind>> = {
   RECEIPT_TOKEN_REFUSED: 'RECEIPT_TOKEN_REFUSED',
 };
 
+/** Case 39: an animal's price at sync was taken again from its weight or grade, or charged at the offline pack's price. */
+const OFFLINE_PACK_ABUSE_CASE = 39;
+/** POS's reason for a line charged at the offline pack's price rather than the server's at sync (B09b continued 4c). */
+const OFFLINE_PACK_PRICE = 'OFFLINE_PACK_PRICE';
+
+function repricedFromPack(sourceKind: string, fact: Payload): boolean {
+  return sourceKind === 'PRICE_OVERRIDE' && (fact['pricedFrom'] !== undefined || fact['varianceReasonCode'] === OFFLINE_PACK_PRICE);
+}
+
 /** A finding a till's sync raised (`pos.OfflineSaleFlagged`, `OfflineShiftFlagged`, `OfflineCashMovementFlagged`). */
 function posFinding(event: SourceEvent, subject: SubjectRef): Item[] {
   const p = event.payload;
@@ -167,7 +176,7 @@ function posFinding(event: SourceEvent, subject: SubjectRef): Item[] {
       kind,
       sourceKind,
       severity: severityOf(p, 'REVIEW'),
-      abuseCases: cases(p, negative ? [11, 36] : []),
+      abuseCases: cases(p, negative ? [11, 36] : repricedFromPack(sourceKind, fact) ? [OFFLINE_PACK_ABUSE_CASE] : []),
       actorId: str(p, 'cashierId'),
       subject,
       amountPesewas: int(p, 'amountPesewas'),
@@ -1124,6 +1133,9 @@ function backorder(e: SourceEvent): Item[] {
   ];
 }
 
+/** Case 46: a card refund the provider did not complete, paid out by hand only through the break (B09c). */
+const REFUND_FAILED_ABUSE_CASE = 46;
+
 function breakItem(e: SourceEvent): Item {
   const kind = str(p(e), 'kind') ?? 'UNKNOWN';
   const unmatched = kind === 'UNMATCHED_PAYMENT';
@@ -1132,7 +1144,7 @@ function breakItem(e: SourceEvent): Item {
     kind: unmatched ? 'UNMATCHED_PAYMENT' : 'RECONCILIATION_BREAK',
     sourceKind: kind,
     severity: severityOf(p(e), 'REVIEW'),
-    abuseCases: cases(p(e), unmatched ? [4, 33] : [15, 33]),
+    abuseCases: cases(p(e), unmatched ? [4, 33] : kind === 'REFUND_FAILED' ? [15, 33, REFUND_FAILED_ABUSE_CASE] : [15, 33]),
     actorId: null,
     subject: str(p(e), 'paymentId') !== null ? ref(str(p(e), 'paymentId'), 'PAYMENT') : ref(str(p(e), 'sourceDocumentId') ?? null, 'PAYMENT_DOCUMENT'),
     amountPesewas: int(p(e), 'amountPesewas'),
@@ -1179,15 +1191,20 @@ export function breakFromView(row: BreakRow): ExceptionDraft {
   return { ...draft!, details: { ...draft!.details, sourceEvent: null, sourceView: 'pay.pub_reconciliation_break' } };
 }
 
+/** Case 22: a stock take's variance, posted as INV's STOCKTAKE_LOSS or STOCKTAKE_GAIN movement. */
+const STOCK_TAKE_ABUSE_CASE = 22;
+const STOCK_TAKE_MOVEMENT = 'STOCKTAKE_';
+
 function stockAdjustment(e: SourceEvent, direction: 'down' | 'up'): Item[] {
   const reason = str(p(e), 'reasonCode');
   const reversal = str(p(e), 'reversesMovementId') !== null;
+  const counted = str(p(e), 'movementType')?.startsWith(STOCK_TAKE_MOVEMENT) === true;
   return [
     {
       kind: 'STOCK_ADJUSTMENT',
       sourceKind: str(p(e), 'movementType'),
       severity: direction === 'down' ? 'REVIEW' : 'INFO',
-      abuseCases: [...new Set([7, ...(reason === 'BREAKAGE' ? [55] : []), ...(reversal ? [21] : [])])].sort((a, b) => a - b),
+      abuseCases: [...new Set([7, ...(reason === 'BREAKAGE' ? [55] : []), ...(reversal ? [21] : []), ...(counted ? [STOCK_TAKE_ABUSE_CASE] : [])])].sort((a, b) => a - b),
       actorId: e.actorId,
       subject: ref(str(p(e), 'sourceDocumentId'), 'STOCK_ADJUSTMENT'),
       amountPesewas: abs(int(p(e), 'valuePesewas')),
