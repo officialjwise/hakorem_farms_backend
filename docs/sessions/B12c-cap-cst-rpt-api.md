@@ -102,7 +102,7 @@ Existing specs changed only for what this phase added: the rollback walk (0358 t
 
 ## CI
 
-A report cannot name the runs of the commit that adds it. Every run on the final head is named in the session's closing message to the parent session, and the pull request merges only when each is green.
+A report cannot name the runs of the commit that adds it. Pull request #145. On `2e26a8d` (the report's first push) one run exists: **45456103931, `pull_request`, success**; no `push` run was created for that commit (the branch matches the push pattern `b[0-9]*-*`, and the API listed none after twenty minutes), so this note was pushed as a new head. Every run on the final head is named in the session's closing message to the parent session, and the pull request merges only when each is green.
 
 ## Next session
 
