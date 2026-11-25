@@ -80,3 +80,15 @@ Option 3.
 seeded farm, review, readers, rebuild, `hk_report`); `test/contract/b12c3/exceptions.contract.spec.ts`;
 `test/integration/pay/payment-edge-cases.integration.spec.ts` (BL-108); `test/integration/del/van-returns.integration.spec.ts`
 (the reused proof photograph).
+
+## Amendments
+
+- **2026-11-25, B12 continued 6 (A-400; the owner: "Count them, list only refusals").** A till sale's receipt text held
+  back `NO_LINK` because the till sent no receipt token (`ntf.MessageSuppressed`, `SALE_RECEIPT`) raises no item. The
+  projector keeps it as a fact, `rpt.unlinked_receipt_fact` (migration 0378, once per message, emptied with the rest on a
+  rebuild), and the daily report gives one count line per branch and day, `countLines`
+  (`TILL_SALES_WITHOUT_RECEIPT_TOKEN`, abuse case 60, contract 2.52.0). A sale whose token was sent and refused is left
+  out of the count: its `RECEIPT_TOKEN_REFUSED` item stands, as the owner asked. No kind is renamed or removed;
+  `MESSAGE_SUPPRESSED` still holds every other message held back. Tested in
+  `test/integration/rpt/exception-report.integration.spec.ts` (five sales without a token and one refused show one line of
+  5 and one item; a redelivered message counts once; a rebuild gives the same line).
