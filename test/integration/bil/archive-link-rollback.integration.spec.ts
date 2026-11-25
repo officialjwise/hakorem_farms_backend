@@ -48,6 +48,8 @@ describe('0155 rolls back and applies again over archived documents', () => {
       rolledBack.push(step.name);
     }
     expect(rolledBack).toEqual([
+      '0375_iam_grant_rpt_report_permissions',
+      '0374_iam_rpt_report_permissions',
       '0373_iam_rpt_exception_permissions',
       '0372_del_proof_file_match',
       '0371_inv_publish_stock_exceptions',

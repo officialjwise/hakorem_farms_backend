@@ -143,9 +143,11 @@ beforeAll(async () => {
   for (const row of (await admin().query<{ identifier: string; id: string }>("SELECT identifier, id FROM inv.stock_unit WHERE identifier LIKE 'G-0%'")).rows) ids.set(row.identifier, row.id);
   const weights: Record<string, string> = { 'G-0157': '31.800', 'G-0163': '22.150', 'G-0171': '24.900', 'G-0175': '24.100' };
   tags(201, 224).forEach((tag, i) => (weights[tag] = (22 + (i * 5.5) / 23).toFixed(3)));
-  const day = toBusinessDate(clock.now());
+  // Weighed at 06:00 this morning, or now if the file's clock starts before 06:00 (testStartTime moves a run started just
+  // before midnight a minute into the next day, where 06:00 would be in the future: CI run 45512804006).
+  const measuredAt = new Date(Math.min(Date.parse(`${toBusinessDate(clock.now())}T06:00:00Z`), clock.now().getTime())).toISOString();
   const weighed = await post('manager', '/weight-records', {
-    records: Object.entries(weights).map(([tag, kg]) => ({ id: randomUUID(), stockUnitId: id(tag), weightKg: kg, weightSource: 'SCALE', headWeighed: 1, measuredAt: `${day}T06:00:00Z` })),
+    records: Object.entries(weights).map(([tag, kg]) => ({ id: randomUUID(), stockUnitId: id(tag), weightKg: kg, weightSource: 'SCALE', headWeighed: 1, measuredAt })),
   });
   expect(weighed.status, JSON.stringify(weighed.body)).toBe(200);
   // G-0163 is under a veterinary withdrawal period: it cannot be sold, so it is promised to nobody.

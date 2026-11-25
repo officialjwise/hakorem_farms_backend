@@ -14,6 +14,7 @@ import { farmSeedPurRegister } from './farm-pur-register';
 import { farmSeedPurCredit } from './farm-pur-credit';
 import { farmSeedShp } from './farm-shp';
 import { farmSeedQuo } from './farm-quo';
+import { farmSeedRpt } from './farm-rpt';
 import { farmSeedWhl, farmSeedWhlAccounts, farmSeedWhlDunning } from './farm-whl';
 import { seedRunCalendar } from './seed-calendar';
 import type { SeedUnit } from './seed-unit';
@@ -37,6 +38,13 @@ export interface SeedOptions {
    * other test asserts stay as they were.
    */
   readonly investors?: boolean;
+  /**
+   * The reporting slice (B12 continued 4, A-392, `farm-rpt.ts`): two investors' portal logins, a posted CST labour run,
+   * and the daily exception report's day with an item of every kind. Needs `investors` and `tradingDay`. `pnpm db:seed`
+   * always adds it; a test adds it only when it reads it, so the ledger and the purchase orders every other test asserts
+   * stay as they were.
+   */
+  readonly reporting?: boolean;
 }
 
 /**
@@ -60,12 +68,17 @@ export interface SeedOptions {
  * profile through AUD, the shop's contact details among it (B09x continued, `farm-aud.ts`); then the seeded salesperson logs Madina Market
  * Traders' WhatsApp request for ten crates and drafts its quote through QUO, nothing reserved (B10, `farm-quo.ts`); then, with `investors`, the Accountant registers the five investors of UAT section 3.5, records their
  * contributions and the trading summary of July to September 2026, which the Owner approves (B12, `farm-cap.ts`); last, with `tradingDay`, the seeded cashier posts
- * the trading day's sales through ORD's `SalePosting` (B09a continued 2g, `farm-ord.ts`). Every date the units write comes from one
+ * the trading day's sales through ORD's `SalePosting` (B09a continued 2g, `farm-ord.ts`); last, with `reporting`, the Accountant opens two investors'
+ * portal logins, a CST labour run is made and posted, and the exception report's day is seeded (B12 continued 4, `farm-rpt.ts`). Every date the units write comes from one
  * seed calendar per run, built from the application clock (B09t2, `seed-calendar.ts`).
  */
 export function seedUnits(env: SeedEnvironment, options: SeedOptions = {}): readonly SeedUnit[] {
   const calendar = seedRunCalendar();
   const farm = [farmSeedMdmBootstrap(), farmSeedIam(env.SEED_STAFF_PASSWORD), farmSeedMdm(calendar), seedLocationGrantsIam(), farmSeedInv(calendar), farmSeedLiv(calendar), farmSeedMdmUnits(), farmSeedPrc(), farmSeedFin(), farmSeedFinAssets(), farmSeedPur(), farmSeedPurRegister(), farmSeedPurCredit(), farmSeedShp(), farmSeedBil(), farmSeedWhl(calendar), farmSeedWhlAccounts(), farmSeedWhlDunning(), farmSeedAud(), farmSeedOfflineSettings(), farmSeedQuo(calendar)];
   const withInvestors = options.investors === true ? [...farm, farmSeedCap()] : farm;
-  return options.tradingDay === true ? [...withInvestors, farmSeedOrd(calendar)] : withInvestors;
+  const withTradingDay = options.tradingDay === true ? [...withInvestors, farmSeedOrd(calendar)] : withInvestors;
+  if (options.reporting === true && (options.investors !== true || options.tradingDay !== true)) {
+    throw new Error('the reporting seed needs the investors and the trading day: pass investors and tradingDay with reporting');
+  }
+  return options.reporting === true ? [...withTradingDay, farmSeedRpt()] : withTradingDay;
 }

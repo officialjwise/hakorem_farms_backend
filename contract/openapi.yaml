@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.48.0"
+  version: "2.49.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -4667,7 +4667,7 @@ paths:
       tags:
         - aud
       summary: "Change a setting"
-      description: "Writes a new effective-dated value of a setting in the catalogue (FR-AUD-007), from now or from a later `validFrom`; the value in force before stays on record for its time. `version` is the version of the row in force for the key and branch, 0 while the documented default applies (409 `VERSION_CONFLICT` otherwise). A value of the wrong type or out of range is 422 `SETTING_INVALID` (`WRONG_TYPE`, `OUT_OF_RANGE`; a past `validFrom` is `IN_THE_PAST`; a branch value for a farm-wide setting `NOT_BRANCH_SCOPED`); an unknown key is 404. Every change is audited with before and after values. In 1.29.0 the catalogue holds `pur.purchase_order.approval_limit_pesewas` (PESEWAS, default 200,000): a purchase order whose gross is above it needs a different person's approval, judged when it is submitted.\n\nPermission: `aud.setting.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
+      description: "Writes a new effective-dated value of a setting in the catalogue (FR-AUD-007), from now or from a later `validFrom`; the value in force before stays on record for its time. `version` is the version of the row in force for the key and branch, 0 while the documented default applies (409 `VERSION_CONFLICT` otherwise). A value of the wrong type or out of range is 422 `SETTING_INVALID` (`WRONG_TYPE`, `OUT_OF_RANGE`; a past `validFrom` is `IN_THE_PAST`; a branch value for a farm-wide setting `NOT_BRANCH_SCOPED`); an unknown key is 404. Every change is audited with before and after values. In 1.29.0 the catalogue holds `pur.purchase_order.approval_limit_pesewas` (PESEWAS, default 200,000): a purchase order whose gross is above it needs a different person's approval, judged when it is submitted. From 2.49.0 it also holds `rpt.checkout_holding.unpaid_checkouts` (INTEGER, default 3, a whole number from 1, farm-wide): how many storefront checkouts one address may let end unpaid in a day, with none paid, before the daily exception report raises `CHECKOUT_HOLDING` (R18; A-390 approved by the owner, 2026-11-24). The report judges each checkout by the value in force when it ended, so a change never rewrites an earlier day's items. A key that names its own permission needs it as well: this one needs `rpt.exception_rules.manage`, the Owner's alone (403 otherwise).\n\nPermission: `aud.setting.manage`.\n\nRequires step-up: a TOTP code entered within the last five minutes on this session."
       x-permission: aud.setting.manage
       x-requires-step-up: true
       x-error-codes:
@@ -110162,8 +110162,12 @@ components:
         - quo.rfq.read
         - quo.rfq.update
         - rpt.dashboard.owner
+        - rpt.exception_rules.manage
         - rpt.exceptions.read
         - rpt.exceptions.review
+        - rpt.report.export
+        - rpt.report.export.bulk
+        - rpt.report.read
         - rpt.tile.read
         - whl.account.hold
         - whl.account.manage
@@ -110424,6 +110428,8 @@ components:
         - quo.rfq.update
         - rpt.exceptions.read
         - rpt.exceptions.review
+        - rpt.report.export
+        - rpt.report.read
         - rpt.tile.read
         - whl.account.hold
         - whl.account.manage
@@ -110564,6 +110570,8 @@ components:
         - pur.supplier_payment.pay
         - pur.supplier_payment.read
         - rpt.exceptions.read
+        - rpt.report.export
+        - rpt.report.read
         - rpt.tile.read
         - whl.account.hold
         - whl.account.read

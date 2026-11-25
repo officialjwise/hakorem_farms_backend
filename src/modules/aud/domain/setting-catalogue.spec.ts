@@ -49,4 +49,15 @@ describe('the offline till settings (OFFLINE_SYNC 5.2, B09b continued 2, A-277 (
     expect(judgeSetting('sync.max_sale_age_hours', 9)).toEqual({ ok: false, error: 'OUT_OF_RANGE' });
     expect(judgeSetting('sync.max_sale_age_hours', 0)).toEqual({ ok: false, error: 'OUT_OF_RANGE' });
   });
+
+  it("takes the checkout holding threshold as a whole number from 1, the Owner's alone to change (A-390 approved, the owner 2026-11-24)", () => {
+    expect(SETTING_CATALOGUE['rpt.checkout_holding.unpaid_checkouts']).toMatchObject({ valueType: 'INTEGER', defaultValue: 3, min: 1, branchScoped: false, permission: 'rpt.exception_rules.manage' });
+    expect(judgeSetting('rpt.checkout_holding.unpaid_checkouts', 1).ok).toBe(true);
+    expect(judgeSetting('rpt.checkout_holding.unpaid_checkouts', 25).ok).toBe(true);
+    expect(judgeSetting('rpt.checkout_holding.unpaid_checkouts', 0)).toEqual({ ok: false, error: 'OUT_OF_RANGE' });
+    expect(judgeSetting('rpt.checkout_holding.unpaid_checkouts', -3)).toEqual({ ok: false, error: 'OUT_OF_RANGE' });
+    expect(judgeSetting('rpt.checkout_holding.unpaid_checkouts', 2.5)).toEqual({ ok: false, error: 'WRONG_TYPE' });
+    expect(judgeSetting('rpt.checkout_holding.unpaid_checkouts', '4')).toEqual({ ok: false, error: 'WRONG_TYPE' });
+    expect(SETTING_CATALOGUE['pur.purchase_order.approval_limit_pesewas']!.permission).toBeUndefined();
+  });
 });

@@ -229,6 +229,20 @@ describe('classify: every event the projector reads raises its kind with abuse c
     expect(classify(event('inv.GoodsReceiptPosted', FULL['inv.GoodsReceiptPosted']!))[0]).toMatchObject({ kind: 'GOODS_RECEIPT_UNMATCHED', abuseCases: [19] });
   });
 
+  it('names cases 22, 39 and 46 (B12 continued 4): a stock take variance, an animal priced again from the pack, a failed refund', () => {
+    const counted = { ...FULL['inv.StockWrittenOff'], movementType: 'STOCKTAKE_LOSS', reasonCode: 'COUNT_ERROR', reversesMovementId: null };
+    expect(classify(event('inv.StockWrittenOff', counted))[0]).toMatchObject({ kind: 'STOCK_ADJUSTMENT', sourceKind: 'STOCKTAKE_LOSS', abuseCases: [7, 22] });
+    expect(classify(event('inv.StockGainRecorded', { ...FULL['inv.StockGainRecorded'], movementType: 'STOCKTAKE_GAIN', reasonCode: 'FOUND_STOCK' }))[0]).toMatchObject({ severity: 'INFO', abuseCases: [7, 22] });
+    const override = { ...FULL['pos.OfflineSaleFlagged'], exceptionKind: 'PRICE_OVERRIDE', severity: 'REVIEW', abuseCases: [3] };
+    const repriced = classify(event('pos.OfflineSaleFlagged', { ...override, fact: { varianceReasonCode: 'CUSTOMER_LOYALTY', pricedFrom: { weightKg: '31.250', gradeId: null, weightSource: 'SCALE' } } }))[0];
+    expect(repriced).toMatchObject({ kind: 'PRICE_OVERRIDE', abuseCases: [3, 39] });
+    expect(classify(event('pos.OfflineSaleFlagged', { ...override, fact: { varianceReasonCode: 'OFFLINE_PACK_PRICE' } }))[0]).toMatchObject({ abuseCases: [3, 39] });
+    expect(classify(event('pos.OfflineSaleFlagged', { ...override, fact: { varianceReasonCode: 'CUSTOMER_LOYALTY' } }))[0]).toMatchObject({ abuseCases: [3] });
+    const failed = classify(event('pay.ReconciliationBreakRaised', { breakId: DOC, kind: 'REFUND_FAILED', refundId: DOC, amountPesewas: 4500 }))[0];
+    expect(failed).toMatchObject({ kind: 'RECONCILIATION_BREAK', sourceKind: 'REFUND_FAILED', abuseCases: [15, 33, 46] });
+    expect(breakFromView({ id: DOC, kind: 'REFUND_FAILED', branchId: BRANCH, paymentId: null, refundId: DOC, reference: null, sourceDocumentId: null, amountPesewas: 4500n, raisedAt: AT }).abuseCases).toEqual([15, 33, 46]);
+  });
+
   it('mortality is REVIEW when it waits for approval and INFO when not; a reused photograph URGENT', () => {
     expect(classify(event('liv.MortalityReported', FULL['liv.MortalityReported']!))[0]).toMatchObject({ kind: 'MORTALITY', severity: 'REVIEW', abuseCases: [2], amountPesewas: 58900n, actorId: ACTOR, subject: { docType: 'MORTALITY_RECORD' } });
     const cull = classify(event('liv.MortalityReported', { ...FULL['liv.MortalityReported'], kind: 'CULL', needsApproval: false }))[0]!;
