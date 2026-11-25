@@ -92,6 +92,10 @@ Option 2 for the text, option 3 for the receipt, and send nothing for a refused 
 - Binds `docs/data-model/ntf.md`, `pos.md` and `shp.md`, the NTF, POS and SHP cards, `docs/API.md` (NTF),
   `docs/security/THREAT_MODEL.md` (abuse cases 60, 61), and `docs/OPERATIONS.md` (the `abandoned-carts` job).
 
+## Amendments
+
+- **2026-11-25, B12f (the owner's decision of 2026-11-24, A-396, A-397): the receipt SMS for every till sale, as far as a till link exists.** The owner chose that every till sale where the buyer gave a phone number gets the receipt text, online or offline, amending A-349 (c). A synced sale gets it exactly as decided above. A live counter sale (`completeCounterSale`) still gets none, because its till makes no receipt link: the till's token travels only with `OfflineSale.receiptToken`, and POS keeps a till link only for a synced sale (ADR-0083, `ck_receipt_link_synced`). A text for it would have no link to give (`NO_LINK`, abuse case 60 on every live sale) or a receipt without the till's tenders (BL-118's objection). Giving a live sale its link changes POS's `completeCounterSale` and that rule, which waits for the parent session's leave (BL-133); NTF then drops `SALE_RECEIPT`'s offline-only condition. Tested in `test/integration/ntf/link-messages.integration.spec.ts` (a live sale with and without a phone, and its replay, send none; a synced sale one; a sale with no till link `NO_LINK`). The decision above is otherwise unchanged.
+
 ## Verification
 
 - `src/modules/ntf/domain/links.spec.ts` (the 100 percent gate): the kinds, the placeholder kept, the link filled, the

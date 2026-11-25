@@ -48,7 +48,9 @@ export class LinkMessages {
       if (order.channel !== 'ONLINE') return false;
       return this.queue.queueIn(tx, { event, code: 'ORDER_TRACKING', recipient, data: { orderNo: contact.orderNo }, recordId: orderId, linkRecordId: orderId });
     }
-    // A counter sale made at a till and synced: the only sale with a receipt link the buyer was shown (ADR-0083).
+    // A counter sale made at a till and synced: the only sale with a receipt link the buyer was shown (ADR-0083). The owner
+    // chose a text for every till sale with the buyer's phone, live too (2026-11-24, A-396), but a live sale's till makes no
+    // link, so it would only be NO_LINK: it waits for POS to make one (A-397 (d), BL-133).
     if (order.channel !== 'POS' || !order.isOffline || order.billingDocument === null || order.finalTotalPesewas === null) return false;
     return this.queue.queueIn(tx, {
       event,
