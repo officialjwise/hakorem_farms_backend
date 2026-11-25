@@ -1057,7 +1057,7 @@ const CLASSIFIERS: Readonly<Record<string, Classifier>> = {
   ],
 
   // NTF (abuse cases 57 to 63).
-  'ntf.MessageSuppressed': (e) => [
+  'ntf.MessageSuppressed': (e) => (unlinkedTillReceipt(e) !== null ? [] : [
     {
       kind: 'MESSAGE_SUPPRESSED',
       sourceKind: str(p(e), 'reason'),
@@ -1069,7 +1069,7 @@ const CLASSIFIERS: Readonly<Record<string, Classifier>> = {
       summary: `A ${str(p(e), 'channel') ?? ''} message ${str(p(e), 'templateCode') ?? ''} held back (${str(p(e), 'reason') ?? ''})`,
       details: pick(p(e), ['messageId', 'templateCode', 'channel', 'reason', 'sourceEventType']),
     },
-  ],
+  ]),
   'ntf.MessageFailed': (e) => [
     {
       kind: 'MESSAGE_FAILED',
@@ -1278,6 +1278,26 @@ function grantChange(e: SourceEvent): Item {
     details: { ...pick(p(e), ['grantId', 'change', 'principalId', 'roleCode', 'locationId']), selfGrant: e.actorId === str(p(e), 'principalId') },
     branchId: str(p(e), 'branchId') ?? e.branchId,
   };
+}
+
+/** NTF's template for a till sale's receipt text, and its reason when the sale has no link (A-398 (e)). */
+const TILL_RECEIPT_TEMPLATE = 'SALE_RECEIPT';
+const NO_LINK = 'NO_LINK';
+
+/**
+ * A till sale's receipt text held back for want of a link: the till sent no receipt token (`ntf.MessageSuppressed`,
+ * `SALE_RECEIPT`, `NO_LINK`). The owner, 2026-11-25 (A-400): "Count them, list only refusals." It raises no item; the
+ * projector keeps it as a fact and the daily report counts such sales per branch and day (abuse case 60). A token sent
+ * but refused is its own item already (`RECEIPT_TOKEN_REFUSED`), and the report leaves that sale out of the count. A
+ * message naming no sale or no branch is not one of them, and stays its own item.
+ */
+export function unlinkedTillReceipt(event: SourceEvent): { readonly salesOrderId: string; readonly branchId: string } | null {
+  if (event.type !== 'ntf.MessageSuppressed') return null;
+  const payload = p(event);
+  if (str(payload, 'templateCode') !== TILL_RECEIPT_TEMPLATE || str(payload, 'reason') !== NO_LINK) return null;
+  const salesOrderId = str(payload, 'salesOrderId');
+  const branchId = str(payload, 'branchId') ?? event.branchId;
+  return salesOrderId === null || branchId === null ? null : { salesOrderId, branchId };
 }
 
 /** The event types the projector reads for items (the consumer's subscription). */

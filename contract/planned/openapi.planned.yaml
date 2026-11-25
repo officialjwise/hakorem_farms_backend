@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.51.0"
+  version: "2.52.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -24703,7 +24703,7 @@ components:
         receiptToken:
           type: string
           pattern: "^[A-Za-z0-9_-]{22,86}$"
-          description: "The receipt link's token for a live sale (2.51.0, BL-133, ADR-0083 Amendments, A-398), of `OfflineSale.receiptToken`'s form and made the same way: by the till once for this sale, from the device's cryptographically secure generator (at least 128 random bits, base64url without padding), never derived from the sale's id, the device, the shift or the time, and sent again unchanged with a resubmission of the same key. The server stores only its SHA-256, in the sale's own transaction, and the link (`OfflinePack.receiptLinkTemplate` filled with it) reads at once for twelve months (`getPublicReceipt`); a resubmission makes no second link. **A token already bound to another sale, or shaped like an identifier (a UUID), never refuses the sale**: the sale completes and answers as without it, only its link is refused, the refusal is recorded once and reaches the daily exception report's source as `RECEIPT_TOKEN_REFUSED` (URGENT, abuse case 37), and the refused token opens nothing for it. A token not of this form is 400 `VALIDATION_FAILED`, as in a sync. **The receipt SMS (A-396):** a sale with `customerPhone` and a till link gets one text linking its receipt; with no token, or a refused one, it gets none (`NO_LINK`, on the exception report). Optional; left out, the sale is exactly as before."
+          description: "The receipt link's token for a live sale (2.51.0, BL-133, ADR-0083 Amendments, A-398), of `OfflineSale.receiptToken`'s form and made the same way: by the till once for this sale, from the device's cryptographically secure generator (at least 128 random bits, base64url without padding), never derived from the sale's id, the device, the shift or the time, and sent again unchanged with a resubmission of the same key. The server stores only its SHA-256, in the sale's own transaction, and the link (`OfflinePack.receiptLinkTemplate` filled with it) reads at once for twelve months (`getPublicReceipt`); a resubmission makes no second link. **A token already bound to another sale, or shaped like an identifier (a UUID), never refuses the sale**: the sale completes and answers as without it, only its link is refused, the refusal is recorded once and reaches the daily exception report's source as `RECEIPT_TOKEN_REFUSED` (URGENT, abuse case 37), and the refused token opens nothing for it. A token not of this form is 400 `VALIDATION_FAILED`, as in a sync. **The receipt SMS (A-396):** a sale with `customerPhone` and a till link gets one text linking its receipt; with no token, or a refused one, it gets none (`NO_LINK`; since 2.52.0 a sale with no token is counted on the daily exception report, `countLines`, and a refused one is its own item). Optional; left out, the sale is exactly as before."
       required:
         - id
         - shiftId
@@ -31878,6 +31878,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ExceptionCount"
+        countLines:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExceptionCountLine"
+          description: "2.52.0 (the owner, 2026-11-25, A-400: \"Count them, list only refusals\"). Controls the report counts rather than lists, one line per branch and day, each branch with nothing to count left out. Always sent; empty when there is nothing to count."
         items:
           type: array
           items:
@@ -31940,6 +31945,32 @@ components:
         - approvalPairs
         - currency
         - generatedAt
+    ExceptionCountLine:
+      type: object
+      description: "A control the daily exception report counts rather than lists (2.52.0, A-400). The only one: `TILL_SALES_WITHOUT_RECEIPT_TOKEN`, the till sales of the branch and day, live or synced, whose till sent no receipt token, so the receipt text the buyer's phone number called for was held back (`NO_LINK` in the message log; abuse case 60). A sale whose token was sent and refused is not counted here: it is its own item (`RECEIPT_TOKEN_REFUSED`, abuse case 37)."
+      properties:
+        code:
+          type: string
+          enum:
+            - TILL_SALES_WITHOUT_RECEIPT_TOKEN
+        branchId:
+          type: string
+          format: uuid
+        count:
+          type: integer
+          minimum: 1
+        abuseCases:
+          type: array
+          items:
+            type: integer
+        summary:
+          type: string
+      required:
+        - code
+        - branchId
+        - count
+        - abuseCases
+        - summary
     ReportDefinition:
       type: object
       properties:

@@ -4,7 +4,7 @@ import type { AsyncConsumer, EventEnvelope } from '../../../platform/events/doma
 import type { OutboxHistory } from '../../../platform/events/outbox-history';
 import type { Settings } from '../../../platform/settings/settings';
 import type { MasterDataRefs } from '../../mdm';
-import { classify, CLASSIFIED_EVENT_TYPES, type ExceptionDraft, type SourceEvent } from '../domain/classify';
+import { classify, CLASSIFIED_EVENT_TYPES, unlinkedTillReceipt, type ExceptionDraft, type SourceEvent } from '../domain/classify';
 import { INVESTOR_ITEM_PERMISSION } from '../domain/exception-kinds';
 import type { ExceptionStore, StoredDraft } from './exception-store';
 
@@ -132,6 +132,14 @@ export class ExceptionProjector {
         return this.paymentAfterChangeIn(tx, e, 'SUPPLIER', str(p, 'supplierId'), [13]);
       case 'cap.DistributionPaid':
         return this.paymentAfterChangeIn(tx, e, 'INVESTOR', str(p, 'investorId'), [70]);
+      case 'ntf.MessageSuppressed': {
+        // A till sale that sent no receipt token is counted, not listed (the owner, 2026-11-25, A-400).
+        const unlinked = unlinkedTillReceipt(e);
+        if (unlinked !== null) {
+          await this.store.putUnlinkedReceipt(tx, { messageId: str(p, 'messageId') ?? e.subjectId, eventId: e.id, salesOrderId: unlinked.salesOrderId, branchId: unlinked.branchId, date: toBusinessDate(e.recordedAt), at: e.recordedAt });
+        }
+        return [];
+      }
       case 'shp.CheckoutStarted':
       case 'shp.CheckoutExpired':
       case 'shp.CheckoutCancelled':

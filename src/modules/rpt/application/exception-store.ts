@@ -91,6 +91,11 @@ export interface ExceptionStore {
   putPayoutChange(tx: Transaction, change: { readonly eventId: string; readonly partyKind: 'SUPPLIER' | 'INVESTOR'; readonly partyId: string; readonly changeId: string; readonly at: Date; readonly requestedBy: string | null; readonly approvedBy: string | null }): Promise<void>;
   payoutChangesWithin(tx: Transaction, partyKind: 'SUPPLIER' | 'INVESTOR', partyId: string, from: Date, to: Date): Promise<PayoutChangeRecord[]>;
 
+  /** A till sale's receipt held back for want of a link (A-400), once per message. */
+  putUnlinkedReceipt(tx: Transaction, fact: { readonly messageId: string; readonly eventId: string; readonly salesOrderId: string; readonly branchId: string; readonly date: string; readonly at: Date }): Promise<void>;
+  /** Per branch, the till sales on a day whose receipt was held back for want of a link, less those whose token was refused (an item of its own). */
+  unlinkedTillSalesOn(tx: Transaction, date: string, branchIds: readonly string[]): Promise<{ readonly branchId: string; readonly count: number }[]>;
+
   stockExceptionsBetween(tx: Transaction, from: Date, to: Date): Promise<StockExceptionRow[]>;
   breaksBetween(tx: Transaction, from: Date, to: Date): Promise<BreakRow[]>;
   breakStates(tx: Transaction, ids: readonly string[]): Promise<Map<string, BreakState>>;
