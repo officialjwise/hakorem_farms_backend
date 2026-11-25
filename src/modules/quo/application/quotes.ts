@@ -198,6 +198,12 @@ export interface QuoteVersionView {
   readonly changeNote: string | null;
   readonly issuedAt: string | null;
   readonly issuedBy: Ref | null;
+  /**
+   * Who approved the version below the margin floor (B12f, the owner, 2026-11-24, A-396): the person whose approval
+   * decision approved it, read from the decision QUO records with it (`approved_by`, written from IAM's decision), never
+   * stored again; null unless the version went through approval and was approved. Staff only: never on `PublicQuote`.
+   */
+  readonly approvedBy: Ref | null;
   readonly lines: readonly QuoteLineView[];
   readonly acceptance: { readonly method: AcceptanceRecord['method']; readonly acceptedName: string; readonly acceptedAt: string } | null;
   readonly documentId: string | null;
@@ -1815,7 +1821,7 @@ export class Quotes {
     const quotes = await this.store.quotes(tx, [...new Set(versions.map((v) => v.quoteId))]);
     const people = await this.principals.refs(
       tx,
-      [...versions.flatMap((v) => [v.createdBy, ...(v.issuedBy === null ? [] : [v.issuedBy])]), ...links.flatMap((l) => [l.createdBy, ...(l.revokedBy === null ? [] : [l.revokedBy])])],
+      [...versions.flatMap((v) => [v.createdBy, ...(v.issuedBy === null ? [] : [v.issuedBy]), ...(v.approvedBy === null ? [] : [v.approvedBy])]), ...links.flatMap((l) => [l.createdBy, ...(l.revokedBy === null ? [] : [l.revokedBy])])],
     );
     const at = this.clock.now();
     const products = await this.refs.productsIn(
@@ -1861,6 +1867,7 @@ export class Quotes {
         changeNote: v.changeNote,
         issuedAt: v.issuedAt?.toISOString() ?? null,
         issuedBy: v.issuedBy === null ? null : name(v.issuedBy),
+        approvedBy: v.approvedBy === null ? null : name(v.approvedBy),
         lines: own.map((l) => {
             const product = l.productId === null ? undefined : products.get(l.productId);
             const grade = l.gradeId === null ? undefined : grades.get(l.gradeId);

@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.49.0"
+  version: "2.50.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -60861,6 +60861,7 @@ paths:
                           approvalRequestId: null
                           changeNote: "Reduced to eighteen goats and added delivery"
                           issuedAt: "2026-11-13T15:00:00Z"
+                          approvedBy: null
                           issuedBy:
                             id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                             displayName: "Kojo Antwi"
@@ -60945,6 +60946,7 @@ paths:
                           approvalRequestId: null
                           changeNote: null
                           issuedAt: "2026-11-13T15:00:00Z"
+                          approvedBy: null
                           issuedBy:
                             id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                             displayName: "Kojo Antwi"
@@ -61006,6 +61008,7 @@ paths:
                           approvalRequestId: null
                           changeNote: null
                           issuedAt: "2026-11-13T15:00:00Z"
+                          approvedBy: null
                           issuedBy:
                             id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                             displayName: "Kojo Antwi"
@@ -61064,6 +61067,7 @@ paths:
                           approvalRequestId: null
                           changeNote: null
                           issuedAt: "2026-11-13T15:00:00Z"
+                          approvedBy: null
                           issuedBy:
                             id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                             displayName: "Kojo Antwi"
@@ -61122,6 +61126,7 @@ paths:
                           approvalRequestId: null
                           changeNote: null
                           issuedAt: "2026-11-13T15:00:00Z"
+                          approvedBy: null
                           issuedBy:
                             id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                             displayName: "Kojo Antwi"
@@ -61180,6 +61185,7 @@ paths:
                           approvalRequestId: null
                           changeNote: null
                           issuedAt: "2026-11-13T15:00:00Z"
+                          approvedBy: null
                           issuedBy:
                             id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                             displayName: "Kojo Antwi"
@@ -61318,6 +61324,7 @@ paths:
                   approvalRequestId: null
                   changeNote: null
                   issuedAt: "2026-11-13T15:00:00Z"
+                  approvedBy: null
                   issuedBy:
                     id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                     displayName: "Kojo Antwi"
@@ -61426,6 +61433,7 @@ paths:
                   approvalRequestId: null
                   changeNote: "Reduced to eighteen goats and added delivery"
                   issuedAt: "2026-11-13T15:00:00Z"
+                  approvedBy: null
                   issuedBy:
                     id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                     displayName: "Kojo Antwi"
@@ -61556,6 +61564,7 @@ paths:
                         approvalRequestId: null
                         changeNote: "Reduced to eighteen goats and added delivery"
                         issuedAt: "2026-11-13T15:00:00Z"
+                        approvedBy: null
                         issuedBy:
                           id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                           displayName: "Kojo Antwi"
@@ -61617,6 +61626,7 @@ paths:
                         approvalRequestId: null
                         changeNote: null
                         issuedAt: "2026-11-11T15:00:00Z"
+                        approvedBy: null
                         issuedBy:
                           id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                           displayName: "Kojo Antwi"
@@ -61678,6 +61688,7 @@ paths:
                         approvalRequestId: null
                         changeNote: "Reduced to eighteen goats and added delivery"
                         issuedAt: "2026-11-13T15:00:00Z"
+                        approvedBy: null
                         issuedBy:
                           id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                           displayName: "Kojo Antwi"
@@ -61739,6 +61750,7 @@ paths:
                         approvalRequestId: null
                         changeNote: null
                         issuedAt: "2026-11-11T15:00:00Z"
+                        approvedBy: null
                         issuedBy:
                           id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                           displayName: "Kojo Antwi"
@@ -61800,6 +61812,7 @@ paths:
                         approvalRequestId: null
                         changeNote: "Reduced to eighteen goats and added delivery"
                         issuedAt: "2026-11-13T15:00:00Z"
+                        approvedBy: null
                         issuedBy:
                           id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                           displayName: "Kojo Antwi"
@@ -61937,6 +61950,7 @@ paths:
                 approvalRequestId: null
                 changeNote: "Reduced to eighteen goats and added delivery"
                 issuedAt: null
+                approvedBy: null
                 issuedBy: null
                 lines:
                   - id: "019a7aff-fd56-70c1-a5f9-14e2b2e78dc0"
@@ -62072,6 +62086,7 @@ paths:
                 approvalRequestId: null
                 changeNote: "Reduced to eighteen goats and added delivery"
                 issuedAt: "2026-11-13T15:00:00Z"
+                approvedBy: null
                 issuedBy:
                   id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                   displayName: "Kojo Antwi"
@@ -62203,6 +62218,7 @@ paths:
                 approvalRequestId: null
                 changeNote: "Reduced to eighteen goats and added delivery"
                 issuedAt: "2026-11-13T15:00:00Z"
+                approvedBy: null
                 issuedBy:
                   id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                   displayName: "Kojo Antwi"
@@ -62366,6 +62382,7 @@ paths:
                   approvalRequestId: null
                   changeNote: null
                   issuedAt: "2026-11-13T15:00:00Z"
+                  approvedBy: null
                   issuedBy:
                     id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                     displayName: "Kojo Antwi"
@@ -62491,6 +62508,7 @@ paths:
                   approvalRequestId: null
                   changeNote: null
                   issuedAt: "2026-11-13T15:00:00Z"
+                  approvedBy: null
                   issuedBy:
                     id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                     displayName: "Kojo Antwi"
@@ -62616,6 +62634,7 @@ paths:
                   approvalRequestId: null
                   changeNote: "Reduced to eighteen goats and added delivery"
                   issuedAt: "2026-11-13T15:00:00Z"
+                  approvedBy: null
                   issuedBy:
                     id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                     displayName: "Kojo Antwi"
@@ -62955,6 +62974,7 @@ paths:
                 approvalRequestId: null
                 changeNote: "Reduced to eighteen goats and added delivery"
                 issuedAt: "2026-11-13T15:00:00Z"
+                approvedBy: null
                 issuedBy:
                   id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                   displayName: "Kojo Antwi"
@@ -103389,6 +103409,11 @@ components:
           anyOf:
             - $ref: "#/components/schemas/PrincipalRef"
             - type: "null"
+        approvedBy:
+          anyOf:
+            - $ref: "#/components/schemas/PrincipalRef"
+            - type: "null"
+          description: "2.50.0 (LOUD, a new field on an existing answer; the owner, 2026-11-24, from the frontend's F10o): who approved this version below the margin floor, the person whose decision on its `QUOTE_BELOW_MARGIN` approval approved it (read from that decision, never stored again). Null unless the version went through approval and was approved: issued at once, still `PENDING_APPROVAL`, or rejected, it is null. It stays on the version once issued, superseded or accepted. `issueQuoteVersion` by this person is refused (422 `QUOTE_INVALID` `APPROVER_CANNOT_ISSUE`), so a console hides \"Issue and send\" from them. Always sent by this version of the server; a client may treat it as optional. Staff only: never on `PublicQuote`."
         lines:
           type: array
           items:
