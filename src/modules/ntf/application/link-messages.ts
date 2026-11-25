@@ -11,7 +11,7 @@ export const LINK_MESSAGE_EVENTS = ['ord.OrderPlaced', 'ord.OrderCompleted', 'sh
 /**
  * The messages that carry a link (B11 continued 12, ADR-0084, ADR-0074): NTF's consumer of the outbox, through the one
  * queue (`MessageQueue`). The guest's tracking SMS when an online order is placed (`ORDER_TRACKING`, its link ORD's
- * `OnlineOrders.reissueTrackingIn`); the receipt SMS when a counter sale a till made offline is synced (CR-033 point 3,
+ * `OnlineOrders.reissueTrackingIn`); the receipt SMS when a till's counter sale is completed, live or synced (CR-033 point 3, A-396, BL-133,
  * `SALE_RECEIPT`, its link POS's `ReceiptLinks.issueMessageLinkIn`); the abandoned-cart reminder (`CART_REMINDER`,
  * FR-SHP-015, marketing). An order's message goes to the order's own contact, read from
  * ORD (the number the buyer gave on the sale), never the event's; the facts are read from ORD's order, never the event's
@@ -48,10 +48,10 @@ export class LinkMessages {
       if (order.channel !== 'ONLINE') return false;
       return this.queue.queueIn(tx, { event, code: 'ORDER_TRACKING', recipient, data: { orderNo: contact.orderNo }, recordId: orderId, linkRecordId: orderId });
     }
-    // A counter sale made at a till and synced: the only sale with a receipt link the buyer was shown (ADR-0083). The owner
-    // chose a text for every till sale with the buyer's phone, live too (2026-11-24, A-396), but a live sale's till makes no
-    // link, so it would only be NO_LINK: it waits for POS to make one (A-397 (d), BL-133).
-    if (order.channel !== 'POS' || !order.isOffline || order.billingDocument === null || order.finalTotalPesewas === null) return false;
+    // A counter sale made at a till, live or synced: every till sale where the buyer gave a phone number (the owner,
+    // 2026-11-24, A-396). Its link is the till's own (ADR-0083 and its Amendments, BL-133): a sale whose till sent no token,
+    // or whose token was refused, is NO_LINK at send; one with no number NO_ADDRESS.
+    if (order.channel !== 'POS' || order.billingDocument === null || order.finalTotalPesewas === null) return false;
     return this.queue.queueIn(tx, {
       event,
       code: 'SALE_RECEIPT',

@@ -163,7 +163,7 @@ function repricedFromPack(sourceKind: string, fact: Payload): boolean {
   return sourceKind === 'PRICE_OVERRIDE' && (fact['pricedFrom'] !== undefined || fact['varianceReasonCode'] === OFFLINE_PACK_PRICE);
 }
 
-/** A finding a till's sync raised (`pos.OfflineSaleFlagged`, `OfflineShiftFlagged`, `OfflineCashMovementFlagged`). */
+/** A finding a till raised (`pos.OfflineSaleFlagged`, `OfflineShiftFlagged`, `OfflineCashMovementFlagged`, `CounterSaleFlagged`). */
 function posFinding(event: SourceEvent, subject: SubjectRef): Item[] {
   const p = event.payload;
   const sourceKind = str(p, 'exceptionKind') ?? 'UNKNOWN';
@@ -346,6 +346,8 @@ const CLASSIFIERS: Readonly<Record<string, Classifier>> = {
       details: { ...pick(p(e), ['shiftNo', 'forceClosedBy', 'reason', 'closedAt']), register: p(e)['register'] ?? null },
     },
   ],
+  // A live counter sale's finding (BL-133, A-398): read as a synced sale's, on the sale.
+  'pos.CounterSaleFlagged': (e) => posFinding(e, { id: str(p(e), 'saleId') ?? e.subjectId, docType: 'SALES_ORDER' }),
   'pos.OfflineSaleFlagged': (e) => posFinding(e, { id: str(p(e), 'saleId') ?? e.subjectId, docType: 'SALES_ORDER' }),
   'pos.OfflineShiftFlagged': (e) => posFinding(e, { id: str(p(e), 'shiftId') ?? e.subjectId, docType: 'SHIFT' }),
   'pos.OfflineCashMovementFlagged': (e) => posFinding(e, { id: str(p(e), 'shiftId') ?? e.subjectId, docType: 'SHIFT' }),

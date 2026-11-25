@@ -13,14 +13,18 @@ import type { Orders, SalePosting, SaleRequest, SalesOrderView } from '../../ord
 import { PaymentRequiresVerificationError } from '../../pay';
 import { CLOCK_TOLERANCE_SECONDS, CLOCK_TOLERANCE_SETTING, isUuidV7, secondsAhead, withinTolerance } from '../domain/client-time';
 import { changeDue, shiftOverrideRoom, type TenderKind } from '../domain/till';
-import type { TillClockOutOfTolerance } from '../events';
+import type { CounterSaleFlagged, TillClockOutOfTolerance } from '../events';
 import type { Devices } from './devices';
 import { CounterSaleInvalidError, ShiftNotOpenError, type TillRule } from './errors';
+import type { ReceiptJudgement, ReceiptLinks } from './receipt-links';
 import type { TillStore } from './till-store';
 
 registerMessages({ 'pos.unit_not_sold': 'This product is not sold in this unit at the till.' });
 
 export const TILL_CLOCK_OUT_OF_TOLERANCE = 'pos.TillClockOutOfTolerance';
+export const COUNTER_SALE_FLAGGED = 'pos.CounterSaleFlagged';
+/** A receipt token sent again with another sale, or shaped like an id: a till fault or tampering (abuse case 37, ADR-0083). */
+const ABUSE_RECEIPT_TOKEN = 37;
 const SELL = 'pos.sale.create';
 /** The methods a provider clears: never taken on the cashier's word, only as a payment the provider cleared (abuse case 4). */
 const PROVIDER_KINDS: ReadonlySet<string> = new Set(['MOBILE_MONEY', 'CARD']);
@@ -59,6 +63,11 @@ export interface CounterSaleRequest {
   readonly lines: readonly CounterSaleLineRequest[];
   readonly tenders: readonly CounterTenderRequest[];
   readonly occurredAt: Date;
+  /**
+   * The receipt link's token the till made for this sale (BL-133, ADR-0083 Amendments, A-398), of `OfflineSale.receiptToken`'s
+   * form. Its hash is bound to the sale in the sale's transaction; refused, the sale is still recorded with no link.
+   */
+  readonly receiptToken?: string | undefined;
 }
 
 /** The contract's `CounterSaleResult`. Nothing prints yet (A-273 (b)): `escPosBase64` is null. */
@@ -95,6 +104,7 @@ export class CounterSales {
     private readonly clock: Clock,
     private readonly pricing: PricingService,
     private readonly settings: Settings,
+    private readonly receipts: ReceiptLinks,
   ) {}
 
   async complete(actor: Actor | undefined, body: CounterSaleRequest, idempotencyKey: string, deviceCredential: string | undefined): Promise<StoredResponse<CounterSaleResultView>> {
@@ -214,8 +224,22 @@ export class CounterSales {
         };
         await this.events.publish(tx, { type: TILL_CLOCK_OUT_OF_TOLERANCE, subjectType: 'SalesOrder', subjectId: sale.id, branchId: register.branchId, payload: skew, occurredAt: now });
       }
+      let refused: ReceiptJudgement | null = null;
+      if (body.receiptToken !== undefined) {
+        // The receipt link (BL-133, ADR-0083 Amendments): the till's token is bound to this sale by its hash, in the
+        // sale's own transaction, through the synced sale's own path; refused, only the link is lost, never the sale.
+        const judged = await this.receipts.judgeIn(tx, body.receiptToken, sale.id);
+        const tenders = body.tenders.map((t) => ({ paymentMethodId: t.paymentMethodId, kind: methods.get(t.paymentMethodId)!.kind as TenderKind, amountPesewas: Money.ofPesewas(t.amountPesewas).toJsonInteger(), tenderedPesewas: t.tenderedPesewas === undefined ? null : Money.ofPesewas(t.tenderedPesewas).toJsonInteger(), unverified: false }));
+        await this.receipts.recordIn(tx, judged, { saleId: sale.id, branchId: register.branchId, shiftId: shift.id, deviceId: device.id, cashierId: shift.cashierId, occurredAt: now, tenders, now, actorId: actor!.principalId });
+        refused = judged.verdict.kind === 'REFUSE' ? judged : null;
+      }
       const order = await this.orders.viewOf(tx, sale.id);
       const [receipt] = await this.billing.viewsIn(tx, [sale.billingDocument!.id]);
+      if (refused !== null) {
+        const source = { saleId: sale.id, shiftId: shift.id, branchId: register.branchId, register: { id: register.id, code: register.code }, deviceId: device.id, cashierId: shift.cashierId, occurredAt: now.toISOString(), recordedAt: now.toISOString() };
+        const payload = receiptTokenFlag(refused, source, receipt!.grossPesewas, body.customerPhone !== undefined);
+        await this.events.publish(tx, { type: COUNTER_SALE_FLAGGED, subjectType: 'SalesOrder', subjectId: sale.id, branchId: register.branchId, payload, occurredAt: now });
+      }
       // The TIN is printed in full only on the document and its archive (the owner on A-285 (f), 2026-11-23): the answer,
       // and so its stored idempotency copy and every replay, shows its last four characters, as the audit row does.
       const shown = { ...receipt!, customerTin: maskTin(receipt!.customerTin) };
@@ -229,4 +253,36 @@ export class CounterSales {
 /** The request as its idempotency key binds it: amounts as strings, the time as ISO. */
 function hashable(body: CounterSaleRequest): unknown {
   return JSON.parse(JSON.stringify(body, (_key, value: unknown) => (typeof value === 'bigint' ? value.toString() : value)));
+}
+
+/**
+ * A live sale's till token refused (BL-133, A-398): as a synced sale's (`pos.OfflineSaleFlagged` `RECEIPT_TOKEN_REFUSED`),
+ * URGENT, naming the device, the shift, the cashier and both sales; the amount is the sale's. Never the token.
+ */
+function receiptTokenFlag(
+  receipt: ReceiptJudgement,
+  source: Pick<CounterSaleFlagged, 'saleId' | 'shiftId' | 'branchId' | 'register' | 'deviceId' | 'cashierId' | 'occurredAt' | 'recordedAt'>,
+  grossPesewas: number,
+  customerPhoneGiven: boolean,
+): CounterSaleFlagged {
+  const verdict = receipt.verdict as Extract<ReceiptJudgement['verdict'], { kind: 'REFUSE' }>;
+  return {
+    ...source,
+    exceptionKind: 'RECEIPT_TOKEN_REFUSED',
+    severity: 'URGENT',
+    summary:
+      verdict.reason === 'TOKEN_ALREADY_BOUND'
+        ? "The receipt link's token was already sent with another sale; this live sale is recorded, its link is refused and a fresh link is to be sent"
+        : "The receipt link's token is shaped like an identifier; this live sale is recorded, its link is refused and a fresh link is to be sent",
+    amountPesewas: grossPesewas,
+    claim: {},
+    fact: {
+      reason: verdict.reason,
+      saleId: source.saleId,
+      boundSale: receipt.bound === null ? null : { saleId: receipt.bound.saleId, shiftId: receipt.bound.shiftId, deviceId: receipt.bound.deviceId },
+      needsServerLink: true,
+      customerPhoneGiven,
+    },
+    abuseCases: [ABUSE_RECEIPT_TOKEN],
+  };
 }

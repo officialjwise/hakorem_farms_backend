@@ -109,8 +109,9 @@ import { PgReceiptLinkStore } from './infrastructure/pg-receipt-link-store';
         clock: Clock,
         pricing: PricingService,
         settings: Settings,
-      ) => new CounterSales(uow, store, devices, posting, orders, billing, refs, authoriser, idempotency, events, clock, pricing, settings),
-      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, Billing, MasterDataRefs, Authoriser, Idempotency, DomainEvents, CLOCK, PricingService, Settings],
+        receipts: ReceiptLinks,
+      ) => new CounterSales(uow, store, devices, posting, orders, billing, refs, authoriser, idempotency, events, clock, pricing, settings, receipts),
+      inject: [UnitOfWork, TILL_STORE, Devices, SalePosting, Orders, Billing, MasterDataRefs, Authoriser, Idempotency, DomainEvents, CLOCK, PricingService, Settings, ReceiptLinks],
     },
     {
       provide: OfflinePacks,

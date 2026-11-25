@@ -45,6 +45,9 @@ Owner: POS module. Registers, device enrolment, shifts, cash movements, held sal
 - **`pos.receipt_link_revocation_guard`** (HK010) on `pos.receipt_link_revocation`: the actor holds `pos.shift.close.approve` at the link's branch at the application clock's instant (`ck_receipt_link_revocation_supervisor`). Written by `revokeReceiptLink`. No table or column changes.
 - An invoice paid at the till (`payInvoiceAtTill`) writes no POS table: it is a PAY payment on the shift (`pay.payment.shift_document_id`), counted by `Payments.shiftTotalsIn` at the close. A business buyer's name and TIN are BIL's (`bil.billing_document`); POS stores neither.
 
+**Built in B12 continued 5 (migration 0377, BL-133, A-398, ADR-0083 Amendments):**
+- **`pos.receipt_link_guard`** and **`pos.receipt_token_refusal_guard`** widened (expand only): besides a sale applied at sync on the row's shift, `ck_receipt_link_synced` and `ck_receipt_token_refusal_synced` admit a live counter sale's own row and nothing else: the order is a registered document other than the shift (POS names no other schema's table, so that it is the sale just posted is the application's), no `pos.sale_sync` row names it, its shift is `OPEN`, and the row is written by that shift's cashier; a live link's `issued_at` equals its `recorded_at` (posted at the server's time). No column or table added; one TILL link per sale still.
+
 ---
 
 ### `pos.register` · MASTER

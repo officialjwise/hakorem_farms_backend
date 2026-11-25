@@ -218,7 +218,7 @@ describe("the guest's tracking SMS: once, to the order's own contact, with a tok
   });
 });
 
-describe("the receipt SMS for a live counter sale (the owner, 2026-11-24, A-396; A-397 (d), ADR-0084 Amendments, BL-133)", () => {
+describe("the receipt SMS for a live counter sale (the owner, 2026-11-24, A-396; BL-133, A-398, ADR-0083 and ADR-0084 Amendments)", () => {
   const sms = new FakeSms();
   /** A crate of eggs sold live at the till, through completeCounterSale with the device's credential. */
   const live = (extra: object = {}) => {
@@ -228,33 +228,52 @@ describe("the receipt SMS for a live counter sale (the owner, 2026-11-24, A-396;
     return () => consolePost(api.server, as('kwame'), '/v1/pos/sales', saleId).set('X-Device-Credential', credential).send(body);
   };
 
-  it('sends none for a live sale, with the buyer\'s phone or without, nor on its replay, because its till makes no receipt link (ADR-0083); a synced sale with the phone sends one', async () => {
-    const withPhone = live({ customerPhone: BUYER });
+  it("sends one text for a live sale with the buyer's phone and its till's token, none on its replay, none without a phone, NO_LINK without a token; a synced sale still one", async () => {
+    const token = tillToken();
+    const withPhone = live({ customerPhone: BUYER, receiptToken: token });
     const sold = await withPhone();
     expect(sold.status, JSON.stringify(sold.body)).toBe(201);
     const replayed = await withPhone();
     expect([replayed.status, replayed.body.order.id]).toEqual([201, sold.body.order.id]);
-    const noPhone = await live()();
+    const noPhone = await live({ receiptToken: tillToken() })();
     expect(noPhone.status, JSON.stringify(noPhone.body)).toBe(201);
-    const liveOrders = [sold.body.order.id as string, noPhone.body.order.id as string];
+    const noToken = await live({ customerPhone: BUYER })();
+    expect(noToken.status, JSON.stringify(noToken.body)).toBe(201);
+    const [linked, unaddressed, unlinked] = [sold.body.order.id as string, noPhone.body.order.id as string, noToken.body.order.id as string];
     // Each live sale completed once, and its event reached NTF's consumer.
-    expect(await count("SELECT count(*) AS n FROM platform.outbox_message WHERE event_type = 'ord.OrderCompleted' AND subject_id = ANY($1::uuid[])", [liveOrders])).toBe(2);
+    expect(await count("SELECT count(*) AS n FROM platform.outbox_message WHERE event_type = 'ord.OrderCompleted' AND subject_id = ANY($1::uuid[])", [[linked, unaddressed, unlinked]])).toBe(3);
     const synced = crates({ receiptToken: tillToken(), customerPhone: BUYER });
     await sync([synced]);
     expect((await sync([synced]))[0]!.outcome).toBe('DUPLICATE');
     await ntf.dispatch();
-    expect(await count("SELECT count(*) AS n FROM platform.outbox_delivery d JOIN platform.outbox_message m ON m.id = d.message_id WHERE d.consumer = 'ntf.link-messages' AND d.status = 'DELIVERED' AND m.subject_id = ANY($1::uuid[])", [liveOrders])).toBe(2);
     const calls = sms.calls.length;
     await ntf.sender(sms).run(SCHEDULER);
     await ntf.sender(sms).run(SCHEDULER);
-    // The live sales: no till link, so no message queued and nothing on the exception report's source (no NO_LINK).
-    for (const order of liveOrders) expect(await messagesOf(order)).toEqual([]);
-    expect(await count('SELECT count(*) AS n FROM pos.receipt_link WHERE order_document_id = ANY($1::uuid[])', [liveOrders])).toBe(0);
-    expect(await count("SELECT count(*) AS n FROM platform.outbox_message WHERE event_type = 'ntf.MessageSuppressed' AND payload->>'salesOrderId' = ANY($1::text[])", [liveOrders])).toBe(0);
+    // The live sale with the phone and its token: one text, to the number it carried, its own rcp_ link answering exactly
+    // the till link's receipt; the replay added none.
+    expect(await messagesOf(linked)).toEqual([expect.objectContaining({ code: 'SALE_RECEIPT', status: 'SENT', linkKind: 'RECEIPT', linkRecord: linked })]);
+    const sent = sms.calls.slice(calls);
+    expect(sent.map((c) => c.to)).toEqual([BUYER, BUYER]);
+    const liveText = sent.find((c) => c.text.includes(sold.body.receipt.documentNo as string))!;
+    expect(liveText.text).toBe(`HaKorem Farms: receipt ${sold.body.receipt.documentNo as string} for GHS 60.00, sale ${sold.body.order.orderNo as string}. Your receipt: ${liveText.text.slice(liveText.text.indexOf(BASE))}`);
+    const messageToken = new RegExp(`Your receipt: ${BASE}/r/(rcp_[A-Za-z0-9_-]{43})$`).exec(liveText.text)![1]!;
+    const tillAnswer = await receipt(token);
+    expect(tillAnswer.status).toBe(200);
+    expect((await receipt(messageToken)).body).toEqual(tillAnswer.body);
+    expect(await writtenAnywhere(messageToken)).toEqual([]);
+    expect(await writtenAnywhere(token)).toEqual([]);
+    // Without a phone: queued and suppressed for want of an address, no text and nothing on the exception report.
+    expect(await messagesOf(unaddressed)).toEqual([expect.objectContaining({ code: 'SALE_RECEIPT', status: 'SUPPRESSED', reason: 'NO_ADDRESS', masked: '' })]);
+    // Without a token: the till made no link, so no text, NO_LINK, raised with abuse case 60.
+    expect(await messagesOf(unlinked)).toEqual([expect.objectContaining({ code: 'SALE_RECEIPT', status: 'SUPPRESSED', reason: 'NO_LINK', attempts: 0 })]);
+    const suppressed = await rows<{ order: string; reason: string; abuseCases: number[] }>(
+      "SELECT payload->>'salesOrderId' AS order, payload->>'reason' AS reason, payload->'abuseCases' AS \"abuseCases\" FROM platform.outbox_message WHERE event_type = 'ntf.MessageSuppressed' AND payload->>'salesOrderId' = ANY($1::text[])",
+      [[linked, unaddressed, unlinked]],
+    );
+    expect(suppressed).toEqual([{ order: unlinked, reason: 'NO_LINK', abuseCases: [60] }]);
     // The synced sale: one text, to the number it carried, linking its till's receipt, a replay adding none.
     expect(await messagesOf(synced.id)).toEqual([expect.objectContaining({ code: 'SALE_RECEIPT', status: 'SENT', linkKind: 'RECEIPT' })]);
-    expect(sms.calls.slice(calls).map((c) => c.to)).toEqual([BUYER]);
-    expect(sms.calls.at(-1)!.text).toMatch(new RegExp(`^HaKorem Farms: receipt .* Your receipt: ${BASE}/r/rcp_[A-Za-z0-9_-]{43}$`));
+    for (const c of sent) expect(c.text).toMatch(new RegExp(`^HaKorem Farms: receipt .* Your receipt: ${BASE}/r/rcp_[A-Za-z0-9_-]{43}$`));
   });
 });
 

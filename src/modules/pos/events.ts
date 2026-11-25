@@ -124,6 +124,31 @@ export interface TillClockOutOfTolerance {
   readonly exceptionKind: 'TILL_CLOCK_OUT_OF_TOLERANCE';
 }
 
+/**
+ * `pos.CounterSaleFlagged` (BL-133, ADR-0083 Amendments, A-398): something about a live counter sale a person must look
+ * at, published in the sale's transaction. First and only: the till's receipt token refused (`RECEIPT_TOKEN_REFUSED`,
+ * URGENT, abuse case 37), already bound to another sale or shaped like an identifier. The sale is recorded; only its link
+ * is refused. The shape of `pos.OfflineSaleFlagged` without the offline queue's counter and provisional reference, so
+ * the daily exception report reads it as it reads a synced sale's refusal. Never the token.
+ */
+export interface CounterSaleFlagged {
+  readonly saleId: string;
+  readonly shiftId: string;
+  readonly branchId: string;
+  readonly register: { readonly id: string; readonly code: string };
+  readonly deviceId: string;
+  readonly cashierId: string;
+  readonly occurredAt: string;
+  readonly recordedAt: string;
+  readonly exceptionKind: 'RECEIPT_TOKEN_REFUSED';
+  readonly severity: 'URGENT';
+  readonly summary: string;
+  readonly amountPesewas: number;
+  readonly claim: Readonly<Record<string, unknown>>;
+  readonly fact: Readonly<Record<string, unknown>>;
+  readonly abuseCases: readonly number[];
+}
+
 /** Where an offline sale was made: the till, the shift, the device and the cashier it is attributed to. */
 interface OfflineSaleSource {
   readonly saleId: string;
