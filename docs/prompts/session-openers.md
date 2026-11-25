@@ -122,6 +122,7 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B12 continued 2 | `B12c2-cst-rpt-api.md` | `b12c2-cst-rpt-api` | B4 to B12 | FR-CST-001 to FR-CST-008 pass on the real engine and the margin projection ties to the ledger on the seeded trading day (split after CST, A-389: the exception report is B12 continued 3's) |
 | B12 continued 3 | `B12c3-rpt-api.md` | `b12c3-rpt-api` | B4 to B12 | The daily exception report answers an item kind for every abuse case named, each with its abuse case numbers, actor, amount and subject document (passed; split after the exception report, A-391: the reports, exports, dashboard and API are B12 continued 4's) |
 | B12 continued 4 | `B12c4-rpt-reports-api.md` | `b12c4-rpt-reports-api` | B4 to B12 | `pnpm db:seed` gives two investors a portal login with no usable password, a posted CST run and an exception item of every kind on the seed's day; every abuse case 1 to 73 is on a kind or stated prevented; the checkout holding threshold is the Owner's audited setting (passed; split after them, A-395) |
+| B12f | `B12f-f10o-approver-receipt-sms.md` | `b12f-f10o-approver-receipt-sms` | B4 to B12 | An approved quote version names its approver (`QuoteVersion.approvedBy`), every other version null, never on the buyer's views, the approver's issue still refused; a till sale with the buyer's phone and a till link gets one receipt text, never two, none without a phone, `NO_LINK` without a till link; a live sale whose till makes no link sends none, the reason recorded (inserted by the parent session on the owner's decisions of 2026-11-24, from the frontend's F10o) |
 | B12 continued 5 | `B12c5-rpt-reports-api.md` | `b12c5-rpt-reports-api` | B4 to B12 | runReport answers every listed code in its contract example's columns and exports it as PDF and XLSX, the statements and the exception report among them; the owner dashboard answers within NFR-023 from the hk_report connection; the public API's keys and signed webhooks pass their abuse tests |
 | B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
 | B13 | `B13-hardening-deploy.md` | `b13-hardening-deploy` | B13 — Hardening, smoke suite and deploy | Every non-functional target met and evidenced on the live server |
@@ -4804,13 +4805,51 @@ CST allocation run, and at least one exception item of each kind on a seeded day
 Stop at the gate and write docs/sessions/B12c4-rpt-reports-api.md.
 ```
 
-## B12 continued 5 — Reports, exports, the dashboard and the public API
+## B12f — The frontend's F10o follow-ups: who approved a quote version, and the receipt SMS for every till sale
 
-Branch `b12c5-rpt-reports-api`, from `main`. Report `docs/sessions/B12c5-rpt-reports-api.md`. Inserted by B12 continued 4 (A-395, ADR-0026 Amendments): B12 continued 4 built the seeded farm's reporting slice (A-392: two investors' portal logins, a posted CST run, an exception item of every kind on the seed's day), closed the exception report's coverage of abuse cases 1 to 73 (22, 39 and 46 named; 38 and 52 prevented), made the checkout holding threshold the Owner's audited setting (the owner, 2026-11-24, ADR-0104, A-394) and seeded CR-062's report grants (A-393: `rpt.report.read` and `rpt.report.export` for the Owner, the Manager and the Accountant; `rpt.report.export.bulk` the Owner's). Gate: runReport answers every report code listReportDefinitions lists, each in its contract example's columns, and exports it as PDF and XLSX (the statements and the exception report among them); the owner dashboard answers within NFR-023 from the `hk_report` connection with `alerts` and `exceptionsToday` no longer pending; the public API's keys and signed webhooks pass their abuse tests. If the phase cannot reach that gate it splits again at the first boundary its context will not reach (the reports, exports and dashboard, then API), after a merged green gate.
+Branch `b12f-f10o-approver-receipt-sms`, from `main`. Report `docs/sessions/B12f-f10o-approver-receipt-sms.md`. Inserted by the parent session on the owner's decisions of 2026-11-24, from the frontend's F10o, as one small phase before B12 continued 5 (A-396, ADR-0026 Amendments). It reads B12 continued 4's report; B12 continued 5 then reads B12f's. Gate: an approved quote version names its approver in `QuoteVersion.approvedBy` and every other version answers null, never on the buyer's views, and the approver's `issueQuoteVersion` is still refused while another person's succeeds; a till sale with the buyer's phone and a live till link gets exactly one receipt text, a replayed sync or a redelivered event never a second, a sale with no phone none and a sale with no till link `NO_LINK`; a live counter sale gets one too if its till makes a receipt link, and if it does not (ADR-0083), it sends none and the report says why, with POS unchanged. One small phase, no split planned.
 
 ```text
 Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
 List docs/sessions/ and read only the most recent report (docs/sessions/B12c4-rpt-reports-api.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the QUO, NTF and POS requirement blocks of docs/SRS.md that these items touch (nothing else from
+the SRS), docs/data-model/quo.md and ntf.md, ADR-0074, ADR-0083, ADR-0084, ADR-0096 and ADR-0097, and A-349 and A-376
+in docs/ASSUMPTIONS.md. Load hakorem-endpoint, hakorem-offline, hakorem-security-review and hakorem-tests.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B12f only, on branch b12f-f10o-approver-receipt-sms from main, test-first, in this order. The owner,
+2026-11-24, from the frontend's F10o (A-396), verbatim:
+"Quote versions: say who approved each version, so the console can hide 'Issue and send' from the approver instead of
+letting them be refused." and "Till receipts: send the receipt link by SMS to the customer's phone, using the messaging
+built in B11. The link is the shop's address followed by /r/{token}, with the shop's address from configuration, never
+hard-coded." The owner then chose: every till sale where the buyer gave a phone number gets the receipt text, online or
+offline. This amends A-349 (c), which sent it only for a sale synced after the till was offline.
+1. QUO: `QuoteVersion.approvedBy` (PrincipalRef or null: null unless the version went through approval and was
+   approved), read from the approval decision already recorded, never stored twice; additive, optional to clients and
+   LOUD as a new field on an existing answer. Only callers who may already read the quote version see it, never the
+   buyer's views (`viewQuoteByLink`, `listMyQuotes`). The rule is unchanged and stays tested: `issueQuoteVersion` by
+   the approver is refused (`APPROVER_CANNOT_ISSUE`), by another person it issues.
+2. NTF: the receipt text for every counter sale a till made, live or synced, where the sale carries the buyer's phone,
+   once, to that number read at send. Keep everything A-349 and ADR-0084 built: the link made at send by POS's
+   `issueMessageLinkIn`, bound to the sale's till link, `RECEIPT_LINK_BASE_URL` + `/r/` + token, never hard-coded and
+   never stored; a sale with no till link gets no text (`NO_LINK`, BL-118 unchanged); transactional (A-376: a marketing
+   opt-out never stops it), but the hourly limit does; a replayed sync or a duplicate event sends one text, never two.
+   Check first whether a live sale's till makes a receipt link (ADR-0083); if it does not, a live sale sends nothing
+   and the report records why, rather than changing POS. POS, IAM and PAY change only additively; an existing POS
+   function, constraint or answer changes only with the parent session's leave.
+Stop at the gate and write docs/sessions/B12f-f10o-approver-receipt-sms.md.
+```
+
+## B12 continued 5 — Reports, exports, the dashboard and the public API
+
+Branch `b12c5-rpt-reports-api`, from `main`. Report `docs/sessions/B12c5-rpt-reports-api.md`. Inserted by B12 continued 4 (A-395, ADR-0026 Amendments): B12 continued 4 built the seeded farm's reporting slice (A-392: two investors' portal logins, a posted CST run, an exception item of every kind on the seed's day), closed the exception report's coverage of abuse cases 1 to 73 (22, 39 and 46 named; 38 and 52 prevented), made the checkout holding threshold the Owner's audited setting (the owner, 2026-11-24, ADR-0104, A-394) and seeded CR-062's report grants (A-393: `rpt.report.read` and `rpt.report.export` for the Owner, the Manager and the Accountant; `rpt.report.export.bulk` the Owner's). Gate: runReport answers every report code listReportDefinitions lists, each in its contract example's columns, and exports it as PDF and XLSX (the statements and the exception report among them); the owner dashboard answers within NFR-023 from the `hk_report` connection with `alerts` and `exceptionsToday` no longer pending; the public API's keys and signed webhooks pass their abuse tests. If the phase cannot reach that gate it splits again at the first boundary its context will not reach (the reports, exports and dashboard, then API), after a merged green gate. B12f, inserted before it on the owner's decisions of 2026-11-24 (A-396), runs first, so B12 continued 5 reads B12f's report.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B12f-f10o-approver-receipt-sms.md).
 Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
 reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
 For this phase, read the RPT and API requirement blocks of docs/SRS.md (nothing else from the SRS),
