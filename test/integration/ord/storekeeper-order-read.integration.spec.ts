@@ -21,7 +21,7 @@ const one = async (sql: string, values: unknown[] = []) => (await admin().query(
 const view = (who: string, orderId: string) => consoleGet(api.server, sessions.get(who)!, `/v1/orders/${orderId}/fulfilment-view`);
 let orderId: string;
 
-const ORDER_KEYS = ['branchId', 'channel', 'contactName', 'contactPhone', 'customer', 'delivery', 'deliveryAddress', 'fulfilmentMode', 'fulfilments', 'id', 'lines', 'notes', 'orderNo', 'placedAt', 'status'];
+const ORDER_KEYS = ['branchId', 'channel', 'contactName', 'contactPhone', 'customer', 'delivery', 'deliveryAddress', 'fulfilmentMode', 'fulfilments', 'id', 'lines', 'notes', 'orderNo', 'pendingConsent', 'placedAt', 'status'];
 const LINE_KEYS = ['estimatedWeightKg', 'fulfilledWeightKg', 'id', 'lineNo', 'lineStatus', 'product', 'qtyBackordered', 'qtyFulfilled', 'qtyOrdered', 'stockUnit', 'tolerancePercent', 'uom', 'weightSource'];
 /** Every key anywhere in an answer, nested, so a money or credit field cannot hide inside an object. */
 const keysOf = (value: unknown): string[] =>

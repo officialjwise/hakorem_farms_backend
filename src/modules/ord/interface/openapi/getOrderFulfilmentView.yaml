@@ -2,7 +2,7 @@ operationId: getOrderFulfilmentView
 tags:
   - ord
 summary: "Get an order as the store reads it"
-description: "2.29.0 (the owner, 2026-11-23, A-335, A-344): the order's lines, quantities and delivery details for the Storekeeper who picks and packs it, and **never** a payment, a credit position, a price, a total or the credit check: its own narrower read under its own permission, not `getOrder` with fields dropped. Only at a branch the caller holds the permission for, branch-wide: an order at another branch answers 404, as an unknown id does. The Storekeeper still cannot call `getOrder`.\n\nPermission: `ord.order.read.fulfilment`."
+description: "2.29.0 (the owner, 2026-11-23, A-335, A-344): the order's lines, quantities and delivery details for the Storekeeper who picks and packs it, and **never** a payment, a credit position, a price, a total or the credit check: its own narrower read under its own permission, not `getOrder` with fields dropped. Only at a branch the caller holds the permission for, branch-wide: an order at another branch answers 404, as an unknown id does. The Storekeeper still cannot call `getOrder`. **2.52.0 (CR-064):** `pendingConsent` says what the order waits for its customer to answer (kind, line and proposal, never a total), so the Storekeeper who proposed a short pick sees what was asked.\n\nPermission: `ord.order.read.fulfilment`."
 x-permission: ord.order.read.fulfilment
 parameters:
   - name: id
@@ -50,6 +50,7 @@ responses:
             - id: "019a7af0-2c11-7e05-8f6a-0b5c3d9e1a77"
               docType: FULFILMENT
               number: PCK-2026-DDW-000412
+          pendingConsent: null
           lines:
             - id: "019a7aef-d104-74c8-b2a1-6f0e9c3b5d28"
               lineNo: 1

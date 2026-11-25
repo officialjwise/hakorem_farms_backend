@@ -81493,7 +81493,7 @@ paths:
       tags:
         - ord
       summary: "Get an order as the store reads it"
-      description: "2.29.0 (the owner, 2026-11-23, A-335, A-344): the order's lines, quantities and delivery details for the Storekeeper who picks and packs it, and **never** a payment, a credit position, a price, a total or the credit check: its own narrower read under its own permission, not `getOrder` with fields dropped. Only at a branch the caller holds the permission for, branch-wide: an order at another branch answers 404, as an unknown id does. The Storekeeper still cannot call `getOrder`.\n\nPermission: `ord.order.read.fulfilment`."
+      description: "2.29.0 (the owner, 2026-11-23, A-335, A-344): the order's lines, quantities and delivery details for the Storekeeper who picks and packs it, and **never** a payment, a credit position, a price, a total or the credit check: its own narrower read under its own permission, not `getOrder` with fields dropped. Only at a branch the caller holds the permission for, branch-wide: an order at another branch answers 404, as an unknown id does. The Storekeeper still cannot call `getOrder`. **2.52.0 (CR-064):** `pendingConsent` says what the order waits for its customer to answer (kind, line and proposal, never a total), so the Storekeeper who proposed a short pick sees what was asked.\n\nPermission: `ord.order.read.fulfilment`."
       x-permission: ord.order.read.fulfilment
       parameters:
         - name: id
@@ -81541,6 +81541,7 @@ paths:
                   - id: "019a7af0-2c11-7e05-8f6a-0b5c3d9e1a77"
                     docType: FULFILMENT
                     number: PCK-2026-DDW-000412
+                pendingConsent: null
                 lines:
                   - id: "019a7aef-d104-74c8-b2a1-6f0e9c3b5d28"
                     lineNo: 1
@@ -81576,7 +81577,10 @@ paths:
       tags:
         - ord
       summary: "Propose a smaller quantity of a line, for the customer to agree"
-      description: "A smaller quantity of an open line of a `PICKING` order (CR-054 point 2), in the line's own unit, at least nothing and less than it ordered (422 `FULFILMENT_INVALID` `SHORT_NOT_LESS`; inexact in the base unit `INEXACT_QUANTITY`). A catch-weight line goes by its weight instead (`CATCH_WEIGHT_GOES_BY_WEIGHT`: below its tolerance it packs at the lower total). The order moves to `AWAITING_CUSTOMER` and `ord.CustomerConsentRequested` goes through the outbox; the pick list packs the line at that quantity only once the customer agrees (`recordCustomerConsent` `SHORT_PICK`), and a refusal cancels the line. One question waits at a time (`CONSENT_PENDING`).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
+      description: "A smaller quantity of an open line of a `PICKING` order (CR-054 point 2), in the line's own unit, at least nothing and less than it ordered (422 `FULFILMENT_INVALID` `SHORT_NOT_LESS`; inexact in the base unit `INEXACT_QUANTITY`). A catch-weight line goes by its weight instead (`CATCH_WEIGHT_GOES_BY_WEIGHT`: below its tolerance it packs at the lower total). The order moves to `AWAITING_CUSTOMER` and `ord.CustomerConsentRequested` goes through the outbox; the pick list packs the line at that quantity only once the customer agrees (`recordCustomerConsent` `SHORT_PICK`), and a refusal cancels the line. One question waits at a time (`CONSENT_PENDING`). An order not `PICKING` is 422 `INVALID_STATE_TRANSITION`; a line not on the order or not open, `LINE_NOT_ON_ORDER` or `LINE_NOT_OPEN`. The Storekeeper reads the question back on `getOrderFulfilmentView` (`pendingConsent`, 2.52.0, CR-064).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
+      x-error-codes:
+        - FULFILMENT_INVALID
+        - INVALID_STATE_TRANSITION
       x-permission: ord.fulfilment.pick
       parameters:
         - name: id
@@ -98682,6 +98686,11 @@ components:
           description: "The order's pick lists (`FULFILMENT`, `PCK-...`), oldest first, cancelled ones too."
           items:
             $ref: "#/components/schemas/DocumentRef"
+        pendingConsent:
+          anyOf:
+            - $ref: "#/components/schemas/FulfilmentPendingConsent"
+            - type: "null"
+          description: "2.52.0 (CR-064): what the order waits for its customer to answer while it is `AWAITING_CUSTOMER`, as `SalesOrder.pendingConsent` with no money; null otherwise. Always sent."
         lines:
           type: array
           items:
@@ -98702,6 +98711,52 @@ components:
         - placedAt
         - fulfilments
         - lines
+    FulfilmentPendingConsent:
+      type: object
+      description: "What an order waits for its customer to answer, as the store reads it (2.52.0, CR-064): `OrderPendingConsent`'s kind, line and proposal, and never its totals. Answered with `recordCustomerConsent` by someone other than the person who asked."
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - HIGHER_TOTAL
+            - SUBSTITUTION
+            - SHORT_PICK
+        lineId:
+          type: string
+          format: uuid
+          description: "The order line asked about."
+        proposed:
+          anyOf:
+            - type: object
+              properties:
+                productId:
+                  type: string
+                  format: uuid
+                productName:
+                  type: string
+                quantity:
+                  $ref: "#/components/schemas/Quantity"
+                uom:
+                  type: string
+              required:
+                - productId
+                - productName
+                - quantity
+                - uom
+            - type: "null"
+          description: "The substitute, or the line's own product at the smaller quantity, in the line's unit; null for a higher total."
+        askedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - kind
+        - lineId
+        - proposed
+        - askedAt
     OrderFulfilmentViewLine:
       type: object
       description: "A line as the store reads it (2.29.0): what to pick and what was picked, in the line's own unit, never a price."

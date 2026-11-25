@@ -22132,6 +22132,11 @@ components:
           description: "The order's pick lists (`FULFILMENT`, `PCK-...`), oldest first, cancelled ones too."
           items:
             $ref: "#/components/schemas/DocumentRef"
+        pendingConsent:
+          anyOf:
+            - $ref: "#/components/schemas/FulfilmentPendingConsent"
+            - type: "null"
+          description: "2.52.0 (CR-064): what the order waits for its customer to answer while it is `AWAITING_CUSTOMER`, as `SalesOrder.pendingConsent` with no money; null otherwise. Always sent."
         lines:
           type: array
           items:
@@ -22152,6 +22157,52 @@ components:
         - placedAt
         - fulfilments
         - lines
+    FulfilmentPendingConsent:
+      type: object
+      description: "What an order waits for its customer to answer, as the store reads it (2.52.0, CR-064): `OrderPendingConsent`'s kind, line and proposal, and never its totals. Answered with `recordCustomerConsent` by someone other than the person who asked."
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - HIGHER_TOTAL
+            - SUBSTITUTION
+            - SHORT_PICK
+        lineId:
+          type: string
+          format: uuid
+          description: "The order line asked about."
+        proposed:
+          anyOf:
+            - type: object
+              properties:
+                productId:
+                  type: string
+                  format: uuid
+                productName:
+                  type: string
+                quantity:
+                  $ref: "#/components/schemas/Quantity"
+                uom:
+                  type: string
+              required:
+                - productId
+                - productName
+                - quantity
+                - uom
+            - type: "null"
+          description: "The substitute, or the line's own product at the smaller quantity, in the line's unit; null for a higher total."
+        askedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - kind
+        - lineId
+        - proposed
+        - askedAt
     OrderFulfilmentViewLine:
       type: object
       description: "A line as the store reads it (2.29.0): what to pick and what was picked, in the line's own unit, never a price."

@@ -2,7 +2,10 @@ operationId: proposeShortPick
 tags:
   - ord
 summary: "Propose a smaller quantity of a line, for the customer to agree"
-description: "A smaller quantity of an open line of a `PICKING` order (CR-054 point 2), in the line's own unit, at least nothing and less than it ordered (422 `FULFILMENT_INVALID` `SHORT_NOT_LESS`; inexact in the base unit `INEXACT_QUANTITY`). A catch-weight line goes by its weight instead (`CATCH_WEIGHT_GOES_BY_WEIGHT`: below its tolerance it packs at the lower total). The order moves to `AWAITING_CUSTOMER` and `ord.CustomerConsentRequested` goes through the outbox; the pick list packs the line at that quantity only once the customer agrees (`recordCustomerConsent` `SHORT_PICK`), and a refusal cancels the line. One question waits at a time (`CONSENT_PENDING`).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
+description: "A smaller quantity of an open line of a `PICKING` order (CR-054 point 2), in the line's own unit, at least nothing and less than it ordered (422 `FULFILMENT_INVALID` `SHORT_NOT_LESS`; inexact in the base unit `INEXACT_QUANTITY`). A catch-weight line goes by its weight instead (`CATCH_WEIGHT_GOES_BY_WEIGHT`: below its tolerance it packs at the lower total). The order moves to `AWAITING_CUSTOMER` and `ord.CustomerConsentRequested` goes through the outbox; the pick list packs the line at that quantity only once the customer agrees (`recordCustomerConsent` `SHORT_PICK`), and a refusal cancels the line. One question waits at a time (`CONSENT_PENDING`). An order not `PICKING` is 422 `INVALID_STATE_TRANSITION`; a line not on the order or not open, `LINE_NOT_ON_ORDER` or `LINE_NOT_OPEN`. The Storekeeper reads the question back on `getOrderFulfilmentView` (`pendingConsent`, 2.52.0, CR-064).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
+x-error-codes:
+  - FULFILMENT_INVALID
+  - INVALID_STATE_TRANSITION
 x-permission: ord.fulfilment.pick
 parameters:
   - name: id
