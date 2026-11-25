@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { breakFromView, classify, CLASSIFIED_EVENT_TYPES, OWNER_RETENTION_PERCENT, withoutPersonalData, type SourceEvent } from './classify';
+import { breakFromView, classify, CLASSIFIED_EVENT_TYPES, OWNER_RETENTION_PERCENT, unlinkedTillReceipt, withoutPersonalData, type SourceEvent } from './classify';
 import { EXCEPTION_KINDS, INVESTOR_ITEM_PERMISSION, SEVERITY_ORDER } from './exception-kinds';
 import { approvalPairs, countRates, percent, plainCounts, valueRates } from './rates';
 import { auditFinding, orderSplitting, stockException, verificationFailure } from './sweep';
@@ -329,6 +329,21 @@ describe('classify: every event the projector reads raises its kind with abuse c
   it('NTF: a rate-limited message REVIEW, any other INFO; a refused report without its source address', () => {
     expect(classify(event('ntf.MessageSuppressed', { ...FULL['ntf.MessageSuppressed'], reason: 'NO_LINK' }))[0]!.severity).toBe('INFO');
     expect(classify(event('ntf.DeliveryReportRejected', FULL['ntf.DeliveryReportRejected']!))[0]!.details['sourceIp']).toBeUndefined();
+  });
+
+  it("NTF: a till sale's receipt held back for want of a link is counted, never its own item (the owner, 2026-11-25)", () => {
+    const unlinked = event('ntf.MessageSuppressed', { ...FULL['ntf.MessageSuppressed'], templateCode: 'SALE_RECEIPT', reason: 'NO_LINK', abuseCases: [60] });
+    expect(classify(unlinked)).toEqual([]);
+    expect(unlinkedTillReceipt(unlinked)).toEqual({ salesOrderId: DOC, branchId: BRANCH });
+    expect(unlinkedTillReceipt(event('ntf.MessageSuppressed', { ...FULL['ntf.MessageSuppressed'], templateCode: 'SALE_RECEIPT', reason: 'NO_LINK' }, { branchId: null }))).toBeNull();
+    expect(unlinkedTillReceipt(event('ntf.MessageSuppressed', { ...FULL['ntf.MessageSuppressed'], templateCode: 'SALE_RECEIPT', reason: 'NO_LINK', salesOrderId: null }))).toBeNull();
+    // Every other message held back stays its own item: a rate-limited receipt, a cart reminder with no link.
+    for (const other of [{ templateCode: 'SALE_RECEIPT', reason: 'RATE_LIMITED' }, { templateCode: 'CART_REMINDER', reason: 'NO_LINK' }]) {
+      const e = event('ntf.MessageSuppressed', { ...FULL['ntf.MessageSuppressed'], ...other });
+      expect(unlinkedTillReceipt(e)).toBeNull();
+      expect(classify(e)).toEqual([expect.objectContaining({ kind: 'MESSAGE_SUPPRESSED', sourceKind: other.reason })]);
+    }
+    expect(unlinkedTillReceipt(event('ntf.MessageFailed', { ...FULL['ntf.MessageSuppressed'], templateCode: 'SALE_RECEIPT', reason: 'NO_LINK' }))).toBeNull();
   });
 
   it('IAM: a grant to oneself is marked, a revocation named, a role change counted (case 16)', () => {

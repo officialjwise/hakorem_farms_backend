@@ -2,7 +2,7 @@ operationId: getDailyExceptionReport
 tags:
   - rpt
 summary: "The daily exception report"
-description: "FR-RPT-007, FR-RPT-008, ADR-0026, ADR-0103 (2.48.0). Every abuse case in the threat model is either blocked or appears here with enough detail to act on (B13 proves each one): for one Africa/Accra day and one branch, or every branch the caller reads in full, every exception item urgent first, each with its kind, the abuse cases it helps detect, the person it names, its amount and its subject document; the counts by kind; the detection rates (a cashier's voids over their completed counter sales; a shift's over or short over its expected cash; a driver's hand-in variance over what they were expected to hand in; the other tables count and total, with no rate); and who approved whom, with how often. Items come from the outbox as each event is delivered, and from the sweep of the records that raise items without an event (the audit trail's refusals and exports, the audit verification, the stock exception queue, the reconciliation breaks, order splitting), every quarter hour. An item about the investor books is shown only to a caller who also holds `cap.capital.read` at its branch. Another branch, real or made up, 403.\n\nPermission: `rpt.exceptions.read`."
+description: "FR-RPT-007, FR-RPT-008, ADR-0026, ADR-0103 (2.48.0). Every abuse case in the threat model is either blocked or appears here with enough detail to act on (B13 proves each one): for one Africa/Accra day and one branch, or every branch the caller reads in full, every exception item urgent first, each with its kind, the abuse cases it helps detect, the person it names, its amount and its subject document; the counts by kind; the detection rates (a cashier's voids over their completed counter sales; a shift's over or short over its expected cash; a driver's hand-in variance over what they were expected to hand in; the other tables count and total, with no rate); and who approved whom, with how often. **Counted, not listed (2.52.0, the owner, 2026-11-25, A-400):** a till sale whose till sent no receipt token, so its receipt text was held back (`NO_LINK`, abuse case 60), is no longer an item: `countLines` gives one line per branch and day (`TILL_SALES_WITHOUT_RECEIPT_TOKEN`). A token sent but refused stays its own item (`RECEIPT_TOKEN_REFUSED`, abuse case 37), with its cashier, sale and reason, and is not counted. Items come from the outbox as each event is delivered, and from the sweep of the records that raise items without an event (the audit trail's refusals and exports, the audit verification, the stock exception queue, the reconciliation breaks, order splitting), every quarter hour. An item about the investor books is shown only to a caller who also holds `cap.capital.read` at its branch. Another branch, real or made up, 403.\n\nPermission: `rpt.exceptions.read`."
 x-permission: rpt.exceptions.read
 parameters:
   - name: date
@@ -61,6 +61,13 @@ responses:
             - kind: SHIFT_OVER_SHORT
               count: 1
               amountPesewas: 12000
+          countLines:
+            - code: TILL_SALES_WITHOUT_RECEIPT_TOKEN
+              branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+              count: 5
+              abuseCases:
+                - 60
+              summary: "5 till sales sent no receipt token"
           items:
             - id: "019a7b12-3c4f-75ec-9b24-679b7a4ee079"
               exceptionDate: "2026-11-13"

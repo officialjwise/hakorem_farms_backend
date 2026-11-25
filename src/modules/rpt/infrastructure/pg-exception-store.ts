@@ -166,6 +166,22 @@ export class PgExceptionStore implements ExceptionStore {
     await tx.query('SELECT rpt.put_payout_change($1, $2, $3, $4, $5, $6, $7)', [c.eventId, c.partyKind, c.partyId, c.changeId, c.at, c.requestedBy, c.approvedBy]);
   }
 
+  async putUnlinkedReceipt(tx: Transaction, f: { readonly messageId: string; readonly eventId: string; readonly salesOrderId: string; readonly branchId: string; readonly date: string; readonly at: Date }): Promise<void> {
+    await tx.query('SELECT rpt.put_unlinked_receipt_fact($1, $2, $3, $4, $5::date, $6)', [f.messageId, f.eventId, f.salesOrderId, f.branchId, f.date, f.at]);
+  }
+
+  async unlinkedTillSalesOn(tx: Transaction, date: string, branchIds: readonly string[]): Promise<{ readonly branchId: string; readonly count: number }[]> {
+    const { rows } = await tx.query<{ branch_id: string; n: number }>(
+      `SELECT f.branch_id, count(DISTINCT f.sales_order_ref)::int AS n
+         FROM rpt.unlinked_receipt_fact f
+        WHERE f.fact_date = $1::date AND f.branch_id = ANY($2::uuid[])
+          AND NOT EXISTS (SELECT 1 FROM rpt.exception_item i WHERE i.kind = 'RECEIPT_TOKEN_REFUSED' AND i.subject_document_ref = f.sales_order_ref)
+        GROUP BY f.branch_id ORDER BY f.branch_id`,
+      [date, [...branchIds]],
+    );
+    return rows.map((r) => ({ branchId: r.branch_id, count: r.n }));
+  }
+
   async payoutChangesWithin(tx: Transaction, partyKind: 'SUPPLIER' | 'INVESTOR', partyId: string, from: Date, to: Date): Promise<PayoutChangeRecord[]> {
     const { rows } = await tx.query<{ change_ref: string; changed_at: Date; requested_by: string | null; approved_by: string | null }>(
       `SELECT change_ref, changed_at, requested_by, approved_by FROM rpt.payout_change_fact

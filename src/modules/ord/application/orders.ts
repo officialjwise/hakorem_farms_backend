@@ -258,6 +258,8 @@ export interface OrderFulfilmentView {
   readonly notes: string | null;
   readonly placedAt: string;
   readonly fulfilments: SalesOrderView['fulfilments'];
+  /** What the order waits for its customer to answer, with no money (CR-064): kind, line and what is proposed. */
+  readonly pendingConsent: { readonly id: string; readonly kind: NonNullable<SalesOrderView['pendingConsent']>['kind']; readonly lineId: string; readonly proposed: NonNullable<SalesOrderView['pendingConsent']>['proposed']; readonly askedAt: string } | null;
   readonly lines: readonly OrderFulfilmentViewLine[];
 }
 
@@ -278,6 +280,16 @@ export function fulfilmentViewOf(o: SalesOrderView): OrderFulfilmentView {
     notes: o.notes,
     placedAt: o.placedAt,
     fulfilments: o.fulfilments.map((f) => ({ id: f.id, docType: f.docType, number: f.number })),
+    pendingConsent:
+      o.pendingConsent === null
+        ? null
+        : {
+            id: o.pendingConsent.id,
+            kind: o.pendingConsent.kind,
+            lineId: o.pendingConsent.lineId,
+            proposed: o.pendingConsent.proposed === null ? null : { productId: o.pendingConsent.proposed.productId, productName: o.pendingConsent.proposed.productName, quantity: o.pendingConsent.proposed.quantity, uom: o.pendingConsent.proposed.uom },
+            askedAt: o.pendingConsent.askedAt,
+          },
     lines: o.lines.map((l) => ({
       id: l.id,
       lineNo: l.lineNo,

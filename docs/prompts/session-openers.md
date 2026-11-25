@@ -124,7 +124,8 @@ Each opener follows the pattern B0 set in `docs/sessions/B00-architecture.md` ("
 | B12 continued 4 | `B12c4-rpt-reports-api.md` | `b12c4-rpt-reports-api` | B4 to B12 | `pnpm db:seed` gives two investors a portal login with no usable password, a posted CST run and an exception item of every kind on the seed's day; every abuse case 1 to 73 is on a kind or stated prevented; the checkout holding threshold is the Owner's audited setting (passed; split after them, A-395) |
 | B12f | `B12f-f10o-approver-receipt-sms.md` | `b12f-f10o-approver-receipt-sms` | B4 to B12 | An approved quote version names its approver (`QuoteVersion.approvedBy`), every other version null, never on the buyer's views, the approver's issue still refused; a till sale with the buyer's phone and a till link gets one receipt text, never two, none without a phone, `NO_LINK` without a till link; a live sale whose till makes no link sends none, the reason recorded (inserted by the parent session on the owner's decisions of 2026-11-24, from the frontend's F10o) |
 | B12 continued 5 | `B12c5-rpt-reports-api.md` | `b12c5-rpt-reports-api` | B4 to B12 | Split after BL-133 (A-399): a live counter sale's till makes its receipt link, so a live sale with the buyer's phone and its till's token gets one receipt text, none without a phone, `NO_LINK` without a token, a replay one, a synced sale one; a refused token never refuses the sale |
-| B12 continued 6 | `B12c6-rpt-reports-api.md` | `b12c6-rpt-reports-api` | B4 to B12 | runReport answers every listed code in its contract example's columns and exports it as PDF and XLSX, the statements and the exception report among them; the owner dashboard answers within NFR-023 from the hk_report connection; the public API's keys and signed webhooks pass their abuse tests (inserted by B12 continued 5, A-399) |
+| B12 continued 6 | `B12c6-rpt-reports-api.md` | `b12c6-rpt-reports-api` | B4 to B12 | Split after the owner's decision and CR-064 (A-401): five live till sales without a receipt token and one with a refused token show one count line of 5 for the branch and day (case 60) and one `RECEIPT_TOKEN_REFUSED` item, every seeded kind still present; the store's read of an order says what the customer is asked, with no money (CR-064) |
+| B12 continued 7 | `B12c7-rpt-reports-api.md` | `b12c7-rpt-reports-api` | B4 to B12 | runReport answers every listed code in its contract example's columns and exports it as PDF and XLSX, the statements and the exception report among them; the owner dashboard answers within NFR-023 from the hk_report connection; the public API's keys and signed webhooks pass their abuse tests (inserted by B12 continued 6, A-401) |
 | B09r | `B09r-reconciliation-real-files.md` | `b09r-reconciliation-real-files` | B4 to B12 | Settlements read from Paystack's Settlements API and the bank parser written against the bank's real export; every matching rule names its source file; no real file committed; runs when both files exist, before B13 at the latest |
 | B13 | `B13-hardening-deploy.md` | `b13-hardening-deploy` | B13 — Hardening, smoke suite and deploy | Every non-functional target met and evidenced on the live server |
 
@@ -4889,6 +4890,8 @@ Stop at the gate and write docs/sessions/B12c5-rpt-reports-api.md.
 
 ## B12 continued 6 — Reports, exports, the dashboard and the public API
 
+**Split by B12 continued 6 itself (A-401):** it built the owner's decision of 2026-11-25 on the 'no link' receipt items ("Count them, list only refusals": a till sale that sent no receipt token is counted, one line per branch and day, `countLines`, migration 0378, A-400) and CR-064 (the store's read of an order says what the customer is asked), confirmed BL-108 already built in B12 continued 3, and moved the rest, unchanged, to B12 continued 7 below. The opener is kept as it ran.
+
 Branch `b12c6-rpt-reports-api`, from `main`. Report `docs/sessions/B12c6-rpt-reports-api.md`. Inserted by B12 continued 5 (A-399, ADR-0026 Amendments): B12 continued 5 built BL-133 to its gate (a live counter sale's till makes its receipt link, so the receipt text goes for every till sale where the buyer gave a phone number, online or offline: `CounterSale.receiptToken`, migration 0377, `pos.CounterSaleFlagged`, NTF's `SALE_RECEIPT` for every till sale, ADR-0083 and ADR-0084 Amendments, A-398) and moved the rest of its scope here unchanged. Gate: runReport answers every report code listReportDefinitions lists, each in its contract example's columns, and exports it as PDF and XLSX (the statements and the exception report among them); the owner dashboard answers within NFR-023 from the `hk_report` connection with `alerts` and `exceptionsToday` no longer pending; the public API's keys and signed webhooks pass their abuse tests. If the phase cannot reach that gate it splits again at the first boundary its context will not reach (the reports, exports and dashboard, then API), after a merged green gate.
 
 ```text
@@ -4928,6 +4931,49 @@ existing function). Extend farm-rpt.ts with a seeded report run and schedule. Ne
 2. API: the public API with keys (hashed, scoped, revocable, rate-limited) and webhooks (signed, replay-safe, retried
    through the outbox).
 Stop at the gate and write docs/sessions/B12c6-rpt-reports-api.md.
+```
+
+## B12 continued 7 — Reports, exports, the dashboard and the public API
+
+Branch `b12c7-rpt-reports-api`, from `main`. Report `docs/sessions/B12c7-rpt-reports-api.md`. Inserted by B12 continued 6 (A-401, ADR-0026 Amendments): B12 continued 6 built the owner's decision of 2026-11-25 on the 'no link' receipt items ("Count them, list only refusals": `DailyExceptionReport.countLines`, `TILL_SALES_WITHOUT_RECEIPT_TOKEN`, migration 0378, A-400) and CR-064 (`OrderFulfilmentView.pendingConsent`), found BL-108's mobile money half already built in B12 continued 3 (ADR-0103, case 73) and marked it done, and moved the rest of its scope here unchanged. Gate: runReport answers every report code listReportDefinitions lists, each in its contract example's columns, and exports it as PDF and XLSX (the statements and the exception report among them); the owner dashboard answers within NFR-023 from the `hk_report` connection with `alerts` and `exceptionsToday` no longer pending; the public API's keys and signed webhooks pass their abuse tests. If the phase cannot reach that gate it splits again at the first boundary its context will not reach, after a merged green gate: (a) report definitions, schedules and runs with runReport for the listed codes and their exports; (b) the egg reports, the VAT return, the four statement and exception exports, the reporting facts and FR-RPT-010, and the dashboard's move; (c) the public API. Six phases in a row have built the small items first and split before the reports: start with the reports.
+
+```text
+Read CLAUDE.md, docs/SHARED_BRIEF.md and the B4 to B12 section of docs/BUILD_PROMPT.md.
+List docs/sessions/ and read only the most recent report (docs/sessions/B12c6-rpt-reports-api.md).
+Read ../frontend/docs/CONTRACT_REQUESTS.md as committed on the frontend's main (CLAUDE.md): implement what is
+reasonable, record in the report what you declined and why, never edit that file and never open frontend source.
+For this phase, read the RPT and API requirement blocks of docs/SRS.md (nothing else from the SRS),
+docs/data-model/rpt.md and api.md, the RPT and API cards in docs/MODULE_BOUNDARIES.md, ADR-0023, ADR-0103, ADR-0104
+and ADR-0026, and section 4 of docs/security/THREAT_MODEL.md (cases 9 and 73, and the rows 75 to 79 this phase may add).
+Use docs/prompts/module-build-prompt.md as the recipe.
+Do not read any other document unless this phase needs it.
+
+Confirm in three lines: the phase, its scope, and its gate.
+Then execute B12 continued 7 only, on branch b12c7-rpt-reports-api, in this order (CAP was finished in B12 continued,
+ADR-0101, CST in B12 continued 2, ADR-0102, the daily exception report in B12 continued 3, ADR-0103, the seed and
+the exception rules setting in B12 continued 4, ADR-0104, BL-133 in B12 continued 5, and the count of till sales
+without a receipt token in B12 continued 6, A-400: never change their answers; a new exception source is a classifier
+entry and its test, and a new seeded item goes through farm-rpt.ts):
+1. RPT: report definitions and schedules (`rpt.report_definition`, `rpt.report_schedule`, `rpt.report_run`), with the
+   reporting facts each report reads (`docs/data-model/rpt.md`) and FR-RPT-010's nightly comparison of their key totals
+   (`rpt.ProjectionDriftDetected`). runReport must implement every report code listReportDefinitions lists,
+   SALES_SUMMARY and PURCHASES included (CR-018), each matching its contract example's columns; every export audited
+   with its row count (a bulk export needs `rpt.report.export.bulk` with step-up and lands on the exception report as
+   BULK_EXPORT, which B12 continued 3 already reads from the audit trail). The permissions and their grants exist
+   (migrations 0374 and 0375, A-393): decide in the application which reports the Accountant runs (the financial ones).
+The owner dashboard was pulled forward to B05x (A-149): keep getOwnerDashboard's shape, add its caching and the
+NFR-023 performance budget, move its reads onto the hk_report connection, and remove `alerts` and
+`exceptionsToday` from RPT's PENDING_FIGURES (the daily exception report answers them now: B12 continued 3).
+The owner, 2026-11-23 (from the frontend's F12 and F10n): build CR-060 to CR-062. Every margin is over the selling
+price, (price less cost) over price, and anything over cost is markup and named markup (the owner, 2026-11-23),
+CR-060's margin per crate included. Add the egg report codes (CR-060), the VAT return (CR-061, tied to the ledger's tax
+accounts to the pesewa), and the statement and exception report exports (CR-062: PROFIT_AND_LOSS, BALANCE_SHEET,
+TRIAL_BALANCE and DAILY_EXCEPTIONS, their figures the operations' own; DAILY_EXCEPTIONS carries the report's count
+lines as well as its items). Extend farm-rpt.ts with a seeded report run and schedule. Never seed a password, token
+or key.
+2. API: the public API with keys (hashed, scoped, revocable, rate-limited) and webhooks (signed, replay-safe, retried
+   through the outbox).
+Stop at the gate and write docs/sessions/B12c7-rpt-reports-api.md.
 ```
 
 ## B09r — The reconciliation rules rewritten against the real files

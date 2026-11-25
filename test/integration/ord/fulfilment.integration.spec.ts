@@ -206,6 +206,9 @@ describe('a catch-weight order re-prices at pick and waits for consent beyond it
     const order = (await get('manager', `/orders/${orderId}`)).body;
     expect(order.status).toBe('AWAITING_CUSTOMER');
     expect(order.pendingConsent).toMatchObject({ kind: 'HIGHER_TOTAL', lineId, proposed: null, proposedTotalPesewas: null, weighedTotalPesewas: 109_242 });
+    // The store's own read says what the customer is asked, with no money (CR-064).
+    const store = (await get('storekeeper', `/orders/${orderId}/fulfilment-view`)).body;
+    expect(store.pendingConsent).toEqual({ id: order.pendingConsent.id, kind: 'HIGHER_TOTAL', lineId, proposed: null, askedAt: order.pendingConsent.askedAt });
     expect(await outbox('ord.CustomerConsentRequested', orderId)).toBe(1);
     const packed = await post('storekeeper', `/fulfilments/${fulfilmentId}/pack`, { packageCount: 2 });
     expect(packed.status).toBe(422);
@@ -307,11 +310,17 @@ describe('a short pick only with the customer’s agreement (CR-054 point 2), an
     expect(asked.body).toMatchObject({ status: 'AWAITING_CUSTOMER', pendingConsent: { kind: 'SHORT_PICK', lineId, proposed: { productId: id('EGG-0003'), quantity: '2.000', uom: 'CRATE' }, proposedTotalPesewas: null } });
     const again = await post('storekeeper', `/orders/${orderId}/short-picks`, { lineId, quantity: '1.000', note: 'Another' });
     expect(again.body.error.details).toEqual([expect.objectContaining({ code: 'CONSENT_PENDING' })]);
+    // The Storekeeper who asked sees the question on the store's read: kind, line and quantity, never an amount (CR-064).
+    const store = await get('storekeeper', `/orders/${orderId}/fulfilment-view`);
+    expect(store.status).toBe(200);
+    expect(store.body).toMatchObject({ status: 'AWAITING_CUSTOMER' });
+    expect(store.body.pendingConsent).toEqual({ id: asked.body.pendingConsent.id, kind: 'SHORT_PICK', lineId, proposed: { productId: id('EGG-0003'), productName: asked.body.pendingConsent.proposed.productName, quantity: '2.000', uom: 'CRATE' }, askedAt: asked.body.pendingConsent.askedAt });
     const mine = await consoleGet(api.server, as('customer'), `/v1/me/orders/${orderId}`);
     expect(mine.body.pendingConsent).toMatchObject({ kind: 'SHORT_PICK', proposedTotalPesewas: null });
     const answered = await consolePost(api.server, as('customer'), `/v1/me/orders/${orderId}/consent`).send({ accepted: true });
     expect(answered.status, JSON.stringify(answered.body)).toBe(200);
     expect(answered.body).toMatchObject({ status: 'PICKING', pendingConsent: null });
+    expect((await get('storekeeper', `/orders/${orderId}/fulfilment-view`)).body.pendingConsent).toBeNull();
     expect(await consents(orderId)).toEqual([{ kind: 'SHORT_PICK', status: 'ACCEPTED', method: 'CUSTOMER_ACCOUNT', weighed: null }]);
     const packed = await post('storekeeper', `/fulfilments/${fulfilmentId}/pack`, { packageCount: 1 });
     expect(packed.status, JSON.stringify(packed.body)).toBe(200);

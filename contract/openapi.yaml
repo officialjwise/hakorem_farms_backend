@@ -1,7 +1,7 @@
 openapi: "3.1.0"
 info:
   title: "HaKorem Farms Platform API"
-  version: "2.51.0"
+  version: "2.52.0"
   summary: "The only interface between the HaKorem Farms backend and its frontends."
   description: "Trading, stock, money and investor reporting for a livestock, meat and produce business in Ghana.\n\nThis contract was written by hand in backend session B1, before any endpoint exists, so the frontend can build against a mock server. From B2 the backend generates it from code and CI fails if the generated file differs from this one.\n\nConventions, which apply to every operation, are in `docs/API.md`. In brief:\n\n- Money is integer pesewas in fields named `...Pesewas`, never a float and never negative; each object that carries money also carries `currency`.\n\n- Weights are decimal strings in kilograms with three places (`...Kg`), quantities are decimal strings with three places, and every captured weight carries its `weightSource`.\n\n- Every state-changing request sends `Idempotency-Key`; cookie-authenticated ones also send `X-CSRF-Token`.\n\n- Lists use cursor pagination. Errors use one envelope that carries a `correlationId`.\n\n- Times are UTC in RFC 3339; business dates are calendar dates in Africa/Accra.\n\n- A business refusal is 422 with a stable code; an action that needs a second person returns 202 with `ApprovalPending`.\n\nChanges are versioned and recorded in `docs/CONTRACT_CHANGELOG.md`."
   contact:
@@ -74648,7 +74648,7 @@ paths:
       tags:
         - rpt
       summary: "The daily exception report"
-      description: "FR-RPT-007, FR-RPT-008, ADR-0026, ADR-0103 (2.48.0). Every abuse case in the threat model is either blocked or appears here with enough detail to act on (B13 proves each one): for one Africa/Accra day and one branch, or every branch the caller reads in full, every exception item urgent first, each with its kind, the abuse cases it helps detect, the person it names, its amount and its subject document; the counts by kind; the detection rates (a cashier's voids over their completed counter sales; a shift's over or short over its expected cash; a driver's hand-in variance over what they were expected to hand in; the other tables count and total, with no rate); and who approved whom, with how often. Items come from the outbox as each event is delivered, and from the sweep of the records that raise items without an event (the audit trail's refusals and exports, the audit verification, the stock exception queue, the reconciliation breaks, order splitting), every quarter hour. An item about the investor books is shown only to a caller who also holds `cap.capital.read` at its branch. Another branch, real or made up, 403.\n\nPermission: `rpt.exceptions.read`."
+      description: "FR-RPT-007, FR-RPT-008, ADR-0026, ADR-0103 (2.48.0). Every abuse case in the threat model is either blocked or appears here with enough detail to act on (B13 proves each one): for one Africa/Accra day and one branch, or every branch the caller reads in full, every exception item urgent first, each with its kind, the abuse cases it helps detect, the person it names, its amount and its subject document; the counts by kind; the detection rates (a cashier's voids over their completed counter sales; a shift's over or short over its expected cash; a driver's hand-in variance over what they were expected to hand in; the other tables count and total, with no rate); and who approved whom, with how often. **Counted, not listed (2.52.0, the owner, 2026-11-25, A-400):** a till sale whose till sent no receipt token, so its receipt text was held back (`NO_LINK`, abuse case 60), is no longer an item: `countLines` gives one line per branch and day (`TILL_SALES_WITHOUT_RECEIPT_TOKEN`). A token sent but refused stays its own item (`RECEIPT_TOKEN_REFUSED`, abuse case 37), with its cashier, sale and reason, and is not counted. Items come from the outbox as each event is delivered, and from the sweep of the records that raise items without an event (the audit trail's refusals and exports, the audit verification, the stock exception queue, the reconciliation breaks, order splitting), every quarter hour. An item about the investor books is shown only to a caller who also holds `cap.capital.read` at its branch. Another branch, real or made up, 403.\n\nPermission: `rpt.exceptions.read`."
       x-permission: rpt.exceptions.read
       parameters:
         - name: date
@@ -74707,6 +74707,13 @@ paths:
                   - kind: SHIFT_OVER_SHORT
                     count: 1
                     amountPesewas: 12000
+                countLines:
+                  - code: TILL_SALES_WITHOUT_RECEIPT_TOKEN
+                    branchId: "019a7a83-2aef-79e3-9f1b-a708a7ae1fe6"
+                    count: 5
+                    abuseCases:
+                      - 60
+                    summary: "5 till sales sent no receipt token"
                 items:
                   - id: "019a7b12-3c4f-75ec-9b24-679b7a4ee079"
                     exceptionDate: "2026-11-13"
@@ -81486,7 +81493,7 @@ paths:
       tags:
         - ord
       summary: "Get an order as the store reads it"
-      description: "2.29.0 (the owner, 2026-11-23, A-335, A-344): the order's lines, quantities and delivery details for the Storekeeper who picks and packs it, and **never** a payment, a credit position, a price, a total or the credit check: its own narrower read under its own permission, not `getOrder` with fields dropped. Only at a branch the caller holds the permission for, branch-wide: an order at another branch answers 404, as an unknown id does. The Storekeeper still cannot call `getOrder`.\n\nPermission: `ord.order.read.fulfilment`."
+      description: "2.29.0 (the owner, 2026-11-23, A-335, A-344): the order's lines, quantities and delivery details for the Storekeeper who picks and packs it, and **never** a payment, a credit position, a price, a total or the credit check: its own narrower read under its own permission, not `getOrder` with fields dropped. Only at a branch the caller holds the permission for, branch-wide: an order at another branch answers 404, as an unknown id does. The Storekeeper still cannot call `getOrder`. **2.52.0 (CR-064):** `pendingConsent` says what the order waits for its customer to answer (kind, line and proposal, never a total), so the Storekeeper who proposed a short pick sees what was asked.\n\nPermission: `ord.order.read.fulfilment`."
       x-permission: ord.order.read.fulfilment
       parameters:
         - name: id
@@ -81534,6 +81541,7 @@ paths:
                   - id: "019a7af0-2c11-7e05-8f6a-0b5c3d9e1a77"
                     docType: FULFILMENT
                     number: PCK-2026-DDW-000412
+                pendingConsent: null
                 lines:
                   - id: "019a7aef-d104-74c8-b2a1-6f0e9c3b5d28"
                     lineNo: 1
@@ -81569,7 +81577,10 @@ paths:
       tags:
         - ord
       summary: "Propose a smaller quantity of a line, for the customer to agree"
-      description: "A smaller quantity of an open line of a `PICKING` order (CR-054 point 2), in the line's own unit, at least nothing and less than it ordered (422 `FULFILMENT_INVALID` `SHORT_NOT_LESS`; inexact in the base unit `INEXACT_QUANTITY`). A catch-weight line goes by its weight instead (`CATCH_WEIGHT_GOES_BY_WEIGHT`: below its tolerance it packs at the lower total). The order moves to `AWAITING_CUSTOMER` and `ord.CustomerConsentRequested` goes through the outbox; the pick list packs the line at that quantity only once the customer agrees (`recordCustomerConsent` `SHORT_PICK`), and a refusal cancels the line. One question waits at a time (`CONSENT_PENDING`).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
+      description: "A smaller quantity of an open line of a `PICKING` order (CR-054 point 2), in the line's own unit, at least nothing and less than it ordered (422 `FULFILMENT_INVALID` `SHORT_NOT_LESS`; inexact in the base unit `INEXACT_QUANTITY`). A catch-weight line goes by its weight instead (`CATCH_WEIGHT_GOES_BY_WEIGHT`: below its tolerance it packs at the lower total). The order moves to `AWAITING_CUSTOMER` and `ord.CustomerConsentRequested` goes through the outbox; the pick list packs the line at that quantity only once the customer agrees (`recordCustomerConsent` `SHORT_PICK`), and a refusal cancels the line. One question waits at a time (`CONSENT_PENDING`). An order not `PICKING` is 422 `INVALID_STATE_TRANSITION`; a line not on the order or not open, `LINE_NOT_ON_ORDER` or `LINE_NOT_OPEN`. The Storekeeper reads the question back on `getOrderFulfilmentView` (`pendingConsent`, 2.52.0, CR-064).\n\nEach write is one serializable transaction, idempotent by its key: a replay answers the first result.\n\nPermission: `ord.fulfilment.pick`."
+      x-error-codes:
+        - FULFILMENT_INVALID
+        - INVALID_STATE_TRANSITION
       x-permission: ord.fulfilment.pick
       parameters:
         - name: id
@@ -98675,6 +98686,11 @@ components:
           description: "The order's pick lists (`FULFILMENT`, `PCK-...`), oldest first, cancelled ones too."
           items:
             $ref: "#/components/schemas/DocumentRef"
+        pendingConsent:
+          anyOf:
+            - $ref: "#/components/schemas/FulfilmentPendingConsent"
+            - type: "null"
+          description: "2.52.0 (CR-064): what the order waits for its customer to answer while it is `AWAITING_CUSTOMER`, as `SalesOrder.pendingConsent` with no money; null otherwise. Always sent."
         lines:
           type: array
           items:
@@ -98695,6 +98711,52 @@ components:
         - placedAt
         - fulfilments
         - lines
+    FulfilmentPendingConsent:
+      type: object
+      description: "What an order waits for its customer to answer, as the store reads it (2.52.0, CR-064): `OrderPendingConsent`'s kind, line and proposal, and never its totals. Answered with `recordCustomerConsent` by someone other than the person who asked."
+      properties:
+        id:
+          type: string
+          format: uuid
+        kind:
+          type: string
+          enum:
+            - HIGHER_TOTAL
+            - SUBSTITUTION
+            - SHORT_PICK
+        lineId:
+          type: string
+          format: uuid
+          description: "The order line asked about."
+        proposed:
+          anyOf:
+            - type: object
+              properties:
+                productId:
+                  type: string
+                  format: uuid
+                productName:
+                  type: string
+                quantity:
+                  $ref: "#/components/schemas/Quantity"
+                uom:
+                  type: string
+              required:
+                - productId
+                - productName
+                - quantity
+                - uom
+            - type: "null"
+          description: "The substitute, or the line's own product at the smaller quantity, in the line's unit; null for a higher total."
+        askedAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - kind
+        - lineId
+        - proposed
+        - askedAt
     OrderFulfilmentViewLine:
       type: object
       description: "A line as the store reads it (2.29.0): what to pick and what was picked, in the line's own unit, never a price."
@@ -101246,7 +101308,7 @@ components:
         receiptToken:
           type: string
           pattern: "^[A-Za-z0-9_-]{22,86}$"
-          description: "The receipt link's token for a live sale (2.51.0, BL-133, ADR-0083 Amendments, A-398), of `OfflineSale.receiptToken`'s form and made the same way: by the till once for this sale, from the device's cryptographically secure generator (at least 128 random bits, base64url without padding), never derived from the sale's id, the device, the shift or the time, and sent again unchanged with a resubmission of the same key. The server stores only its SHA-256, in the sale's own transaction, and the link (`OfflinePack.receiptLinkTemplate` filled with it) reads at once for twelve months (`getPublicReceipt`); a resubmission makes no second link. **A token already bound to another sale, or shaped like an identifier (a UUID), never refuses the sale**: the sale completes and answers as without it, only its link is refused, the refusal is recorded once and reaches the daily exception report's source as `RECEIPT_TOKEN_REFUSED` (URGENT, abuse case 37), and the refused token opens nothing for it. A token not of this form is 400 `VALIDATION_FAILED`, as in a sync. **The receipt SMS (A-396):** a sale with `customerPhone` and a till link gets one text linking its receipt; with no token, or a refused one, it gets none (`NO_LINK`, on the exception report). Optional; left out, the sale is exactly as before."
+          description: "The receipt link's token for a live sale (2.51.0, BL-133, ADR-0083 Amendments, A-398), of `OfflineSale.receiptToken`'s form and made the same way: by the till once for this sale, from the device's cryptographically secure generator (at least 128 random bits, base64url without padding), never derived from the sale's id, the device, the shift or the time, and sent again unchanged with a resubmission of the same key. The server stores only its SHA-256, in the sale's own transaction, and the link (`OfflinePack.receiptLinkTemplate` filled with it) reads at once for twelve months (`getPublicReceipt`); a resubmission makes no second link. **A token already bound to another sale, or shaped like an identifier (a UUID), never refuses the sale**: the sale completes and answers as without it, only its link is refused, the refusal is recorded once and reaches the daily exception report's source as `RECEIPT_TOKEN_REFUSED` (URGENT, abuse case 37), and the refused token opens nothing for it. A token not of this form is 400 `VALIDATION_FAILED`, as in a sync. **The receipt SMS (A-396):** a sale with `customerPhone` and a till link gets one text linking its receipt; with no token, or a refused one, it gets none (`NO_LINK`; since 2.52.0 a sale with no token is counted on the daily exception report, `countLines`, and a refused one is its own item). Optional; left out, the sale is exactly as before."
       required:
         - id
         - shiftId
@@ -108421,6 +108483,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ExceptionCount"
+        countLines:
+          type: array
+          items:
+            $ref: "#/components/schemas/ExceptionCountLine"
+          description: "2.52.0 (the owner, 2026-11-25, A-400: \"Count them, list only refusals\"). Controls the report counts rather than lists, one line per branch and day, each branch with nothing to count left out. Always sent; empty when there is nothing to count."
         items:
           type: array
           items:
@@ -108483,6 +108550,32 @@ components:
         - approvalPairs
         - currency
         - generatedAt
+    ExceptionCountLine:
+      type: object
+      description: "A control the daily exception report counts rather than lists (2.52.0, A-400). The only one: `TILL_SALES_WITHOUT_RECEIPT_TOKEN`, the till sales of the branch and day, live or synced, whose till sent no receipt token, so the receipt text the buyer's phone number called for was held back (`NO_LINK` in the message log; abuse case 60). A sale whose token was sent and refused is not counted here: it is its own item (`RECEIPT_TOKEN_REFUSED`, abuse case 37)."
+      properties:
+        code:
+          type: string
+          enum:
+            - TILL_SALES_WITHOUT_RECEIPT_TOKEN
+        branchId:
+          type: string
+          format: uuid
+        count:
+          type: integer
+          minimum: 1
+        abuseCases:
+          type: array
+          items:
+            type: integer
+        summary:
+          type: string
+      required:
+        - code
+        - branchId
+        - count
+        - abuseCases
+        - summary
     ReportDefinition:
       type: object
       properties:

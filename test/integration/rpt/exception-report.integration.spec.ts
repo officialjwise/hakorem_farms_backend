@@ -326,6 +326,57 @@ describe('the daily exception report covers every abuse case through its kind (F
   });
 });
 
+describe("till sales that sent no receipt token are counted, and only a refused token listed (the owner, 2026-11-25, A-400)", () => {
+  const unlinked = (salesOrderId: string, messageId: string = randomUUID()) =>
+    outbox('ntf.MessageSuppressed', { messageId, templateCode: 'SALE_RECEIPT', channel: 'SMS', reason: 'NO_LINK', salesOrderId, sourceEventType: 'ord.OrderCompleted', abuseCases: [60] }, SYSTEM_PRINCIPAL, otherBranchId);
+  const sales: string[] = Array.from({ length: 5 }, () => randomUUID());
+  const refusedSale: string = randomUUID();
+  let report: Report & { readonly countLines: unknown[] };
+
+  beforeAll(async () => {
+    const cashierId = people.get('Adwoa Darko')!;
+    // Five live sales whose till sent no token: no link, so each receipt text is held back NO_LINK; one held back twice.
+    const twice = randomUUID();
+    for (const [n, sale] of sales.entries()) await unlinked(sale, n === 0 ? twice : randomUUID());
+    await unlinked(sales[0]!, twice);
+    // One sale whose token was sent and refused: its refusal, and its receipt text held back for want of a link.
+    await outbox(
+      'pos.CounterSaleFlagged',
+      { saleId: refusedSale, shiftId: randomUUID(), branchId: otherBranchId, register: { id: randomUUID(), code: 'T1' }, deviceId: randomUUID(), cashierId, occurredAt: clock.now().toISOString(), recordedAt: clock.now().toISOString(), exceptionKind: 'RECEIPT_TOKEN_REFUSED', severity: 'URGENT', summary: 'The receipt token the till sent is already bound to another sale', amountPesewas: 6_000, claim: {}, fact: { firstSaleId: randomUUID() }, abuseCases: [37] },
+      cashierId,
+      otherBranchId,
+    );
+    await unlinked(refusedSale);
+    await worker.settle();
+    const response = await get(otherManager, `/exceptions/daily-report?date=${today()}&branchId=${otherBranchId}`);
+    expect(response.status, JSON.stringify(response.body)).toBe(200);
+    report = response.body;
+  });
+
+  it('shows one count line of 5 for the branch and day, abuse case 60, and the refused token as its one item', () => {
+    expect(report.countLines).toEqual([{ code: 'TILL_SALES_WITHOUT_RECEIPT_TOKEN', branchId: otherBranchId, count: 5, abuseCases: [60], summary: '5 till sales sent no receipt token' }]);
+    expect(report.items).toHaveLength(1);
+    expect(report.items[0]).toMatchObject({ kind: 'RECEIPT_TOKEN_REFUSED', severity: 'URGENT', abuseCases: [37], actor: { id: people.get('Adwoa Darko'), displayName: 'Adwoa Darko' }, amountPesewas: 6_000, subjectDocument: { id: refusedSale, docType: 'SALES_ORDER' } });
+    expect(report.items.filter((i) => i.kind === 'MESSAGE_SUPPRESSED')).toEqual([]);
+    expect(report.counts).toEqual([{ kind: 'RECEIPT_TOKEN_REFUSED', count: 1, amountPesewas: 6_000 }]);
+  });
+
+  it("keeps the count to its branch: the head office's report has no line for it, and its list no item", async () => {
+    const own = await get(owner, `/exceptions/daily-report?date=${today()}`);
+    expect(own.status).toBe(200);
+    expect(own.body.countLines).toEqual([]);
+    const listed = (await get(otherManager, `/exceptions?date=${today()}&kind=MESSAGE_SUPPRESSED&limit=100`)).body.data as Item[];
+    expect(listed.filter((i) => [...sales, refusedSale].includes((i['subjectDocument'] as { id: string } | null)?.id ?? ''))).toEqual([]);
+  });
+
+  it('counts the same after a rebuild of the projection from the outbox (FR-RPT-009)', async () => {
+    await api.app.get(ExceptionProjector).rebuild();
+    const rebuilt = await get(otherManager, `/exceptions/daily-report?date=${today()}&branchId=${otherBranchId}`);
+    expect(rebuilt.body.countLines).toEqual(report.countLines);
+    expect((rebuilt.body.items as Item[]).map((i) => i.id)).toEqual(report.items.map((i) => i.id));
+  });
+});
+
 describe('the items that need more than one event (SA-17, abuse cases 13 and 70, R18, R1)', () => {
   const dayItems = async (kind: string) => {
     const response = await get(owner, `/exceptions?date=${today()}&kind=${kind}&limit=100`);

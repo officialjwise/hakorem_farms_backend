@@ -45,10 +45,26 @@ export interface RateByUserView {
   readonly comparisonRatePercent: string | null;
 }
 
+/**
+ * A control the report counts rather than lists (the owner, 2026-11-25, A-400): one line per branch and day. The only
+ * one: till sales whose till sent no receipt token, so their receipt text went nowhere (abuse case 60).
+ */
+export interface CountLineView {
+  readonly code: 'TILL_SALES_WITHOUT_RECEIPT_TOKEN';
+  readonly branchId: string;
+  readonly count: number;
+  readonly abuseCases: readonly number[];
+  readonly summary: string;
+}
+
+/** Abuse case 60: a customer link sent by message, here one never made because the till sent no token. */
+const MESSAGE_LINK_ABUSE_CASE = 60;
+
 export interface DailyExceptionReportView {
   readonly date: string;
   readonly branchId: string | null;
   readonly counts: readonly { readonly kind: ExceptionKind; readonly count: number; readonly amountPesewas: number }[];
+  readonly countLines: readonly CountLineView[];
   readonly items: readonly ExceptionItemView[];
   readonly voidsByCashier: readonly RateByUserView[];
   readonly overridesByUser: readonly RateByUserView[];
@@ -115,6 +131,7 @@ export class ExceptionReports {
       const items = await this.store.itemsOn(tx, filter, scope);
       const sales = await this.store.completedSalesBySalesperson(tx, query.date, scope.branchIds);
       const approvals = await this.store.approvalsOn(tx, query.date, scope.branchIds);
+      const unlinked = await this.store.unlinkedTillSalesOn(tx, query.date, query.branchId === undefined ? scope.branchIds : [query.branchId]);
       const counted = (pick: (i: ExceptionItemRecord) => boolean): Counted[] => items.filter((i) => pick(i) && i.actorId !== null).map((i) => ({ actorId: i.actorId!, amountPesewas: i.amountPesewas ?? 0n }));
       const based = (pick: (i: ExceptionItemRecord) => boolean, baseKey: string) =>
         items.filter((i) => pick(i) && i.actorId !== null).map((i) => ({ actorId: i.actorId!, amountPesewas: i.amountPesewas ?? 0n, basePesewas: BigInt(Number(i.details[baseKey] ?? 0)) }));
@@ -146,6 +163,13 @@ export class ExceptionReports {
         date: query.date,
         branchId: query.branchId ?? null,
         counts: [...byKind.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([kind, r]) => ({ kind, count: r.count, amountPesewas: json(r.amount) })),
+        countLines: unlinked.map((u) => ({
+          code: 'TILL_SALES_WITHOUT_RECEIPT_TOKEN' as const,
+          branchId: u.branchId,
+          count: u.count,
+          abuseCases: [MESSAGE_LINK_ABUSE_CASE],
+          summary: `${u.count} till ${u.count === 1 ? 'sale' : 'sales'} sent no receipt token`,
+        })),
         items: await this.viewsIn(tx, items),
         voidsByCashier: rated(tables.voidsByCashier),
         overridesByUser: rated(tables.overridesByUser),

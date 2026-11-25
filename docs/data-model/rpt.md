@@ -240,6 +240,21 @@ An exception item marked reviewed with a note. Insert-only (`platform.reject_cha
 
 The facts the report needs across events: each approval decided (maker, checker, amount) for the approval pairs (R1); each storefront checkout by the keyed hash of its client address and how it ended, for R18; each payout detail change made (supplier or investor), for a payment within 24 hours after it (SA-17, abuse cases 13 and 70). Written only by their `SECURITY DEFINER` functions; emptied with the items by `rpt.clear_exception_projections()` on a rebuild. R18's threshold is AUD's setting `rpt.checkout_holding.unpaid_checkouts` (default 3, from 1, changed only by the Owner, who alone holds `rpt.exception_rules.manage`; B12 continued 4, ADR-0104), read as in force when each checkout ended, and kept on the item as `details.threshold`. The seeded farm's invented items (`pnpm db:seed`, A-392) carry a `seed:` source key, `(SEED)` and `details.seed`, have no event in the outbox, and a rebuild drops them.
 
+### `rpt.unlinked_receipt_fact` · PROJECTION (B12 continued 6, migration 0378, A-400)
+
+A till sale's receipt text held back for want of a link: the till sent no receipt token (`ntf.MessageSuppressed`, template `SALE_RECEIPT`, reason `NO_LINK`). The owner, 2026-11-25: "Count them, list only refusals." No item is raised; the daily report counts these sales per branch and day (`countLines`, abuse case 60), leaving out a sale with a `RECEIPT_TOKEN_REFUSED` item. Written only by `rpt.put_unlinked_receipt_fact`; emptied by `rpt.clear_exception_projections()` on a rebuild.
+
+| Column | Type | Constraints | Why |
+| --- | --- | --- | --- |
+| `message_ref` | `uuid` | PK | One row per message, so a redelivery or a rebuild counts it once |
+| `event_ref` | `uuid` | NOT NULL | The outbox message that told of it |
+| `sales_order_ref` | `uuid` | NOT NULL | The sale; counted once however many of its messages were held back |
+| `branch_id` | `uuid` | NOT NULL, FK `mdm.branch` | |
+| `fact_date` | `date` | NOT NULL | Africa/Accra day the message was held back |
+| `suppressed_at` | `timestamptz` | NOT NULL | |
+
+- Index on (`fact_date`, `branch_id`).
+
 ### `rpt.projection_checkpoint` · WORK (as built, B12 continued 3)
 
 As above, with `last_recorded_at` (the recorded time of the last event read, for lag).
