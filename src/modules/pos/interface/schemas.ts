@@ -107,6 +107,8 @@ export const CounterSale = z.strictObject({
     .min(1)
     .max(10),
   occurredAt: Instant,
+  /** The receipt link's token the till made for a live sale (BL-133, ADR-0083 Amendments): `OfflineSale.receiptToken`'s form. */
+  receiptToken: z.string().regex(/^[A-Za-z0-9_-]{22,86}$/).optional(),
 });
 
 /** A held sale's line: what a counter sale's line carries, before its price is agreed (FR-POS-007, A-276). */
