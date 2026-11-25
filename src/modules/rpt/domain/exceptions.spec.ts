@@ -28,6 +28,7 @@ const FULL: Record<string, Record<string, unknown>> = {
   'pos.CashDropped': { shiftId: DOC, branchId: BRANCH, register: { id: DOC, code: 'T1' }, cashierId: ACTOR, movementId: DOC, kind: 'CASH_DROP', witnessId: null, unwitnessed: true, abuseCases: [17], amountsPesewas: { drop: 50000 } },
   'pos.ShiftClosed': { shiftId: DOC, branchId: BRANCH, register: { id: DOC, code: 'T1' }, cashierId: ACTOR, shiftNo: 'SH-1', approvedBy: OTHER, reason: 'count', declaredCashPesewas: 80000, expectedCashPesewas: 92000, overShortPesewas: -12000, overShortDirection: 'SHORT', abuseCases: [17], forceClosed: true, forceClosedBy: OTHER },
   'pos.ShiftForceClosed': { shiftId: DOC, branchId: BRANCH, register: { id: DOC, code: 'T1' }, cashierId: ACTOR, shiftNo: 'SH-1', forceClosedBy: OTHER, reason: 'left', expectedCashPesewas: 92000, closedAt: AT.toISOString(), abuseCases: [17] },
+  'pos.CounterSaleFlagged': { saleId: DOC, shiftId: DOC, branchId: BRANCH, register: { id: DOC, code: 'T1' }, deviceId: DOC, cashierId: ACTOR, occurredAt: AT.toISOString(), recordedAt: AT.toISOString(), exceptionKind: 'RECEIPT_TOKEN_REFUSED', severity: 'URGENT', summary: "The receipt link's token was already sent with another sale", amountPesewas: 6000, claim: {}, fact: { reason: 'TOKEN_ALREADY_BOUND', saleId: DOC, boundSale: { saleId: DOC, shiftId: DOC, deviceId: DOC }, needsServerLink: true, customerPhoneGiven: true }, abuseCases: [37] },
   'pos.OfflineSaleFlagged': { saleId: DOC, shiftId: DOC, branchId: BRANCH, register: { id: DOC, code: 'T1' }, deviceId: DOC, cashierId: ACTOR, deviceCounter: 4, provisionalRef: 'P-T1-1', exceptionKind: 'STOCK_EXCEPTION', severity: 'URGENT', summary: 'Line 1: stock at the till went below zero', amountPesewas: 58900, claim: { buyerTin: 'C0000000000', qty: '1' }, fact: { stockExceptionKind: 'NEGATIVE_STOCK', stockExceptionId: DOC }, abuseCases: [11, 36] },
   'pos.OfflineShiftFlagged': { shiftId: DOC, branchId: BRANCH, register: { id: DOC, code: 'T1' }, deviceId: DOC, cashierId: ACTOR, exceptionKind: 'OFFLINE_SHIFT_TOO_OLD', severity: 'REVIEW', summary: 'too old', amountPesewas: 0, claim: {}, fact: {}, abuseCases: [10] },
   'pos.OfflineCashMovementFlagged': { movementId: DOC, shiftId: DOC, branchId: BRANCH, register: { id: DOC, code: 'T1' }, deviceId: DOC, cashierId: ACTOR, kind: 'CASH_DROP', exceptionKind: 'OFFLINE_LATE_CASH', severity: 'REVIEW', summary: 'late cash', amountPesewas: 20000, claim: {}, fact: {}, abuseCases: [17] },
@@ -194,6 +195,16 @@ describe('classify: every event the projector reads raises its kind with abuse c
       expect(item!.sourceKey).toBe(`019a7b12-0000-7000-8000-000000000001:${kind}`);
     }
     expect(classify(event('pos.OfflineSaleFlagged', { ...FULL['pos.OfflineSaleFlagged'], fact: { stockExceptionKind: 'SERIAL_CONFLICT' } }))[0]!.kind).toBe('STOCK_EXCEPTION');
+    // A live counter sale's refused receipt token (BL-133, A-398) is the same finding as a synced sale's, on the sale.
+    expect(classify(event('pos.CounterSaleFlagged', FULL['pos.CounterSaleFlagged']!))[0]).toMatchObject({
+      kind: 'RECEIPT_TOKEN_REFUSED',
+      sourceKind: 'RECEIPT_TOKEN_REFUSED',
+      severity: 'URGENT',
+      abuseCases: [37],
+      actorId: ACTOR,
+      subject: { id: DOC, docType: 'SALES_ORDER' },
+      amountPesewas: 6000n,
+    });
     expect(classify(event('pos.OfflineShiftFlagged', { ...FULL['pos.OfflineShiftFlagged'], exceptionKind: 'OFFLINE_SHIFT_REFUSED' }))[0]!.kind).toBe('SYNC_REJECTED');
     expect(classify(event('pos.OfflineShiftFlagged', { ...FULL['pos.OfflineShiftFlagged'], exceptionKind: 'SHIFT_SEQ_DIFFERS' }))[0]!.kind).toBe('OFFLINE_SALE_REVIEW');
     expect(classify(event('pos.OfflineCashMovementFlagged', { ...FULL['pos.OfflineCashMovementFlagged'], exceptionKind: 'CASH_MOVEMENT_REJECTED' }))[0]!.kind).toBe('SYNC_REJECTED');
