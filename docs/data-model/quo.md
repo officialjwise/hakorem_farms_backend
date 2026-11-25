@@ -74,7 +74,7 @@ One revision. Immutable once issued; a change is a new version. Posted statuses:
 | `margin_percent` | `numeric(9,2)` | NULL | **Markup over cost, not margin** (the owner, 2026-11-23, migration 0307's comment): (the lines' net less cost) over cost; may be negative or above 100, so not `percent` (A-309 (c)). Answered as `markupPercent` and, deprecated, `marginPercent`; to be renamed `markup_percent` in the next release (BL-098). The margin over price is derived from `net_pesewas` and `estimated_cost_pesewas` on read, never stored (A-342) |
 | `below_margin_floor` | `boolean` | NOT NULL DEFAULT `false` | |
 | `approval_request_id` | `uuid` | NULL, FK `iam.approval_request`; required to issue when `below_margin_floor` | |
-| `approved_by`, `approved_at` | `uuid`, `timestamptz` | NULL, together; never the author nor the issuer (`ck_quote_version_margin_approved`) | B10, FR-QUO-005 |
+| `approved_by`, `approved_at` | `uuid`, `timestamptz` | NULL, together; never the author nor the issuer (`ck_quote_version_margin_approved`) | B10, FR-QUO-005; answered as `QuoteVersion.approvedBy` from 2.50.0 (B12f, A-397), the one place the approver is kept besides IAM's decision |
 | `change_note` | `text` | NULL | What changed from the previous version |
 | `issued_at` | `timestamptz` | NULL | |
 | `issued_by` | `uuid` | NULL, FK `iam.principal` | |

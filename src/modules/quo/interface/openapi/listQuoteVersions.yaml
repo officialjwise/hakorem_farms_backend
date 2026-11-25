@@ -65,6 +65,7 @@ responses:
                   approvalRequestId: null
                   changeNote: "Reduced to eighteen goats and added delivery"
                   issuedAt: "2026-11-13T15:00:00Z"
+                  approvedBy: null
                   issuedBy:
                     id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                     displayName: "Kojo Antwi"
@@ -126,6 +127,7 @@ responses:
                   approvalRequestId: null
                   changeNote: null
                   issuedAt: "2026-11-11T15:00:00Z"
+                  approvedBy: null
                   issuedBy:
                     id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                     displayName: "Kojo Antwi"
@@ -187,6 +189,7 @@ responses:
                   approvalRequestId: null
                   changeNote: "Reduced to eighteen goats and added delivery"
                   issuedAt: "2026-11-13T15:00:00Z"
+                  approvedBy: null
                   issuedBy:
                     id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                     displayName: "Kojo Antwi"
@@ -248,6 +251,7 @@ responses:
                   approvalRequestId: null
                   changeNote: null
                   issuedAt: "2026-11-11T15:00:00Z"
+                  approvedBy: null
                   issuedBy:
                     id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                     displayName: "Kojo Antwi"
@@ -309,6 +313,7 @@ responses:
                   approvalRequestId: null
                   changeNote: "Reduced to eighteen goats and added delivery"
                   issuedAt: "2026-11-13T15:00:00Z"
+                  approvedBy: null
                   issuedBy:
                     id: "019a7a86-e9e0-7c6e-81a7-cfc0641d489e"
                     displayName: "Kojo Antwi"

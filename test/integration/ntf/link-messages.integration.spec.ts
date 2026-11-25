@@ -218,6 +218,46 @@ describe("the guest's tracking SMS: once, to the order's own contact, with a tok
   });
 });
 
+describe("the receipt SMS for a live counter sale (the owner, 2026-11-24, A-396; A-397 (d), ADR-0084 Amendments, BL-133)", () => {
+  const sms = new FakeSms();
+  /** A crate of eggs sold live at the till, through completeCounterSale with the device's credential. */
+  const live = (extra: object = {}) => {
+    const saleId = nextId();
+    clock.advanceBy(MINUTE);
+    const body = { id: saleId, shiftId: shift.id, occurredAt: clock.now().toISOString(), lines: [{ productId: id('EGG-0003'), quantity: '1.000', uom: 'CRATE', agreedUnitPricePesewas: 6_000 }], tenders: [{ paymentMethodId: id('CASH'), amountPesewas: 6_000 }], ...extra };
+    return () => consolePost(api.server, as('kwame'), '/v1/pos/sales', saleId).set('X-Device-Credential', credential).send(body);
+  };
+
+  it('sends none for a live sale, with the buyer\'s phone or without, nor on its replay, because its till makes no receipt link (ADR-0083); a synced sale with the phone sends one', async () => {
+    const withPhone = live({ customerPhone: BUYER });
+    const sold = await withPhone();
+    expect(sold.status, JSON.stringify(sold.body)).toBe(201);
+    const replayed = await withPhone();
+    expect([replayed.status, replayed.body.order.id]).toEqual([201, sold.body.order.id]);
+    const noPhone = await live()();
+    expect(noPhone.status, JSON.stringify(noPhone.body)).toBe(201);
+    const liveOrders = [sold.body.order.id as string, noPhone.body.order.id as string];
+    // Each live sale completed once, and its event reached NTF's consumer.
+    expect(await count("SELECT count(*) AS n FROM platform.outbox_message WHERE event_type = 'ord.OrderCompleted' AND subject_id = ANY($1::uuid[])", [liveOrders])).toBe(2);
+    const synced = crates({ receiptToken: tillToken(), customerPhone: BUYER });
+    await sync([synced]);
+    expect((await sync([synced]))[0]!.outcome).toBe('DUPLICATE');
+    await ntf.dispatch();
+    expect(await count("SELECT count(*) AS n FROM platform.outbox_delivery d JOIN platform.outbox_message m ON m.id = d.message_id WHERE d.consumer = 'ntf.link-messages' AND d.status = 'DELIVERED' AND m.subject_id = ANY($1::uuid[])", [liveOrders])).toBe(2);
+    const calls = sms.calls.length;
+    await ntf.sender(sms).run(SCHEDULER);
+    await ntf.sender(sms).run(SCHEDULER);
+    // The live sales: no till link, so no message queued and nothing on the exception report's source (no NO_LINK).
+    for (const order of liveOrders) expect(await messagesOf(order)).toEqual([]);
+    expect(await count('SELECT count(*) AS n FROM pos.receipt_link WHERE order_document_id = ANY($1::uuid[])', [liveOrders])).toBe(0);
+    expect(await count("SELECT count(*) AS n FROM platform.outbox_message WHERE event_type = 'ntf.MessageSuppressed' AND payload->>'salesOrderId' = ANY($1::text[])", [liveOrders])).toBe(0);
+    // The synced sale: one text, to the number it carried, linking its till's receipt, a replay adding none.
+    expect(await messagesOf(synced.id)).toEqual([expect.objectContaining({ code: 'SALE_RECEIPT', status: 'SENT', linkKind: 'RECEIPT' })]);
+    expect(sms.calls.slice(calls).map((c) => c.to)).toEqual([BUYER]);
+    expect(sms.calls.at(-1)!.text).toMatch(new RegExp(`^HaKorem Farms: receipt .* Your receipt: ${BASE}/r/rcp_[A-Za-z0-9_-]{43}$`));
+  });
+});
+
 describe("the receipt SMS (CR-033 point 3): once per synced sale, to the buyer's number, linking exactly the till's receipt", () => {
   const sms = new FakeSms();
 

@@ -69,6 +69,7 @@ responses:
           approvalRequestId: null
           changeNote: "Reduced to eighteen goats and added delivery"
           issuedAt: null
+          approvedBy: null
           issuedBy: null
           lines:
             - id: "019a7aff-fd56-70c1-a5f9-14e2b2e78dc0"
